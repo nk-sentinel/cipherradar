@@ -1,8 +1,4 @@
 <p align="center">
-  <img src="logo/cipherradar-logo.svg" width="120" alt="CipherRadar"/>
-</p>
-
-<p align="center">
   <img src="logo/cipherradar-wordmark.svg" width="420" alt="CipherRadar"/>
 </p>
 
