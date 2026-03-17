@@ -1,0 +1,58 @@
+<svg width="400" height="400" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0d1f40"/>
+      <stop offset="100%" stop-color="#060e1f"/>
+    </radialGradient>
+    <linearGradient id="scanBeam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#3b82f6" stop-opacity="0"/>
+      <stop offset="30%"  stop-color="#3b82f6" stop-opacity="0.5"/>
+      <stop offset="50%"  stop-color="#3b82f6" stop-opacity="0.7"/>
+      <stop offset="70%"  stop-color="#3b82f6" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="hexClip">
+      <polygon points="100,18 171,59 171,141 100,182 29,141 29,59"/>
+    </clipPath>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Hex background -->
+  <polygon points="100,18 171,59 171,141 100,182 29,141 29,59" fill="url(#bg)"/>
+
+  <!-- Inner hex rings -->
+  <polygon points="100,42 150.2,71 150.2,129 100,158 49.8,129 49.8,71"
+           fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.28"/>
+  <polygon points="100,65 130.3,82.5 130.3,117.5 100,135 69.7,117.5 69.7,82.5"
+           fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.38"/>
+
+  <!-- Scan beam -->
+  <rect x="20" y="93" width="160" height="14" fill="url(#scanBeam)" clip-path="url(#hexClip)"/>
+  <line x1="20" y1="100" x2="180" y2="100"
+        stroke="#3b82f6" stroke-width="1.5" opacity="0.7"
+        filter="url(#glow)" clip-path="url(#hexClip)"/>
+
+  <!-- Outer hex border -->
+  <polygon points="100,18 171,59 171,141 100,182 29,141 29,59"
+           fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+
+  <!-- Vertex accent dots -->
+  <circle cx="100" cy="18"  r="4" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="171" cy="59"  r="4" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="171" cy="141" r="4" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="100" cy="182" r="4" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="29"  cy="141" r="4" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="29"  cy="59"  r="4" fill="#3b82f6" filter="url(#glow)"/>
+
+  <!-- Lock shackle -->
+  <path d="M91,102 L91,92 Q91,82 100,82 Q109,82 109,92 L109,102"
+        fill="none" stroke="#3b82f6" stroke-width="5.5" stroke-linecap="round"/>
+  <!-- Lock body -->
+  <rect x="84" y="101" width="32" height="24" rx="5" fill="#3b82f6"/>
+  <!-- Keyhole -->
+  <circle cx="100" cy="113" r="4.5" fill="#060e1f"/>
+  <rect x="97.5" y="113" width="5" height="7" rx="1.5" fill="#060e1f"/>
+</svg>

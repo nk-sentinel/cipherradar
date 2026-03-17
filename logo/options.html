@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CipherRadar — Logo Options</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #020617;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      padding: 60px 50px 80px;
+    }
+    header { margin-bottom: 10px; }
+    header h1 { font-size: 22px; font-weight: 600; color: #e2e8f0; margin-bottom: 6px; }
+    header p { font-size: 13px; color: #475569; }
+    hr { border: none; border-top: 1px solid #1e293b; margin: 28px 0 52px; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 72px 48px;
+      max-width: 840px;
+    }
+    .option { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+    .label { text-align: center; }
+    .tag {
+      display: inline-block;
+      font-size: 10px; font-weight: 700;
+      letter-spacing: 0.2em; text-transform: uppercase;
+      color: #94a3b8; background: #1e293b;
+      padding: 3px 10px; border-radius: 3px;
+      margin-bottom: 10px;
+    }
+    .label h2 { font-size: 15px; font-weight: 600; color: #e2e8f0; margin-bottom: 5px; }
+    .label p { font-size: 12px; color: #64748b; line-height: 1.5; }
+
+    /* Wordmark section */
+    .wordmark-section { max-width: 840px; margin-top: 72px; }
+    .wordmark-section h3 {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.25em;
+      text-transform: uppercase; color: #334155; margin-bottom: 28px;
+    }
+    .wordmarks { display: flex; flex-direction: column; gap: 28px; }
+    .wordmark-row {
+      display: flex; align-items: center; gap: 18px;
+      padding: 20px 24px; border-radius: 10px;
+      background: #0a1020; border: 1px solid #1e293b;
+    }
+    .wordmark-row .app-name {
+      font-size: 26px; font-weight: 700;
+      letter-spacing: -0.03em; color: #e2e8f0;
+    }
+    .wordmark-row .app-sub {
+      font-size: 10px; text-transform: uppercase;
+      letter-spacing: 0.2em; color: #475569; margin-top: 3px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>CipherRadar</h1>
+  <p>Logo concepts — four directions. Pick one or give direction for refinement.</p>
+</header>
+<hr>
+
+<div class="grid">
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- OPTION A: Radar Lock                               -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <div class="option">
+    <svg width="240" height="240" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bgA" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#0e2647"/>
+          <stop offset="100%" stop-color="#050c1c"/>
+        </radialGradient>
+        <radialGradient id="sweepGradA" cx="100" cy="100" r="75" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="glowA" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Background -->
+      <circle cx="100" cy="100" r="97" fill="url(#bgA)"/>
+      <circle cx="100" cy="100" r="97" fill="none" stroke="#0e3d6e" stroke-width="1.5"/>
+
+      <!-- Cross guides -->
+      <line x1="100" y1="10" x2="100" y2="190" stroke="#06b6d4" stroke-width="0.5" opacity="0.1"/>
+      <line x1="10" y1="100" x2="190" y2="100" stroke="#06b6d4" stroke-width="0.5" opacity="0.1"/>
+
+      <!-- Radar rings -->
+      <circle cx="100" cy="100" r="75" fill="none" stroke="#06b6d4" stroke-width="0.75" opacity="0.2"/>
+      <circle cx="100" cy="100" r="55" fill="none" stroke="#06b6d4" stroke-width="0.75" opacity="0.28"/>
+      <circle cx="100" cy="100" r="35" fill="none" stroke="#06b6d4" stroke-width="1" opacity="0.38"/>
+
+      <!-- Sweep wedge: top (100,25) → 65° clockwise → (167.9,68.3) for r=75 -->
+      <path d="M100,100 L100,25 A75,75 0 0,1 167.9,68.3 Z" fill="url(#sweepGradA)"/>
+
+      <!-- Sweep trailing edge -->
+      <line x1="100" y1="100" x2="100" y2="25" stroke="#06b6d4" stroke-width="0.75" opacity="0.2"/>
+      <!-- Sweep leading edge (glowing) -->
+      <line x1="100" y1="100" x2="167.9" y2="68.3" stroke="#06b6d4" stroke-width="2" opacity="0.9" filter="url(#glowA)"/>
+
+      <!-- Radar blips -->
+      <circle cx="148" cy="55" r="3.5" fill="#06b6d4" opacity="0.9" filter="url(#glowA)"/>
+      <circle cx="58" cy="150" r="2.5" fill="#06b6d4" opacity="0.5"/>
+      <circle cx="157" cy="132" r="2" fill="#06b6d4" opacity="0.4"/>
+
+      <!-- Lock shackle -->
+      <path d="M89,101 L89,90 Q89,78 100,78 Q111,78 111,90 L111,101"
+            fill="none" stroke="#06b6d4" stroke-width="6" stroke-linecap="round"/>
+      <!-- Lock body -->
+      <rect x="83" y="100" width="34" height="26" rx="5" fill="#06b6d4"/>
+      <!-- Keyhole -->
+      <circle cx="100" cy="113" r="4.5" fill="#050c1c"/>
+      <rect x="97.5" y="113" width="5" height="7" rx="1.5" fill="#050c1c"/>
+    </svg>
+    <div class="label">
+      <div class="tag">Option A</div>
+      <h2>Radar Lock</h2>
+      <p>Circular radar with sweep · padlock center<br>Cyan / navy — most literal to the name</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- OPTION B: Shield Cipher                            -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <div class="option">
+    <svg width="240" height="240" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="scanBeamB" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   stop-color="#10b981" stop-opacity="0"/>
+          <stop offset="25%"  stop-color="#10b981" stop-opacity="0.4"/>
+          <stop offset="50%"  stop-color="#10b981" stop-opacity="0.65"/>
+          <stop offset="75%"  stop-color="#10b981" stop-opacity="0.4"/>
+          <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+        </linearGradient>
+        <clipPath id="shieldClipB">
+          <path d="M100,178 C65,158 28,138 28,110 L28,55 Q28,42 42,42 L158,42 Q172,42 172,55 L172,110 C172,138 135,158 100,178 Z"/>
+        </clipPath>
+        <filter id="glowB" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Shield fill -->
+      <path d="M100,178 C65,158 28,138 28,110 L28,55 Q28,42 42,42 L158,42 Q172,42 172,55 L172,110 C172,138 135,158 100,178 Z"
+            fill="#061a10"/>
+
+      <!-- Scan lines -->
+      <line x1="20" y1="64"  x2="180" y2="64"  stroke="#10b981" stroke-width="0.75" opacity="0.18" clip-path="url(#shieldClipB)"/>
+      <line x1="20" y1="80"  x2="180" y2="80"  stroke="#10b981" stroke-width="0.75" opacity="0.18" clip-path="url(#shieldClipB)"/>
+      <!-- Active beam -->
+      <rect x="20" y="93" width="160" height="15" fill="url(#scanBeamB)" clip-path="url(#shieldClipB)"/>
+      <line x1="20" y1="100" x2="180" y2="100" stroke="#10b981" stroke-width="1.5" opacity="0.85"
+            filter="url(#glowB)" clip-path="url(#shieldClipB)"/>
+      <!-- Below-beam scan lines -->
+      <line x1="20" y1="116" x2="180" y2="116" stroke="#10b981" stroke-width="0.75" opacity="0.18" clip-path="url(#shieldClipB)"/>
+      <line x1="20" y1="132" x2="180" y2="132" stroke="#10b981" stroke-width="0.6"  opacity="0.12" clip-path="url(#shieldClipB)"/>
+      <line x1="20" y1="148" x2="180" y2="148" stroke="#10b981" stroke-width="0.5"  opacity="0.08" clip-path="url(#shieldClipB)"/>
+
+      <!-- Shield border -->
+      <path d="M100,178 C65,158 28,138 28,110 L28,55 Q28,42 42,42 L158,42 Q172,42 172,55 L172,110 C172,138 135,158 100,178 Z"
+            fill="none" stroke="#10b981" stroke-width="2.5"/>
+      <!-- Inner inset line -->
+      <path d="M100,167 C72,149 39,131 39,107 L39,57 Q39,52 44,52 L156,52 Q161,52 161,57 L161,107 C161,131 128,149 100,167 Z"
+            fill="none" stroke="#10b981" stroke-width="0.75" opacity="0.28"/>
+
+      <!-- Lock shackle -->
+      <path d="M91,103 L91,93 Q91,83 100,83 Q109,83 109,93 L109,103"
+            fill="none" stroke="#10b981" stroke-width="5.5" stroke-linecap="round"/>
+      <!-- Lock body -->
+      <rect x="84" y="102" width="32" height="24" rx="5" fill="#10b981"/>
+      <!-- Keyhole -->
+      <circle cx="100" cy="114" r="4.5" fill="#061a10"/>
+      <rect x="97.5" y="114" width="5" height="7" rx="1.5" fill="#061a10"/>
+    </svg>
+    <div class="label">
+      <div class="tag">Option B</div>
+      <h2>Shield Cipher</h2>
+      <p>Shield with horizontal scan beam · lock center<br>Green / dark — security-first, enterprise feel</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- OPTION C: Key Radar                                -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <div class="option">
+    <svg width="240" height="240" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bgC" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#180d32"/>
+          <stop offset="100%" stop-color="#0a0618"/>
+        </radialGradient>
+        <radialGradient id="sweepGradC" cx="100" cy="78" r="40" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.45"/>
+          <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+        </radialGradient>
+        <filter id="glowC" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Background -->
+      <rect width="200" height="200" rx="22" fill="url(#bgC)"/>
+      <rect width="200" height="200" rx="22" fill="none" stroke="#3b1d72" stroke-width="1.5" opacity="0.6"/>
+
+      <!-- Key blade -->
+      <rect x="93" y="115" width="14" height="65" rx="3" fill="#8b5cf6"/>
+      <!-- Teeth (right side) -->
+      <rect x="107" y="133" width="12" height="9"  rx="2" fill="#8b5cf6"/>
+      <rect x="107" y="154" width="8"  height="8"  rx="2" fill="#8b5cf6"/>
+
+      <!-- Bow background -->
+      <circle cx="100" cy="78" r="40" fill="#100828"/>
+
+      <!-- Radar rings inside bow -->
+      <circle cx="100" cy="78" r="30" fill="none" stroke="#8b5cf6" stroke-width="0.75" opacity="0.35"/>
+      <circle cx="100" cy="78" r="19" fill="none" stroke="#8b5cf6" stroke-width="0.75" opacity="0.48"/>
+
+      <!-- Sweep wedge: bow center (100,78), r=40; 70° clockwise from top -->
+      <!-- end: angle=-20°: x=100+40*cos(-20°)=137.6, y=78+40*sin(-20°)=64.3 -->
+      <path d="M100,78 L100,38 A40,40 0 0,1 137.6,64.3 Z" fill="url(#sweepGradC)"/>
+
+      <!-- Sweep trailing edge -->
+      <line x1="100" y1="78" x2="100" y2="38" stroke="#8b5cf6" stroke-width="0.75" opacity="0.2"/>
+      <!-- Sweep leading edge -->
+      <line x1="100" y1="78" x2="137.6" y2="64.3" stroke="#a78bfa" stroke-width="1.5" opacity="0.9" filter="url(#glowC)"/>
+
+      <!-- Bow outer ring -->
+      <circle cx="100" cy="78" r="40" fill="none" stroke="#8b5cf6" stroke-width="3"/>
+
+      <!-- Center hole -->
+      <circle cx="100" cy="78" r="10" fill="#100828"/>
+      <circle cx="100" cy="78" r="10" fill="none" stroke="#8b5cf6" stroke-width="1.5" opacity="0.55"/>
+
+      <!-- Blips -->
+      <circle cx="130" cy="51" r="3"   fill="#a78bfa" opacity="0.9" filter="url(#glowC)"/>
+      <circle cx="67"  cy="106" r="2"  fill="#8b5cf6" opacity="0.5"/>
+    </svg>
+    <div class="label">
+      <div class="tag">Option C</div>
+      <h2>Key Radar</h2>
+      <p>Key silhouette · radar sweep in the bow<br>Purple / violet — crypto-first, unique shape</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════ -->
+  <!-- OPTION D: Hex Grid                                 -->
+  <!-- ══════════════════════════════════════════════════ -->
+  <div class="option">
+    <svg width="240" height="240" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <radialGradient id="bgD" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#0d1f40"/>
+          <stop offset="100%" stop-color="#060e1f"/>
+        </radialGradient>
+        <linearGradient id="scanBeamD" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%"   stop-color="#3b82f6" stop-opacity="0"/>
+          <stop offset="30%"  stop-color="#3b82f6" stop-opacity="0.5"/>
+          <stop offset="50%"  stop-color="#3b82f6" stop-opacity="0.7"/>
+          <stop offset="70%"  stop-color="#3b82f6" stop-opacity="0.5"/>
+          <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+        </linearGradient>
+        <clipPath id="hexClipD">
+          <!-- Pointy-top hex, center(100,100), r=82 -->
+          <polygon points="100,18 171,59 171,141 100,182 29,141 29,59"/>
+        </clipPath>
+        <filter id="glowD" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="2.5" result="blur"/>
+          <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+      </defs>
+
+      <!-- Hex background -->
+      <polygon points="100,18 171,59 171,141 100,182 29,141 29,59" fill="url(#bgD)"/>
+
+      <!-- Inner hex rings -->
+      <!-- r=58: (100,42) (150,71) (150,129) (100,158) (50,129) (50,71) -->
+      <polygon points="100,42 150.2,71 150.2,129 100,158 49.8,129 49.8,71"
+               fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.28"/>
+      <!-- r=35: (100,65) (130.3,82.5) (130.3,117.5) (100,135) (69.7,117.5) (69.7,82.5) -->
+      <polygon points="100,65 130.3,82.5 130.3,117.5 100,135 69.7,117.5 69.7,82.5"
+               fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.38"/>
+
+      <!-- Scan beam -->
+      <rect x="20" y="93" width="160" height="14" fill="url(#scanBeamD)" clip-path="url(#hexClipD)"/>
+      <line x1="20" y1="100" x2="180" y2="100" stroke="#3b82f6" stroke-width="1.5" opacity="0.7"
+            filter="url(#glowD)" clip-path="url(#hexClipD)"/>
+
+      <!-- Outer hex border -->
+      <polygon points="100,18 171,59 171,141 100,182 29,141 29,59"
+               fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+
+      <!-- Vertex accent dots -->
+      <circle cx="100" cy="18"  r="4" fill="#3b82f6" filter="url(#glowD)"/>
+      <circle cx="171" cy="59"  r="4" fill="#3b82f6" filter="url(#glowD)"/>
+      <circle cx="171" cy="141" r="4" fill="#3b82f6" filter="url(#glowD)"/>
+      <circle cx="100" cy="182" r="4" fill="#3b82f6" filter="url(#glowD)"/>
+      <circle cx="29"  cy="141" r="4" fill="#3b82f6" filter="url(#glowD)"/>
+      <circle cx="29"  cy="59"  r="4" fill="#3b82f6" filter="url(#glowD)"/>
+
+      <!-- Lock shackle -->
+      <path d="M91,102 L91,92 Q91,82 100,82 Q109,82 109,92 L109,102"
+            fill="none" stroke="#3b82f6" stroke-width="5.5" stroke-linecap="round"/>
+      <!-- Lock body -->
+      <rect x="84" y="101" width="32" height="24" rx="5" fill="#3b82f6"/>
+      <!-- Keyhole -->
+      <circle cx="100" cy="113" r="4.5" fill="#060e1f"/>
+      <rect x="97.5" y="113" width="5" height="7" rx="1.5" fill="#060e1f"/>
+    </svg>
+    <div class="label">
+      <div class="tag">Option D</div>
+      <h2>Hex Grid</h2>
+      <p>Hexagonal nested rings · scan beam · vertex nodes<br>Blue / navy — modern, matrix, enterprise-grade</p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ -->
+<!-- WORDMARK PREVIEW                                           -->
+<!-- ══════════════════════════════════════════════════════════ -->
+<div class="wordmark-section">
+  <h3>Wordmark Preview</h3>
+  <div class="wordmarks">
+
+    <!-- A wordmark -->
+    <div class="wordmark-row">
+      <svg width="40" height="40" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="bgAw" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#0e2647"/>
+            <stop offset="100%" stop-color="#050c1c"/>
+          </radialGradient>
+          <radialGradient id="swAw" cx="100" cy="100" r="75" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#06b6d4" stop-opacity="0.4"/>
+            <stop offset="100%" stop-color="#06b6d4" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="100" cy="100" r="97" fill="url(#bgAw)"/>
+        <circle cx="100" cy="100" r="97" fill="none" stroke="#0e3d6e" stroke-width="1.5"/>
+        <circle cx="100" cy="100" r="75" fill="none" stroke="#06b6d4" stroke-width="0.75" opacity="0.2"/>
+        <circle cx="100" cy="100" r="55" fill="none" stroke="#06b6d4" stroke-width="0.75" opacity="0.28"/>
+        <circle cx="100" cy="100" r="35" fill="none" stroke="#06b6d4" stroke-width="1" opacity="0.38"/>
+        <path d="M100,100 L100,25 A75,75 0 0,1 167.9,68.3 Z" fill="url(#swAw)"/>
+        <line x1="100" y1="100" x2="167.9" y2="68.3" stroke="#06b6d4" stroke-width="2" opacity="0.9"/>
+        <circle cx="148" cy="55" r="3.5" fill="#06b6d4" opacity="0.9"/>
+        <path d="M89,101 L89,90 Q89,78 100,78 Q111,78 111,90 L111,101" fill="none" stroke="#06b6d4" stroke-width="6" stroke-linecap="round"/>
+        <rect x="83" y="100" width="34" height="26" rx="5" fill="#06b6d4"/>
+        <circle cx="100" cy="113" r="4.5" fill="#050c1c"/>
+        <rect x="97.5" y="113" width="5" height="7" rx="1.5" fill="#050c1c"/>
+      </svg>
+      <div>
+        <div class="app-name" style="color:#06b6d4;">CipherRadar</div>
+        <div class="app-sub">Cryptography Bill of Materials</div>
+      </div>
+    </div>
+
+    <!-- B wordmark -->
+    <div class="wordmark-row">
+      <svg width="40" height="40" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="sbBw" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#10b981" stop-opacity="0"/>
+            <stop offset="50%" stop-color="#10b981" stop-opacity="0.6"/>
+            <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+          </linearGradient>
+          <clipPath id="scBw">
+            <path d="M100,178 C65,158 28,138 28,110 L28,55 Q28,42 42,42 L158,42 Q172,42 172,55 L172,110 C172,138 135,158 100,178 Z"/>
+          </clipPath>
+        </defs>
+        <path d="M100,178 C65,158 28,138 28,110 L28,55 Q28,42 42,42 L158,42 Q172,42 172,55 L172,110 C172,138 135,158 100,178 Z" fill="#061a10"/>
+        <line x1="20" y1="80"  x2="180" y2="80"  stroke="#10b981" stroke-width="0.75" opacity="0.2" clip-path="url(#scBw)"/>
+        <rect x="20" y="93" width="160" height="14" fill="url(#sbBw)" clip-path="url(#scBw)"/>
+        <line x1="20" y1="100" x2="180" y2="100" stroke="#10b981" stroke-width="1.5" opacity="0.85" clip-path="url(#scBw)"/>
+        <line x1="20" y1="116" x2="180" y2="116" stroke="#10b981" stroke-width="0.75" opacity="0.2" clip-path="url(#scBw)"/>
+        <path d="M100,178 C65,158 28,138 28,110 L28,55 Q28,42 42,42 L158,42 Q172,42 172,55 L172,110 C172,138 135,158 100,178 Z" fill="none" stroke="#10b981" stroke-width="2.5"/>
+        <path d="M91,103 L91,93 Q91,83 100,83 Q109,83 109,93 L109,103" fill="none" stroke="#10b981" stroke-width="5.5" stroke-linecap="round"/>
+        <rect x="84" y="102" width="32" height="24" rx="5" fill="#10b981"/>
+        <circle cx="100" cy="114" r="4.5" fill="#061a10"/>
+        <rect x="97.5" y="114" width="5" height="7" rx="1.5" fill="#061a10"/>
+      </svg>
+      <div>
+        <div class="app-name" style="color:#10b981;">CipherRadar</div>
+        <div class="app-sub">Cryptography Bill of Materials</div>
+      </div>
+    </div>
+
+    <!-- C wordmark -->
+    <div class="wordmark-row">
+      <svg width="40" height="40" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="bgCw" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#180d32"/>
+            <stop offset="100%" stop-color="#0a0618"/>
+          </radialGradient>
+          <radialGradient id="swCw" cx="100" cy="78" r="40" gradientUnits="userSpaceOnUse">
+            <stop offset="0%" stop-color="#a78bfa" stop-opacity="0.45"/>
+            <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <rect width="200" height="200" rx="22" fill="url(#bgCw)"/>
+        <rect x="93" y="115" width="14" height="65" rx="3" fill="#8b5cf6"/>
+        <rect x="107" y="133" width="12" height="9" rx="2" fill="#8b5cf6"/>
+        <rect x="107" y="154" width="8"  height="8" rx="2" fill="#8b5cf6"/>
+        <circle cx="100" cy="78" r="40" fill="#100828"/>
+        <circle cx="100" cy="78" r="30" fill="none" stroke="#8b5cf6" stroke-width="0.75" opacity="0.35"/>
+        <circle cx="100" cy="78" r="19" fill="none" stroke="#8b5cf6" stroke-width="0.75" opacity="0.48"/>
+        <path d="M100,78 L100,38 A40,40 0 0,1 137.6,64.3 Z" fill="url(#swCw)"/>
+        <line x1="100" y1="78" x2="137.6" y2="64.3" stroke="#a78bfa" stroke-width="1.5" opacity="0.9"/>
+        <circle cx="100" cy="78" r="40" fill="none" stroke="#8b5cf6" stroke-width="3"/>
+        <circle cx="100" cy="78" r="10" fill="#100828"/>
+        <circle cx="100" cy="78" r="10" fill="none" stroke="#8b5cf6" stroke-width="1.5" opacity="0.55"/>
+      </svg>
+      <div>
+        <div class="app-name" style="color:#a78bfa;">CipherRadar</div>
+        <div class="app-sub">Cryptography Bill of Materials</div>
+      </div>
+    </div>
+
+    <!-- D wordmark -->
+    <div class="wordmark-row">
+      <svg width="40" height="40" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="bgDw" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#0d1f40"/>
+            <stop offset="100%" stop-color="#060e1f"/>
+          </radialGradient>
+          <linearGradient id="sbDw" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#3b82f6" stop-opacity="0"/>
+            <stop offset="50%" stop-color="#3b82f6" stop-opacity="0.7"/>
+            <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+          </linearGradient>
+          <clipPath id="hcDw">
+            <polygon points="100,18 171,59 171,141 100,182 29,141 29,59"/>
+          </clipPath>
+        </defs>
+        <polygon points="100,18 171,59 171,141 100,182 29,141 29,59" fill="url(#bgDw)"/>
+        <polygon points="100,42 150.2,71 150.2,129 100,158 49.8,129 49.8,71" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.28"/>
+        <polygon points="100,65 130.3,82.5 130.3,117.5 100,135 69.7,117.5 69.7,82.5" fill="none" stroke="#3b82f6" stroke-width="1" opacity="0.38"/>
+        <rect x="20" y="93" width="160" height="14" fill="url(#sbDw)" clip-path="url(#hcDw)"/>
+        <line x1="20" y1="100" x2="180" y2="100" stroke="#3b82f6" stroke-width="1.5" opacity="0.7" clip-path="url(#hcDw)"/>
+        <polygon points="100,18 171,59 171,141 100,182 29,141 29,59" fill="none" stroke="#3b82f6" stroke-width="2.5"/>
+        <circle cx="100" cy="18"  r="4" fill="#3b82f6"/>
+        <circle cx="171" cy="59"  r="4" fill="#3b82f6"/>
+        <circle cx="171" cy="141" r="4" fill="#3b82f6"/>
+        <circle cx="100" cy="182" r="4" fill="#3b82f6"/>
+        <circle cx="29"  cy="141" r="4" fill="#3b82f6"/>
+        <circle cx="29"  cy="59"  r="4" fill="#3b82f6"/>
+        <path d="M91,102 L91,92 Q91,82 100,82 Q109,82 109,92 L109,102" fill="none" stroke="#3b82f6" stroke-width="5.5" stroke-linecap="round"/>
+        <rect x="84" y="101" width="32" height="24" rx="5" fill="#3b82f6"/>
+        <circle cx="100" cy="113" r="4.5" fill="#060e1f"/>
+        <rect x="97.5" y="113" width="5" height="7" rx="1.5" fill="#060e1f"/>
+      </svg>
+      <div>
+        <div class="app-name" style="color:#3b82f6;">CipherRadar</div>
+        <div class="app-sub">Cryptography Bill of Materials</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

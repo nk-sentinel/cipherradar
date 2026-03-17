@@ -1,0 +1,65 @@
+<svg width="520" height="80" viewBox="0 0 520 80" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#0d1f40"/>
+      <stop offset="100%" stop-color="#060e1f"/>
+    </radialGradient>
+    <linearGradient id="scanBeam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="#3b82f6" stop-opacity="0"/>
+      <stop offset="30%"  stop-color="#3b82f6" stop-opacity="0.5"/>
+      <stop offset="50%"  stop-color="#3b82f6" stop-opacity="0.7"/>
+      <stop offset="70%"  stop-color="#3b82f6" stop-opacity="0.5"/>
+      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="hexClip">
+      <polygon points="40,7.2 68.4,23.6 68.4,56.4 40,72.8 11.6,56.4 11.6,23.6"/>
+    </clipPath>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- Icon (scaled down to 80x80 from 200x200, scale=0.4, offset so center=40,40) -->
+  <!-- Hex background -->
+  <polygon points="40,7.2 68.4,23.6 68.4,56.4 40,72.8 11.6,56.4 11.6,23.6" fill="url(#bg)"/>
+  <!-- Inner hex rings -->
+  <polygon points="40,16.8 60.1,28.4 60.1,51.6 40,63.2 19.9,51.6 19.9,28.4"
+           fill="none" stroke="#3b82f6" stroke-width="0.4" opacity="0.28"/>
+  <polygon points="40,26 52.1,33 52.1,47 40,54 27.9,47 27.9,33"
+           fill="none" stroke="#3b82f6" stroke-width="0.4" opacity="0.38"/>
+  <!-- Scan beam -->
+  <rect x="8" y="37.2" width="64" height="5.6" fill="url(#scanBeam)" clip-path="url(#hexClip)"/>
+  <line x1="8" y1="40" x2="72" y2="40"
+        stroke="#3b82f6" stroke-width="0.6" opacity="0.7"
+        filter="url(#glow)" clip-path="url(#hexClip)"/>
+  <!-- Outer hex border -->
+  <polygon points="40,7.2 68.4,23.6 68.4,56.4 40,72.8 11.6,56.4 11.6,23.6"
+           fill="none" stroke="#3b82f6" stroke-width="1"/>
+  <!-- Vertex dots -->
+  <circle cx="40"  cy="7.2"  r="1.6" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="68.4" cy="23.6" r="1.6" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="68.4" cy="56.4" r="1.6" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="40"  cy="72.8" r="1.6" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="11.6" cy="56.4" r="1.6" fill="#3b82f6" filter="url(#glow)"/>
+  <circle cx="11.6" cy="23.6" r="1.6" fill="#3b82f6" filter="url(#glow)"/>
+  <!-- Lock shackle -->
+  <path d="M36.4,40.8 L36.4,36.8 Q36.4,32.8 40,32.8 Q43.6,32.8 43.6,36.8 L43.6,40.8"
+        fill="none" stroke="#3b82f6" stroke-width="2.2" stroke-linecap="round"/>
+  <!-- Lock body -->
+  <rect x="33.6" y="40.4" width="12.8" height="9.6" rx="2" fill="#3b82f6"/>
+  <!-- Keyhole -->
+  <circle cx="40" cy="45.2" r="1.8" fill="#060e1f"/>
+  <rect x="39" y="45.2" width="2" height="2.8" rx="0.6" fill="#060e1f"/>
+
+  <!-- Wordmark text -->
+  <text x="90" y="48"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="32" font-weight="700" letter-spacing="-0.5"
+        fill="#3b82f6">Cipher</text>
+  <text x="90" y="48"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif"
+        font-size="32" font-weight="700" letter-spacing="-0.5"
+        fill="#e2e8f0"
+        dx="95">Radar</text>
+</svg>
