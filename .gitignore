@@ -1,0 +1,66 @@
+# ── Go (cli/) ────────────────────────────────────────────────
+/cli/bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/cli/vendor/
+
+# ── Python (backend/) ────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.venv/
+venv/
+env/
+.env
+*.egg-info/
+dist/
+build/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# ── Node / React (frontend/) ─────────────────────────────────
+frontend/node_modules/
+frontend/.next/
+frontend/dist/
+frontend/build/
+frontend/.env.local
+frontend/.env.*.local
+*.tsbuildinfo
+
+# ── Secrets & environment ─────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# ── Docker / deployment ───────────────────────────────────────
+deploy/.env
+*.log
+
+# ── IDE & OS ──────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Joern (scanner/) ─────────────────────────────────────────
+scanner/.joern/
+scanner/workspace/
+
+# ── Semgrep ───────────────────────────────────────────────────
+.semgrep/
