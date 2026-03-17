@@ -1,6 +1,17 @@
-# cbomExtractor
+<p align="center">
+  <img src="logo/cipherradar-logo.svg" width="120" alt="CipherRadar"/>
+</p>
 
-> A source-code-first Cryptography Bill of Materials (CBOM) platform that discovers, inventories, classifies, and tracks every cryptographic asset across a software portfolio — continuously, across all languages — and translates findings into actionable compliance, quantum-readiness, and remediation guidance.
+<p align="center">
+  <img src="logo/cipherradar-wordmark.svg" width="420" alt="CipherRadar"/>
+</p>
+
+<p align="center">
+  A source-code-first Cryptography Bill of Materials (CBOM) platform that discovers, inventories,<br>
+  classifies, and tracks every cryptographic asset across a software portfolio — continuously,<br>
+  across all languages — and translates findings into actionable compliance, quantum-readiness,<br>
+  and remediation guidance.
+</p>
 
 ---
 
