@@ -1,7 +1,7 @@
 package output
 
 import (
-	"fmt"
+	"encoding/json"
 	"io"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -15,7 +15,16 @@ func (w *CycloneDXJSONWriter) Format() string { return "cyclonedx-json" }
 
 // WriteScanResult writes the scan results to the given writer as CycloneDX 1.7 JSON.
 func (w *CycloneDXJSONWriter) WriteScanResult(wr io.Writer, result *types.ScanResult) error {
-	// TODO: Convert types.ScanResult → CycloneDX 1.7 BOM with cryptoProperties
-	// Will use cyclonedx-go for the envelope + internal/cyclonedx17 for crypto fields
-	return fmt.Errorf("cyclonedx-json output not yet implemented")
+	bom := ConvertScanResult(result)
+
+	data, err := json.MarshalIndent(bom, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	// Append trailing newline for well-formed output.
+	data = append(data, '\n')
+
+	_, err = wr.Write(data)
+	return err
 }

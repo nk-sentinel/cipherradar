@@ -78,13 +78,12 @@ func TestWriteScanResult_StubsReturnNotImplemented(t *testing.T) {
 		Errors:       []types.ScanError{},
 	}
 
+	// Only SARIF and PDF are still stubs.
 	tests := []struct {
 		name   string
 		writer Writer
 	}{
-		{"cyclonedx-json", &CycloneDXJSONWriter{}},
 		{"sarif", &SARIFWriter{}},
-		{"text", &TextWriter{}},
 		{"pdf", &PDFWriter{}},
 	}
 
