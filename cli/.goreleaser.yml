@@ -1,0 +1,99 @@
+version: 2
+
+project_name: cbom
+
+before:
+  hooks:
+    # Sync OpenGrep rules before build
+    - go generate ./internal/rules
+
+builds:
+  # Lightweight binary — cbom only, no tools bundled
+  - id: cbom
+    main: ./cmd/cbom
+    binary: cbom
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      # Windows arm64 is rare — skip for now
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.Version={{.Version}}
+      - -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.Commit={{.Commit}}
+      - -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.BuildDate={{.Date}}
+
+  # Full binary — same binary, bundled with OpenGrep in the archive
+  - id: cbom-full
+    main: ./cmd/cbom
+    binary: cbom
+    env:
+      - CGO_ENABLED=1
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ignore:
+      - goos: windows
+        goarch: arm64
+    ldflags:
+      - -s -w
+      - -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.Version={{.Version}}
+      - -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.Commit={{.Commit}}
+      - -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.BuildDate={{.Date}}
+
+archives:
+  # Lightweight archive — just the cbom binary
+  - id: cbom-archive
+    builds:
+      - cbom
+    name_template: "cbom_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+
+  # Full archive — cbom binary + OpenGrep binary
+  # NOTE: OpenGrep binary must be placed in dist/opengrep-<os>-<arch>/
+  # before running goreleaser, via a CI pre-build step.
+  - id: cbom-full-archive
+    builds:
+      - cbom-full
+    name_template: "cbom-full_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format: tar.gz
+    files:
+      - src: "dist/opengrep-{{ .Os }}-{{ .Arch }}/*"
+        dst: .
+        strip_parent: true
+    format_overrides:
+      - goos: windows
+        format: zip
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+
+release:
+  github:
+    owner: nk-sentinel
+    name: cipherradar
+  name_template: "v{{.Version}}"
+  draft: true

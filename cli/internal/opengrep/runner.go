@@ -1,5 +1,5 @@
 // Package opengrep provides a subprocess integration for running OpenGrep
-// (or compatible Semgrep) taint analysis as Pass 2 of the CipherRadar scan pipeline.
+// taint analysis as Pass 2 of the CipherRadar scan pipeline.
 package opengrep
 
 import (
@@ -18,13 +18,26 @@ type Runner struct {
 }
 
 // NewRunner creates a new OpenGrep runner.
-// It searches for the opengrep binary in:
-// 1. $CBOM_TOOLS_DIR/opengrep
-// 2. ~/.cbom/tools/opengrep
-// 3. $PATH (opengrep or semgrep -- opengrep is a drop-in replacement)
+// It searches for the opengrep binary in the following order:
+//  1. Bundled next to the cbom binary (cbom-full scenario)
+//  2. $CBOM_TOOLS_DIR/opengrep
+//  3. ~/.cbom/tools/opengrep
+//  4. $PATH opengrep
+//
 // Returns nil if no binary is found (Pass 2 will be skipped).
 func NewRunner() *Runner {
-	// 1. Check $CBOM_TOOLS_DIR/opengrep
+	// 1. Check next to the cbom binary itself (cbom-full bundles OpenGrep here).
+	// This ensures cbom-full always uses its own bundled version,
+	// regardless of any system-installed OpenGrep.
+	if self, err := os.Executable(); err == nil {
+		selfDir := filepath.Dir(self)
+		candidate := filepath.Join(selfDir, "opengrep")
+		if isExecutable(candidate) {
+			return &Runner{binaryPath: candidate}
+		}
+	}
+
+	// 2. Check $CBOM_TOOLS_DIR/opengrep
 	if toolsDir := os.Getenv("CBOM_TOOLS_DIR"); toolsDir != "" {
 		candidate := filepath.Join(toolsDir, "opengrep")
 		if isExecutable(candidate) {
@@ -32,7 +45,7 @@ func NewRunner() *Runner {
 		}
 	}
 
-	// 2. Check ~/.cbom/tools/opengrep
+	// 3. Check ~/.cbom/tools/opengrep
 	if home, err := os.UserHomeDir(); err == nil {
 		candidate := filepath.Join(home, ".cbom", "tools", "opengrep")
 		if isExecutable(candidate) {
@@ -40,7 +53,7 @@ func NewRunner() *Runner {
 		}
 	}
 
-	// 3. Check $PATH for opengrep only.
+	// 4. Check $PATH for opengrep only.
 	// Do NOT fall back to semgrep — Semgrep moved taint analysis to their
 	// commercial tier (Dec 2024). OpenGrep (fork of Semgrep v1.100.0) restores
 	// taint mode under LGPL-2.1. See ADR-009.

@@ -151,3 +151,45 @@ CipherRadar supports multiple scan passes with increasing depth:
 - **Pass 3** -- Deep cross-file data-flow analysis (slowest, most thorough)
 
 Use `passes: '1,2'` (GitHub) or `CBOM_PASSES: "1,2"` (GitLab) to combine passes.
+
+---
+
+## Releasing
+
+CipherRadar CLI releases are managed by [GoReleaser v2](https://goreleaser.com/) and produce two binary flavors per platform (darwin/linux, amd64/arm64).
+
+### Binary Flavors
+
+| Artifact   | Size     | Description                                              |
+|------------|----------|----------------------------------------------------------|
+| `cbom`     | ~15 MB   | Lightweight binary. Users run `cbom install-tools` to download OpenGrep separately. |
+| `cbom-full`| ~80-100 MB | Same binary bundled with OpenGrep in the archive. For air-gapped environments. |
+
+Both flavors produce identical `cbom` binaries — the only difference is whether the OpenGrep executable is included alongside it in the archive.
+
+### How It Works
+
+1. **GoReleaser config** (`cli/.goreleaser.yml`) defines two builds (`cbom` and `cbom-full`) and two archive templates. Both builds compile the same `cmd/cbom` entry point with version/commit/date injected via ldflags.
+2. **Release workflow** (`deploy/github-action/release.yml`) runs on any `v*` tag push. It downloads OpenGrep binaries for each platform into `dist/opengrep-<os>-<arch>/`, then invokes GoReleaser to build, archive, and create a draft GitHub release.
+
+### Creating a Release
+
+```bash
+# Tag the release
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+The release workflow triggers automatically. It creates a **draft** release on GitHub with all artifacts attached. Review the draft and publish when ready.
+
+### Produced Artifacts
+
+For each release, the following artifacts are uploaded:
+
+- `cbom_<version>_<os>_<arch>.tar.gz` — lightweight archive (4 platform variants)
+- `cbom-full_<version>_<os>_<arch>.tar.gz` — full archive with OpenGrep (4 platform variants)
+- `checksums.txt` — SHA-256 checksums for all archives
+
+### Version Information
+
+Version, commit, and build date are injected at build time via ldflags into `cli/internal/cmd/version.go`. Run `cbom version` to see the build metadata.

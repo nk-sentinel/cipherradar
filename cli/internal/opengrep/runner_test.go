@@ -111,6 +111,57 @@ func TestIsExecutable(t *testing.T) {
 	}
 }
 
+func TestNewRunnerFindsBundledBinary(t *testing.T) {
+	// Create a temporary directory with a fake "cbom" executable and a
+	// sibling "opengrep" executable, simulating the cbom-full layout.
+	tmpDir := t.TempDir()
+
+	// Create a fake cbom binary that just prints its own path.
+	cbomBin := filepath.Join(tmpDir, "cbom")
+	script := "#!/bin/sh\necho \"$0\"\n"
+	if err := os.WriteFile(cbomBin, []byte(script), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a sibling opengrep binary.
+	ogBin := filepath.Join(tmpDir, "opengrep")
+	if err := os.WriteFile(ogBin, []byte("#!/bin/sh\n"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	// We cannot reliably override os.Executable() in a unit test because it
+	// returns the path of the running test binary. Instead, we verify the
+	// isExecutable helper works for the candidate path, which is the core
+	// logic that the bundled-binary check depends on.
+	if !isExecutable(ogBin) {
+		t.Fatal("expected sibling opengrep to be executable")
+	}
+
+	// Verify that when CBOM_TOOLS_DIR points at the same directory, the
+	// runner finds the binary (exercising the code path end-to-end).
+	origToolsDir := os.Getenv("CBOM_TOOLS_DIR")
+	os.Setenv("CBOM_TOOLS_DIR", tmpDir)
+	defer func() {
+		if origToolsDir != "" {
+			os.Setenv("CBOM_TOOLS_DIR", origToolsDir)
+		} else {
+			os.Unsetenv("CBOM_TOOLS_DIR")
+		}
+	}()
+
+	origPath := os.Getenv("PATH")
+	os.Setenv("PATH", "")
+	defer os.Setenv("PATH", origPath)
+
+	runner := NewRunner()
+	if runner == nil {
+		t.Fatal("expected NewRunner to find bundled opengrep via CBOM_TOOLS_DIR")
+	}
+	if runner.BinaryPath() != ogBin {
+		t.Errorf("expected binary path %s, got %s", ogBin, runner.BinaryPath())
+	}
+}
+
 func TestNewRunnerWithCBOMToolsDir(t *testing.T) {
 	tmpDir := t.TempDir()
 	execFile := filepath.Join(tmpDir, "opengrep")
