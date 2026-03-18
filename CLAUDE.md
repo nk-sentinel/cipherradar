@@ -72,8 +72,8 @@ docker compose -f deploy/docker-compose.yml up
 
 ## Conventions
 
-- **Go:** standard `gofmt` formatting; package names lowercase; no CGo except for tree-sitter bindings
-- **Python:** `ruff` for linting and formatting; type hints required on all public functions; `pyproject.toml` for dependencies
+- **Go:** standard `gofmt` formatting; package names lowercase; no CGo except for tree-sitter bindings; use Koanf (not Viper) for config
+- **Python:** `ruff` for linting and formatting; type hints required on all public functions; `pyproject.toml` for dependencies; use Taskiq (not Celery) for async tasks
 - **TypeScript:** strict mode; functional components only in React; TanStack Query for server state
 - **Semgrep rules:** one file per language in `scanner/rules/`; rule IDs prefixed `cbom-<lang>-<pattern>`
 - **CycloneDX output:** always use the official `cyclonedx-go` / `cyclonedx-python-library` — never hand-craft the schema

@@ -4,6 +4,7 @@
 |---|---|
 | **Status** | Accepted |
 | **Date** | 2026-03-15 |
+| **Last updated** | 2026-03-18 |
 | **Deciders** | Architecture session |
 
 ---
@@ -44,6 +45,28 @@ Multiple formats were considered:
 - Positive: Future spec changes handled by the CycloneDX library, not our code
 - Negative: Schema evolution (1.7 → 1.8+) requires library updates
 - Negative: CycloneDX is more complex than a custom schema for simple use cases
+
+## Implementation Note — Go Library Gap (added 2026-03-18)
+
+A feasibility study (triggered by a stack audit) identified that `cyclonedx-go` v0.10.0 supports CycloneDX 1.0–1.6 only. CycloneDX 1.7 support (issue #247) has an open PR (#257, opened Feb 2026) that remains unmerged with no timeline.
+
+**Approach for Phase 1 CLI (Go):**
+
+Use `cyclonedx-go` for the document envelope (metadata, component structure, dependencies) and build a small internal package `cli/internal/cyclonedx17/` covering only the `cryptoProperties` additions needed for CBOM:
+
+| Struct | Fields |
+|---|---|
+| `AlgorithmProperties` | primitive, algorithmFamily, parameterSetIdentifier, executionEnvironment, implementationPlatform, certificationLevels, mode, padding, cryptoFunctions, classicalSecurityLevel, nistQuantumSecurityLevel |
+| `CertificateProperties` | subjectName, issuerName, notValidBefore, notValidAfter, signatureAlgorithmRef, subjectPublicKeyRef, certificateFormat, certificateExtension |
+| `ProtocolProperties` | type, version, cipherSuites, ikev2TransformTypes, cryptoRefs |
+| `RelatedCryptoMaterialProperties` | type, id, state, algorithmRef, securedBy, size |
+| Supporting enums | primitive, algorithmFamily (96 values), mode, padding, cryptoFunctions, nistQuantumSecurityLevel, quantumStatus |
+
+Estimated scope: ~420 lines of Go. Python library (`cyclonedx-python-lib` v11.7.0) provides a working reference for struct design.
+
+**Migration path:** Monitor `cyclonedx-go` PR #257. When it merges, delete `cli/internal/cyclonedx17/` and migrate to the official library. The internal package is designed as a drop-in to make this migration straightforward.
+
+**Backend (Python):** `cyclonedx-python-lib` v11.7.0 supports 1.7 — no gap, no workaround needed.
 
 ## Alternatives Considered and Rejected
 
