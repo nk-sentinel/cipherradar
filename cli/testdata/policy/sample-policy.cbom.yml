@@ -1,0 +1,46 @@
+# CipherRadar Policy — Example
+# This policy enforces minimum cryptographic standards.
+
+rules:
+  - id: no-broken-algorithms
+    description: "Deny broken cryptographic algorithms"
+    severity: critical
+    action: fail
+    condition:
+      deny_algorithms: ["md5", "sha1", "des", "3des", "rc4"]
+
+  - id: no-ecb-mode
+    description: "Deny ECB mode — no semantic security"
+    severity: high
+    action: fail
+    condition:
+      deny_modes: ["ecb"]
+
+  - id: rsa-min-key-size
+    description: "RSA keys must be at least 2048 bits"
+    severity: high
+    action: fail
+    condition:
+      algorithm: "rsa"
+      min_key_size: 2048
+
+  - id: no-deprecated-tls
+    description: "Deny TLS 1.0 and 1.1"
+    severity: high
+    action: fail
+    condition:
+      deny_tls_versions: ["1.0", "1.1"]
+
+  - id: quantum-vulnerable-warning
+    description: "Warn on quantum-vulnerable algorithms"
+    severity: medium
+    action: warn
+    condition:
+      deny_quantum_status: ["quantum-vulnerable"]
+
+  - id: no-broken-crypto
+    description: "Deny classically broken algorithms"
+    severity: critical
+    action: fail
+    condition:
+      deny_quantum_status: ["broken"]

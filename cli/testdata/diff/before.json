@@ -1,0 +1,135 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "version": 1,
+  "serialNumber": "urn:uuid:12345678-1234-4234-8234-123456789abc",
+  "metadata": {
+    "timestamp": "2026-01-15T10:00:00Z",
+    "tools": [
+      {
+        "name": "CipherRadar",
+        "version": "0.1.0",
+        "vendor": "nk-sentinel"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-001",
+      "name": "MD5",
+      "description": "MD5 hash function usage detected",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "hash",
+          "algorithmFamily": "md5",
+          "classicalSecurityLevel": 64
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "crypto/legacy.py",
+            "line": 8
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-002",
+      "name": "SHA-256",
+      "description": "SHA-256 hash function usage detected",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "hash",
+          "algorithmFamily": "sha2",
+          "classicalSecurityLevel": 128
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "crypto/hashing.py",
+            "line": 12
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-003",
+      "name": "RSA-2048",
+      "description": "RSA-2048 key generation detected",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "pke",
+          "algorithmFamily": "rsa",
+          "classicalSecurityLevel": 2048,
+          "cryptoFunctions": ["keygen", "encrypt"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "keys/generate.py",
+            "line": 5
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-004",
+      "name": "AES-128-CBC",
+      "description": "AES-128-CBC encryption detected",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "block-cipher",
+          "algorithmFamily": "aes",
+          "mode": "cbc",
+          "classicalSecurityLevel": 128,
+          "cryptoFunctions": ["encrypt", "decrypt"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "crypto/symmetric.py",
+            "line": 20
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-005",
+      "name": "TLS 1.0",
+      "description": "TLS 1.0 protocol usage detected",
+      "cryptoProperties": {
+        "assetType": "protocol",
+        "protocolProperties": {
+          "type": "tls",
+          "version": "1.0",
+          "cipherSuites": [
+            {
+              "name": "TLS_RSA_WITH_AES_128_CBC_SHA"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "network/config.py",
+            "line": 10
+          }
+        ]
+      }
+    }
+  ]
+}

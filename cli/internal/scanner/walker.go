@@ -3,6 +3,7 @@ package scanner
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -37,7 +38,14 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 			return nil
 		}
 
+		// Skip scanner output files — the regex universal scanner would
+		// otherwise match thousands of algorithm names in its own output.
 		ext := DetectLanguage(path)
+		switch strings.ToLower(ext) {
+		case ".json", ".sarif", ".pdf":
+			return nil
+		}
+
 		s := registry.ForExtension(ext)
 		universals := registry.Universals()
 

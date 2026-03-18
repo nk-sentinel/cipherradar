@@ -1,0 +1,136 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "version": 1,
+  "serialNumber": "urn:uuid:87654321-4321-4321-8321-cba987654321",
+  "metadata": {
+    "timestamp": "2026-03-15T10:00:00Z",
+    "tools": [
+      {
+        "name": "CipherRadar",
+        "version": "0.1.0",
+        "vendor": "nk-sentinel"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-002",
+      "name": "SHA-256",
+      "description": "SHA-256 hash function usage detected",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "hash",
+          "algorithmFamily": "sha2",
+          "classicalSecurityLevel": 128
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "crypto/hashing.py",
+            "line": 12
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-003",
+      "name": "RSA-4096",
+      "description": "RSA-4096 key generation detected",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "pke",
+          "algorithmFamily": "rsa",
+          "classicalSecurityLevel": 4096,
+          "cryptoFunctions": ["keygen", "encrypt"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "keys/generate.py",
+            "line": 5
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-004",
+      "name": "AES-256-GCM",
+      "description": "AES-256-GCM encryption detected",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "ae",
+          "algorithmFamily": "aes",
+          "mode": "gcm",
+          "classicalSecurityLevel": 256,
+          "cryptoFunctions": ["encrypt", "decrypt"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "crypto/symmetric.py",
+            "line": 20
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-005",
+      "name": "TLS 1.3",
+      "description": "TLS 1.3 protocol usage detected",
+      "cryptoProperties": {
+        "assetType": "protocol",
+        "protocolProperties": {
+          "type": "tls",
+          "version": "1.3",
+          "cipherSuites": [
+            {
+              "name": "TLS_AES_256_GCM_SHA384"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "network/config.py",
+            "line": 10
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-006",
+      "name": "PBKDF2-SHA256",
+      "description": "PBKDF2-SHA256 key derivation function detected",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "kdf",
+          "algorithmFamily": "pbkdf2",
+          "classicalSecurityLevel": 128,
+          "cryptoFunctions": ["derive"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "auth/password.py",
+            "line": 22
+          }
+        ]
+      }
+    }
+  ]
+}

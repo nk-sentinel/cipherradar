@@ -1,0 +1,159 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.7",
+  "version": 1,
+  "serialNumber": "urn:uuid:12345678-1234-1234-1234-123456789012",
+  "metadata": {
+    "timestamp": "2026-01-15T10:00:00Z",
+    "tools": [
+      {
+        "name": "CipherRadar",
+        "version": "0.1.0",
+        "vendor": "nk-sentinel"
+      }
+    ]
+  },
+  "components": [
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-001",
+      "name": "MD5",
+      "description": "MD5 hash function usage",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "hash",
+          "algorithmFamily": "md5",
+          "cryptoFunctions": ["digest"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "auth/crypto.py",
+            "line": 15
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-002",
+      "name": "SHA-1",
+      "description": "SHA-1 hash function usage",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "hash",
+          "algorithmFamily": "sha1",
+          "cryptoFunctions": ["digest"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "auth/crypto.py",
+            "line": 22
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-003",
+      "name": "AES-128-ECB",
+      "description": "AES in ECB mode",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "block-cipher",
+          "algorithmFamily": "aes",
+          "mode": "ecb",
+          "classicalSecurityLevel": 128,
+          "cryptoFunctions": ["encrypt"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "crypto/cipher.py",
+            "line": 8
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-004",
+      "name": "RSA-2048",
+      "description": "RSA key generation",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "pke",
+          "algorithmFamily": "rsa",
+          "classicalSecurityLevel": 2048,
+          "cryptoFunctions": ["keygen"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "keys/generate.py",
+            "line": 5
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-005",
+      "name": "AES-256-GCM",
+      "description": "AES-256 in GCM mode",
+      "cryptoProperties": {
+        "assetType": "algorithm",
+        "algorithmProperties": {
+          "primitive": "ae",
+          "algorithmFamily": "aes",
+          "mode": "gcm",
+          "classicalSecurityLevel": 256,
+          "cryptoFunctions": ["encrypt", "decrypt"]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "crypto/cipher.py",
+            "line": 20
+          }
+        ]
+      }
+    },
+    {
+      "type": "cryptographic-asset",
+      "bom-ref": "FIND-006",
+      "name": "TLS 1.3",
+      "description": "TLS 1.3 protocol usage",
+      "cryptoProperties": {
+        "assetType": "protocol",
+        "protocolProperties": {
+          "type": "tls",
+          "version": "1.3",
+          "cipherSuites": [
+            {
+              "name": "TLS_AES_256_GCM_SHA384"
+            }
+          ]
+        }
+      },
+      "evidence": {
+        "occurrences": [
+          {
+            "location": "server/ssl.py",
+            "line": 30
+          }
+        ]
+      }
+    }
+  ]
+}
