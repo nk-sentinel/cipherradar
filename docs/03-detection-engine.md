@@ -12,6 +12,7 @@
 |---|---|---|
 | v1 | 2026-03-15 | Initial design — included "custom taint engine" as core component |
 | v2 | 2026-03-16 | **Custom taint engine replaced** with three-layer approach: tree-sitter constant propagation + Semgrep taint rules + Joern deep analysis. See ADR-004 for full decision rationale. |
+| v3 | 2026-03-18 | Pass 2 engine updated from Semgrep OSS to OpenGrep. Semgrep moved taint mode to commercial (Dec 2024); OpenGrep restores it under LGPL-2.1 with identical YAML rule format. See ADR-009. |
 
 ---
 
@@ -142,13 +143,13 @@ rules:
         to: $X
 ```
 
-### Why Semgrep for Pass 2
+### Why OpenGrep for Pass 2
 
 - Rules are **auditable YAML** — security team and contributors can read, review, and extend them
 - No compiler knowledge required to write or maintain rules
-- Covers 30+ languages with the same rule format
-- Built-in taint mode handles intra and simple inter-procedural flows
-- Active community rule ecosystem (5,000+ rules) — many crypto rules already exist
+- Covers 12+ languages with taint mode; same YAML format as Semgrep — all existing rules compatible
+- Taint mode is free under LGPL-2.1 (Semgrep moved taint to commercial in Dec 2024 — see ADR-009)
+- No SaaS or commercial-use restrictions on rules
 - Fast enough to run on every PR (minutes, not hours)
 
 ---

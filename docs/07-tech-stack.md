@@ -12,6 +12,7 @@
 |---|---|---|
 | v1 | 2026-03-15 | Initial stack — listed "custom taint engine" under Language Parsers |
 | v2 | 2026-03-16 | Replaced custom taint engine with Joern + Semgrep per ADR-004 |
+| v3 | 2026-03-18 | Pass 2 engine changed from Semgrep OSS to OpenGrep per ADR-009 |
 
 ---
 
@@ -45,7 +46,7 @@
 | TypeScript type resolution | TypeScript Compiler API (Node.js subprocess) | Type information critical for resolving crypto interface implementations |
 | Python AST | Python `ast` module (subprocess) | Native; accurate; handles Python 3.8–3.14 syntax evolution |
 | **Pass 1: Constant propagation** | Custom implementation over tree-sitter CSTs | Intra-procedural variable tracking + cross-file symbol table; covers ~80% of CBOM use cases; see ADR-004 |
-| **Pass 2: Semgrep taint rules** | Semgrep OSS (LGPL) + custom YAML rules per language | Declarative taint rules; covers ~8–10% of additional findings; maintainable without compiler expertise |
+| **Pass 2: OpenGrep taint rules** | OpenGrep (LGPL-2.1) + custom YAML rules per language | Community fork of Semgrep v1.100.0; restores taint mode (moved to Semgrep commercial Dec 2024); identical YAML rule format; no SaaS/commercial licence restrictions; see ADR-009 |
 | **Pass 3: Joern CPG** | Joern (Apache 2.0, JVM/Scala) via subprocess/HTTP API | Full Code Property Graph — inter-procedural taint; covers ~3–5% of hard cases; runs nightly; see ADR-004 |
 
 **Why tree-sitter over language-specific parsers for everything?**

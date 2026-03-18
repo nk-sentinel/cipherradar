@@ -6,6 +6,7 @@
 | **Date** | 2026-03-16 |
 | **Deciders** | Architecture session |
 | **Triggered by** | Feasibility challenge raised during architecture review |
+| **Note** | Pass 2 engine subsequently changed from Semgrep to OpenGrep — see [ADR-009](ADR-009-opengrep-replaces-semgrep.md). Three-pass approach is unchanged. |
 
 ---
 
