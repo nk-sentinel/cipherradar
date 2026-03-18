@@ -15,7 +15,7 @@ cli/          Go binary — cbom scan, diff, report (ADR-005)
 backend/      Python/FastAPI + Taskiq workers
 frontend/     React 19 + TypeScript dashboard
 scanner/      Shared detection assets used by CLI and backend
-  rules/        Semgrep YAML rules (per language)
+  rules/        OpenGrep YAML rules (per language)
   library-models/  Crypto API → CBOM asset type mappings
   grammars/     tree-sitter grammar configs
 deploy/       Docker Compose, Kubernetes (Helm)
@@ -35,13 +35,13 @@ Two GoReleaser artifacts per release:
 
 `cbom install-tools` downloads OpenGrep + Joern to `~/.cbom/tools/` for lightweight binary users.
 
-## Shared Assets (`scanner/library-models/`)
+## Shared Assets
 
-Quantum algorithm table and library API models live in `scanner/library-models/` as the single source of truth. They are **embedded at build time** — never fetched at runtime:
-- CLI (Go): `//go:embed` directive
-- Backend (Python): `importlib.resources` / bundled package data
+- **OpenGrep rules** live in `scanner/rules/` as the source of truth, copied to `cli/internal/rules/data/` and embedded via `//go:embed`. Run `go generate ./internal/rules` to sync.
+- **Quantum algorithm table** lives in `cli/internal/scanner/quantum/quantum.go`.
+- **CycloneDX 1.7 schema** embedded in `cli/internal/validation/schema/` via `//go:embed`.
 
-Do not load these files from the filesystem at runtime.
+Do not load shared assets from the filesystem at runtime.
 
 ## Phase 1 Implementation
 
@@ -112,11 +112,11 @@ docker compose -f deploy/docker-compose.yml up
 
 ## Conventions
 
-- **Go:** standard `gofmt` formatting; package names lowercase; no CGo except for tree-sitter bindings; use Koanf (not Viper) for config
+- **Go:** standard `gofmt` formatting; package names lowercase; no CGo except for tree-sitter bindings; use `gopkg.in/yaml.v3` for YAML config; Koanf deferred to Phase 2 if needed
 - **Python:** `ruff` for linting and formatting; type hints required on all public functions; `pyproject.toml` for dependencies; use Taskiq (not Celery) for async tasks
 - **TypeScript:** strict mode; functional components only in React; TanStack Query for server state
 - **OpenGrep rules:** one file per language in `scanner/rules/`; rule IDs prefixed `cbom-<lang>-<pattern>`
-- **CycloneDX output:** use `cyclonedx-go` for the document envelope + internal `cli/internal/cyclonedx17/` for cryptoProperties structs (cyclonedx-go supports 1.6 only; monitor PR #257 for upstream 1.7 merge). Backend uses `cyclonedx-python-lib` v11.7.0 which supports 1.7 natively. Never hand-craft the schema.
+- **CycloneDX output:** internal structs in `cli/internal/cyclonedx17/` for cryptoProperties + `cli/internal/output/converter.go` for BOM envelope. `cyclonedx-go` was not adopted (only supports 1.6). Backend uses `cyclonedx-python-lib` v11.7.0 which supports 1.7 natively. Never hand-craft the schema.
 
 ## Commits
 

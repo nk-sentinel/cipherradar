@@ -39,13 +39,16 @@ A CBOM inventories:
 | Document | Description | Version |
 |---|---|---|
 | [Product Design](docs/01-product-design.md) | Vision, problem statement, user personas, product goals | v1 |
-| [Architecture](docs/02-architecture.md) | System architecture, component diagram, deployment models | v1 |
+| [Architecture](docs/02-architecture.md) | System architecture, component diagram, deployment models | **v3** |
 | [Detection Engine](docs/03-detection-engine.md) | How scanning works, per-language strategies, confidence scoring | **v2** |
-| [Features](docs/04-features.md) | Complete feature breakdown across all 10 feature sets | v1 |
+| [Features](docs/04-features.md) | Complete feature breakdown across all 10 feature sets | **v2** |
 | [Compliance Mapping](docs/05-compliance.md) | NIST, FIPS, PCI-DSS, CNSA 2.0, CRA framework details | v1 |
 | [Data Model](docs/06-data-model.md) | Core entities, CycloneDX schema fields, relationships | v1 |
-| [Tech Stack](docs/07-tech-stack.md) | Technology decisions and rationale | **v2** |
-| [Roadmap](docs/08-roadmap.md) | Phased delivery plan across 4 phases | **v2** |
+| [Tech Stack](docs/07-tech-stack.md) | Technology decisions and rationale | **v4** |
+| [Roadmap](docs/08-roadmap.md) | Phased delivery plan across 4 phases | **v5** |
+| [RBAC](docs/09-rbac.md) | Role-based access control design | v1 |
+| [Communications](docs/10-communications.md) | Notification channels and routing | v1 |
+| [Phase 1 Plan](docs/11-phase1-implementation-plan.md) | Phase 1 implementation plan and agent breakdown | **v3** |
 
 ## Decision Log & Architecture Decision Records
 
@@ -55,8 +58,13 @@ A CBOM inventories:
 | [ADR-001](docs/decisions/ADR-001-output-format.md) | Output Format — CycloneDX 1.7 |
 | [ADR-002](docs/decisions/ADR-002-parsing-backbone.md) | Parsing Backbone — tree-sitter |
 | [ADR-003](docs/decisions/ADR-003-codeql-independence.md) | No CodeQL dependency; no build required |
-| [ADR-004](docs/decisions/ADR-004-taint-engine-revision.md) | **Taint engine revised** — custom build replaced with Joern + Semgrep |
+| [ADR-004](docs/decisions/ADR-004-taint-engine-revision.md) | **Taint engine revised** — custom build replaced with Joern + OpenGrep |
 | [ADR-005](docs/decisions/ADR-005-cli-language-and-deployment.md) | CLI in Go; Backend in Python/FastAPI |
+| [ADR-006](docs/decisions/ADR-006-rbac-design.md) | RBAC Design — Roles, Permissions, API Key Model |
+| [ADR-007](docs/decisions/ADR-007-communications-design.md) | Communications Design — Channels, Triggers, Notification Routing |
+| [ADR-008](docs/decisions/ADR-008-repository-structure.md) | Repository Structure — Monorepo |
+| [ADR-009](docs/decisions/ADR-009-opengrep-replaces-semgrep.md) | OpenGrep Replaces Semgrep as the Pass 2 Engine |
+| [ADR-010](docs/decisions/ADR-010-cli-distribution-and-asset-embedding.md) | CLI Distribution Model, Tool Bundling, and Shared Asset Embedding |
 
 ---
 
@@ -66,8 +74,8 @@ A CBOM inventories:
 Source Code / Containers / Config Files
             │
             ▼
-    cbomExtractor Scanner
-    (12+ languages, AST + Taint + Regex)
+    CipherRadar Scanner
+    (Python, JS/TS, Java — 12+ on roadmap; AST + Taint + Regex)
             │
             ▼
     CycloneDX 1.7 CBOM
@@ -81,13 +89,35 @@ Source Code / Containers / Config Files
             └── Reports (PDF / SARIF / HTML / CSV)
 ```
 
+## Quick Start
+
+```bash
+# Build the CLI
+cd cli && go build -o cbom ./cmd/cbom
+
+# Scan a project
+./cbom scan /path/to/project --format text
+
+# Generate CycloneDX 1.7 CBOM
+./cbom scan /path/to/project --format cyclonedx-json --output cbom.json --validate
+
+# Check against policy
+./cbom policy check cbom.json --policy policy.cbom.yml --fail-on high
+
+# Compare two scans
+./cbom diff cbom-before.json cbom-after.json
+
+# Generate PDF report
+./cbom scan /path/to/project --format pdf --output report.pdf
+```
+
 ---
 
-## What Makes cbomExtractor Different
+## What Makes CipherRadar Different
 
-| Gap in Existing Tools | cbomExtractor Solution |
+| Gap in Existing Tools | CipherRadar Solution |
 |---|---|
-| sonar-cryptography supports Java + Python only | 12+ languages from day-one roadmap |
+| sonar-cryptography supports Java + Python only | 3 languages in Phase 1 (Python, JS/TS, Java), 12+ on the roadmap |
 | CBOMkit produces raw JSON with no guidance | Compliance mapping, risk scoring, remediation, dashboard |
 | No quantum migration workflow in any OSS tool | PQC readiness reports, NIST IR 8547 deadline tracking, migration Kanban |
 | No policy-as-code for cryptography | YAML policy engine with CI/CD build gates |

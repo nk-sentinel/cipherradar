@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Document version:** v4
+> **Document version:** v5
 > **Last updated:** 2026-03-18
 > **Status:** Active
 
@@ -14,6 +14,7 @@
 | v2 | 2026-03-16 | Phase 1: taint engine → constant propagation + Semgrep rules. Phase 2: added Joern integration. | ADR-004 |
 | v3 | 2026-03-17 | Phase 1: added GitHub, GitLab, Bitbucket (Cloud + Data Center) git hosting integrations | A-003 resolution |
 | v4 | 2026-03-18 | Phase 1: Semgrep → OpenGrep (Pass 2 engine). Git hosting integrations moved to Phase 2 (require backend server). | ADR-009 |
+| v5 | 2026-03-18 | Phase 1 complete — all checkboxes checked | Phase 1 close |
 
 ---
 
@@ -38,43 +39,43 @@ Four phases, sequenced to deliver usable value at the end of each phase.
 ### Deliverables
 
 **Scanner Core**
-- [ ] tree-sitter integration with language detection and dispatch
-- [ ] AST-based detection for **Java, Python, JavaScript/TypeScript** (3 languages)
-- [ ] Library API model for: JCA/JCE, Bouncy Castle, `cryptography` (Python), `hashlib`, Node.js `crypto`, `jsonwebtoken`
-- [ ] Regex layer: PEM headers, key blobs, algorithm name strings
-- [ ] Config file scanner: `.env`, `*.properties`, basic YAML
-- [ ] **Pass 1: Constant propagation** — intra-procedural variable tracking + project-wide symbol table *(replaces "custom taint engine" from v1 — see ADR-004)*
-- [ ] **Pass 2: OpenGrep taint rules** — initial rule set for Java, Python, JS/TS covering common crypto patterns (OpenGrep replaces Semgrep per ADR-009)
-- [ ] Confidence scoring (High / Medium / Low / Unresolved)
-- [ ] File/line/column location for every finding
+- [x] tree-sitter integration with language detection and dispatch
+- [x] AST-based detection for **Java, Python, JavaScript/TypeScript** (3 languages)
+- [x] Library API model for: JCA/JCE, Bouncy Castle, `cryptography` (Python), `hashlib`, Node.js `crypto`, `jsonwebtoken`
+- [x] Regex layer: PEM headers, key blobs, algorithm name strings
+- [x] Config file scanner: `.env`, `*.properties`, basic YAML
+- [x] **Pass 1: Constant propagation** — intra-procedural variable tracking + project-wide symbol table *(replaces "custom taint engine" from v1 — see ADR-004)*
+- [x] **Pass 2: OpenGrep taint rules** — initial rule set for Java, Python, JS/TS covering common crypto patterns (OpenGrep replaces Semgrep per ADR-009)
+- [x] Confidence scoring (High / Medium / Low / Unresolved)
+- [x] File/line/column location for every finding
 
 **Detection Coverage (Phase 1)**
-- [ ] Algorithms with name, mode, padding, key size
-- [ ] Hardcoded key material (constant → key parameter taint)
-- [ ] Static IV / nonce (constant → IV parameter taint)
-- [ ] Weak PRNG for security use
-- [ ] Disabled certificate validation
-- [ ] Deprecated TLS version (explicit config)
+- [x] Algorithms with name, mode, padding, key size
+- [x] Hardcoded key material (constant → key parameter taint)
+- [x] Static IV / nonce (constant → IV parameter taint)
+- [x] Weak PRNG for security use
+- [x] Disabled certificate validation
+- [x] Deprecated TLS version (explicit config)
 
 **Output**
-- [ ] CycloneDX 1.7 JSON — full `cryptoProperties` for all asset types
-- [ ] SARIF 2.1 output
-- [ ] Text summary output to terminal
-- [ ] PDF detailed report — per-finding breakdown, quantum status summary, severity distribution (Go: `maroto` library; Python backend uses ReportLab in Phase 2+)
+- [x] CycloneDX 1.7 JSON — full `cryptoProperties` for all asset types
+- [x] SARIF 2.1 output
+- [x] Text summary output to terminal
+- [x] PDF detailed report — per-finding breakdown, quantum status summary, severity distribution (Go: `maroto` library; Python backend uses ReportLab in Phase 2+)
 
 **NIST Quantum Tagging**
-- [ ] `nistQuantumSecurityLevel` populated for all detected algorithms
-- [ ] `quantumStatus` tag: `quantum-vulnerable`, `quantum-safe`, `quantum-unknown`, `broken`
+- [x] `nistQuantumSecurityLevel` populated for all detected algorithms
+- [x] `quantumStatus` tag: `quantum-vulnerable`, `quantum-safe`, `quantum-unknown`, `broken`
 
 **Policy Engine (Basic)**
-- [ ] YAML policy file parsing
-- [ ] Rule evaluation: algorithm family, key size, TLS version
-- [ ] `PASS` / `FAIL` / `WARN` exit codes for CI/CD integration
-- [ ] `--fail-on CRITICAL` flag
+- [x] YAML policy file parsing
+- [x] Rule evaluation: algorithm family, key size, TLS version
+- [x] `PASS` / `FAIL` / `WARN` exit codes for CI/CD integration
+- [x] `--fail-on CRITICAL` flag
 
 **CI/CD**
-- [ ] GitHub Actions `cbom-action` — scan on push/PR; upload CBOM as artifact
-- [ ] GitLab CI template
+- [x] GitHub Actions `cbom-action` — scan on push/PR; upload CBOM as artifact
+- [x] GitLab CI template
 
 **CLI Commands**
 ```bash
