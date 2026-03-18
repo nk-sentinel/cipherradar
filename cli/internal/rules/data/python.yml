@@ -1,0 +1,98 @@
+rules:
+  - id: cbom-python-hardcoded-key-cipher
+    message: >
+      Hardcoded cryptographic key flows into cipher initialization.
+      Keys should be loaded from environment variables, key management
+      systems, or secure vaults.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $KEY = b"..."
+          ...
+          Cipher(algorithms.$ALGO($KEY), ...)
+      - pattern: |
+          $KEY = "..."
+          ...
+          Cipher(algorithms.$ALGO($KEY.encode(...)), ...)
+
+  - id: cbom-python-hardcoded-iv
+    message: >
+      Static initialization vector (IV) used in cipher mode. IVs must
+      be randomly generated for each encryption operation.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $IV = b"..."
+          ...
+          modes.CBC($IV)
+      - pattern: |
+          $IV = b"..."
+          ...
+          modes.GCM($IV)
+
+  - id: cbom-python-hardcoded-hmac-key
+    message: >
+      Hardcoded key used in HMAC computation. HMAC keys should be
+      stored securely and rotated regularly.
+    severity: ERROR
+    languages: [python]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    pattern: hmac.new(b"...", ...)
+
+  - id: cbom-python-weak-pbkdf2-iterations
+    message: >
+      PBKDF2 iteration count is below the recommended minimum of
+      100,000. Low iterations make brute-force attacks feasible.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: hashlib.pbkdf2_hmac(..., ..., ..., iterations=$N)
+        metavariable-comparison:
+          metavariable: $N
+          comparison: $N < 100000
+      - pattern: |
+          PBKDF2HMAC(
+            ...,
+            iterations=$N,
+            ...
+          )
+        metavariable-comparison:
+          metavariable: $N
+          comparison: $N < 100000
+
+  - id: cbom-python-random-for-crypto
+    message: >
+      Python's random module is not cryptographically secure.
+      Use secrets or os.urandom() for security-sensitive values.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: random.random()
+      - pattern: random.randint(...)
+      - pattern: random.choice(...)

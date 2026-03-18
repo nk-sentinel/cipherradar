@@ -6,9 +6,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
+	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
+	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 	"github.com/spf13/cobra"
 )
 
@@ -26,6 +29,7 @@ func init() {
 	scanCmd.Flags().String("passes", "1,2,3", "comma-separated list of scan passes to run")
 	scanCmd.Flags().String("branch", "", "git branch to scan (for git URLs)")
 	scanCmd.Flags().Bool("validate", false, "validate output against CycloneDX 1.7 schema")
+	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
 
 	rootCmd.AddCommand(scanCmd)
 }
@@ -43,10 +47,28 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// Create scanner registry with all built-in scanners.
 	registry := scannerinit.DefaultRegistry()
 
-	// Run the scan.
+	// Run Pass 1 scan.
 	result, err := scanner.ScanDir(targetPath, registry, passes)
 	if err != nil {
 		return fmt.Errorf("scan failed: %w", err)
+	}
+
+	// Run Pass 2 (OpenGrep taint analysis) if requested.
+	if containsPass(passes, 2) {
+		rulesDir, _ := cmd.Flags().GetString("rules-dir")
+		if rulesDir == "" {
+			rulesDir = os.Getenv("CBOM_RULES_DIR")
+		}
+
+		pass2Findings, pass2Err := runPass2(targetPath, rulesDir)
+		if pass2Err != nil {
+			result.Errors = append(result.Errors, types.ScanError{
+				File:    "",
+				Message: fmt.Sprintf("Pass 2 error: %v", pass2Err),
+			})
+		} else if pass2Findings != nil {
+			result.Findings = opengrep.DeduplicateFindings(result.Findings, pass2Findings)
+		}
 	}
 
 	// Get the output format.
@@ -98,4 +120,37 @@ func parsePasses(s string) ([]int, error) {
 		return nil, fmt.Errorf("no passes specified")
 	}
 	return passes, nil
+}
+
+// containsPass returns true if the passes slice contains the given pass number.
+func containsPass(passes []int, pass int) bool {
+	for _, p := range passes {
+		if p == pass {
+			return true
+		}
+	}
+	return false
+}
+
+// runPass2 runs OpenGrep Pass 2 analysis if the binary is available.
+// Returns nil findings (not an error) if OpenGrep is not installed.
+// If no rules directory is specified, uses embedded rules extracted to a temp dir.
+func runPass2(target string, rulesDir string) ([]types.Finding, error) {
+	runner := opengrep.NewRunner()
+	if runner == nil || !runner.Available() {
+		fmt.Fprintln(os.Stderr, "Pass 2 skipped — opengrep not found. Run 'cbom install-tools' or use cbom-full.")
+		return nil, nil
+	}
+
+	// Use embedded rules if no explicit rules directory provided.
+	if rulesDir == "" {
+		tmpDir, err := rules.ExtractToTempDir()
+		if err != nil {
+			return nil, fmt.Errorf("extracting embedded rules: %w", err)
+		}
+		defer os.RemoveAll(tmpDir)
+		rulesDir = tmpDir
+	}
+
+	return runner.Scan(target, rulesDir)
 }

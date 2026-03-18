@@ -1,0 +1,88 @@
+rules:
+  - id: cbom-js-hardcoded-key-createcipher
+    message: >
+      Hardcoded cryptographic key or password flows into cipher creation.
+      Keys should be loaded from environment variables or key management systems.
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $KEY = "..."
+          ...
+          crypto.createCipher($ALGO, $KEY)
+      - pattern: crypto.createCipher($ALGO, "...")
+
+  - id: cbom-js-hardcoded-iv-createcipheriv
+    message: >
+      Static initialization vector (IV) used in createCipheriv. IVs must
+      be randomly generated using crypto.randomBytes().
+    severity: WARNING
+    languages: [javascript, typescript]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $IV = Buffer.from("...")
+          ...
+          crypto.createCipheriv($ALGO, $KEY, $IV)
+      - pattern: |
+          const $IV = "..."
+          ...
+          crypto.createCipheriv($ALGO, $KEY, $IV)
+
+  - id: cbom-js-hardcoded-jwt-secret
+    message: >
+      Hardcoded secret used for JWT signing. JWT secrets should be
+      stored in environment variables or secret management systems.
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: jwt.sign($PAYLOAD, "...", ...)
+      - pattern: |
+          $SECRET = "..."
+          ...
+          jwt.sign($PAYLOAD, $SECRET, ...)
+
+  - id: cbom-js-hardcoded-hmac-key
+    message: >
+      Hardcoded key used in HMAC creation. HMAC keys should be
+      stored securely.
+    severity: ERROR
+    languages: [javascript, typescript]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: crypto.createHmac($ALGO, "...")
+      - pattern: |
+          $KEY = "..."
+          ...
+          crypto.createHmac($ALGO, $KEY)
+
+  - id: cbom-js-math-random-security
+    message: >
+      Math.random() is not cryptographically secure. Use
+      crypto.randomBytes() or crypto.getRandomValues() instead.
+    severity: WARNING
+    languages: [javascript, typescript]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: low
+      quantum-relevant: false
+    pattern: Math.random()

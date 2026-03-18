@@ -1,0 +1,106 @@
+rules:
+  - id: cbom-java-hardcoded-key-to-secretkeyspec
+    message: >
+      Hardcoded cryptographic key detected flowing into SecretKeySpec.
+      Hardcoded keys are extractable from compiled bytecode and should
+      be loaded from secure key stores or environment variables.
+    severity: ERROR
+    languages: [java]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          byte[] $KEY = new byte[] { ... };
+          ...
+          new SecretKeySpec($KEY, ...);
+      - pattern: |
+          String $KEY = "...";
+          ...
+          new SecretKeySpec($KEY.getBytes(...), ...);
+
+  - id: cbom-java-hardcoded-iv
+    message: >
+      Static initialization vector (IV) detected. IVs must be randomly
+      generated for each encryption operation to prevent pattern leakage.
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          byte[] $IV = new byte[] { ... };
+          ...
+          new IvParameterSpec($IV);
+      - pattern: |
+          new IvParameterSpec("...".getBytes(...));
+
+  - id: cbom-java-weak-prng-security
+    message: >
+      java.util.Random used in security-sensitive context. Use
+      java.security.SecureRandom for cryptographic operations.
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    pattern: |
+      Random $R = new Random(...);
+      ...
+      $R.nextBytes($ARG);
+
+  - id: cbom-java-trust-all-certificates
+    message: >
+      Custom X509TrustManager that trusts all certificates detected.
+      This disables certificate validation and enables MITM attacks.
+    severity: ERROR
+    languages: [java]
+    metadata:
+      category: security
+      cbom-asset-type: certificate
+      confidence: high
+      quantum-relevant: false
+    pattern: |
+      new X509TrustManager() {
+        ...
+        public void checkClientTrusted(...) { }
+        ...
+      }
+
+  - id: cbom-java-hostname-verifier-bypass
+    message: >
+      HostnameVerifier that accepts all hostnames detected. This
+      disables hostname verification and enables MITM attacks.
+    severity: ERROR
+    languages: [java]
+    metadata:
+      category: security
+      cbom-asset-type: protocol
+      confidence: high
+      quantum-relevant: false
+    pattern: |
+      new HostnameVerifier() {
+        ...
+        public boolean verify(...) { return true; }
+        ...
+      }
+
+  - id: cbom-java-ecb-mode-usage
+    message: >
+      ECB mode used for block cipher. ECB does not provide semantic
+      security — identical plaintext blocks produce identical ciphertext.
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    pattern: Cipher.getInstance("=~/.*ECB.*/")

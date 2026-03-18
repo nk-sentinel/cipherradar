@@ -6,6 +6,7 @@ package scannerinit
 import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/config"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/java"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/javascript"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/python"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/regex"
@@ -18,6 +19,7 @@ func DefaultRegistry() *scanner.Registry {
 	// Language-specific scanners (dispatched by file extension)
 	r.Register(python.New())
 	r.Register(javascript.New())
+	r.Register(java.New())
 
 	// Config file scanner (dispatched by .env / .properties extensions)
 	r.Register(config.New())
