@@ -1,6 +1,6 @@
 # Phase 1 — Implementation Plan
 
-> **Document version:** v1
+> **Document version:** v2
 > **Last updated:** 2026-03-18
 > **Status:** Active
 
@@ -11,6 +11,7 @@
 | Version | Date | Change |
 |---|---|---|
 | v1 | 2026-03-18 | Initial plan — orchestrator + subagent model, all 6 milestones |
+| v2 | 2026-03-18 | All agents use Opus / High — no model mixing |
 
 ---
 
@@ -22,6 +23,20 @@ Phase 1 is implemented using an **orchestrator + subagent model**:
 - **Subagents** — each owns a single concern. Runs its own skills during implementation. Reports back to the orchestrator when done.
 
 All commits are gated through the `/commit` skill (lint → sec-review → dep-audit → commit). No code is merged without passing the orchestrator's milestone-close gate.
+
+---
+
+## Model Configuration
+
+All agents use the same model and effort level — no mixing.
+
+| Setting | Value |
+|---|---|
+| **Model** | Opus 4.6 (1M context) |
+| **Effort** | High |
+| **Applies to** | Orchestrator + all subagents |
+
+**Rationale:** Max 20x plan provides sufficient tokens. Opus everywhere ensures best code quality on first pass, reduces fix-and-retry loops, and produces better spec adherence (CycloneDX 1.7, SARIF 2.1). The cost of retrying Sonnet mistakes exceeds the cost of using Opus from the start.
 
 ---
 
