@@ -1,8 +1,8 @@
 # Technology Stack
 
-> **Document version:** v4
+> **Document version:** v6
 > **Last updated:** 2026-03-18
-> **Change:** Viper → Koanf (CLI config); Celery → Taskiq (backend task queue); CycloneDX Go library implementation note added following stack audit.
+> **Change:** Phase 1 actuals: yaml.v3 replaces Koanf; internal CycloneDX structs replace cyclonedx-go; jsonschema/v6 added; Docker images renamed.
 
 ---
 
@@ -15,6 +15,7 @@
 | v3 | 2026-03-18 | Pass 2 engine changed from Semgrep OSS to OpenGrep per ADR-009 |
 | v4 | 2026-03-18 | Viper → Koanf; Celery → Taskiq; CycloneDX Go library implementation note (stack audit) |
 | v5 | 2026-03-18 | Two CLI distribution flavors; cbom install-tools; shared asset embedding via go:embed; module path confirmed |
+| v6 | 2026-03-18 | Phase 1 actuals: yaml.v3 replaces Koanf; internal CycloneDX structs replace cyclonedx-go; jsonschema/v6 added; Docker images renamed | Phase 1 close |
 
 ---
 
@@ -38,8 +39,9 @@
 | Build/dist | GoReleaser | Two flavors: `cbom` (lightweight, ~15 MB) and `cbom-full` (bundled OpenGrep + Joern, ~80–100 MB); cross-platform (macOS, Linux, Windows); checksums; GitHub Releases |
 | Tool installation | `cbom install-tools` subcommand | Downloads OpenGrep + Joern from their GitHub Releases to `~/.cbom/tools/`; for lightweight binary users with internet access |
 | Shared asset embedding | `//go:embed` | Quantum algorithm table and library API models from `scanner/library-models/` embedded at compile time; no runtime file dependency; works air-gapped |
-| Config parsing | **Koanf v2** | YAML/JSON/ENV config with `.cbom.yml` and `policy.cbom.yml` support; replaces Viper (Viper force-lowercases keys, causes panics on concurrent reads, bloats binary — Koanf is lighter and modular) |
-| Output | `cyclonedx-go` + internal `cyclonedx17/` package | `cyclonedx-go` for document envelope; internal package for `cryptoProperties` structs (1.7 not yet in upstream — see ADR-001 implementation note); migrate to upstream when PR #257 merges |
+| Config/policy parsing | **gopkg.in/yaml.v3** | Direct YAML parsing for .cbom.yml and policy.cbom.yml; lightweight, stdlib-compatible. Koanf v2 evaluated but deferred — yaml.v3 sufficient for Phase 1 |
+| Output | Internal `cyclonedx17/` + `output/converter.go` | Custom CycloneDX 1.7 structs for full cryptoProperties support. `cyclonedx-go` evaluated but not adopted (supports 1.6 only; PR #257 stalled). Backend uses `cyclonedx-python-lib` v11.7.0 natively |
+| Schema validation | **santhosh-tekuri/jsonschema/v6** | CycloneDX 1.7 JSON Schema validation; official schema embedded via //go:embed |
 
 ### 2.2 Language Parsers
 
@@ -75,7 +77,7 @@ tree-sitter provides: error-tolerant parsing (handles incomplete/broken code), i
 | Time-series (trends) | **TimescaleDB** (PostgreSQL extension) | Scan history, compliance score trends, finding counts over time — hypertables with efficient time queries |
 | Asset dependency graph | **PostgreSQL with recursive CTEs** (or Neo4j for large deployments) | Recursive CTE covers most graph queries; Neo4j for organisations with 100+ services and complex dependency graphs |
 | Search / filter | PostgreSQL full-text search + GIN indexes | Algorithm/asset search across large CBOMs |
-| Scan queue | **Redis** | Fast; Celery broker; ephemeral scan state |
+| Scan queue | **Redis** | Fast; Taskiq broker; ephemeral scan state |
 | File cache | S3 / compatible object store | Store CBOM JSON artifacts + signed attestations |
 
 ### 2.5 Frontend Dashboard
@@ -142,21 +144,21 @@ The central technical decision in the detection engine.
 # docker-compose.yml (self-hosted)
 services:
   api:
-    image: cbomextractor/api:latest
+    image: cipherradar/api:latest
     environment:
       - DATABASE_URL=postgresql://...
       - REDIS_URL=redis://redis:6379
     ports: ["8000:8000"]
 
   scanner-worker:
-    image: cbomextractor/scanner:latest
+    image: cipherradar/scanner:latest
     runtime: runsc  # gVisor sandbox
     environment:
       - TASKIQ_BROKER=redis://redis:6379
     scale: 4  # parallel scanning workers
 
   frontend:
-    image: cbomextractor/frontend:latest
+    image: cipherradar/frontend:latest
     ports: ["3000:3000"]
 
   db:

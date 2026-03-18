@@ -16,8 +16,8 @@ backend/      Python/FastAPI + Taskiq workers
 frontend/     React 19 + TypeScript dashboard
 scanner/      Shared detection assets used by CLI and backend
   rules/        OpenGrep YAML rules (per language)
-  library-models/  Crypto API → CBOM asset type mappings
-  grammars/     tree-sitter grammar configs
+  library-models/  Crypto API → CBOM asset type mappings (placeholder — Phase 2)
+  grammars/     tree-sitter grammar configs (placeholder — Phase 2)
 deploy/       Docker Compose, Kubernetes (Helm)
 docs/         Design documentation and ADRs
 logo/         Brand assets
