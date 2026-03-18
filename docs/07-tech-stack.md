@@ -14,6 +14,7 @@
 | v2 | 2026-03-16 | Replaced custom taint engine with Joern + Semgrep per ADR-004 |
 | v3 | 2026-03-18 | Pass 2 engine changed from Semgrep OSS to OpenGrep per ADR-009 |
 | v4 | 2026-03-18 | Viper → Koanf; Celery → Taskiq; CycloneDX Go library implementation note (stack audit) |
+| v5 | 2026-03-18 | Two CLI distribution flavors; cbom install-tools; shared asset embedding via go:embed; module path confirmed |
 
 ---
 
@@ -33,7 +34,10 @@
 | Component | Technology | Rationale |
 |---|---|---|
 | Language | **Go** | Single binary distribution; fast; memory-safe; excellent concurrency for parallel file scanning |
-| Build/dist | GoReleaser | Cross-platform binaries (macOS, Linux, Windows) + checksums; GitHub Releases integration |
+| Module path | `github.com/nk-sentinel/cipherradar/cli` | Binary not library; no vanity domain needed |
+| Build/dist | GoReleaser | Two flavors: `cbom` (lightweight, ~15 MB) and `cbom-full` (bundled OpenGrep + Joern, ~80–100 MB); cross-platform (macOS, Linux, Windows); checksums; GitHub Releases |
+| Tool installation | `cbom install-tools` subcommand | Downloads OpenGrep + Joern from their GitHub Releases to `~/.cbom/tools/`; for lightweight binary users with internet access |
+| Shared asset embedding | `//go:embed` | Quantum algorithm table and library API models from `scanner/library-models/` embedded at compile time; no runtime file dependency; works air-gapped |
 | Config parsing | **Koanf v2** | YAML/JSON/ENV config with `.cbom.yml` and `policy.cbom.yml` support; replaces Viper (Viper force-lowercases keys, causes panics on concurrent reads, bloats binary — Koanf is lighter and modular) |
 | Output | `cyclonedx-go` + internal `cyclonedx17/` package | `cyclonedx-go` for document envelope; internal package for `cryptoProperties` structs (1.7 not yet in upstream — see ADR-001 implementation note); migrate to upstream when PR #257 merges |
 

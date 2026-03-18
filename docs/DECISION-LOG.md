@@ -29,6 +29,7 @@ When a decision changes, the original ADR is kept and marked **Superseded**, and
 | [ADR-007](decisions/ADR-007-communications-design.md) | Communications Design — Channels, Triggers, Notification Routing | Accepted | 2026-03-16 | `docs/10-communications.md` |
 | [ADR-008](decisions/ADR-008-repository-structure.md) | Repository Structure — Monorepo | Accepted | 2026-03-18 | Repo layout, CI/CD |
 | [ADR-009](decisions/ADR-009-opengrep-replaces-semgrep.md) | Pass 2 Engine — OpenGrep replaces Semgrep | Accepted | 2026-03-18 | `docs/03-detection-engine.md`, `docs/07-tech-stack.md`, ADR-004 |
+| [ADR-010](decisions/ADR-010-cli-distribution-and-asset-embedding.md) | CLI Distribution — Two flavors, install-tools, embedded shared assets | Accepted | 2026-03-18 | `docs/07-tech-stack.md`, `CLAUDE.md` |
 
 ---
 
@@ -81,6 +82,13 @@ Key findings from the analysis:
 | `docs/03-detection-engine.md` | v1 | v2 | Full revision — custom taint engine replaced with three-layer approach; accuracy expectations revised; Joern and Semgrep sections added |
 | `docs/07-tech-stack.md` | v1 | v2 | Custom taint engine entry replaced with Pass 1/2/3 entries; Joern and Semgrep added with rationale |
 | `docs/08-roadmap.md` | v1 | v2 | Phase 1: "custom taint engine" → "constant propagation + Semgrep rules"; Phase 2: Joern integration added |
+
+---
+
+### 2026-03-18 — CLI Distribution Model and Shared Asset Embedding
+
+**ADR-010: Two CLI flavors + embedded shared assets**
+The CLI ships in two flavors: `cbom` (lightweight, ~15 MB, no tools bundled) and `cbom-full` (all-inclusive, ~80–100 MB, OpenGrep + Joern pre-bundled) for air-gapped/firewall environments. A `cbom install-tools` command covers internet-accessible users who want the lightweight binary but full scan coverage. Shared data assets (quantum algorithm table, library API models) live in `scanner/library-models/` as the single source of truth and are embedded into the CLI binary (`//go:embed`) and backend Python package at build time — ensuring air-gapped compatibility and version consistency between CLI and backend.
 
 ---
 

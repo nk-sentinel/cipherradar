@@ -23,6 +23,26 @@ docs/         Design documentation and ADRs
 logo/         Brand assets
 ```
 
+## Module Path
+
+`github.com/nk-sentinel/cipherradar/cli`
+
+## CLI Distribution
+
+Two GoReleaser artifacts per release:
+- `cbom` — lightweight binary (~15 MB), no tools bundled
+- `cbom-full` — includes OpenGrep + Joern pre-bundled (~80–100 MB), for air-gapped environments
+
+`cbom install-tools` downloads OpenGrep + Joern to `~/.cbom/tools/` for lightweight binary users.
+
+## Shared Assets (`scanner/library-models/`)
+
+Quantum algorithm table and library API models live in `scanner/library-models/` as the single source of truth. They are **embedded at build time** — never fetched at runtime:
+- CLI (Go): `//go:embed` directive
+- Backend (Python): `importlib.resources` / bundled package data
+
+Do not load these files from the filesystem at runtime.
+
 ## Key Architecture Decisions
 
 All ADRs are in `docs/decisions/`. Decisions that affect day-to-day coding:
