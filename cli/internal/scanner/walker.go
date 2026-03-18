@@ -39,7 +39,9 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 
 		ext := DetectLanguage(path)
 		s := registry.ForExtension(ext)
-		if s == nil {
+		universals := registry.Universals()
+
+		if s == nil && len(universals) == 0 {
 			return nil // no scanner for this file type
 		}
 
@@ -55,17 +57,39 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 		// Make path relative to root for findings
 		relPath, _ := filepath.Rel(root, path)
 
-		findings, err := s.ScanFile(relPath, content)
-		if err != nil {
-			result.Errors = append(result.Errors, types.ScanError{
-				File:    relPath,
-				Message: err.Error(),
-			})
-			return nil
+		scanned := false
+
+		// Run extension-matched scanner
+		if s != nil {
+			findings, err := s.ScanFile(relPath, content)
+			if err != nil {
+				result.Errors = append(result.Errors, types.ScanError{
+					File:    relPath,
+					Message: err.Error(),
+				})
+			} else {
+				result.Findings = append(result.Findings, findings...)
+			}
+			scanned = true
 		}
 
-		result.Findings = append(result.Findings, findings...)
-		result.FilesScanned++
+		// Run universal scanners on every file
+		for _, us := range universals {
+			findings, err := us.ScanFile(relPath, content)
+			if err != nil {
+				result.Errors = append(result.Errors, types.ScanError{
+					File:    relPath,
+					Message: err.Error(),
+				})
+				continue
+			}
+			result.Findings = append(result.Findings, findings...)
+			scanned = true
+		}
+
+		if scanned {
+			result.FilesScanned++
+		}
 		return nil
 	})
 

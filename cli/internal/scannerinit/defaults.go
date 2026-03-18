@@ -5,12 +5,25 @@ package scannerinit
 
 import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/config"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/javascript"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/python"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/regex"
 )
 
 // DefaultRegistry returns a registry with all built-in language scanners.
 func DefaultRegistry() *scanner.Registry {
 	r := scanner.NewRegistry()
+
+	// Language-specific scanners (dispatched by file extension)
 	r.Register(python.New())
+	r.Register(javascript.New())
+
+	// Config file scanner (dispatched by .env / .properties extensions)
+	r.Register(config.New())
+
+	// Universal scanners (run on every file regardless of extension)
+	r.RegisterUniversal(regex.New())
+
 	return r
 }

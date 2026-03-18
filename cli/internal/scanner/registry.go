@@ -2,8 +2,9 @@ package scanner
 
 // Registry holds all registered language scanners.
 type Registry struct {
-	scanners []Scanner
-	extMap   map[string]Scanner // maps extension -> scanner
+	scanners   []Scanner
+	extMap     map[string]Scanner // maps extension -> scanner
+	universals []Scanner          // run on every file
 }
 
 // NewRegistry creates a new scanner registry.
@@ -21,9 +22,19 @@ func (r *Registry) Register(s Scanner) {
 	}
 }
 
+// RegisterUniversal adds a scanner that runs on every file regardless of extension.
+func (r *Registry) RegisterUniversal(s Scanner) {
+	r.universals = append(r.universals, s)
+}
+
 // ForExtension returns the scanner for a given file extension, or nil.
 func (r *Registry) ForExtension(ext string) Scanner {
 	return r.extMap[ext]
+}
+
+// Universals returns all universal scanners.
+func (r *Registry) Universals() []Scanner {
+	return r.universals
 }
 
 // All returns all registered scanners.

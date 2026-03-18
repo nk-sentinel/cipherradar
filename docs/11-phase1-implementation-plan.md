@@ -77,7 +77,8 @@ All agents use the same model and effort level — no mixing.
 | **M3** | Agent-JSScanner | M2 complete | Yes | JS/TS scanner (Node.js `crypto`, `jsonwebtoken`, `forge`) | `/new-scanner`, `/lint`, `/sec-review`, `/test-coverage`, `/fuzz` |
 | **M3** | Agent-RegexLayer | M2 complete | Yes | Regex layer (PEM headers, key blobs, algorithm strings), `.env`/`.properties`/YAML config scanner | `/lint`, `/test-coverage` |
 | **M3** | Agent-SARIF | M2 complete | Yes | SARIF 2.1 output writer (full implementation) | `/lint`, `/test-coverage` |
-| **M3** | **Orchestrator gate** | All M3 agents | — | Merge scanner registry, validate 2 languages + SARIF output | `/lint`, `/sec-review`, `/test-coverage`, `/build-cross` |
+| **M3** | Agent-PDFReport | M2 complete | Yes | `maroto` PDF report — findings table, severity chart, quantum status summary | `/lint`, `/test-coverage` |
+| **M3** | **Orchestrator gate** | All M3 agents | — | Merge scanner registry, validate 2 languages + SARIF + PDF output | `/lint`, `/sec-review`, `/test-coverage`, `/build-cross` |
 | **M4** | Agent-JavaScanner | M3 complete | No | Java scanner (JCA/JCE, Bouncy Castle) | `/new-scanner`, `/lint`, `/sec-review`, `/test-coverage`, `/fuzz` |
 | **M4** | Agent-OpenGrepIntegration | Agent-JavaScanner | No | OpenGrep subprocess integration, result merging with Pass 1 findings | `/lint`, `/sec-review`, `/test-coverage` |
 | **M4** | Agent-OpenGrepRules-Java | Agent-OpenGrepIntegration | Yes | `scanner/rules/java.yml` — hardcoded key, static IV, weak PRNG taint rules | `/new-opengrep-rule`, `/lint` |
@@ -88,7 +89,7 @@ All agents use the same model and effort level — no mixing.
 | **M5** | **Orchestrator gate** | All M5 agents | — | Validate policy check + diff against fixture CBOMs | `/lint`, `/sec-review`, `/test-coverage`, `/build-cross` |
 | **M6** | Agent-CICD | M5 complete | Yes | GitHub Actions `cbom-action`, GitLab CI template | `/lint`, `/build-cross` |
 | **M6** | Agent-Performance | M5 complete | Yes | Goroutine-parallel file scanning, benchmark suite, validate 100k LOC Java < 5 min | `/benchmark`, `/profile` |
-| **M6** | Agent-PDFReport | M5 complete | Yes | `maroto` PDF report — findings table, severity chart, quantum status summary | `/lint`, `/test-coverage` |
+| **M6** | ~~Agent-PDFReport~~ | — | — | *(moved to M3)* | — |
 | **M6** | Agent-SchemaValidation | M5 complete | Yes | Embed CycloneDX 1.7 JSON schema, `cbom scan --validate`, 100% schema pass rate | `/lint`, `/test-coverage` |
 | **M6** | **Orchestrator gate** | All M6 agents | — | Full Phase 1 milestone close | `/lint`, `/sec-review`, `/dep-audit`, `/test-coverage`, `/fuzz`, `/benchmark`, `/build-cross` |
 

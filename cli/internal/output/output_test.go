@@ -67,7 +67,7 @@ func TestWriterFormat(t *testing.T) {
 	}
 }
 
-func TestWriteScanResult_StubsReturnNotImplemented(t *testing.T) {
+func TestPDFWriter_IsNoLongerStub(t *testing.T) {
 	result := &types.ScanResult{
 		Target:       "/tmp/test-project",
 		Findings:     []types.Finding{},
@@ -78,25 +78,12 @@ func TestWriteScanResult_StubsReturnNotImplemented(t *testing.T) {
 		Errors:       []types.ScanError{},
 	}
 
-	// Only SARIF and PDF are still stubs.
-	tests := []struct {
-		name   string
-		writer Writer
-	}{
-		{"sarif", &SARIFWriter{}},
-		{"pdf", &PDFWriter{}},
+	var buf bytes.Buffer
+	err := (&PDFWriter{}).WriteScanResult(&buf, result)
+	if err != nil {
+		t.Fatalf("PDFWriter should no longer return an error, got: %v", err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var buf bytes.Buffer
-			err := tt.writer.WriteScanResult(&buf, result)
-			if err == nil {
-				t.Fatalf("%s WriteScanResult should return error for stub", tt.name)
-			}
-			if !strings.Contains(err.Error(), "not yet implemented") {
-				t.Errorf("error should contain 'not yet implemented', got: %v", err)
-			}
-		})
+	if buf.Len() == 0 {
+		t.Fatal("PDFWriter should produce non-empty output")
 	}
 }
