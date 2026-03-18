@@ -4,10 +4,203 @@ import (
 	"crypto/rand"
 	"fmt"
 	"sort"
+	"strings"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/cyclonedx17"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
+
+// algorithmFamilyMap normalizes internal lowercase algorithm family values
+// to the official CycloneDX 1.7 schema enum values.
+var algorithmFamilyMap = map[string]cyclonedx17.AlgorithmFamily{
+	"aes":              cyclonedx17.AlgorithmFamilyAES,
+	"rsaes-oaep":       cyclonedx17.AlgorithmFamilyRSAES_OAEP,
+	"rsaes-pkcs1":      cyclonedx17.AlgorithmFamilyRSAES_PKCS1,
+	"rsassa-pkcs1":     cyclonedx17.AlgorithmFamilyRSASSA_PKCS1,
+	"rsassa-pss":       cyclonedx17.AlgorithmFamilyRSASSA_PSS,
+	"rsa":              cyclonedx17.AlgorithmFamilyRSASSA_PKCS1, // map generic "rsa" to RSASSA-PKCS1
+	"hmac":             cyclonedx17.AlgorithmFamilyHMAC,
+	"dsa":              cyclonedx17.AlgorithmFamilyDSA,
+	"ffdh":             cyclonedx17.AlgorithmFamilyFFDH,
+	"dh":               cyclonedx17.AlgorithmFamilyFFDH, // map generic "dh" to FFDH
+	"ecdsa":            cyclonedx17.AlgorithmFamilyECDSA,
+	"ecdh":             cyclonedx17.AlgorithmFamilyECDH,
+	"ecies":            cyclonedx17.AlgorithmFamilyECIES,
+	"ec":               cyclonedx17.AlgorithmFamilyECDSA, // map generic "ec" to ECDSA
+	"eddsa":            cyclonedx17.AlgorithmFamilyEdDSA,
+	"ed25519":          cyclonedx17.AlgorithmFamilyEdDSA,
+	"ed448":            cyclonedx17.AlgorithmFamilyEdDSA,
+	"x25519":           cyclonedx17.AlgorithmFamilyECDH,
+	"x448":             cyclonedx17.AlgorithmFamilyECDH,
+	"des":              cyclonedx17.AlgorithmFamilyDES,
+	"3des":             cyclonedx17.AlgorithmFamily3DES,
+	"blowfish":         cyclonedx17.AlgorithmFamilyBlowfish,
+	"chacha":           cyclonedx17.AlgorithmFamilyChaCha,
+	"chacha20":         cyclonedx17.AlgorithmFamilyChaCha20,
+	"poly1305":         cyclonedx17.AlgorithmFamilyPoly1305,
+	"camellia":         cyclonedx17.AlgorithmFamilyCAMELLIA,
+	"aria":             cyclonedx17.AlgorithmFamilyARIA,
+	"sm2":              cyclonedx17.AlgorithmFamilySM2,
+	"sm3":              cyclonedx17.AlgorithmFamilySM3,
+	"sm4":              cyclonedx17.AlgorithmFamilySM4,
+	"ml-kem":           cyclonedx17.AlgorithmFamilyMLKEM,
+	"ml-dsa":           cyclonedx17.AlgorithmFamilyMLDSA,
+	"slh-dsa":          cyclonedx17.AlgorithmFamilySLHDSA,
+	"bike":             cyclonedx17.AlgorithmFamilyBIKE,
+	"hqc":              cyclonedx17.AlgorithmFamilyHQC,
+	"kyber":            cyclonedx17.AlgorithmFamilyMLKEM,
+	"dilithium":        cyclonedx17.AlgorithmFamilyMLDSA,
+	"sphincs":          cyclonedx17.AlgorithmFamilySLHDSA,
+	"falcon":           cyclonedx17.AlgorithmFamilyMLDSA,
+	"classic-mceliece": cyclonedx17.AlgorithmFamilyMLKEM,
+	"frodokem":         cyclonedx17.AlgorithmFamilyMLKEM,
+	"ntru":             cyclonedx17.AlgorithmFamilyMLKEM,
+	"saber":            cyclonedx17.AlgorithmFamilyMLKEM,
+	"md2":              cyclonedx17.AlgorithmFamilyMD2,
+	"md4":              cyclonedx17.AlgorithmFamilyMD4,
+	"md5":              cyclonedx17.AlgorithmFamilyMD5,
+	"sha":              cyclonedx17.AlgorithmFamilySHA2,
+	"sha1":             cyclonedx17.AlgorithmFamilySHA1,
+	"sha-1":            cyclonedx17.AlgorithmFamilySHA1,
+	"sha2":             cyclonedx17.AlgorithmFamilySHA2,
+	"sha-2":            cyclonedx17.AlgorithmFamilySHA2,
+	"sha3":             cyclonedx17.AlgorithmFamilySHA3,
+	"sha-3":            cyclonedx17.AlgorithmFamilySHA3,
+	"blake2":           cyclonedx17.AlgorithmFamilyBLAKE2,
+	"blake3":           cyclonedx17.AlgorithmFamilyBLAKE3,
+	"rc2":              cyclonedx17.AlgorithmFamilyRC2,
+	"rc4":              cyclonedx17.AlgorithmFamilyRC4,
+	"rc5":              cyclonedx17.AlgorithmFamilyRC5,
+	"rc6":              cyclonedx17.AlgorithmFamilyRC6,
+	"idea":             cyclonedx17.AlgorithmFamilyIDEA,
+	"cast":             cyclonedx17.AlgorithmFamilyCAST5,
+	"cast5":            cyclonedx17.AlgorithmFamilyCAST5,
+	"cast6":            cyclonedx17.AlgorithmFamilyCAST6,
+	"twofish":          cyclonedx17.AlgorithmFamilyTwofish,
+	"serpent":          cyclonedx17.AlgorithmFamilySerpent,
+	"seed":             cyclonedx17.AlgorithmFamilySEED,
+	"ripemd":           cyclonedx17.AlgorithmFamilyRIPEMD,
+	"whirlpool":        cyclonedx17.AlgorithmFamilyWhirlpool,
+	"cmac":             cyclonedx17.AlgorithmFamilyCMACFamily,
+	"kmac":             cyclonedx17.AlgorithmFamilyKMAC,
+	"hkdf":             cyclonedx17.AlgorithmFamilyHKDF,
+	"pbkdf1":           cyclonedx17.AlgorithmFamilyPBKDF1,
+	"pbkdf2":           cyclonedx17.AlgorithmFamilyPBKDF2,
+	"scrypt":           cyclonedx17.AlgorithmFamilyScrypt,
+	"bcrypt":           cyclonedx17.AlgorithmFamilyBcrypt,
+	"argon2":           cyclonedx17.AlgorithmFamilyArgon2,
+	"gost":             cyclonedx17.AlgorithmFamilyGOST,
+	"salsa20":          cyclonedx17.AlgorithmFamilySalsa20,
+	// Map specific algorithm variants to their parent family.
+	"sha-256":  cyclonedx17.AlgorithmFamilySHA2,
+	"sha-384":  cyclonedx17.AlgorithmFamilySHA2,
+	"sha-512":  cyclonedx17.AlgorithmFamilySHA2,
+	"sha256":   cyclonedx17.AlgorithmFamilySHA2,
+	"sha384":   cyclonedx17.AlgorithmFamilySHA2,
+	"sha512":   cyclonedx17.AlgorithmFamilySHA2,
+	"sha3-256": cyclonedx17.AlgorithmFamilySHA3,
+	"sha3-384": cyclonedx17.AlgorithmFamilySHA3,
+	"sha3-512": cyclonedx17.AlgorithmFamilySHA3,
+	"blake2b":  cyclonedx17.AlgorithmFamilyBLAKE2,
+	"blake2s":  cyclonedx17.AlgorithmFamilyBLAKE2,
+	"jwt":      cyclonedx17.AlgorithmFamilyHMAC, // JWT typically uses HMAC-based signing
+}
+
+// normalizeAlgorithmFamily converts an internal algorithm family string to the
+// official CycloneDX 1.7 schema value.
+func normalizeAlgorithmFamily(internal string) cyclonedx17.AlgorithmFamily {
+	if af, ok := algorithmFamilyMap[strings.ToLower(internal)]; ok {
+		return af
+	}
+	// Return as-is if no mapping exists (will fail schema validation, but
+	// preserves the raw value for debugging).
+	return cyclonedx17.AlgorithmFamily(internal)
+}
+
+// cryptoFunctionMap normalizes internal crypto function values to CycloneDX 1.7 schema values.
+var cryptoFunctionMap = map[string]cyclonedx17.CryptoFunction{
+	"generate":    cyclonedx17.CryptoFunctionGenerate,
+	"keygen":      cyclonedx17.CryptoFunctionKeygen,
+	"encrypt":     cyclonedx17.CryptoFunctionEncrypt,
+	"decrypt":     cyclonedx17.CryptoFunctionDecrypt,
+	"digest":      cyclonedx17.CryptoFunctionDigest,
+	"tag":         cyclonedx17.CryptoFunctionTag,
+	"keyderive":   cyclonedx17.CryptoFunctionKeyderive,
+	"derive":      cyclonedx17.CryptoFunctionKeyderive, // map "derive" to "keyderive"
+	"sign":        cyclonedx17.CryptoFunctionSign,
+	"verify":      cyclonedx17.CryptoFunctionVerify,
+	"encapsulate": cyclonedx17.CryptoFunctionEncapsulate,
+	"decapsulate": cyclonedx17.CryptoFunctionDecapsulate,
+	"mac":         cyclonedx17.CryptoFunctionTag, // MAC computation maps to "tag"
+	"other":       cyclonedx17.CryptoFunctionOther,
+	"unknown":     cyclonedx17.CryptoFunctionUnknown,
+}
+
+// normalizeCryptoFunction converts an internal crypto function string to the
+// official CycloneDX 1.7 schema value.
+func normalizeCryptoFunction(internal string) cyclonedx17.CryptoFunction {
+	if cf, ok := cryptoFunctionMap[strings.ToLower(internal)]; ok {
+		return cf
+	}
+	return cyclonedx17.CryptoFunction(internal)
+}
+
+// relatedCryptoMaterialTypeMap normalizes internal material type values.
+var relatedCryptoMaterialTypeMap = map[string]cyclonedx17.RelatedCryptoMaterialType{
+	"private-key":           cyclonedx17.RelatedCryptoMaterialTypePrivateKey,
+	"public-key":            cyclonedx17.RelatedCryptoMaterialTypePublicKey,
+	"secret-key":            cyclonedx17.RelatedCryptoMaterialTypeSecretKey,
+	"key":                   cyclonedx17.RelatedCryptoMaterialTypeKey,
+	"ciphertext":            cyclonedx17.RelatedCryptoMaterialTypeCiphertext,
+	"signature":             cyclonedx17.RelatedCryptoMaterialTypeSignature,
+	"digest":                cyclonedx17.RelatedCryptoMaterialTypeDigest,
+	"iv":                    cyclonedx17.RelatedCryptoMaterialTypeInitializationVector,
+	"initialization-vector": cyclonedx17.RelatedCryptoMaterialTypeInitializationVector,
+	"nonce":                 cyclonedx17.RelatedCryptoMaterialTypeNonce,
+	"seed":                  cyclonedx17.RelatedCryptoMaterialTypeSeed,
+	"salt":                  cyclonedx17.RelatedCryptoMaterialTypeSalt,
+	"shared-secret":         cyclonedx17.RelatedCryptoMaterialTypeSharedSecret,
+	"tag":                   cyclonedx17.RelatedCryptoMaterialTypeTag,
+	"additional-data":       cyclonedx17.RelatedCryptoMaterialTypeAdditionalData,
+	"password":              cyclonedx17.RelatedCryptoMaterialTypePassword,
+	"credential":            cyclonedx17.RelatedCryptoMaterialTypeCredential,
+	"token":                 cyclonedx17.RelatedCryptoMaterialTypeToken,
+	"other":                 cyclonedx17.RelatedCryptoMaterialTypeOther,
+	"unknown":               cyclonedx17.RelatedCryptoMaterialTypeUnknown,
+}
+
+// paddingMap normalizes internal padding values to CycloneDX 1.7 schema values.
+var paddingMap = map[string]cyclonedx17.Padding{
+	"pkcs5":        cyclonedx17.PaddingPKCS5,
+	"pkcs7":        cyclonedx17.PaddingPKCS7,
+	"pkcs1v15":     cyclonedx17.PaddingPKCS1v15,
+	"oaep":         cyclonedx17.PaddingOAEP,
+	"raw":          cyclonedx17.PaddingRaw,
+	"nopadding":    cyclonedx17.PaddingRaw,    // no padding = raw
+	"none":         cyclonedx17.PaddingRaw,    // no padding = raw
+	"pkcs5padding": cyclonedx17.PaddingPKCS5,  // Java-style name
+	"pkcs7padding": cyclonedx17.PaddingPKCS7,  // Java-style name
+	"other":        cyclonedx17.PaddingOther,
+	"unknown":      cyclonedx17.PaddingUnknown,
+}
+
+// normalizePadding converts an internal padding string to the
+// official CycloneDX 1.7 schema value.
+func normalizePadding(internal string) cyclonedx17.Padding {
+	if p, ok := paddingMap[strings.ToLower(internal)]; ok {
+		return p
+	}
+	return cyclonedx17.Padding(internal)
+}
+
+// normalizeRelatedCryptoMaterialType converts an internal material type to the
+// official CycloneDX 1.7 schema value.
+func normalizeRelatedCryptoMaterialType(internal string) cyclonedx17.RelatedCryptoMaterialType {
+	if mt, ok := relatedCryptoMaterialTypeMap[strings.ToLower(internal)]; ok {
+		return mt
+	}
+	return cyclonedx17.RelatedCryptoMaterialType(internal)
+}
 
 // BOM represents a complete CycloneDX 1.7 CBOM document.
 type BOM struct {
@@ -147,9 +340,9 @@ func convertCryptoProperties(f *types.Finding) *cyclonedx17.CryptoProperties {
 func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.AlgorithmProperties {
 	ap := &cyclonedx17.AlgorithmProperties{
 		Primitive:                cyclonedx17.Primitive(p.Primitive),
-		AlgorithmFamily:          cyclonedx17.AlgorithmFamily(p.AlgorithmFamily),
+		AlgorithmFamily:          normalizeAlgorithmFamily(p.AlgorithmFamily),
 		Mode:                     cyclonedx17.Mode(p.Mode),
-		Padding:                  cyclonedx17.Padding(p.Padding),
+		Padding:                  normalizePadding(p.Padding),
 		ClassicalSecurityLevel:   p.ClassicalSecurity,
 		NistQuantumSecurityLevel: p.NistQuantumLevel,
 	}
@@ -162,7 +355,7 @@ func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.Algorith
 	if len(p.CryptoFunctions) > 0 {
 		funcs := make([]cyclonedx17.CryptoFunction, 0, len(p.CryptoFunctions))
 		for _, fn := range p.CryptoFunctions {
-			funcs = append(funcs, cyclonedx17.CryptoFunction(fn))
+			funcs = append(funcs, normalizeCryptoFunction(fn))
 		}
 		ap.CryptoFunctions = funcs
 	}
@@ -202,7 +395,7 @@ func convertCertificateProperties(p *types.CryptoProperties) *cyclonedx17.Certif
 // convertRelatedCryptoMaterialProperties maps types.CryptoProperties to CycloneDX RelatedCryptoMaterialProperties.
 func convertRelatedCryptoMaterialProperties(p *types.CryptoProperties) *cyclonedx17.RelatedCryptoMaterialProperties {
 	return &cyclonedx17.RelatedCryptoMaterialProperties{
-		Type:  cyclonedx17.RelatedCryptoMaterialType(p.MaterialType),
+		Type:  normalizeRelatedCryptoMaterialType(p.MaterialType),
 		State: cyclonedx17.RelatedCryptoMaterialState(p.State),
 		Size:  p.MaterialSize,
 	}

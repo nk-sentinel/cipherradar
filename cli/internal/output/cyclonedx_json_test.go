@@ -191,8 +191,8 @@ func TestConvertScanResult_AlgorithmAssetType(t *testing.T) {
 	if cp.AlgorithmProperties.Primitive != "block-cipher" {
 		t.Errorf("primitive = %q, want %q", cp.AlgorithmProperties.Primitive, "block-cipher")
 	}
-	if cp.AlgorithmProperties.AlgorithmFamily != "aes" {
-		t.Errorf("algorithmFamily = %q, want %q", cp.AlgorithmProperties.AlgorithmFamily, "aes")
+	if cp.AlgorithmProperties.AlgorithmFamily != "AES" {
+		t.Errorf("algorithmFamily = %q, want %q", cp.AlgorithmProperties.AlgorithmFamily, "AES")
 	}
 	if cp.AlgorithmProperties.Mode != "cbc" {
 		t.Errorf("mode = %q, want %q", cp.AlgorithmProperties.Mode, "cbc")

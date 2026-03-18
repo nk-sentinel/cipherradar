@@ -1,0 +1,116 @@
+name: 'CipherRadar CBOM Scan'
+description: 'Scan your repository for cryptographic assets and generate a CycloneDX 1.7 CBOM'
+branding:
+  icon: 'shield'
+  color: 'blue'
+
+inputs:
+  path:
+    description: 'Path to scan (default: workspace root)'
+    required: false
+    default: '.'
+  format:
+    description: 'Output format (cyclonedx-json, sarif, text, pdf)'
+    required: false
+    default: 'cyclonedx-json'
+  output:
+    description: 'Output file name'
+    required: false
+    default: 'cbom.json'
+  passes:
+    description: 'Scan passes to run (1,2,3)'
+    required: false
+    default: '1'
+  policy:
+    description: 'Path to policy file for enforcement'
+    required: false
+    default: ''
+  fail-on:
+    description: 'Minimum severity to fail the build (critical, high, medium, low)'
+    required: false
+    default: ''
+  upload-artifact:
+    description: 'Upload CBOM as build artifact'
+    required: false
+    default: 'true'
+  upload-sarif:
+    description: 'Upload SARIF to GitHub Code Scanning'
+    required: false
+    default: 'false'
+
+outputs:
+  findings-count:
+    description: 'Total number of findings'
+    value: ${{ steps.scan.outputs.findings-count }}
+  critical-count:
+    description: 'Number of critical findings'
+    value: ${{ steps.scan.outputs.critical-count }}
+  high-count:
+    description: 'Number of high findings'
+    value: ${{ steps.scan.outputs.high-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: '1.22'
+
+    - name: Build cbom
+      shell: bash
+      run: |
+        cd ${{ github.action_path }}/../../cli
+        go build -o ${{ runner.temp }}/cbom ./cmd/cbom
+        echo "${{ runner.temp }}" >> $GITHUB_PATH
+
+    - name: Run CBOM scan
+      id: scan
+      shell: bash
+      run: |
+        cbom scan ${{ inputs.path }} \
+          --format ${{ inputs.format }} \
+          --output ${{ inputs.output }} \
+          --passes ${{ inputs.passes }} \
+          2>&1 | tee /tmp/cbom-output.txt
+
+        # Also generate text output for summary
+        cbom scan ${{ inputs.path }} --format text --passes ${{ inputs.passes }} > /tmp/cbom-summary.txt 2>&1 || true
+
+        # Extract counts from text summary
+        FINDINGS=$(grep -oP 'Findings: \K\d+' /tmp/cbom-summary.txt || echo "0")
+        CRITICAL=$(grep -oP 'CRITICAL: \K\d+' /tmp/cbom-summary.txt || echo "0")
+        HIGH=$(grep -oP 'HIGH:\s+\K\d+' /tmp/cbom-summary.txt || echo "0")
+        echo "findings-count=$FINDINGS" >> $GITHUB_OUTPUT
+        echo "critical-count=$CRITICAL" >> $GITHUB_OUTPUT
+        echo "high-count=$HIGH" >> $GITHUB_OUTPUT
+
+    - name: Post summary
+      shell: bash
+      run: |
+        echo "## CipherRadar CBOM Scan Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        cat /tmp/cbom-summary.txt >> $GITHUB_STEP_SUMMARY
+
+    - name: Upload CBOM artifact
+      if: inputs.upload-artifact == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: cbom-report
+        path: ${{ inputs.output }}
+
+    - name: Upload SARIF
+      if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.output }}
+
+    - name: Policy check
+      if: inputs.policy != ''
+      shell: bash
+      run: |
+        FAIL_ON_FLAG=""
+        if [ -n "${{ inputs.fail-on }}" ]; then
+          FAIL_ON_FLAG="--fail-on ${{ inputs.fail-on }}"
+        fi
+        cbom policy check ${{ inputs.output }} --policy ${{ inputs.policy }} $FAIL_ON_FLAG

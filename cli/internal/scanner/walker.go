@@ -1,16 +1,37 @@
 package scanner
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
-// ScanDir walks a directory tree, dispatches each file to the appropriate scanner,
-// and returns the aggregated scan result.
+// scanJob represents a single file to be scanned by the worker pool.
+type scanJob struct {
+	path       string
+	relPath    string
+	content    []byte
+	scanner    Scanner   // extension-matched scanner, or nil
+	universals []Scanner // universal scanners (only set when scanner is nil)
+}
+
+// scanJobResult holds the output from scanning a single file.
+type scanJobResult struct {
+	findings []types.Finding
+	errors   []types.ScanError
+	scanned  bool
+}
+
+// ScanDir walks a directory tree, dispatches each file to the appropriate scanner
+// using a concurrent worker pool, and returns the aggregated scan result.
+// Output is deterministic: findings are sorted by file path then line number.
 func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, error) {
 	result := &types.ScanResult{
 		Target:    root,
@@ -18,9 +39,14 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 		PassesRun: passes,
 	}
 
+	// Phase 1: Walk the directory tree and collect scan jobs.
+	// The walk itself is sequential (os.WalkDir is not concurrent-safe).
+	var jobs []scanJob
+	var walkErrors []types.ScanError
+
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
-			result.Errors = append(result.Errors, types.ScanError{
+			walkErrors = append(walkErrors, types.ScanError{
 				File:    path,
 				Message: err.Error(),
 			})
@@ -55,56 +81,133 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 
 		content, err := os.ReadFile(path)
 		if err != nil {
-			result.Errors = append(result.Errors, types.ScanError{
+			walkErrors = append(walkErrors, types.ScanError{
 				File:    path,
 				Message: err.Error(),
 			})
 			return nil
 		}
 
-		// Make path relative to root for findings
 		relPath, _ := filepath.Rel(root, path)
 
-		scanned := false
-
-		// Run extension-matched scanner
-		if s != nil {
-			findings, err := s.ScanFile(relPath, content)
-			if err != nil {
-				result.Errors = append(result.Errors, types.ScanError{
-					File:    relPath,
-					Message: err.Error(),
-				})
-			} else {
-				result.Findings = append(result.Findings, findings...)
-			}
-			scanned = true
+		job := scanJob{
+			path:    path,
+			relPath: relPath,
+			content: content,
+			scanner: s,
 		}
-
-		// Run universal scanners only on files WITHOUT a language scanner.
-		// Language scanners provide higher-confidence AST-based findings;
-		// running the regex universal scanner on the same files creates
-		// duplicate findings at lower confidence with no added value.
+		// Only assign universals when there is no language-specific scanner.
 		if s == nil {
-			for _, us := range universals {
-				findings, err := us.ScanFile(relPath, content)
-				if err != nil {
-					result.Errors = append(result.Errors, types.ScanError{
-						File:    relPath,
-						Message: err.Error(),
-					})
-					continue
-				}
-				result.Findings = append(result.Findings, findings...)
-				scanned = true
-			}
+			job.universals = universals
 		}
 
-		if scanned {
-			result.FilesScanned++
-		}
+		jobs = append(jobs, job)
 		return nil
 	})
+
+	// Phase 2: Process jobs concurrently using a worker pool.
+	numWorkers := runtime.NumCPU()
+	if numWorkers > 8 {
+		numWorkers = 8 // cap to avoid excessive memory usage
+	}
+	if numWorkers > len(jobs) {
+		numWorkers = len(jobs)
+	}
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
+
+	results := make([]scanJobResult, len(jobs))
+
+	var wg sync.WaitGroup
+	jobCh := make(chan int, len(jobs))
+
+	for i := 0; i < numWorkers; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for idx := range jobCh {
+				job := jobs[idx]
+				var findings []types.Finding
+				var errs []types.ScanError
+				scanned := false
+
+				// Run extension-matched scanner
+				if job.scanner != nil {
+					f, scanErr := job.scanner.ScanFile(job.relPath, job.content)
+					if scanErr != nil {
+						errs = append(errs, types.ScanError{
+							File:    job.relPath,
+							Message: scanErr.Error(),
+						})
+					} else {
+						findings = append(findings, f...)
+					}
+					scanned = true
+				}
+
+				// Run universal scanners only on files WITHOUT a language scanner.
+				if job.scanner == nil {
+					for _, us := range job.universals {
+						f, scanErr := us.ScanFile(job.relPath, job.content)
+						if scanErr != nil {
+							errs = append(errs, types.ScanError{
+								File:    job.relPath,
+								Message: scanErr.Error(),
+							})
+							continue
+						}
+						findings = append(findings, f...)
+						scanned = true
+					}
+				}
+
+				results[idx] = scanJobResult{
+					findings: findings,
+					errors:   errs,
+					scanned:  scanned,
+				}
+			}
+		}()
+	}
+
+	// Enqueue all jobs
+	for i := range jobs {
+		jobCh <- i
+	}
+	close(jobCh)
+
+	// Wait for all workers to finish
+	wg.Wait()
+
+	// Phase 3: Collect results.
+	result.Errors = append(result.Errors, walkErrors...)
+
+	filesScanned := 0
+	for _, r := range results {
+		result.Findings = append(result.Findings, r.findings...)
+		result.Errors = append(result.Errors, r.errors...)
+		if r.scanned {
+			filesScanned++
+		}
+	}
+	result.FilesScanned = filesScanned
+
+	// Sort findings for deterministic output: by file path, then by start line.
+	sort.Slice(result.Findings, func(i, j int) bool {
+		fi, fj := result.Findings[i], result.Findings[j]
+		if fi.Location.File != fj.Location.File {
+			return fi.Location.File < fj.Location.File
+		}
+		return fi.Location.StartLine < fj.Location.StartLine
+	})
+
+	// Reassign sequential finding IDs after sorting so that downstream
+	// consumers (e.g. CycloneDX converter, which sorts by BOMRef = ID)
+	// produce deterministic output regardless of worker scheduling order.
+	for i := range result.Findings {
+		result.Findings[i].ID = fmt.Sprintf("FIND-%d", i+1)
+	}
 
 	result.EndTime = time.Now()
 

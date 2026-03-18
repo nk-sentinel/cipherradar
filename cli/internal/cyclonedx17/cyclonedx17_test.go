@@ -377,7 +377,7 @@ func TestEnumConstantValues(t *testing.T) {
 		CryptoFunctionTag:         "tag",
 		CryptoFunctionSign:        "sign",
 		CryptoFunctionVerify:      "verify",
-		CryptoFunctionDerive:      "derive",
+		CryptoFunctionKeyderive:   "keyderive",
 		CryptoFunctionEncapsulate: "encapsulate",
 		CryptoFunctionDecapsulate: "decapsulate",
 		CryptoFunctionOther:       "other",
@@ -391,25 +391,25 @@ func TestEnumConstantValues(t *testing.T) {
 
 	// RelatedCryptoMaterialType enum values
 	materialTypes := map[RelatedCryptoMaterialType]string{
-		RelatedCryptoMaterialTypePrivateKey:     "private-key",
-		RelatedCryptoMaterialTypePublicKey:      "public-key",
-		RelatedCryptoMaterialTypeSecretKey:      "secret-key",
-		RelatedCryptoMaterialTypeKey:            "key",
-		RelatedCryptoMaterialTypeCiphertext:     "ciphertext",
-		RelatedCryptoMaterialTypeSignature:      "signature",
-		RelatedCryptoMaterialTypeDigest:         "digest",
-		RelatedCryptoMaterialTypeIV:             "iv",
-		RelatedCryptoMaterialTypeNonce:          "nonce",
-		RelatedCryptoMaterialTypeSeed:           "seed",
-		RelatedCryptoMaterialTypeSalt:           "salt",
-		RelatedCryptoMaterialTypeSharedSecret:   "shared-secret",
-		RelatedCryptoMaterialTypeTag:            "tag",
-		RelatedCryptoMaterialTypeAdditionalData: "additional-data",
-		RelatedCryptoMaterialTypePassword:       "password",
-		RelatedCryptoMaterialTypeCredential:     "credential",
-		RelatedCryptoMaterialTypeToken:          "token",
-		RelatedCryptoMaterialTypeOther:          "other",
-		RelatedCryptoMaterialTypeUnknown:        "unknown",
+		RelatedCryptoMaterialTypePrivateKey:           "private-key",
+		RelatedCryptoMaterialTypePublicKey:            "public-key",
+		RelatedCryptoMaterialTypeSecretKey:            "secret-key",
+		RelatedCryptoMaterialTypeKey:                  "key",
+		RelatedCryptoMaterialTypeCiphertext:           "ciphertext",
+		RelatedCryptoMaterialTypeSignature:            "signature",
+		RelatedCryptoMaterialTypeDigest:               "digest",
+		RelatedCryptoMaterialTypeInitializationVector: "initialization-vector",
+		RelatedCryptoMaterialTypeNonce:                "nonce",
+		RelatedCryptoMaterialTypeSeed:                 "seed",
+		RelatedCryptoMaterialTypeSalt:                 "salt",
+		RelatedCryptoMaterialTypeSharedSecret:         "shared-secret",
+		RelatedCryptoMaterialTypeTag:                  "tag",
+		RelatedCryptoMaterialTypeAdditionalData:       "additional-data",
+		RelatedCryptoMaterialTypePassword:             "password",
+		RelatedCryptoMaterialTypeCredential:           "credential",
+		RelatedCryptoMaterialTypeToken:                "token",
+		RelatedCryptoMaterialTypeOther:                "other",
+		RelatedCryptoMaterialTypeUnknown:              "unknown",
 	}
 	for mt, expected := range materialTypes {
 		if string(mt) != expected {
@@ -432,22 +432,21 @@ func TestEnumConstantValues(t *testing.T) {
 		}
 	}
 
-	// AlgorithmFamily - spot check a representative set
+	// AlgorithmFamily - spot check a representative set using official CycloneDX 1.7 values
 	algorithmFamilies := map[AlgorithmFamily]string{
-		AlgorithmFamilyAES:             "aes",
-		AlgorithmFamilyRSA:             "rsa",
-		AlgorithmFamilyEC:              "ec",
-		AlgorithmFamilySHA:             "sha",
-		AlgorithmFamilyMLKEM:           "ml-kem",
-		AlgorithmFamilyMLDSA:           "ml-dsa",
-		AlgorithmFamilySLHDSA:          "slh-dsa",
-		AlgorithmFamilyClassicMcEliece: "classic-mceliece",
-		AlgorithmFamilyChaCha20:        "chacha20",
-		AlgorithmFamilyArgon2:          "argon2",
-		AlgorithmFamilyHKDF:            "hkdf",
-		AlgorithmFamilyBLAKE3:          "blake3",
-		AlgorithmFamilyOther:           "other",
-		AlgorithmFamilyUnknown:         "unknown",
+		AlgorithmFamilyAES:     "AES",
+		AlgorithmFamilyECDSA:   "ECDSA",
+		AlgorithmFamilyECDH:    "ECDH",
+		AlgorithmFamilySHA2:    "SHA-2",
+		AlgorithmFamilyMLKEM:   "ML-KEM",
+		AlgorithmFamilyMLDSA:   "ML-DSA",
+		AlgorithmFamilySLHDSA:  "SLH-DSA",
+		AlgorithmFamilyChaCha20: "ChaCha20",
+		AlgorithmFamilyArgon2:  "Argon2",
+		AlgorithmFamilyHKDF:    "HKDF",
+		AlgorithmFamilyBLAKE3:  "BLAKE3",
+		AlgorithmFamilyScrypt:  "scrypt",
+		AlgorithmFamilyBcrypt:  "bcrypt",
 	}
 	for af, expected := range algorithmFamilies {
 		if string(af) != expected {

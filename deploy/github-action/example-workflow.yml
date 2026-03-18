@@ -1,0 +1,28 @@
+# Example: Add to .github/workflows/cbom-scan.yml
+name: CBOM Scan
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  cbom-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run CipherRadar Scan
+        uses: ./deploy/github-action
+        with:
+          format: cyclonedx-json
+          output: cbom.json
+          passes: '1'
+          upload-artifact: 'true'
+
+      # Optional: enforce policy
+      # - name: Run CipherRadar Scan with Policy
+      #   uses: ./deploy/github-action
+      #   with:
+      #     policy: policy.cbom.yml
+      #     fail-on: high

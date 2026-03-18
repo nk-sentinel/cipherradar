@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
+	"github.com/nk-sentinel/cipherradar/cli/internal/validation"
 	"github.com/spf13/cobra"
 )
 
@@ -93,6 +95,29 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// Write the output.
 	if err := writer.WriteScanResult(dest, result); err != nil {
 		return fmt.Errorf("writing output: %w", err)
+	}
+
+	// Validate output against CycloneDX 1.7 schema if requested.
+	validate, _ := cmd.Flags().GetBool("validate")
+	if validate && format == "cyclonedx-json" {
+		bom := output.ConvertScanResult(result)
+		jsonBytes, err := json.MarshalIndent(bom, "", "  ")
+		if err != nil {
+			return fmt.Errorf("marshal for validation: %w", err)
+		}
+
+		valResult, err := validation.ValidateCycloneDXJSON(jsonBytes)
+		if err != nil {
+			return fmt.Errorf("validation error: %w", err)
+		}
+		if !valResult.Valid {
+			fmt.Fprintf(os.Stderr, "CycloneDX 1.7 schema validation FAILED:\n")
+			for _, e := range valResult.Errors {
+				fmt.Fprintf(os.Stderr, "  %s: %s\n", e.Path, e.Message)
+			}
+			return fmt.Errorf("schema validation failed with %d errors", len(valResult.Errors))
+		}
+		fmt.Fprintln(os.Stderr, "CycloneDX 1.7 schema validation PASSED")
 	}
 
 	return nil
