@@ -81,18 +81,23 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 			scanned = true
 		}
 
-		// Run universal scanners on every file
-		for _, us := range universals {
-			findings, err := us.ScanFile(relPath, content)
-			if err != nil {
-				result.Errors = append(result.Errors, types.ScanError{
-					File:    relPath,
-					Message: err.Error(),
-				})
-				continue
+		// Run universal scanners only on files WITHOUT a language scanner.
+		// Language scanners provide higher-confidence AST-based findings;
+		// running the regex universal scanner on the same files creates
+		// duplicate findings at lower confidence with no added value.
+		if s == nil {
+			for _, us := range universals {
+				findings, err := us.ScanFile(relPath, content)
+				if err != nil {
+					result.Errors = append(result.Errors, types.ScanError{
+						File:    relPath,
+						Message: err.Error(),
+					})
+					continue
+				}
+				result.Findings = append(result.Findings, findings...)
+				scanned = true
 			}
-			result.Findings = append(result.Findings, findings...)
-			scanned = true
 		}
 
 		if scanned {

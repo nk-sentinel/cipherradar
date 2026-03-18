@@ -263,13 +263,19 @@ func TestScanDirUniversalScannersRunOnAllFiles(t *testing.T) {
 	}
 }
 
-func TestScanDirUniversalAndExtensionScannersBothRun(t *testing.T) {
+func TestScanDirUniversalSkippedWhenLanguageScannerExists(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// Create a .py file that both scanners should process
+	// .py file — has a language scanner, so universal should NOT run on it
 	pyFile := filepath.Join(tmpDir, "crypto.py")
 	if err := os.WriteFile(pyFile, []byte("import hashlib\n"), 0644); err != nil {
 		t.Fatalf("failed to write .py file: %v", err)
+	}
+
+	// .pem file — no language scanner, so universal SHOULD run on it
+	pemFile := filepath.Join(tmpDir, "key.pem")
+	if err := os.WriteFile(pemFile, []byte("-----BEGIN RSA PRIVATE KEY-----\n"), 0644); err != nil {
+		t.Fatalf("failed to write .pem file: %v", err)
 	}
 
 	extFinding := types.Finding{
@@ -303,13 +309,13 @@ func TestScanDirUniversalAndExtensionScannersBothRun(t *testing.T) {
 		t.Fatalf("ScanDir returned error: %v", err)
 	}
 
-	if result.FilesScanned != 1 {
-		t.Errorf("expected 1 file scanned, got %d", result.FilesScanned)
+	if result.FilesScanned != 2 {
+		t.Errorf("expected 2 files scanned, got %d", result.FilesScanned)
 	}
 
-	// Should have findings from both extension and universal scanners
+	// .py → ext scanner only (1 finding), .pem → universal only (1 finding)
 	if len(result.Findings) != 2 {
-		t.Fatalf("expected 2 findings (1 ext + 1 univ), got %d", len(result.Findings))
+		t.Fatalf("expected 2 findings (1 ext from .py + 1 univ from .pem), got %d", len(result.Findings))
 	}
 
 	foundExt, foundUniv := false, false
@@ -322,10 +328,10 @@ func TestScanDirUniversalAndExtensionScannersBothRun(t *testing.T) {
 		}
 	}
 	if !foundExt {
-		t.Error("expected finding from extension scanner")
+		t.Error("expected finding from extension scanner on .py file")
 	}
 	if !foundUniv {
-		t.Error("expected finding from universal scanner")
+		t.Error("expected finding from universal scanner on .pem file")
 	}
 }
 
