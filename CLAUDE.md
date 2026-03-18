@@ -12,7 +12,7 @@ Full design documentation is in `docs/`. Start with `README.md` and `docs/DECISI
 
 ```
 cli/          Go binary — cbom scan, diff, report (ADR-005)
-backend/      Python/FastAPI + Celery workers
+backend/      Python/FastAPI + Taskiq workers
 frontend/     React 19 + TypeScript dashboard
 scanner/      Shared detection assets used by CLI and backend
   rules/        Semgrep YAML rules (per language)
@@ -43,6 +43,26 @@ Quantum algorithm table and library API models live in `scanner/library-models/`
 
 Do not load these files from the filesystem at runtime.
 
+## Phase 1 Implementation
+
+Phase 1 uses an orchestrator + subagent model. Full plan with agent breakdown, dependencies, and skill assignments: `docs/11-phase1-implementation-plan.md`.
+
+**Skills available** (`~/.claude/commands/`):
+- `/adr` — create a new ADR
+- `/lint` — golangci-lint + go vet (Go) / ruff (Python)
+- `/test-coverage` — test with coverage enforcement
+- `/sec-review` — gosec + govulncheck (Go) / bandit (Python)
+- `/dep-audit` — govulncheck (Go) / pip-audit (Python)
+- `/fuzz` — fuzz scanner inputs
+- `/commit` — gates lint + sec-review + dep-audit before committing
+- `/benchmark` — validate performance targets
+- `/profile` — CPU + memory pprof when benchmarks miss
+- `/build-cross` — build + verify all platforms
+- `/new-scanner` — scaffold a new language scanner
+- `/new-opengrep-rule` — scaffold an OpenGrep taint rule
+
+**Hook:** `go vet` runs automatically after every `.go` file write/edit.
+
 ## Key Architecture Decisions
 
 All ADRs are in `docs/decisions/`. Decisions that affect day-to-day coding:
@@ -50,7 +70,7 @@ All ADRs are in `docs/decisions/`. Decisions that affect day-to-day coding:
 - **ADR-001** — Output is CycloneDX 1.7. Never invent a custom schema.
 - **ADR-002** — tree-sitter is the parsing backbone for all languages.
 - **ADR-003** — No build required. Scanner must work on source-only codebases.
-- **ADR-004** — Detection is 3-pass: tree-sitter (Pass 1) → Semgrep (Pass 2) → Joern (Pass 3). No custom taint engine.
+- **ADR-004** — Detection is 3-pass: tree-sitter (Pass 1) → OpenGrep (Pass 2) → Joern (Pass 3). No custom taint engine.
 - **ADR-005** — CLI in Go, backend in Python/FastAPI.
 - **ADR-008** — Monorepo. `scanner/` is shared between CLI and backend.
 
@@ -95,8 +115,8 @@ docker compose -f deploy/docker-compose.yml up
 - **Go:** standard `gofmt` formatting; package names lowercase; no CGo except for tree-sitter bindings; use Koanf (not Viper) for config
 - **Python:** `ruff` for linting and formatting; type hints required on all public functions; `pyproject.toml` for dependencies; use Taskiq (not Celery) for async tasks
 - **TypeScript:** strict mode; functional components only in React; TanStack Query for server state
-- **Semgrep rules:** one file per language in `scanner/rules/`; rule IDs prefixed `cbom-<lang>-<pattern>`
-- **CycloneDX output:** always use the official `cyclonedx-go` / `cyclonedx-python-library` — never hand-craft the schema
+- **OpenGrep rules:** one file per language in `scanner/rules/`; rule IDs prefixed `cbom-<lang>-<pattern>`
+- **CycloneDX output:** use `cyclonedx-go` for the document envelope + internal `cli/internal/cyclonedx17/` for cryptoProperties structs (cyclonedx-go supports 1.6 only; monitor PR #257 for upstream 1.7 merge). Backend uses `cyclonedx-python-lib` v11.7.0 which supports 1.7 natively. Never hand-craft the schema.
 
 ## Commits
 

@@ -1,7 +1,7 @@
 # Roadmap
 
-> **Document version:** v3
-> **Last updated:** 2026-03-17
+> **Document version:** v4
+> **Last updated:** 2026-03-18
 > **Status:** Active
 
 ---
@@ -13,6 +13,7 @@
 | v1 | 2026-03-15 | Initial roadmap — Phase 1 included "custom taint engine" build | — |
 | v2 | 2026-03-16 | Phase 1: taint engine → constant propagation + Semgrep rules. Phase 2: added Joern integration. | ADR-004 |
 | v3 | 2026-03-17 | Phase 1: added GitHub, GitLab, Bitbucket (Cloud + Data Center) git hosting integrations | A-003 resolution |
+| v4 | 2026-03-18 | Phase 1: Semgrep → OpenGrep (Pass 2 engine). Git hosting integrations moved to Phase 2 (require backend server). | ADR-009 |
 
 ---
 
@@ -43,7 +44,7 @@ Four phases, sequenced to deliver usable value at the end of each phase.
 - [ ] Regex layer: PEM headers, key blobs, algorithm name strings
 - [ ] Config file scanner: `.env`, `*.properties`, basic YAML
 - [ ] **Pass 1: Constant propagation** — intra-procedural variable tracking + project-wide symbol table *(replaces "custom taint engine" from v1 — see ADR-004)*
-- [ ] **Pass 2: Semgrep taint rules** — initial rule set for Java, Python, JS/TS covering common crypto patterns
+- [ ] **Pass 2: OpenGrep taint rules** — initial rule set for Java, Python, JS/TS covering common crypto patterns (OpenGrep replaces Semgrep per ADR-009)
 - [ ] Confidence scoring (High / Medium / Low / Unresolved)
 - [ ] File/line/column location for every finding
 
@@ -59,6 +60,7 @@ Four phases, sequenced to deliver usable value at the end of each phase.
 - [ ] CycloneDX 1.7 JSON — full `cryptoProperties` for all asset types
 - [ ] SARIF 2.1 output
 - [ ] Text summary output to terminal
+- [ ] PDF detailed report — per-finding breakdown, quantum status summary, severity distribution (Go: `maroto` library; Python backend uses ReportLab in Phase 2+)
 
 **NIST Quantum Tagging**
 - [ ] `nistQuantumSecurityLevel` populated for all detected algorithms
@@ -70,28 +72,25 @@ Four phases, sequenced to deliver usable value at the end of each phase.
 - [ ] `PASS` / `FAIL` / `WARN` exit codes for CI/CD integration
 - [ ] `--fail-on CRITICAL` flag
 
-**Git Hosting Integrations**
-- [ ] GitHub — OAuth, webhooks, Checks API, PR review comments
-- [ ] GitLab — OAuth, webhooks, MR notes API
-- [ ] Bitbucket Cloud — OAuth, webhooks, PR comments API
-- [ ] Bitbucket Data Center — PAT auth, webhooks, REST API
-
 **CI/CD**
 - [ ] GitHub Actions `cbom-action` — scan on push/PR; upload CBOM as artifact
 - [ ] GitLab CI template
 
 **CLI Commands**
 ```bash
-cbom scan ./path [--output cbom.json] [--format cyclonedx-json|sarif|text]
+cbom scan ./path [--output cbom.json] [--format cyclonedx-json|sarif|text|pdf]
 cbom scan <git-url> [--branch main]
 cbom diff cbom-before.json cbom-after.json
 cbom policy check cbom.json --policy policy.cbom.yml
+cbom report cbom.json [--output report.pdf] [--format pdf]
 ```
 
 **Success Criteria**
 - Scans a 100k LOC Java project in < 5 minutes
 - False positive rate < 10% for High/Critical findings
 - CycloneDX 1.7 schema validation passes 100%
+
+> Implementation plan, subagent breakdown, and skill assignments: see `docs/11-phase1-implementation-plan.md`
 
 ---
 
@@ -130,6 +129,12 @@ cbom policy check cbom.json --policy policy.cbom.yml
 - [ ] CBOM versioning — every scan stored as an immutable snapshot
 - [ ] CBOM diff API — compare two scans
 - [ ] CBOM merge — aggregate multiple CBOMs into one
+
+**Git Hosting Integrations** *(moved from Phase 1 — require backend server)*
+- [ ] GitHub — OAuth, webhooks, Checks API, PR review comments
+- [ ] GitLab — OAuth, webhooks, MR notes API
+- [ ] Bitbucket Cloud — OAuth, webhooks, PR comments API
+- [ ] Bitbucket Data Center — PAT auth, webhooks, REST API
 
 **REST API + Basic UI**
 - [ ] FastAPI backend with OpenAPI 3.1 spec

@@ -92,7 +92,8 @@ tree-sitter provides: error-tolerant parsing (handles incomplete/broken code), i
 
 | Component | Technology | Rationale |
 |---|---|---|
-| PDF reports | **ReportLab** (Python) | Already proven in this project; full control over layout |
+| PDF reports (CLI) | **maroto** (Go) | Report-style PDFs from the CLI binary; no external dependencies; built on fpdf |
+| PDF reports (backend) | **ReportLab** (Python) | Backend-generated reports (Phase 2+); full control over layout |
 | HTML reports | **Jinja2** templates | Developer findings reports; lightweight |
 | SARIF output | Python `sarif-om` library | Standards-compliant SARIF 2.1 output |
 | CycloneDX output | `cyclonedx-python-library` | Official library; always spec-compliant |
