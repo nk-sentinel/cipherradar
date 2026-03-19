@@ -1,0 +1,56 @@
+/* Radar — Dark theme, primary dashboard experience */
+body.theme-radar {
+  --bg-0: #05080f;
+  --bg-1: #0a0f1a;
+  --bg-2: #0d1520;
+  --bg-3: #111c2e;
+  --border: #1a2744;
+  --border-light: #112240;
+
+  --text-1: #c8d6e5;
+  --text-2: #7a8ba8;
+  --text-3: #4a6fa5;
+  --text-4: #3a5070;
+
+  --accent: #06b6d4;
+  --accent-dim: #0c2340;
+  --accent-hover: #22d3ee;
+
+  --font: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+  --radius: 4px;
+  --card-shadow: none;
+
+  --red: #f87171;
+  --orange: #fb923c;
+  --yellow: #fbbf24;
+  --green: #4ade80;
+  --blue: #3b82f6;
+  --purple: #a78bfa;
+  --pink: #f472b6;
+
+  --badge-crit-bg: #3b0a0a;
+  --badge-crit-fg: #fca5a5;
+  --badge-crit-bd: #5c1616;
+  --badge-high-bg: #3b1a0a;
+  --badge-high-fg: #fdba74;
+  --badge-high-bd: #5c2e16;
+  --badge-med-bg: #3b2e0a;
+  --badge-med-fg: #fde047;
+  --badge-med-bd: #5c4a16;
+  --badge-safe-bg: #0a3b1a;
+  --badge-safe-fg: #86efac;
+  --badge-safe-bd: #165c2e;
+  --badge-vuln-bg: #3b0a1a;
+  --badge-vuln-fg: #fda4af;
+  --badge-vuln-bd: #5c1630;
+  --badge-broken-bg: #450a0a;
+  --badge-broken-fg: #f87171;
+  --badge-broken-bd: #7f1d1d;
+
+  --sidebar-w: 220px;
+  --tt: uppercase;
+
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--font);
+}

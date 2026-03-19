@@ -6,8 +6,10 @@ package scannerinit
 import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/config"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/golang"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/java"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/javascript"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/kotlin"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/python"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/regex"
 )
@@ -20,6 +22,8 @@ func DefaultRegistry() *scanner.Registry {
 	r.Register(python.New())
 	r.Register(javascript.New())
 	r.Register(java.New())
+	r.Register(kotlin.New())
+	r.Register(golang.New())
 
 	// Config file scanner (dispatched by .env / .properties extensions)
 	r.Register(config.New())

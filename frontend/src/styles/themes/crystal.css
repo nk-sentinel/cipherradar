@@ -1,0 +1,56 @@
+/* Crystal — Light theme, high-contrast for readability */
+body.theme-crystal {
+  --bg-0: #f5f6f8;
+  --bg-1: #fff;
+  --bg-2: #fafbfc;
+  --bg-3: #f0f0ff;
+  --border: #e5e7eb;
+  --border-light: #f0f0f0;
+
+  --text-1: #1a1a2e;
+  --text-2: #555;
+  --text-3: #888;
+  --text-4: #bbb;
+
+  --accent: #667eea;
+  --accent-dim: #f0f0ff;
+  --accent-hover: #5a6fd6;
+
+  --font: 'Inter', -apple-system, sans-serif;
+  --radius: 10px;
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+
+  --red: #dc2626;
+  --orange: #ea580c;
+  --yellow: #ca8a04;
+  --green: #16a34a;
+  --blue: #2563eb;
+  --purple: #7c3aed;
+  --pink: #db2777;
+
+  --badge-crit-bg: #fef2f2;
+  --badge-crit-fg: #dc2626;
+  --badge-crit-bd: #fecaca;
+  --badge-high-bg: #fff7ed;
+  --badge-high-fg: #ea580c;
+  --badge-high-bd: #fed7aa;
+  --badge-med-bg: #fefce8;
+  --badge-med-fg: #ca8a04;
+  --badge-med-bd: #fef08a;
+  --badge-safe-bg: #f0fdf4;
+  --badge-safe-fg: #16a34a;
+  --badge-safe-bd: #bbf7d0;
+  --badge-vuln-bg: #fdf2f8;
+  --badge-vuln-fg: #db2777;
+  --badge-vuln-bd: #fbcfe8;
+  --badge-broken-bg: #fef2f2;
+  --badge-broken-fg: #b91c1c;
+  --badge-broken-bd: #fecaca;
+
+  --sidebar-w: 250px;
+  --tt: none;
+
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--font);
+}

@@ -1,0 +1,56 @@
+/* Sentinel — Blue-tinted dark theme, alternative dark option */
+body.theme-sentinel {
+  --bg-0: #0c0c0c;
+  --bg-1: #111;
+  --bg-2: #161616;
+  --bg-3: #1a1a1a;
+  --border: #2a2a2a;
+  --border-light: #1a1a1a;
+
+  --text-1: #d4d4d4;
+  --text-2: #999;
+  --text-3: #666;
+  --text-4: #444;
+
+  --accent: #f59e0b;
+  --accent-dim: #1c1207;
+  --accent-hover: #fbbf24;
+
+  --font: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  --radius: 2px;
+  --card-shadow: none;
+
+  --red: #f87171;
+  --orange: #fb923c;
+  --yellow: #fbbf24;
+  --green: #4ade80;
+  --blue: #60a5fa;
+  --purple: #c084fc;
+  --pink: #f472b6;
+
+  --badge-crit-bg: #7f1d1d;
+  --badge-crit-fg: #fca5a5;
+  --badge-crit-bd: #991b1b;
+  --badge-high-bg: #7c2d12;
+  --badge-high-fg: #fdba74;
+  --badge-high-bd: #9a3412;
+  --badge-med-bg: #713f12;
+  --badge-med-fg: #fde047;
+  --badge-med-bd: #854d0e;
+  --badge-safe-bg: #14532d;
+  --badge-safe-fg: #86efac;
+  --badge-safe-bd: #166534;
+  --badge-vuln-bg: #4c0519;
+  --badge-vuln-fg: #fda4af;
+  --badge-vuln-bd: #881337;
+  --badge-broken-bg: #450a0a;
+  --badge-broken-fg: #f87171;
+  --badge-broken-bd: #7f1d1d;
+
+  --sidebar-w: 200px;
+  --tt: uppercase;
+
+  background: var(--bg-0);
+  color: var(--text-1);
+  font-family: var(--font);
+}
