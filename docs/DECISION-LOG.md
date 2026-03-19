@@ -30,6 +30,11 @@ When a decision changes, the original ADR is kept and marked **Superseded**, and
 | [ADR-008](decisions/ADR-008-repository-structure.md) | Repository Structure — Monorepo | Accepted | 2026-03-18 | Repo layout, CI/CD |
 | [ADR-009](decisions/ADR-009-opengrep-replaces-semgrep.md) | Pass 2 Engine — OpenGrep replaces Semgrep | Accepted | 2026-03-18 | `docs/03-detection-engine.md`, `docs/07-tech-stack.md`, ADR-004 |
 | [ADR-010](decisions/ADR-010-cli-distribution-and-asset-embedding.md) | CLI Distribution — Two flavors, install-tools, embedded shared assets | Accepted | 2026-03-18 | `docs/07-tech-stack.md`, `CLAUDE.md` |
+| [ADR-011](decisions/ADR-011-joern-integration-model.md) | Joern Integration Model — Subprocess Execution | Accepted | 2026-03-19 | `docs/07-tech-stack.md`, `docs/12-phase2-implementation-plan.md` |
+| [ADR-012](decisions/ADR-012-backend-database-schema.md) | Backend Database Schema — CBOMStore, TimescaleDB Hypertables, JSONB Strategy | Accepted | 2026-03-19 | `docs/02-architecture.md`, `docs/12-phase2-implementation-plan.md` |
+| [ADR-013](decisions/ADR-013-authentication-model.md) | Authentication Model — JWT + API Keys + Scoped Permissions | Accepted | 2026-03-19 | `docs/09-rbac.md`, `docs/12-phase2-implementation-plan.md` |
+| [ADR-014](decisions/ADR-014-git-provider-abstraction.md) | Git Provider Abstraction — Common Interface for GitHub/GitLab/Bitbucket | Accepted | 2026-03-19 | `docs/12-phase2-implementation-plan.md` |
+| [ADR-015](decisions/ADR-015-frontend-architecture.md) | Frontend Architecture — React 19, TanStack, Theme System | Accepted | 2026-03-19 | `docs/12-phase2-implementation-plan.md` |
 
 ---
 
@@ -123,6 +128,21 @@ All 6 milestones (M1–M6) delivered. The `cbom` CLI binary scans Python, JavaSc
 **ADR-006 updated: Team Manager role added**
 A 7th role ("Team Manager") was added to the RBAC model during UI mockup review. The role provides group-scoped read access + scan triggering for engineering managers and team leads — filling the gap between Developer (too limited for visibility) and Security Manager (too powerful for non-security leadership). Team Managers cannot configure policies, suppress findings, or approve suppression requests.
 
+**ADR-011: Joern Integration Model — Subprocess Execution**
+Joern (Apache 2.0, JVM/Scala) is integrated as a subprocess, the same pattern used for OpenGrep in Pass 2. Binary discovery follows the same resolution order (same dir → `$CBOM_TOOLS_DIR` → `~/.cbom/tools/` → `$PATH`). Persistent server mode and containerized deployment were evaluated but rejected: subprocess is simpler, consistent with the existing OpenGrep pattern, and the 5-10s JVM cold start is acceptable since Pass 3 runs nightly. The `cbom-full` binary bundles Joern alongside OpenGrep. Resolves OQ-002.
+
+**ADR-012: Backend Database Schema — CBOMStore, TimescaleDB Hypertables, JSONB Strategy**
+The backend database schema formalises four design decisions: (1) a `CBOMStore` abstraction with two implementations — `PostgresCBOMStore` for dev/early stage (< 10 GB, < 500 scans/day) and `S3CBOMStore` for production, swappable via config; (2) TimescaleDB hypertables for the `scan_metrics` table, enabling efficient time-range queries, automatic compression, and continuous aggregates; (3) JSONB columns with GIN indexes for flexible crypto finding metadata that avoids rigid schema migrations; (4) a Graph Abstraction Layer (GAL) using PostgreSQL recursive CTEs in Phase 1–2 with a clean Neo4j migration path in Phase 3. Key tables: organisations, groups, projects, scans, cbom_documents, findings, scan_metrics, policy_sets, compliance_mappings. Implements the storage architecture from D-001 and A-001.
+
+**ADR-013: Authentication Model — JWT + API Keys + Scoped Permissions**
+Human users authenticate via JWT (15-min access token + 7-day refresh token) with login via email/password or SSO (SAML/OIDC). Machine users (CI/CD) use scoped API keys prefixed `cbom_sk_...`, SHA-256 hashed at rest. Seven permission scopes defined (`scan:read/write`, `cbom:read/write`, `project:read/write`, `report:read`); `policy:write` excluded from API keys per OQ-RBAC-7. RBAC enforcement via middleware with 7 roles at org/group/project level. JWT revocation handled via Redis deny-list. Libraries: `python-jose` (JWT), `passlib` (bcrypt).
+
+**ADR-014: Git Provider Abstraction — Common Interface for GitHub/GitLab/Bitbucket**
+A `GitProvider` protocol abstracts OAuth, repo listing, webhook management, status checks, and PR comments across GitHub, GitLab, Bitbucket Cloud, and Bitbucket Data Center. Four concrete implementations behind a single interface — business logic never touches provider-specific APIs. Webhook signature verification mandatory for all providers (HMAC-SHA256 for GitHub/Bitbucket, token validation for GitLab). New providers added by implementing one interface with no changes to scan orchestration or notification logic.
+
+**ADR-015: Frontend Architecture — React 19, TanStack, Theme System**
+Frontend built with React 19 + TypeScript strict mode + Vite. TanStack Router for type-safe routing, TanStack Query for server state (no `useState` + `useEffect` fetch patterns). shadcn/ui + Tailwind CSS for accessible, owned components. Three themes (Radar/Crystal/Sentinel) via CSS custom properties — zero-runtime-cost switching, no conditional rendering per theme. RBAC enforced via route guards and conditional navigation. MSW for mock API development (C-M1/C-M2); real API integration at C-M3. API types auto-generated from OpenAPI spec via `openapi-typescript`.
+
 ---
 
 ## Open Questions / Pending Decisions
@@ -132,7 +152,7 @@ The following items have been identified but not yet formally decided:
 | # | Question | Context | Priority |
 |---|---|---|---|
 | OQ-001 | Should OpenGrep suffice or do we need Semgrep Pro? | OpenGrep has limitations on inter-file taint; Pro removes these | **Resolved** — OpenGrep only; Joern Pass 3 compensates for inter-file gaps that OpenGrep misses |
-| OQ-002 | Joern JVM — how to deploy server-side? | JVM startup overhead; subprocess vs persistent server vs isolated container | **Resolved** — Defer deployment model decision to Phase 2 when Joern is actually being integrated; decide based on observed load and infra |
+| OQ-002 | Joern JVM — how to deploy server-side? | JVM startup overhead; subprocess vs persistent server vs isolated container | **Resolved** — Subprocess execution; see ADR-011 |
 | OQ-003 | C# deep analysis strategy — Joern doesn't support C# yet | Options: Roslyn, wait for Joern, CodeQL, or OpenGrep only | **Resolved** — OpenGrep (Pass 1+2) for Phase 2; formal checkpoint at Phase 3 planning to re-evaluate Joern C# support; if still unavailable, choose between Roslyn and CodeQL at that point |
 | OQ-004 | CodeQL as optional Pass 4 in Phase 4? | Best accuracy but requires build; conflicts with ADR-003 for non-opt-in use | **Resolved** — Evaluate at Phase 4 planning using real accuracy data from Pass 1–3; no commitment now |
 | OQ-005 | Joern licensing in SaaS context? | Apache 2.0 — likely no restrictions | **Closed** — Not applicable; product is not currently planned as a commercial enterprise SaaS |
