@@ -134,6 +134,18 @@ All agents use the same model and effort level — no mixing.
 
 ## Workstream C — Frontend: Dashboard (React 19 + TypeScript)
 
+**UI Reference:** `frontend/mockups/full-mockup-v2.html` — accepted mockup with all screens, themes, and interactions. All frontend agents MUST reference this mockup for layout, page flow, component structure, and visual design. Key decisions baked into the mockup:
+
+- **Hierarchical page flow:** Dashboard (global) → Repositories (list) → Repository Detail (sub-pages: Overview, Scans, Findings, CBOM Diff, Quantum, Compliance). Sidebar switches to repo context when inside a repo.
+- **Portfolio views:** Org-wide Quantum Readiness and Compliance as top-level pages (separate from per-repo views).
+- **3 themes:** Radar (SOC dark, cyan), Crystal (clean SaaS, purple), Sentinel (data-dense, amber). Switched via CSS custom properties on `<body>`. Theme stored in user profile settings.
+- **Avatar dropdown (top-right):** My Profile, CLI Downloads, API Documentation, Keyboard Shortcuts, Help & Docs, Sign Out. These are NOT in the sidebar.
+- **Notification bell (top-right):** Dropdown with unread badge, mark-all-read, notification items with severity dots.
+- **RBAC nav visibility:** Sidebar items hidden based on user role. Section headers auto-hide when all children are hidden. 7 roles: Org Admin, Security Manager, Security Engineer, Team Manager, Compliance Auditor, Developer, Guest.
+- **Login page:** Email/password + GitHub SSO + SAML/OIDC buttons.
+- **Settings (admin):** Org config, integrations, API keys, audit log — visible to admin/manager/engineer only.
+- **My Profile (all roles):** Theme, notification preferences, password/MFA, personal API keys.
+
 | Milestone | Agent | Depends On | Parallel? | Work | Skills |
 |---|---|---|---|---|---|
 | **C-M1** | Agent-FrontendSkeleton | — | No | Vite + React 19 + TS strict. shadcn/ui + Tailwind. TanStack Query + Router. Layout shell. Auth context (JWT). API client from OpenAPI spec. | `/lint-fe`, `/test-fe` |
