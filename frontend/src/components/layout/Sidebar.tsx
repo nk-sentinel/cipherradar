@@ -26,8 +26,8 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Portfolio',
     items: [
-      { label: 'Quantum Readiness', icon: '\u269B', to: '/', page: 'portfolio-quantum' },
-      { label: 'Compliance', icon: '\u2713', to: '/', page: 'portfolio-compliance' },
+      { label: 'Quantum Readiness', icon: '\u269B', to: '/quantum', page: 'portfolio-quantum' },
+      { label: 'Compliance', icon: '\u2713', to: '/compliance', page: 'portfolio-compliance' },
     ],
   },
   {
@@ -88,9 +88,9 @@ export function Sidebar(): React.ReactElement {
                   to={item.to}
                   className={cn(
                     'nav-item',
-                    (item.page === 'dashboard'
-                      ? currentPath === item.to
-                      : currentPath.startsWith(item.to) && item.to !== '/') &&
+                    (item.to === '/'
+                      ? currentPath === '/'
+                      : currentPath.startsWith(item.to)) &&
                       'active',
                   )}
                 >

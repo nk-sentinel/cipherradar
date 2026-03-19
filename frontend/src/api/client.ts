@@ -1,4 +1,6 @@
-const API_BASE = '/api/v1';
+import { API_BASE_URL } from './config.ts';
+
+const API_BASE = API_BASE_URL;
 
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';

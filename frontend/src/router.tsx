@@ -9,11 +9,17 @@ import { AppLayout } from './components/layout/AppLayout.tsx';
 import { Login } from './pages/Login.tsx';
 import { Dashboard } from './pages/Dashboard.tsx';
 import { Repositories } from './pages/Repositories.tsx';
+import { QuantumReadiness } from './pages/QuantumReadiness.tsx';
+import { Compliance } from './pages/Compliance.tsx';
+import { Profile } from './pages/Profile.tsx';
+import { Downloads } from './pages/Downloads.tsx';
 import { RepoLayout } from './pages/repo/RepoLayout.tsx';
 import { RepoOverview } from './pages/repo/RepoOverview.tsx';
 import { ScanHistoryPage } from './pages/repo/ScanHistoryPage.tsx';
 import { ScanDetailPage } from './pages/repo/ScanDetailPage.tsx';
 import { RepoFindingsPage } from './pages/repo/RepoFindingsPage.tsx';
+import { RepoQuantum } from './pages/repo/RepoQuantum.tsx';
+import { RepoCompliance } from './pages/repo/RepoCompliance.tsx';
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -49,6 +55,30 @@ const reposRoute = createRoute({
   component: Repositories,
 });
 
+const quantumRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/quantum',
+  component: QuantumReadiness,
+});
+
+const complianceRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/compliance',
+  component: Compliance,
+});
+
+const profileRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/profile',
+  component: Profile,
+});
+
+const downloadsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/downloads',
+  component: Downloads,
+});
+
 const repoLayoutRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/repos/$repoId',
@@ -77,6 +107,18 @@ const repoFindingsRoute = createRoute({
   getParentRoute: () => repoLayoutRoute,
   path: '/findings',
   component: RepoFindingsPage,
+});
+
+const repoQuantumRoute = createRoute({
+  getParentRoute: () => repoLayoutRoute,
+  path: '/quantum',
+  component: RepoQuantum,
+});
+
+const repoComplianceRoute = createRoute({
+  getParentRoute: () => repoLayoutRoute,
+  path: '/compliance',
+  component: RepoCompliance,
 });
 
 const repoTabRoute = createRoute({
@@ -119,11 +161,17 @@ const routeTree = rootRoute.addChildren([
   authenticatedRoute.addChildren([
     dashboardRoute,
     reposRoute,
+    quantumRoute,
+    complianceRoute,
+    profileRoute,
+    downloadsRoute,
     repoScanDetailRoute,
     repoLayoutRoute.addChildren([
       repoOverviewRoute,
       repoScansRoute,
       repoFindingsRoute,
+      repoQuantumRoute,
+      repoComplianceRoute,
       repoIndexRoute,
       repoTabRoute,
     ]),

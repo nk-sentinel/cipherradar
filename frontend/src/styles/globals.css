@@ -756,6 +756,61 @@ tr.clickable {
   border-radius: 3px;
 }
 
+/* Theme option */
+.theme-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  margin-right: 6px;
+  font-size: 11px;
+  color: var(--text-2);
+}
+
+.theme-option.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+/* Download cards */
+.dl-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  text-align: center;
+  background: var(--bg-2);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.dl-card:hover {
+  border-color: var(--accent);
+}
+
+/* Repo header */
+.repo-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.repo-header h1 {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.repo-provider {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  color: var(--text-3);
+}
+
 /* Responsive */
 @media (max-width: 1100px) {
   .sidebar {

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Findings Summary Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 2rem; color: #333; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; }
+        h2 { color: #2c3e50; margin-top: 1.5rem; }
+        .meta { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
+        .summary { font-size: 1.2rem; margin-bottom: 1rem; }
+        table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+        th { background: #2c3e50; color: white; padding: 0.6rem; text-align: left; }
+        td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #ddd; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold; }
+        .badge-critical { background: #dc3545; color: white; }
+        .badge-high { background: #fd7e14; color: white; }
+        .badge-medium { background: #ffc107; color: #333; }
+        .badge-low { background: #28a745; color: white; }
+        .quantum-vulnerable { background: #f8d7da; color: #721c24; }
+        .quantum-safe { background: #d4edda; color: #155724; }
+        .quantum-broken { background: #dc3545; color: white; }
+    </style>
+</head>
+<body>
+    <h1>Findings Summary Report</h1>
+    <p class="meta">Scan ID: {{ scan_id }}</p>
+
+    {% set finding_list = findings | default([]) %}
+    <p class="summary">Total Findings: <strong>{{ finding_list | length }}</strong></p>
+
+    {% if finding_list %}
+    <table>
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Severity</th>
+                <th>Quantum Status</th>
+                <th>Asset Type</th>
+                <th>File</th>
+                <th>Line</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in finding_list %}
+            <tr>
+                <td>{{ f.name }}</td>
+                <td><span class="badge badge-{{ f.severity }}">{{ f.severity }}</span></td>
+                <td><span class="badge quantum-{{ f.quantum_status | lower | replace(' ', '-') }}">{{ f.quantum_status }}</span></td>
+                <td>{{ f.asset_type }}</td>
+                <td>{{ f.location_file }}</td>
+                <td>{{ f.location_line }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p>No findings detected.</p>
+    {% endif %}
+</body>
+</html>

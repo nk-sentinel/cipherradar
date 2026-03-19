@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compliance Gap Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 2rem; color: #333; }
+        h1 { color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 0.5rem; }
+        h2 { color: #2c3e50; margin-top: 1.5rem; }
+        h3 { color: #34495e; }
+        .meta { color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
+        .framework-score { font-size: 1.5rem; font-weight: bold; margin: 0.5rem 0; }
+        .stat { display: inline-block; margin-right: 2rem; }
+        .stat-label { font-size: 0.8rem; color: #666; text-transform: uppercase; }
+        .stat-value { font-size: 1.2rem; font-weight: bold; }
+        table { border-collapse: collapse; width: 100%; margin: 1rem 0; }
+        th { background: #2c3e50; color: white; padding: 0.6rem; text-align: left; }
+        td { padding: 0.5rem 0.6rem; border-bottom: 1px solid #ddd; }
+        tr:nth-child(even) { background: #f9f9f9; }
+        .non-compliant { color: #dc3545; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>Compliance Gap Report</h1>
+    <p class="meta">Scan ID: {{ scan_id }}</p>
+
+    {% for fw in compliance | default([]) %}
+    <h2>{{ fw.framework }}</h2>
+    <div class="framework-score">Score: {{ fw.score }}/100</div>
+    <div>
+        <div class="stat">
+            <div class="stat-label">Compliant</div>
+            <div class="stat-value">{{ fw.compliant_count }}</div>
+        </div>
+        <div class="stat">
+            <div class="stat-label">Non-Compliant</div>
+            <div class="stat-value {% if fw.non_compliant_count > 0 %}non-compliant{% endif %}">{{ fw.non_compliant_count }}</div>
+        </div>
+    </div>
+
+    {% if fw.items %}
+    <table>
+        <thead>
+            <tr>
+                <th>Algorithm</th>
+                <th>Classification</th>
+                <th>Count</th>
+                <th>Action Required</th>
+                <th>Note</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in fw.items %}
+            <tr>
+                <td>{{ item.algorithm }}</td>
+                <td>{{ item.classification }}</td>
+                <td>{{ item.count }}</td>
+                <td>{{ item.action_required }}</td>
+                <td>{{ item.note }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+    {% endfor %}
+</body>
+</html>

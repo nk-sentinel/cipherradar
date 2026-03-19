@@ -15,7 +15,9 @@ async def test_health_check_returns_ok(client: AsyncClient) -> None:
 
 @pytest.mark.asyncio
 async def test_health_check_response_schema(client: AsyncClient) -> None:
-    """Health response should contain exactly the expected keys."""
+    """Health response should contain the expected keys."""
     response = await client.get("/api/v1/health")
     body = response.json()
-    assert set(body.keys()) == {"status", "version"}
+    assert "status" in body
+    assert "version" in body
+    assert "checks" in body

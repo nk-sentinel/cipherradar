@@ -4,6 +4,8 @@ import {
   MOCK_REPOSITORY_DETAILS,
 } from './data/repositories.ts';
 import { getScansForRepo, getScanDetail } from './data/scans.ts';
+import { getPortfolioQuantum, getRepoQuantum } from './data/quantum.ts';
+import { getPortfolioCompliance, getRepoCompliance } from './data/compliance.ts';
 
 export const handlers = [
   http.get('/api/v1/health', () => {
@@ -74,5 +76,41 @@ export const handlers = [
       );
     }
     return HttpResponse.json(scan);
+  }),
+
+  // Quantum readiness — portfolio
+  http.get('/api/v1/quantum/portfolio', () => {
+    return HttpResponse.json(getPortfolioQuantum());
+  }),
+
+  // Quantum readiness — per repo
+  http.get('/api/v1/repos/:repoId/quantum', ({ params }) => {
+    const repoId = params['repoId'] as string;
+    const data = getRepoQuantum(repoId);
+    if (!data) {
+      return new HttpResponse(
+        JSON.stringify({ error: 'Repository not found' }),
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json(data);
+  }),
+
+  // Compliance — portfolio
+  http.get('/api/v1/compliance/portfolio', () => {
+    return HttpResponse.json(getPortfolioCompliance());
+  }),
+
+  // Compliance — per repo
+  http.get('/api/v1/repos/:repoId/compliance', ({ params }) => {
+    const repoId = params['repoId'] as string;
+    const data = getRepoCompliance(repoId);
+    if (!data) {
+      return new HttpResponse(
+        JSON.stringify({ error: 'Repository not found' }),
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json(data);
   }),
 ];

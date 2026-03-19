@@ -4,16 +4,19 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, cbom, compliance, health, integrations, scans, webhooks
+from app.api.v1 import auth, cbom, compliance, health, integrations, reports, scans, webhooks
 from app.config import settings
 from app.db.session import dispose_engine, init_engine
+from app.services.cache_service import close_redis, init_redis
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan: initialise resources on startup, dispose on shutdown."""
     init_engine(settings.database_url)
+    await init_redis()
     yield
+    await close_redis()
     await dispose_engine()
 
 
@@ -48,6 +51,7 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(webhooks.router, prefix="/api/v1")
     app.include_router(integrations.router, prefix="/api/v1")
     app.include_router(compliance.router, prefix="/api/v1")
+    app.include_router(reports.router, prefix="/api/v1")
 
     return app
 

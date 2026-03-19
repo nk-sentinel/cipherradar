@@ -55,7 +55,7 @@ export function AvatarDropdown(): React.ReactElement {
         </div>
         <div
           className="avatar-dropdown-item"
-          onClick={() => setIsOpen(false)}
+          onClick={() => { setIsOpen(false); void navigate({ to: '/profile' as string }); }}
           role="button"
           tabIndex={0}
         >
@@ -63,7 +63,7 @@ export function AvatarDropdown(): React.ReactElement {
         </div>
         <div
           className="avatar-dropdown-item"
-          onClick={() => setIsOpen(false)}
+          onClick={() => { setIsOpen(false); void navigate({ to: '/downloads' as string }); }}
           role="button"
           tabIndex={0}
         >
