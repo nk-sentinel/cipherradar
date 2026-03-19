@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CipherRadar — Full Interactive Mockup</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-size:13px; min-height:100vh; transition: background 0.3s, color 0.3s; }
+
+/* ============================== */
+/* THEME: RADAR (default)         */
+/* ============================== */
+body.theme-radar {
+  --bg-0: #05080f; --bg-1: #0a0f1a; --bg-2: #0d1520; --bg-3: #111c2e;
+  --border: #1a2744; --border-light: #112240;
+  --text-1: #c8d6e5; --text-2: #7a8ba8; --text-3: #4a6fa5; --text-4: #3a5070;
+  --accent: #06b6d4; --accent-dim: #0c2340; --accent-hover: #22d3ee;
+  --font: 'JetBrains Mono','Fira Code','SF Mono',monospace;
+  --radius: 4px; --card-shadow: none;
+  --red: #f87171; --orange: #fb923c; --yellow: #fbbf24; --green: #4ade80; --blue: #3b82f6; --purple: #a78bfa; --pink: #f472b6;
+  --badge-crit-bg: #3b0a0a; --badge-crit-fg: #fca5a5; --badge-crit-border: #5c1616;
+  --badge-high-bg: #3b1a0a; --badge-high-fg: #fdba74; --badge-high-border: #5c2e16;
+  --badge-med-bg: #3b2e0a; --badge-med-fg: #fde047; --badge-med-border: #5c4a16;
+  --badge-safe-bg: #0a3b1a; --badge-safe-fg: #86efac; --badge-safe-border: #165c2e;
+  --badge-vuln-bg: #3b0a1a; --badge-vuln-fg: #fda4af; --badge-vuln-border: #5c1630;
+  --badge-broken-bg: #450a0a; --badge-broken-fg: #f87171; --badge-broken-border: #7f1d1d;
+  --sidebar-width: 220px; --topbar-style: uppercase;
+  background: var(--bg-0); color: var(--text-1); font-family: var(--font);
+}
+
+/* ============================== */
+/* THEME: CRYSTAL                 */
+/* ============================== */
+body.theme-crystal {
+  --bg-0: #f5f6f8; --bg-1: #ffffff; --bg-2: #fafbfc; --bg-3: #f0f0ff;
+  --border: #e5e7eb; --border-light: #f0f0f0;
+  --text-1: #1a1a2e; --text-2: #555; --text-3: #888; --text-4: #bbb;
+  --accent: #667eea; --accent-dim: #f0f0ff; --accent-hover: #5a6fd6;
+  --font: 'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --radius: 10px; --card-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  --red: #dc2626; --orange: #ea580c; --yellow: #ca8a04; --green: #16a34a; --blue: #2563eb; --purple: #7c3aed; --pink: #db2777;
+  --badge-crit-bg: #fef2f2; --badge-crit-fg: #dc2626; --badge-crit-border: #fecaca;
+  --badge-high-bg: #fff7ed; --badge-high-fg: #ea580c; --badge-high-border: #fed7aa;
+  --badge-med-bg: #fefce8; --badge-med-fg: #ca8a04; --badge-med-border: #fef08a;
+  --badge-safe-bg: #f0fdf4; --badge-safe-fg: #16a34a; --badge-safe-border: #bbf7d0;
+  --badge-vuln-bg: #fdf2f8; --badge-vuln-fg: #db2777; --badge-vuln-border: #fbcfe8;
+  --badge-broken-bg: #fef2f2; --badge-broken-fg: #b91c1c; --badge-broken-border: #fecaca;
+  --sidebar-width: 250px; --topbar-style: none;
+  background: var(--bg-0); color: var(--text-1); font-family: var(--font);
+}
+
+/* ============================== */
+/* THEME: SENTINEL                */
+/* ============================== */
+body.theme-sentinel {
+  --bg-0: #0c0c0c; --bg-1: #111; --bg-2: #161616; --bg-3: #1a1a1a;
+  --border: #2a2a2a; --border-light: #1a1a1a;
+  --text-1: #d4d4d4; --text-2: #999; --text-3: #666; --text-4: #444;
+  --accent: #f59e0b; --accent-dim: #1c1207; --accent-hover: #fbbf24;
+  --font: 'SF Mono','Cascadia Code','Consolas',monospace;
+  --radius: 2px; --card-shadow: none;
+  --red: #f87171; --orange: #fb923c; --yellow: #fbbf24; --green: #4ade80; --blue: #60a5fa; --purple: #c084fc; --pink: #f472b6;
+  --badge-crit-bg: #7f1d1d; --badge-crit-fg: #fca5a5; --badge-crit-border: #991b1b;
+  --badge-high-bg: #7c2d12; --badge-high-fg: #fdba74; --badge-high-border: #9a3412;
+  --badge-med-bg: #713f12; --badge-med-fg: #fde047; --badge-med-border: #854d0e;
+  --badge-safe-bg: #14532d; --badge-safe-fg: #86efac; --badge-safe-border: #166534;
+  --badge-vuln-bg: #4c0519; --badge-vuln-fg: #fda4af; --badge-vuln-border: #881337;
+  --badge-broken-bg: #450a0a; --badge-broken-fg: #f87171; --badge-broken-border: #7f1d1d;
+  --sidebar-width: 200px; --topbar-style: uppercase;
+  background: var(--bg-0); color: var(--text-1); font-family: var(--font);
+}
+
+/* ============================== */
+/* SHARED LAYOUT                  */
+/* ============================== */
+.app { display:flex; min-height:100vh; }
+.sidebar { width:var(--sidebar-width); background:var(--bg-1); border-right:1px solid var(--border); padding:16px 0; flex-shrink:0; position:fixed; height:100vh; overflow-y:auto; }
+.content { flex:1; margin-left:var(--sidebar-width); padding:20px 28px; }
+
+/* Logo */
+.logo { display:flex; align-items:center; gap:10px; padding:0 16px 16px; border-bottom:1px solid var(--border); margin-bottom:12px; }
+.logo svg { width:28px; height:28px; }
+.logo-text { font-size:15px; font-weight:700; color:var(--accent); }
+.logo-sub { font-size:9px; color:var(--text-4); text-transform:uppercase; letter-spacing:0.1em; display:block; }
+
+/* Navigation */
+.nav-section { padding:6px 16px; font-size:10px; text-transform:uppercase; letter-spacing:0.06em; color:var(--text-4); margin-top:14px; }
+.nav-item { display:flex; align-items:center; gap:8px; padding:7px 16px; font-size:12px; color:var(--text-2); cursor:pointer; border-left:3px solid transparent; transition:all 0.12s; text-transform:var(--topbar-style); letter-spacing:0.02em; }
+.nav-item:hover { color:var(--text-1); background:var(--bg-2); }
+.nav-item.active { color:var(--accent); background:var(--accent-dim); border-left-color:var(--accent); }
+.nav-item .icon { width:16px; text-align:center; font-size:11px; opacity:0.6; }
+
+/* Topbar */
+.topbar { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.topbar h1 { font-size:18px; font-weight:700; text-transform:var(--topbar-style); letter-spacing:0.04em; }
+.topbar-right { display:flex; gap:12px; align-items:center; font-size:11px; color:var(--text-3); }
+
+/* Cards */
+.card { background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius); padding:16px; box-shadow:var(--card-shadow); margin-bottom:16px; }
+.card-title { font-size:11px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:10px; }
+.card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+
+/* Grids */
+.g4 { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:16px; }
+.g3 { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:16px; }
+.g2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px; }
+.g21 { display:grid; grid-template-columns:2fr 1fr; gap:12px; margin-bottom:16px; }
+
+/* Stats */
+.stat { background:var(--bg-2); border:1px solid var(--border); border-radius:var(--radius); padding:14px; box-shadow:var(--card-shadow); }
+.stat-label { font-size:10px; color:var(--text-4); text-transform:uppercase; letter-spacing:0.06em; }
+.stat-val { font-size:26px; font-weight:700; font-variant-numeric:tabular-nums; margin-top:4px; }
+.stat-sub { font-size:10px; color:var(--text-3); margin-top:2px; }
+
+/* Tables */
+table { width:100%; border-collapse:collapse; }
+th { text-align:left; padding:8px 10px; font-size:10px; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:0.05em; border-bottom:1px solid var(--border); }
+td { padding:10px; font-size:12px; border-bottom:1px solid var(--border-light); }
+tr:hover td { background:var(--bg-3); }
+
+/* Badges */
+.badge { display:inline-block; padding:2px 7px; border-radius:var(--radius); font-size:10px; font-weight:600; letter-spacing:0.03em; }
+.b-crit { background:var(--badge-crit-bg); color:var(--badge-crit-fg); border:1px solid var(--badge-crit-border); }
+.b-high { background:var(--badge-high-bg); color:var(--badge-high-fg); border:1px solid var(--badge-high-border); }
+.b-med { background:var(--badge-med-bg); color:var(--badge-med-fg); border:1px solid var(--badge-med-border); }
+.b-safe { background:var(--badge-safe-bg); color:var(--badge-safe-fg); border:1px solid var(--badge-safe-border); }
+.b-vuln { background:var(--badge-vuln-bg); color:var(--badge-vuln-fg); border:1px solid var(--badge-vuln-border); }
+.b-broken { background:var(--badge-broken-bg); color:var(--badge-broken-fg); border:1px solid var(--badge-broken-border); }
+
+/* Buttons */
+.btn { padding:7px 14px; border-radius:var(--radius); font-size:12px; font-weight:500; cursor:pointer; border:none; font-family:inherit; transition:all 0.15s; }
+.btn-accent { background:var(--accent); color:var(--bg-0); }
+.btn-accent:hover { background:var(--accent-hover); }
+.btn-outline { background:transparent; border:1px solid var(--border); color:var(--text-2); }
+.btn-outline:hover { border-color:var(--accent); color:var(--accent); }
+
+/* Progress */
+.progress { height:6px; background:var(--bg-3); border-radius:3px; overflow:hidden; }
+.progress-fill { height:100%; border-radius:3px; }
+
+/* Bar chart */
+.bars { display:flex; align-items:end; gap:4px; height:100px; }
+.bar { flex:1; border-radius:var(--radius) var(--radius) 0 0; min-height:2px; }
+.bar-labels { display:flex; gap:4px; margin-top:4px; }
+.bar-labels span { flex:1; text-align:center; font-size:9px; color:var(--text-4); }
+
+/* Sparkline */
+.spark { display:flex; align-items:end; gap:1px; height:40px; }
+.spark div { flex:1; min-height:1px; border-radius:1px 1px 0 0; }
+
+/* Forms */
+.input { width:100%; padding:8px 10px; background:var(--bg-0); border:1px solid var(--border); border-radius:var(--radius); color:var(--text-1); font-size:12px; font-family:inherit; outline:none; }
+.input:focus { border-color:var(--accent); }
+.input::placeholder { color:var(--text-4); }
+.field { margin-bottom:12px; }
+.field-label { font-size:10px; color:var(--text-3); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; display:block; }
+
+/* Code */
+.code { background:var(--bg-0); border:1px solid var(--border); border-radius:var(--radius); padding:10px; font-family:'JetBrains Mono','Fira Code',monospace; font-size:11px; line-height:1.6; overflow-x:auto; }
+.code-line { display:flex; }
+.code-num { color:var(--text-4); width:36px; text-align:right; padding-right:10px; user-select:none; }
+.code-hl { background:rgba(248,113,113,0.1); display:block; margin:0 -10px; padding:0 10px; }
+
+/* Alert */
+.alert { padding:8px 12px; border-radius:var(--radius); margin-bottom:12px; font-size:11px; display:flex; align-items:center; gap:8px; }
+.alert-warn { background:var(--accent-dim); border:1px solid var(--accent); color:var(--accent); }
+
+/* Diff */
+.diff-add td { border-left:3px solid var(--green); }
+.diff-rm td { border-left:3px solid var(--red); }
+.diff-ch td { border-left:3px solid var(--yellow); }
+
+/* Filters */
+.filters { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+.filter { padding:5px 10px; border-radius:var(--radius); font-size:11px; border:1px solid var(--border); background:transparent; color:var(--text-2); cursor:pointer; font-family:inherit; }
+.filter.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+
+/* Pages */
+.page { display:none; }
+.page.active { display:block; }
+
+/* Login page */
+.login-page { display:none; min-height:100vh; align-items:center; justify-content:center; }
+.login-page.active { display:flex; }
+.login-card { background:var(--bg-1); border:1px solid var(--border); border-radius:var(--radius); padding:36px 32px; width:380px; box-shadow:var(--card-shadow); }
+.login-title { font-size:18px; font-weight:700; color:var(--accent); text-align:center; margin-bottom:4px; text-transform:var(--topbar-style); letter-spacing:0.06em; }
+.login-sub { font-size:11px; color:var(--text-3); text-align:center; margin-bottom:24px; }
+.login-btn { width:100%; padding:10px; background:var(--accent); color:var(--bg-0); border:none; border-radius:var(--radius); font-size:12px; font-weight:600; cursor:pointer; font-family:inherit; text-transform:uppercase; letter-spacing:0.06em; margin-top:4px; }
+.login-btn:hover { background:var(--accent-hover); }
+.login-divider { display:flex; align-items:center; gap:10px; margin:16px 0; color:var(--text-4); font-size:10px; }
+.login-divider::before,.login-divider::after { content:''; flex:1; height:1px; background:var(--border); }
+.login-sso { width:100%; padding:8px; border:1px solid var(--border); border-radius:var(--radius); font-size:11px; color:var(--text-2); background:transparent; cursor:pointer; margin-bottom:6px; font-family:inherit; }
+.login-sso:hover { border-color:var(--accent); color:var(--accent); }
+
+/* Theme switcher in settings */
+.theme-option { display:inline-flex; align-items:center; gap:6px; padding:8px 14px; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; margin-right:6px; font-size:11px; color:var(--text-2); }
+.theme-option.active { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+.theme-dot { width:12px; height:12px; border-radius:50%; border:1px solid var(--border); }
+
+/* Responsive */
+@media (max-width:1100px) { .g4 { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body class="theme-radar">
+
+<!-- LOGIN PAGE -->
+<div id="login-page" class="login-page active">
+  <div class="login-card">
+    <div class="login-title">CipherRadar</div>
+    <div class="login-sub">Cryptographic Asset Intelligence Platform</div>
+    <div class="field"><label class="field-label">Email</label><input class="input" placeholder="you@company.com" type="email" /></div>
+    <div class="field"><label class="field-label">Password</label><input class="input" placeholder="Enter password" type="password" /></div>
+    <button class="login-btn" onclick="showApp()">Sign In</button>
+    <div class="login-divider">or</div>
+    <button class="login-sso">Sign in with GitHub SSO</button>
+    <button class="login-sso">Sign in with SAML / OIDC</button>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" class="app" style="display:none">
+  <nav class="sidebar">
+    <div class="logo">
+      <svg viewBox="0 0 32 32" fill="none" width="28" height="28"><path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="currentColor" stroke-width="1.5" style="color:var(--accent)"/><circle cx="16" cy="16" r="4" fill="currentColor" style="color:var(--accent)"/></svg>
+      <div><span class="logo-text">CipherRadar</span><span class="logo-sub">CBOM Platform</span></div>
+    </div>
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="nav(this,'dashboard')"><span class="icon">&#9632;</span> Dashboard</div>
+    <div class="nav-item" onclick="nav(this,'repos')"><span class="icon">&#9776;</span> Repositories</div>
+    <div class="nav-section">Analysis</div>
+    <div class="nav-item" onclick="nav(this,'scan')"><span class="icon">&#8634;</span> Scan Results</div>
+    <div class="nav-item" onclick="nav(this,'findings')"><span class="icon">&#9888;</span> Findings</div>
+    <div class="nav-item" onclick="nav(this,'diff')"><span class="icon">&#916;</span> CBOM Diff</div>
+    <div class="nav-section">Intelligence</div>
+    <div class="nav-item" onclick="nav(this,'quantum')"><span class="icon">&#9883;</span> Quantum Readiness</div>
+    <div class="nav-item" onclick="nav(this,'compliance')"><span class="icon">&#10003;</span> Compliance</div>
+    <div class="nav-section">Manage</div>
+    <div class="nav-item" onclick="nav(this,'policy')"><span class="icon">&#9881;</span> Policy Rules</div>
+    <div class="nav-item" onclick="nav(this,'settings')"><span class="icon">&#9881;</span> Settings</div>
+    <div style="flex:1"></div>
+    <div class="nav-item" onclick="showLogin()" style="border-top:1px solid var(--border);margin-top:8px;padding-top:10px;"><span class="icon">&#8617;</span> Sign Out</div>
+  </nav>
+
+  <main class="content">
+    <!-- DASHBOARD -->
+    <div id="p-dashboard" class="page active">
+      <div class="topbar"><h1>Dashboard</h1><div class="topbar-right"><span>Last scan: 2min ago</span><button class="btn btn-accent">+ New Scan</button></div></div>
+      <div class="g4">
+        <div class="stat"><div class="stat-label">Total Findings</div><div class="stat-val" style="color:var(--accent)">1,247</div><div class="stat-sub">+23 since last scan</div></div>
+        <div class="stat"><div class="stat-label">Critical + High</div><div class="stat-val" style="color:var(--red)">89</div><div class="stat-sub">5 repos affected</div></div>
+        <div class="stat"><div class="stat-label">Quantum Exposed</div><div class="stat-val" style="color:var(--orange)">312</div><div class="stat-sub">42% of algorithms</div></div>
+        <div class="stat"><div class="stat-label">Compliance</div><div class="stat-val" style="color:var(--yellow)">72%</div><div class="stat-sub">NIST 800-131A</div></div>
+      </div>
+      <div class="g21">
+        <div class="card"><div class="card-title">Severity Distribution</div>
+          <div class="bars"><div class="bar" style="height:15%;background:var(--red)"></div><div class="bar" style="height:38%;background:var(--orange)"></div><div class="bar" style="height:70%;background:var(--yellow)"></div><div class="bar" style="height:48%;background:var(--blue)"></div><div class="bar" style="height:95%;background:var(--text-3)"></div></div>
+          <div class="bar-labels"><span>CRIT 12</span><span>HIGH 77</span><span>MED 234</span><span>LOW 156</span><span>INFO 768</span></div>
+        </div>
+        <div class="card"><div class="card-title">Quantum Risk Trend</div>
+          <div class="spark"><div style="height:90%;background:var(--red)"></div><div style="height:85%;background:var(--red)"></div><div style="height:80%;background:var(--orange)"></div><div style="height:75%;background:var(--orange)"></div><div style="height:68%;background:var(--yellow)"></div><div style="height:62%;background:var(--yellow)"></div><div style="height:58%;background:var(--yellow)"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--text-4)"><span>Jan</span><span>Now: 58</span></div>
+          <div style="margin-top:10px;font-size:11px;color:var(--green)">Score improving: 75 → 58 (-22%)</div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><div class="card-title">Recent Scans</div></div>
+        <table><thead><tr><th>Repository</th><th>Branch</th><th>Findings</th><th>Critical</th><th>Quantum Risk</th><th>Time</th></tr></thead><tbody>
+          <tr><td><strong>payment-service</strong></td><td>main</td><td>342</td><td><span class="badge b-crit">5</span></td><td><span class="badge b-vuln">High</span></td><td>2h ago</td></tr>
+          <tr><td><strong>auth-api</strong></td><td>main</td><td>187</td><td><span class="badge b-high">2</span></td><td><span class="badge b-med">Med</span></td><td>3h ago</td></tr>
+          <tr><td><strong>data-pipeline</strong></td><td>feat/encrypt</td><td>98</td><td><span class="badge b-safe">0</span></td><td><span class="badge b-safe">Low</span></td><td>5h ago</td></tr>
+          <tr><td><strong>mobile-backend</strong></td><td>main</td><td>456</td><td><span class="badge b-crit">3</span></td><td><span class="badge b-vuln">High</span></td><td>1d ago</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+
+    <!-- REPOSITORIES -->
+    <div id="p-repos" class="page">
+      <div class="topbar"><h1>Repositories</h1><div class="topbar-right"><input class="input" style="width:220px" placeholder="Search..." /><button class="btn btn-accent">+ Connect Repo</button></div></div>
+      <div class="card"><table><thead><tr><th>Repository</th><th>Provider</th><th>Languages</th><th>Last Scan</th><th>Findings</th><th>Compliance</th><th>Quantum</th><th></th></tr></thead><tbody>
+        <tr><td><strong>payment-service</strong><br><span style="font-size:10px;color:var(--text-4)">nk-sentinel/payment-service</span></td><td>GitHub</td><td>Java, JS</td><td>2h ago</td><td>342</td><td><div class="progress" style="width:70px"><div class="progress-fill" style="width:65%;background:var(--yellow)"></div></div> 65%</td><td><span class="badge b-vuln">72</span></td><td><button class="btn btn-outline">Scan</button></td></tr>
+        <tr><td><strong>auth-api</strong><br><span style="font-size:10px;color:var(--text-4)">nk-sentinel/auth-api</span></td><td>GitHub</td><td>Python, JS</td><td>3h ago</td><td>187</td><td><div class="progress" style="width:70px"><div class="progress-fill" style="width:82%;background:var(--green)"></div></div> 82%</td><td><span class="badge b-med">34</span></td><td><button class="btn btn-outline">Scan</button></td></tr>
+        <tr><td><strong>data-pipeline</strong><br><span style="font-size:10px;color:var(--text-4)">nk-sentinel/data-pipeline</span></td><td>GitLab</td><td>Python</td><td>5h ago</td><td>98</td><td><div class="progress" style="width:70px"><div class="progress-fill" style="width:94%;background:var(--green)"></div></div> 94%</td><td><span class="badge b-safe">8</span></td><td><button class="btn btn-outline">Scan</button></td></tr>
+        <tr><td><strong>mobile-backend</strong><br><span style="font-size:10px;color:var(--text-4)">nk-sentinel/mobile-backend</span></td><td>Bitbucket</td><td>Java, Kotlin</td><td>1d ago</td><td>456</td><td><div class="progress" style="width:70px"><div class="progress-fill" style="width:45%;background:var(--red)"></div></div> 45%</td><td><span class="badge b-vuln">128</span></td><td><button class="btn btn-outline">Scan</button></td></tr>
+      </tbody></table></div>
+    </div>
+
+    <!-- SCAN RESULTS -->
+    <div id="p-scan" class="page">
+      <div class="topbar"><h1>Scan — payment-service #47</h1><div class="topbar-right"><button class="btn btn-outline">CBOM</button><button class="btn btn-outline">SARIF</button><button class="btn btn-outline">PDF</button></div></div>
+      <div class="g4">
+        <div class="stat"><div class="stat-label">Critical</div><div class="stat-val" style="color:var(--red)">5</div></div>
+        <div class="stat"><div class="stat-label">High</div><div class="stat-val" style="color:var(--orange)">28</div></div>
+        <div class="stat"><div class="stat-label">Medium</div><div class="stat-val" style="color:var(--yellow)">67</div></div>
+        <div class="stat"><div class="stat-label">Low + Info</div><div class="stat-val" style="color:var(--text-3)">242</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="card-title">Algorithm Distribution</div>
+          <div class="bars"><div class="bar" style="height:100%;background:var(--blue)"></div><div class="bar" style="height:75%;background:var(--red)"></div><div class="bar" style="height:60%;background:var(--green)"></div><div class="bar" style="height:36%;background:var(--orange)"></div><div class="bar" style="height:31%;background:var(--yellow)"></div><div class="bar" style="height:27%;background:var(--accent)"></div><div class="bar" style="height:20%;background:var(--purple)"></div></div>
+          <div class="bar-labels"><span>AES 89</span><span>RSA 67</span><span>SHA2 54</span><span>MD5 32</span><span>SHA1 28</span><span>HMAC 24</span><span>EC 18</span></div>
+        </div>
+        <div class="card"><div class="card-title">By Language</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Java</span><span style="color:var(--text-3)">156</span></div><div class="progress"><div class="progress-fill" style="width:46%;background:var(--orange)"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>JavaScript</span><span style="color:var(--text-3)">98</span></div><div class="progress"><div class="progress-fill" style="width:29%;background:var(--yellow)"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Python</span><span style="color:var(--text-3)">52</span></div><div class="progress"><div class="progress-fill" style="width:15%;background:var(--blue)"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Config</span><span style="color:var(--text-3)">36</span></div><div class="progress"><div class="progress-fill" style="width:10%;background:var(--purple)"></div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="card"><div class="card-title">Top Findings</div>
+        <table><thead><tr><th>Severity</th><th>File</th><th>Line</th><th>Finding</th><th>Quantum</th></tr></thead><tbody>
+          <tr><td><span class="badge b-crit">CRIT</span></td><td>SSLConfig.java</td><td>45</td><td>Certificate validation disabled</td><td><span class="badge b-vuln">Vuln</span></td></tr>
+          <tr><td><span class="badge b-crit">CRIT</span></td><td>jwt.js</td><td>23</td><td>JWT alg:none — unsigned tokens</td><td>—</td></tr>
+          <tr><td><span class="badge b-high">HIGH</span></td><td>CryptoUtil.java</td><td>67</td><td>DES/ECB/PKCS5 — broken cipher</td><td><span class="badge b-broken">Broken</span></td></tr>
+          <tr><td><span class="badge b-high">HIGH</span></td><td>hash.py</td><td>12</td><td>MD5 — collision attacks since 2004</td><td><span class="badge b-broken">Broken</span></td></tr>
+          <tr><td><span class="badge b-high">HIGH</span></td><td>.env</td><td>5</td><td>Hardcoded ENCRYPTION_KEY</td><td>—</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+
+    <!-- FINDINGS -->
+    <div id="p-findings" class="page">
+      <div class="topbar"><h1>Findings</h1><div class="topbar-right"><input class="input" style="width:220px" placeholder="Search findings..." /></div></div>
+      <div class="filters">
+        <button class="filter active">All (1,247)</button><button class="filter">Critical (12)</button><button class="filter">High (77)</button><button class="filter">Medium (234)</button><button class="filter">Quantum Vulnerable</button><button class="filter">Broken</button>
+      </div>
+      <div class="card"><table><thead><tr><th>Severity</th><th>Repo</th><th>File</th><th>Finding</th><th>Algorithm</th><th>Quantum</th><th>Pass</th></tr></thead><tbody>
+        <tr onclick="document.getElementById('finding-detail').style.display='block'" style="cursor:pointer"><td><span class="badge b-crit">CRIT</span></td><td>payment-svc</td><td>SSLConfig.java:45</td><td>Certificate validation disabled</td><td>—</td><td><span class="badge b-vuln">Vuln</span></td><td>1</td></tr>
+        <tr><td><span class="badge b-high">HIGH</span></td><td>payment-svc</td><td>hash.py:12</td><td>MD5 hash function</td><td>MD5</td><td><span class="badge b-broken">Broken</span></td><td>1</td></tr>
+        <tr><td><span class="badge b-high">HIGH</span></td><td>auth-api</td><td>password.py:34</td><td>SHA-1 hash function</td><td>SHA-1</td><td><span class="badge b-broken">Broken</span></td><td>1</td></tr>
+        <tr><td><span class="badge b-high">HIGH</span></td><td>mobile-be</td><td>.env:5</td><td>Hardcoded API_KEY</td><td>—</td><td>—</td><td>1</td></tr>
+        <tr><td><span class="badge b-med">MED</span></td><td>auth-api</td><td>rsa.py:56</td><td>RSA-2048 key generation</td><td>RSA</td><td><span class="badge b-vuln">Vuln</span></td><td>1</td></tr>
+        <tr><td><span class="badge b-safe">INFO</span></td><td>data-pipe</td><td>aes.py:15</td><td>AES-256-GCM encryption</td><td>AES</td><td><span class="badge b-safe">Safe</span></td><td>1</td></tr>
+      </tbody></table></div>
+
+      <div id="finding-detail" class="card" style="display:none;border-color:var(--red);">
+        <div class="card-header"><div><span class="badge b-crit">CRITICAL</span> <strong style="margin-left:8px;">Certificate validation disabled</strong><div style="font-size:10px;color:var(--text-3);margin-top:4px;">payment-service / SSLConfig.java:45 / Pass 1 / Rule: cbom-java-trust-all-certificates</div></div><button class="btn btn-outline" onclick="this.closest('#finding-detail').style.display='none'">Close</button></div>
+        <div class="g4" style="margin-bottom:12px">
+          <div><div class="field-label">Quantum Status</div><span class="badge b-vuln">Vulnerable</span></div>
+          <div><div class="field-label">Confidence</div>High</div>
+          <div><div class="field-label">Asset Type</div>Certificate</div>
+          <div><div class="field-label">Algorithm</div>X.509 / TLS</div>
+        </div>
+        <div class="field-label">Source Code</div>
+        <div class="code">
+          <div class="code-line"><span class="code-num">43</span> TrustManager[] trustAll = new TrustManager[] {</div>
+          <div class="code-line"><span class="code-num">44</span>     new X509TrustManager() {</div>
+          <div class="code-line code-hl"><span class="code-num">45</span>         public void checkClientTrusted(...) { }</div>
+          <div class="code-line code-hl"><span class="code-num">46</span>         public void checkServerTrusted(...) { }</div>
+          <div class="code-line"><span class="code-num">47</span>         public X509Certificate[] getAcceptedIssuers() { return null; }</div>
+          <div class="code-line"><span class="code-num">48</span>     }</div>
+          <div class="code-line"><span class="code-num">49</span> };</div>
+        </div>
+        <div class="alert alert-warn" style="margin-top:12px;"><strong>Remediation:</strong>&nbsp; Remove custom TrustManager. Use system default or configure a specific truststore with your CA certificates. This enables MITM attacks.</div>
+      </div>
+    </div>
+
+    <!-- CBOM DIFF -->
+    <div id="p-diff" class="page">
+      <div class="topbar"><h1>CBOM Diff</h1><div class="topbar-right"><span style="color:var(--text-3)">Scan #46 (Mar 17) vs #47 (Mar 18)</span></div></div>
+      <div class="g4">
+        <div class="stat"><div class="stat-label">Added</div><div class="stat-val" style="color:var(--green)">+7</div></div>
+        <div class="stat"><div class="stat-label">Removed</div><div class="stat-val" style="color:var(--red)">-3</div></div>
+        <div class="stat"><div class="stat-label">Changed</div><div class="stat-val" style="color:var(--yellow)">~5</div></div>
+        <div class="stat"><div class="stat-label">Unchanged</div><div class="stat-val" style="color:var(--text-3)">=327</div></div>
+      </div>
+      <div class="card"><table><thead><tr><th>Type</th><th>Component</th><th>File</th><th>Details</th></tr></thead><tbody>
+        <tr class="diff-add"><td style="color:var(--green)">+ Added</td><td>PBKDF2-SHA256</td><td>auth/password.py:22</td><td>New KDF</td></tr>
+        <tr class="diff-add"><td style="color:var(--green)">+ Added</td><td>AES-256-GCM</td><td>crypto/encrypt.py:15</td><td>New encryption</td></tr>
+        <tr class="diff-rm"><td style="color:var(--red)">- Removed</td><td>MD5</td><td>crypto/legacy.py:8</td><td>Legacy hash removed</td></tr>
+        <tr class="diff-rm"><td style="color:var(--red)">- Removed</td><td>DES-ECB</td><td>crypto/legacy.py:34</td><td>Broken cipher removed</td></tr>
+        <tr class="diff-ch"><td style="color:var(--yellow)">~ Changed</td><td>RSA-2048 → RSA-4096</td><td>keys/gen.py:5</td><td>Key size: 2048 → 4096</td></tr>
+        <tr class="diff-ch"><td style="color:var(--yellow)">~ Changed</td><td>TLS 1.0 → TLS 1.3</td><td>network/cfg.py:10</td><td>Protocol upgraded</td></tr>
+        <tr class="diff-ch"><td style="color:var(--yellow)">~ Changed</td><td>AES-128-CBC → AES-256-GCM</td><td>crypto/sym.py:20</td><td>Algo + mode upgraded</td></tr>
+      </tbody></table></div>
+    </div>
+
+    <!-- QUANTUM READINESS -->
+    <div id="p-quantum" class="page">
+      <div class="topbar"><h1>Quantum Readiness</h1><div class="topbar-right"><button class="btn btn-outline">Export PQC Report</button></div></div>
+      <div class="g3">
+        <div class="stat" style="text-align:center;padding:24px"><div class="stat-val" style="font-size:48px;color:var(--yellow)">58</div><div style="font-size:12px;color:var(--text-3);margin-top:4px;">Quantum Risk Score (0-100)</div></div>
+        <div class="stat" style="text-align:center;padding:24px"><div class="stat-val" style="font-size:48px;color:var(--red)">312</div><div style="font-size:12px;color:var(--text-3);margin-top:4px;">Quantum-Vulnerable Algorithms</div></div>
+        <div class="stat" style="text-align:center;padding:24px"><div class="stat-val" style="font-size:48px;color:var(--orange)">~6mo</div><div style="font-size:12px;color:var(--text-3);margin-top:4px;">Est. Migration Effort</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="card-title">Migration Priority</div>
+          <table><thead><tr><th>Algorithm</th><th>Count</th><th>Repos</th><th>Migrate To</th><th>Priority</th></tr></thead><tbody>
+            <tr><td><strong>RSA</strong></td><td>134</td><td>7</td><td>ML-KEM / ML-DSA</td><td><span class="badge b-crit">Critical</span></td></tr>
+            <tr><td><strong>ECDSA</strong></td><td>67</td><td>5</td><td>ML-DSA</td><td><span class="badge b-high">High</span></td></tr>
+            <tr><td><strong>ECDH</strong></td><td>45</td><td>4</td><td>ML-KEM</td><td><span class="badge b-high">High</span></td></tr>
+            <tr><td><strong>Ed25519</strong></td><td>34</td><td>3</td><td>ML-DSA</td><td><span class="badge b-med">Med</span></td></tr>
+            <tr><td><strong>DH</strong></td><td>22</td><td>2</td><td>ML-KEM</td><td><span class="badge b-med">Med</span></td></tr>
+          </tbody></table>
+        </div>
+        <div class="card"><div class="card-title">Quantum Status Breakdown</div>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:4px;">
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Vulnerable</span><span style="color:var(--pink);font-weight:600">312 (42%)</span></div><div class="progress"><div class="progress-fill" style="width:42%;background:var(--pink)"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Safe</span><span style="color:var(--green);font-weight:600">223 (30%)</span></div><div class="progress"><div class="progress-fill" style="width:30%;background:var(--green)"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Unknown</span><span style="color:var(--text-3);font-weight:600">104 (14%)</span></div><div class="progress"><div class="progress-fill" style="width:14%;background:var(--text-3)"></div></div></div>
+            <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Broken</span><span style="color:var(--red);font-weight:600">108 (14%)</span></div><div class="progress"><div class="progress-fill" style="width:14%;background:var(--red)"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPLIANCE -->
+    <div id="p-compliance" class="page">
+      <div class="topbar"><h1>Compliance</h1><div class="topbar-right"><button class="btn btn-outline">Download Gap Report (PDF)</button></div></div>
+      <div class="g3">
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:600">NIST 800-131A</div><div style="font-size:11px;color:var(--text-3)">Algorithm transitions</div><div class="progress" style="width:140px;margin-top:8px"><div class="progress-fill" style="width:72%;background:var(--yellow)"></div></div></div><div style="font-size:32px;font-weight:700;color:var(--yellow)">72%</div></div>
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:600">FIPS 140-3</div><div style="font-size:11px;color:var(--text-3)">Module validation</div><div class="progress" style="width:140px;margin-top:8px"><div class="progress-fill" style="width:65%;background:var(--orange)"></div></div></div><div style="font-size:32px;font-weight:700;color:var(--orange)">65%</div></div>
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:600">CNSA 2.0</div><div style="font-size:11px;color:var(--text-3)">NSA quantum suite</div><div class="progress" style="width:140px;margin-top:8px"><div class="progress-fill" style="width:38%;background:var(--red)"></div></div></div><div style="font-size:32px;font-weight:700;color:var(--red)">38%</div></div>
+      </div>
+      <div class="card"><div class="card-title">NIST 800-131A — Non-Compliant Findings</div>
+        <table><thead><tr><th>Status</th><th>Algorithm</th><th>Classification</th><th>Count</th><th>Action</th></tr></thead><tbody>
+          <tr><td><span class="badge b-crit">Disallowed</span></td><td>DES</td><td>Disallowed after 2023</td><td>8</td><td>Replace with AES-256</td></tr>
+          <tr><td><span class="badge b-crit">Disallowed</span></td><td>3DES (2-key)</td><td>Disallowed after 2023</td><td>4</td><td>Replace with AES-256</td></tr>
+          <tr><td><span class="badge b-high">Deprecated</span></td><td>SHA-1</td><td>Deprecated for signatures</td><td>28</td><td>Migrate to SHA-256/SHA-3</td></tr>
+          <tr><td><span class="badge b-safe">Acceptable</span></td><td>AES-256</td><td>Acceptable</td><td>134</td><td>No action</td></tr>
+          <tr><td><span class="badge b-safe">Acceptable</span></td><td>SHA-256</td><td>Acceptable</td><td>167</td><td>No action</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+
+    <!-- POLICY RULES -->
+    <div id="p-policy" class="page">
+      <div class="topbar"><h1>Policy Rules</h1><div class="topbar-right"><button class="btn btn-accent">+ Add Rule</button><button class="btn btn-outline">Import YAML</button></div></div>
+      <div class="card"><table><thead><tr><th>Rule ID</th><th>Description</th><th>Action</th><th>Severity</th><th>Violations</th></tr></thead><tbody>
+        <tr><td style="color:var(--accent)">no-broken-algorithms</td><td>Deny MD5, SHA-1, DES, 3DES, RC4</td><td><span class="badge b-crit">Fail</span></td><td>Critical</td><td style="color:var(--red)">72</td></tr>
+        <tr><td style="color:var(--accent)">no-ecb-mode</td><td>Deny ECB block cipher mode</td><td><span class="badge b-crit">Fail</span></td><td>High</td><td style="color:var(--orange)">8</td></tr>
+        <tr><td style="color:var(--accent)">rsa-min-key-size</td><td>RSA keys >= 2048 bits</td><td><span class="badge b-crit">Fail</span></td><td>High</td><td style="color:var(--orange)">6</td></tr>
+        <tr><td style="color:var(--accent)">no-deprecated-tls</td><td>Deny TLS 1.0, 1.1</td><td><span class="badge b-crit">Fail</span></td><td>High</td><td style="color:var(--orange)">12</td></tr>
+        <tr><td style="color:var(--accent)">quantum-vulnerable</td><td>Warn on quantum-vulnerable algos</td><td><span class="badge b-med">Warn</span></td><td>Medium</td><td style="color:var(--yellow)">312</td></tr>
+        <tr><td style="color:var(--accent)">no-hardcoded-keys</td><td>Deny hardcoded crypto keys</td><td><span class="badge b-crit">Fail</span></td><td>Critical</td><td style="color:var(--red)">15</td></tr>
+      </tbody></table></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="p-settings" class="page">
+      <div class="topbar"><h1>Settings</h1></div>
+      <div style="display:flex;gap:20px;">
+        <div style="width:180px;display:flex;flex-direction:column;gap:2px;">
+          <div style="padding:7px 12px;border-radius:var(--radius);background:var(--accent-dim);color:var(--accent);font-size:12px;cursor:pointer;">General</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer;">Scan Config</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer;">Notifications</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer;">Integrations</div>
+          <div style="font-size:10px;color:var(--text-4);text-transform:uppercase;letter-spacing:0.06em;padding:12px 12px 4px;">Admin</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer;">Team Members</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer;">API Keys</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer;">Audit Log</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer;">Data Retention</div>
+        </div>
+        <div style="flex:1;">
+          <div class="card">
+            <div class="card-title">General</div>
+            <div class="g2" style="margin-bottom:0;">
+              <div class="field"><label class="field-label">Organisation Name</label><input class="input" value="nk-sentinel" /></div>
+              <div class="field"><label class="field-label">Default Scan Passes</label><input class="input" value="1, 2" /></div>
+              <div class="field"><label class="field-label">CBOM Output Format</label><input class="input" value="cyclonedx-json" /></div>
+              <div class="field"><label class="field-label">Code Snippet Lines</label><input class="input" value="3" /></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Theme</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;">
+              <div class="theme-option active" onclick="setTheme('radar',this)"><div class="theme-dot" style="background:#06b6d4"></div> Radar (SOC Dark)</div>
+              <div class="theme-option" onclick="setTheme('crystal',this)"><div class="theme-dot" style="background:#667eea"></div> Crystal (Clean SaaS)</div>
+              <div class="theme-option" onclick="setTheme('sentinel',this)"><div class="theme-dot" style="background:#f59e0b"></div> Sentinel (Data Dense)</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Integrations</div>
+            <table><thead><tr><th>Provider</th><th>Status</th><th>Repos</th><th>Webhooks</th></tr></thead><tbody>
+              <tr><td>GitHub</td><td style="color:var(--green)">Connected</td><td>6</td><td>Active</td></tr>
+              <tr><td>GitLab</td><td style="color:var(--green)">Connected</td><td>2</td><td>Active</td></tr>
+              <tr><td>Bitbucket</td><td style="color:var(--text-4)">Not connected</td><td>—</td><td>—</td></tr>
+              <tr><td>Jira</td><td style="color:var(--text-4)">Not connected</td><td>—</td><td>—</td></tr>
+            </tbody></table>
+          </div>
+          <div class="card">
+            <div class="card-title">API Keys</div>
+            <table><thead><tr><th>Name</th><th>Scopes</th><th>Created</th><th>Last Used</th></tr></thead><tbody>
+              <tr><td>CI/CD Pipeline</td><td>scan:write, cbom:read</td><td>2026-03-15</td><td>2h ago</td></tr>
+              <tr><td>Monitoring</td><td>scan:read, cbom:read</td><td>2026-03-18</td><td>Never</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+function nav(el, page) {
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  el.classList.add('active');
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('p-' + page).classList.add('active');
+}
+
+function showApp() {
+  document.getElementById('login-page').classList.remove('active');
+  document.getElementById('app').style.display = 'flex';
+}
+
+function showLogin() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-page').classList.add('active');
+}
+
+function setTheme(theme, el) {
+  document.body.className = 'theme-' + theme;
+  document.querySelectorAll('.theme-option').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

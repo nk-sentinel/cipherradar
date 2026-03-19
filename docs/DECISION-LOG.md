@@ -25,7 +25,7 @@ When a decision changes, the original ADR is kept and marked **Superseded**, and
 | [ADR-003](decisions/ADR-003-codeql-independence.md) | CodeQL Independence — No Build Required | Accepted | 2026-03-15 | Detection engine, architecture |
 | [ADR-004](decisions/ADR-004-taint-engine-revision.md) | Taint Engine — Revised to Joern + OpenGrep | **Accepted** (supersedes original design) | 2026-03-16 | Detection engine v2, tech stack v2, roadmap v2 |
 | [ADR-005](decisions/ADR-005-cli-language-and-deployment.md) | CLI Language — Go; Backend — Python/FastAPI | Accepted | 2026-03-15 | Tech stack, deployment |
-| [ADR-006](decisions/ADR-006-rbac-design.md) | RBAC Design — Roles, Permissions, API Key Model | Accepted | 2026-03-16 | `docs/09-rbac.md` |
+| [ADR-006](decisions/ADR-006-rbac-design.md) | RBAC Design — 7 Roles (was 6), Permissions, API Key Model | Accepted | 2026-03-16 | `docs/09-rbac.md` |
 | [ADR-007](decisions/ADR-007-communications-design.md) | Communications Design — Channels, Triggers, Notification Routing | Accepted | 2026-03-16 | `docs/10-communications.md` |
 | [ADR-008](decisions/ADR-008-repository-structure.md) | Repository Structure — Monorepo | Accepted | 2026-03-18 | Repo layout, CI/CD |
 | [ADR-009](decisions/ADR-009-opengrep-replaces-semgrep.md) | Pass 2 Engine — OpenGrep replaces Semgrep | Accepted | 2026-03-18 | `docs/03-detection-engine.md`, `docs/07-tech-stack.md`, ADR-004 |
@@ -115,6 +115,13 @@ All 6 milestones (M1–M6) delivered. The `cbom` CLI binary scans Python, JavaSc
 - Koanf v2 was not used for config — `gopkg.in/yaml.v3` used directly for policy YAML parsing (simpler for single-file config)
 - `santhosh-tekuri/jsonschema/v6` added for CycloneDX 1.7 schema validation
 - `maroto/v2` added for PDF report generation
+
+---
+
+### 2026-03-19 — RBAC Update: Team Manager Role
+
+**ADR-006 updated: Team Manager role added**
+A 7th role ("Team Manager") was added to the RBAC model during UI mockup review. The role provides group-scoped read access + scan triggering for engineering managers and team leads — filling the gap between Developer (too limited for visibility) and Security Manager (too powerful for non-security leadership). Team Managers cannot configure policies, suppress findings, or approve suppression requests.
 
 ---
 

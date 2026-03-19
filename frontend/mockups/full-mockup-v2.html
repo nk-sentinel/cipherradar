@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CipherRadar — UI Mockup v2 (Hierarchical Flow)</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-size:13px; min-height:100vh; transition: background 0.3s, color 0.3s; }
+
+/* THEMES (same as before) */
+body.theme-radar {
+  --bg-0:#05080f;--bg-1:#0a0f1a;--bg-2:#0d1520;--bg-3:#111c2e;--border:#1a2744;--border-light:#112240;
+  --text-1:#c8d6e5;--text-2:#7a8ba8;--text-3:#4a6fa5;--text-4:#3a5070;
+  --accent:#06b6d4;--accent-dim:#0c2340;--accent-hover:#22d3ee;
+  --font:'JetBrains Mono','Fira Code','SF Mono',monospace;--radius:4px;--card-shadow:none;
+  --red:#f87171;--orange:#fb923c;--yellow:#fbbf24;--green:#4ade80;--blue:#3b82f6;--purple:#a78bfa;--pink:#f472b6;
+  --badge-crit-bg:#3b0a0a;--badge-crit-fg:#fca5a5;--badge-crit-bd:#5c1616;
+  --badge-high-bg:#3b1a0a;--badge-high-fg:#fdba74;--badge-high-bd:#5c2e16;
+  --badge-med-bg:#3b2e0a;--badge-med-fg:#fde047;--badge-med-bd:#5c4a16;
+  --badge-safe-bg:#0a3b1a;--badge-safe-fg:#86efac;--badge-safe-bd:#165c2e;
+  --badge-vuln-bg:#3b0a1a;--badge-vuln-fg:#fda4af;--badge-vuln-bd:#5c1630;
+  --badge-broken-bg:#450a0a;--badge-broken-fg:#f87171;--badge-broken-bd:#7f1d1d;
+  --sidebar-w:220px;--tt:uppercase;
+  background:var(--bg-0);color:var(--text-1);font-family:var(--font);
+}
+body.theme-crystal {
+  --bg-0:#f5f6f8;--bg-1:#fff;--bg-2:#fafbfc;--bg-3:#f0f0ff;--border:#e5e7eb;--border-light:#f0f0f0;
+  --text-1:#1a1a2e;--text-2:#555;--text-3:#888;--text-4:#bbb;
+  --accent:#667eea;--accent-dim:#f0f0ff;--accent-hover:#5a6fd6;
+  --font:'Inter',-apple-system,sans-serif;--radius:10px;--card-shadow:0 1px 3px rgba(0,0,0,0.06);
+  --red:#dc2626;--orange:#ea580c;--yellow:#ca8a04;--green:#16a34a;--blue:#2563eb;--purple:#7c3aed;--pink:#db2777;
+  --badge-crit-bg:#fef2f2;--badge-crit-fg:#dc2626;--badge-crit-bd:#fecaca;
+  --badge-high-bg:#fff7ed;--badge-high-fg:#ea580c;--badge-high-bd:#fed7aa;
+  --badge-med-bg:#fefce8;--badge-med-fg:#ca8a04;--badge-med-bd:#fef08a;
+  --badge-safe-bg:#f0fdf4;--badge-safe-fg:#16a34a;--badge-safe-bd:#bbf7d0;
+  --badge-vuln-bg:#fdf2f8;--badge-vuln-fg:#db2777;--badge-vuln-bd:#fbcfe8;
+  --badge-broken-bg:#fef2f2;--badge-broken-fg:#b91c1c;--badge-broken-bd:#fecaca;
+  --sidebar-w:250px;--tt:none;
+  background:var(--bg-0);color:var(--text-1);font-family:var(--font);
+}
+body.theme-sentinel {
+  --bg-0:#0c0c0c;--bg-1:#111;--bg-2:#161616;--bg-3:#1a1a1a;--border:#2a2a2a;--border-light:#1a1a1a;
+  --text-1:#d4d4d4;--text-2:#999;--text-3:#666;--text-4:#444;
+  --accent:#f59e0b;--accent-dim:#1c1207;--accent-hover:#fbbf24;
+  --font:'SF Mono','Cascadia Code','Consolas',monospace;--radius:2px;--card-shadow:none;
+  --red:#f87171;--orange:#fb923c;--yellow:#fbbf24;--green:#4ade80;--blue:#60a5fa;--purple:#c084fc;--pink:#f472b6;
+  --badge-crit-bg:#7f1d1d;--badge-crit-fg:#fca5a5;--badge-crit-bd:#991b1b;
+  --badge-high-bg:#7c2d12;--badge-high-fg:#fdba74;--badge-high-bd:#9a3412;
+  --badge-med-bg:#713f12;--badge-med-fg:#fde047;--badge-med-bd:#854d0e;
+  --badge-safe-bg:#14532d;--badge-safe-fg:#86efac;--badge-safe-bd:#166534;
+  --badge-vuln-bg:#4c0519;--badge-vuln-fg:#fda4af;--badge-vuln-bd:#881337;
+  --badge-broken-bg:#450a0a;--badge-broken-fg:#f87171;--badge-broken-bd:#7f1d1d;
+  --sidebar-w:200px;--tt:uppercase;
+  background:var(--bg-0);color:var(--text-1);font-family:var(--font);
+}
+
+/* LAYOUT */
+.app{display:flex;min-height:100vh}
+.sidebar{width:var(--sidebar-w);background:var(--bg-1);border-right:1px solid var(--border);padding:16px 0;flex-shrink:0;position:fixed;height:100vh;overflow-y:auto;display:flex;flex-direction:column}
+.content{flex:1;margin-left:var(--sidebar-w);padding:20px 28px}
+
+.logo{display:flex;align-items:center;gap:10px;padding:0 16px 16px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.logo svg{width:28px;height:28px}
+.logo-text{font-size:15px;font-weight:700;color:var(--accent)}
+.logo-sub{font-size:9px;color:var(--text-4);text-transform:uppercase;letter-spacing:0.1em;display:block}
+
+.nav-section{padding:6px 16px;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-4);margin-top:14px}
+.nav-item{display:flex;align-items:center;gap:8px;padding:7px 16px;font-size:12px;color:var(--text-2);cursor:pointer;border-left:3px solid transparent;transition:all 0.12s;text-transform:var(--tt);letter-spacing:0.02em}
+.nav-item:hover{color:var(--text-1);background:var(--bg-2)}
+.nav-item.active{color:var(--accent);background:var(--accent-dim);border-left-color:var(--accent)}
+.nav-icon{width:16px;text-align:center;font-size:11px;opacity:0.6}
+
+/* Breadcrumb */
+.breadcrumb{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-3);margin-bottom:16px}
+.breadcrumb a{color:var(--accent);cursor:pointer;text-decoration:none}
+.breadcrumb a:hover{text-decoration:underline}
+.breadcrumb span{color:var(--text-4)}
+
+/* Sub-navigation tabs (inside repo) */
+.sub-tabs{display:flex;gap:2px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:0}
+.sub-tab{padding:8px 16px;font-size:12px;color:var(--text-2);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.12s;text-transform:var(--tt);letter-spacing:0.02em}
+.sub-tab:hover{color:var(--text-1)}
+.sub-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* Shared components */
+.topbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.topbar h1{font-size:18px;font-weight:700;text-transform:var(--tt);letter-spacing:0.04em}
+.topbar-right{display:flex;gap:12px;align-items:center;font-size:11px;color:var(--text-3)}
+
+.card{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;box-shadow:var(--card-shadow);margin-bottom:16px}
+.card-title{font-size:11px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:10px}
+.card-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+
+.g4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.g3{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.g21{display:grid;grid-template-columns:2fr 1fr;gap:12px;margin-bottom:16px}
+
+.stat{background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;box-shadow:var(--card-shadow)}
+.stat-label{font-size:10px;color:var(--text-4);text-transform:uppercase;letter-spacing:0.06em}
+.stat-val{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:4px}
+.stat-sub{font-size:10px;color:var(--text-3);margin-top:2px}
+
+table{width:100%;border-collapse:collapse}
+th{text-align:left;padding:8px 10px;font-size:10px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:0.05em;border-bottom:1px solid var(--border)}
+td{padding:10px;font-size:12px;border-bottom:1px solid var(--border-light)}
+tr:hover td{background:var(--bg-3)}
+tr.clickable{cursor:pointer}
+
+.badge{display:inline-block;padding:2px 7px;border-radius:var(--radius);font-size:10px;font-weight:600;letter-spacing:0.03em}
+.b-crit{background:var(--badge-crit-bg);color:var(--badge-crit-fg);border:1px solid var(--badge-crit-bd)}
+.b-high{background:var(--badge-high-bg);color:var(--badge-high-fg);border:1px solid var(--badge-high-bd)}
+.b-med{background:var(--badge-med-bg);color:var(--badge-med-fg);border:1px solid var(--badge-med-bd)}
+.b-safe{background:var(--badge-safe-bg);color:var(--badge-safe-fg);border:1px solid var(--badge-safe-bd)}
+.b-vuln{background:var(--badge-vuln-bg);color:var(--badge-vuln-fg);border:1px solid var(--badge-vuln-bd)}
+.b-broken{background:var(--badge-broken-bg);color:var(--badge-broken-fg);border:1px solid var(--badge-broken-bd)}
+
+.btn{padding:7px 14px;border-radius:var(--radius);font-size:12px;font-weight:500;cursor:pointer;border:none;font-family:inherit;transition:all 0.15s}
+.btn-accent{background:var(--accent);color:var(--bg-0)}
+.btn-accent:hover{background:var(--accent-hover)}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text-2)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+
+.progress{height:6px;background:var(--bg-3);border-radius:3px;overflow:hidden}
+.progress-fill{height:100%;border-radius:3px}
+
+.bars{display:flex;align-items:end;gap:4px;height:100px}
+.bar{flex:1;border-radius:var(--radius) var(--radius) 0 0;min-height:2px}
+.bar-labels{display:flex;gap:4px;margin-top:4px}
+.bar-labels span{flex:1;text-align:center;font-size:9px;color:var(--text-4)}
+
+.spark{display:flex;align-items:end;gap:1px;height:40px}
+.spark div{flex:1;min-height:1px;border-radius:1px 1px 0 0}
+
+.input{width:100%;padding:8px 10px;background:var(--bg-0);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-1);font-size:12px;font-family:inherit;outline:none}
+.input:focus{border-color:var(--accent)}
+.input::placeholder{color:var(--text-4)}
+.field{margin-bottom:12px}
+.field-label{font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:4px;display:block}
+
+.code{background:var(--bg-0);border:1px solid var(--border);border-radius:var(--radius);padding:10px;font-family:'JetBrains Mono','Fira Code',monospace;font-size:11px;line-height:1.6;overflow-x:auto}
+.code-line{display:flex}.code-num{color:var(--text-4);width:36px;text-align:right;padding-right:10px;user-select:none}
+.code-hl{background:rgba(248,113,113,0.1);display:block;margin:0 -10px;padding:0 10px}
+
+.alert{padding:8px 12px;border-radius:var(--radius);margin-bottom:12px;font-size:11px;display:flex;align-items:center;gap:8px}
+.alert-warn{background:var(--accent-dim);border:1px solid var(--accent);color:var(--accent)}
+
+.filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.filter{padding:5px 10px;border-radius:var(--radius);font-size:11px;border:1px solid var(--border);background:transparent;color:var(--text-2);cursor:pointer;font-family:inherit}
+.filter.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+.diff-add td{border-left:3px solid var(--green)}.diff-rm td{border-left:3px solid var(--red)}.diff-ch td{border-left:3px solid var(--yellow)}
+
+.theme-option{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);cursor:pointer;margin-right:6px;font-size:11px;color:var(--text-2)}
+.theme-option.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+.theme-dot{width:12px;height:12px;border-radius:50%;border:1px solid var(--border)}
+
+.page{display:none}.page.active{display:block}
+.login-page{display:none;min-height:100vh;align-items:center;justify-content:center}
+.login-page.active{display:flex}
+.login-card{background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);padding:36px 32px;width:380px;box-shadow:var(--card-shadow)}
+.login-title{font-size:18px;font-weight:700;color:var(--accent);text-align:center;margin-bottom:4px;text-transform:var(--tt);letter-spacing:0.06em}
+.login-sub{font-size:11px;color:var(--text-3);text-align:center;margin-bottom:24px}
+.login-btn{width:100%;padding:10px;background:var(--accent);color:var(--bg-0);border:none;border-radius:var(--radius);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;text-transform:uppercase;letter-spacing:0.06em;margin-top:4px}
+.login-btn:hover{background:var(--accent-hover)}
+.login-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--text-4);font-size:10px}
+.login-divider::before,.login-divider::after{content:'';flex:1;height:1px;background:var(--border)}
+.login-sso{width:100%;padding:8px;border:1px solid var(--border);border-radius:var(--radius);font-size:11px;color:var(--text-2);background:transparent;cursor:pointer;margin-bottom:6px;font-family:inherit}
+.login-sso:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Repo header */
+.repo-header{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.repo-header h1{font-size:18px;font-weight:700}
+.repo-provider{font-size:10px;padding:2px 8px;border-radius:var(--radius);border:1px solid var(--border);color:var(--text-3)}
+
+/* Notification bell */
+.notif-area{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--border);margin-bottom:8px}
+.notif-bell{position:relative;cursor:pointer;font-size:16px;color:var(--text-2);padding:4px}
+.notif-bell:hover{color:var(--accent)}
+.notif-count{position:absolute;top:-2px;right:-4px;background:var(--red);color:#fff;font-size:8px;font-weight:700;width:14px;height:14px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.notif-dropdown{display:none;position:absolute;top:36px;left:16px;right:16px;background:var(--bg-2);border:1px solid var(--border);border-radius:var(--radius);z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.3);max-height:360px;overflow-y:auto}
+.notif-dropdown.open{display:block}
+.notif-header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid var(--border);font-size:11px}
+.notif-header strong{color:var(--text-1)}
+.notif-header a{color:var(--accent);cursor:pointer;font-size:10px}
+.notif-item{padding:10px 12px;border-bottom:1px solid var(--border-light);cursor:pointer;transition:background 0.1s}
+.notif-item:hover{background:var(--bg-3)}
+.notif-item.unread{border-left:3px solid var(--accent)}
+.notif-dot{width:6px;height:6px;border-radius:50%;display:inline-block;margin-right:6px}
+.notif-time{font-size:9px;color:var(--text-4);margin-top:2px}
+.notif-msg{font-size:11px;color:var(--text-2)}
+
+/* Role switcher */
+.role-bar{display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--bg-2);border-bottom:1px solid var(--border);font-size:11px;color:var(--text-3)}
+.role-select{padding:4px 8px;border-radius:var(--radius);border:1px solid var(--border);background:var(--bg-0);color:var(--accent);font-size:11px;font-family:inherit;cursor:pointer}
+
+/* Download cards */
+.dl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.dl-card{border:1px solid var(--border);border-radius:var(--radius);padding:16px;text-align:center;background:var(--bg-2);cursor:pointer;transition:border-color 0.15s}
+.dl-card:hover{border-color:var(--accent)}
+.dl-card-os{font-size:24px;margin-bottom:6px}
+.dl-card-name{font-size:13px;font-weight:600;color:var(--text-1)}
+.dl-card-arch{font-size:10px;color:var(--text-3);margin-top:2px}
+.dl-card-size{font-size:10px;color:var(--text-4);margin-top:4px}
+.dl-tabs{display:flex;gap:8px;margin-bottom:16px}
+.dl-tab{padding:6px 14px;border-radius:var(--radius);font-size:12px;border:1px solid var(--border);background:transparent;color:var(--text-2);cursor:pointer;font-family:inherit}
+.dl-tab.active{border-color:var(--accent);color:var(--accent);background:var(--accent-dim)}
+
+/* Avatar dropdown */
+.avatar-area{position:relative}
+.avatar-btn{display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 8px;border-radius:var(--radius);transition:background 0.12s}
+.avatar-btn:hover{background:var(--bg-3)}
+.avatar-circle{width:30px;height:30px;border-radius:50%;background:var(--accent);display:flex;align-items:center;justify-content:center;color:var(--bg-0);font-size:11px;font-weight:700;flex-shrink:0}
+.avatar-info{text-align:left}
+.avatar-name{font-size:12px;font-weight:500;color:var(--text-1)}
+.avatar-role{font-size:10px;color:var(--text-4)}
+.avatar-chevron{font-size:10px;color:var(--text-4);margin-left:2px}
+.avatar-dropdown{display:none;position:absolute;top:42px;right:0;width:240px;background:var(--bg-1);border:1px solid var(--border);border-radius:var(--radius);z-index:100;box-shadow:0 8px 24px rgba(0,0,0,0.3);overflow:hidden}
+.avatar-dropdown.open{display:block}
+.avatar-dropdown-header{padding:12px 14px;border-bottom:1px solid var(--border)}
+.avatar-dropdown-header .name{font-size:13px;font-weight:600;color:var(--text-1)}
+.avatar-dropdown-header .email{font-size:10px;color:var(--text-3);margin-top:2px}
+.avatar-dropdown-item{display:flex;align-items:center;gap:8px;padding:9px 14px;font-size:12px;color:var(--text-2);cursor:pointer;transition:all 0.1s}
+.avatar-dropdown-item:hover{background:var(--bg-3);color:var(--text-1)}
+.avatar-dropdown-item .dd-icon{width:16px;text-align:center;font-size:12px;opacity:0.5}
+.avatar-dropdown-divider{height:1px;background:var(--border);margin:4px 0}
+.avatar-dropdown-item.danger{color:var(--red)}
+.avatar-dropdown-item.danger:hover{background:rgba(248,113,113,0.1)}
+
+@media(max-width:1100px){.g4,.dl-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body class="theme-radar">
+
+<!-- ============ LOGIN ============ -->
+<div id="login-page" class="login-page active">
+  <div class="login-card">
+    <div class="login-title">CipherRadar</div>
+    <div class="login-sub">Cryptographic Asset Intelligence Platform</div>
+    <div class="field"><label class="field-label">Email</label><input class="input" placeholder="you@company.com" type="email"/></div>
+    <div class="field"><label class="field-label">Password</label><input class="input" placeholder="Enter password" type="password"/></div>
+    <button class="login-btn" onclick="showApp()">Sign In</button>
+    <div class="login-divider">or</div>
+    <button class="login-sso">Sign in with GitHub SSO</button>
+    <button class="login-sso">Sign in with SAML / OIDC</button>
+  </div>
+</div>
+
+<!-- ============ MAIN APP ============ -->
+<div id="app" class="app" style="display:none">
+
+  <!-- SIDEBAR -->
+  <nav id="sidebar" class="sidebar">
+    <div class="logo">
+      <svg viewBox="0 0 32 32" fill="none" width="28" height="28"><path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="currentColor" stroke-width="1.5" style="color:var(--accent)"/><circle cx="16" cy="16" r="4" fill="currentColor" style="color:var(--accent)"/></svg>
+      <div><span class="logo-text">CipherRadar</span><span class="logo-sub">CBOM Platform</span></div>
+    </div>
+
+    <!-- Top-level nav (shown when NOT inside a repo) -->
+    <div id="nav-global">
+      <div class="nav-section">Overview</div>
+      <div class="nav-item active" onclick="goPage('dashboard',this)"><span class="nav-icon">&#9632;</span> Dashboard</div>
+      <div class="nav-item" onclick="goPage('repos',this)"><span class="nav-icon">&#9776;</span> Repositories</div>
+      <div class="nav-section">Portfolio</div>
+      <div class="nav-item" onclick="goPage('portfolio-quantum',this)"><span class="nav-icon">&#9883;</span> Quantum Readiness</div>
+      <div class="nav-item" onclick="goPage('portfolio-compliance',this)"><span class="nav-icon">&#10003;</span> Compliance</div>
+      <div class="nav-section">Manage</div>
+      <div class="nav-item" onclick="goPage('policy',this)"><span class="nav-icon">&#9881;</span> Policy Rules</div>
+      <div class="nav-item" onclick="goPage('settings',this)"><span class="nav-icon">&#9881;</span> Settings</div>
+    </div>
+
+    <!-- Repo-level nav (shown when inside a repo) -->
+    <div id="nav-repo" style="display:none">
+      <div class="nav-item" onclick="exitRepo()" style="color:var(--accent);font-size:11px;margin-bottom:4px"><span class="nav-icon">&larr;</span> All Repositories</div>
+      <div style="padding:4px 16px 12px;border-bottom:1px solid var(--border);margin-bottom:8px">
+        <div style="font-size:14px;font-weight:700;color:var(--text-1)" id="repo-sidebar-name">payment-service</div>
+        <div style="font-size:10px;color:var(--text-4);margin-top:2px" id="repo-sidebar-meta">GitHub &middot; Java, JS</div>
+      </div>
+      <div class="nav-item active" onclick="goRepoTab('overview',this)"><span class="nav-icon">&#9632;</span> Overview</div>
+      <div class="nav-item" onclick="goRepoTab('scans',this)"><span class="nav-icon">&#8634;</span> Scans</div>
+      <div class="nav-item" onclick="goRepoTab('findings',this)"><span class="nav-icon">&#9888;</span> Findings</div>
+      <div class="nav-item" onclick="goRepoTab('diff',this)"><span class="nav-icon">&#916;</span> CBOM Diff</div>
+      <div class="nav-item" onclick="goRepoTab('quantum',this)"><span class="nav-icon">&#9883;</span> Quantum</div>
+      <div class="nav-item" onclick="goRepoTab('compliance',this)"><span class="nav-icon">&#10003;</span> Compliance</div>
+    </div>
+
+    <div style="flex:1"></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);font-size:10px;color:var(--text-4)">nk-sentinel &middot; Enterprise</div>
+  </nav>
+
+  <main class="content">
+
+    <!-- Global header bar: role badge + notification bell + avatar -->
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0 16px;border-bottom:1px solid var(--border);margin-bottom:20px">
+      <!-- Left: role demo switcher -->
+      <div style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--text-3)">
+        <span>Preview as:</span>
+        <select class="role-select" onchange="switchRole(this.value)">
+          <option value="org-admin">Org Admin</option>
+          <option value="security-manager">Security Manager</option>
+          <option value="security-engineer">Security Engineer</option>
+          <option value="team-manager">Team Manager</option>
+          <option value="compliance-auditor">Compliance Auditor</option>
+          <option value="developer">Developer</option>
+          <option value="guest">Guest / Viewer</option>
+        </select>
+        <span id="role-desc" style="color:var(--text-4)">Full control</span>
+      </div>
+      <!-- Right: notifications + avatar dropdown -->
+      <div style="display:flex;align-items:center;gap:12px;position:relative">
+        <div class="notif-bell" onclick="toggleNotif()" style="position:relative">&#128276;<span class="notif-count">3</span></div>
+        <div class="avatar-area">
+          <div class="avatar-btn" onclick="toggleAvatar()">
+            <div class="avatar-circle">NK</div>
+            <div class="avatar-info"><div class="avatar-name">Admin User</div><div class="avatar-role" id="current-role-label">Org Admin</div></div>
+            <span class="avatar-chevron">&#9662;</span>
+          </div>
+          <div class="avatar-dropdown" id="avatar-dropdown">
+            <div class="avatar-dropdown-header"><div class="name">Admin User</div><div class="email">admin@nk-sentinel.com</div></div>
+            <div class="avatar-dropdown-item" onclick="goPage('profile');closeAvatar()"><span class="dd-icon">&#9786;</span> My Profile</div>
+            <div class="avatar-dropdown-item" onclick="goPage('downloads');closeAvatar()"><span class="dd-icon">&#8615;</span> CLI Downloads</div>
+            <div class="avatar-dropdown-divider"></div>
+            <div class="avatar-dropdown-item"><span class="dd-icon">&#128196;</span> API Documentation</div>
+            <div class="avatar-dropdown-item"><span class="dd-icon">&#9881;</span> Keyboard Shortcuts</div>
+            <div class="avatar-dropdown-item"><span class="dd-icon">&#10067;</span> Help & Docs</div>
+            <div class="avatar-dropdown-divider"></div>
+            <div class="avatar-dropdown-item danger" onclick="showLogin()"><span class="dd-icon">&#8617;</span> Sign Out</div>
+          </div>
+        </div>
+        <!-- Notification dropdown -->
+        <div class="notif-dropdown" id="notif-dropdown" style="position:absolute;top:40px;right:0;width:380px;left:auto">
+          <div class="notif-header"><strong>Notifications</strong><a onclick="markAllRead()">Mark all read</a></div>
+          <div class="notif-item unread">
+            <div class="notif-msg"><span class="notif-dot" style="background:var(--red)"></span><strong>CRITICAL:</strong> Certificate validation disabled in payment-service</div>
+            <div class="notif-time">2 minutes ago &middot; Scan #47</div>
+          </div>
+          <div class="notif-item unread">
+            <div class="notif-msg"><span class="notif-dot" style="background:var(--orange)"></span>Suppression request pending — auth-api SHA-1</div>
+            <div class="notif-time">15 minutes ago &middot; dev@nk-sentinel</div>
+          </div>
+          <div class="notif-item unread">
+            <div class="notif-msg"><span class="notif-dot" style="background:var(--yellow)"></span>Compliance score dropped: mobile-backend 52% &rarr; 45%</div>
+            <div class="notif-time">1 hour ago &middot; Scan #122</div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-msg"><span class="notif-dot" style="background:var(--green)"></span>Scan completed: data-pipeline — 0 critical</div>
+            <div class="notif-time">5 hours ago</div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-msg"><span class="notif-dot" style="background:var(--yellow)"></span>Certificate expiry: api.example.com in 14 days</div>
+            <div class="notif-time">1 day ago</div>
+          </div>
+          <div class="notif-item">
+            <div class="notif-msg"><span class="notif-dot" style="background:var(--green)"></span>Suppression approved: payment-service RSA-2048</div>
+            <div class="notif-time">2 days ago</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== DASHBOARD (Global) ========== -->
+    <div id="p-dashboard" class="page active">
+      <div class="topbar"><h1>Dashboard</h1><div class="topbar-right"><span>Last scan: 2min ago</span><button class="btn btn-accent">+ New Scan</button></div></div>
+      <div class="g4">
+        <div class="stat"><div class="stat-label">Total Findings</div><div class="stat-val" style="color:var(--accent)">1,247</div><div class="stat-sub">across 8 repositories</div></div>
+        <div class="stat"><div class="stat-label">Critical + High</div><div class="stat-val" style="color:var(--red)">89</div><div class="stat-sub">5 repos affected</div></div>
+        <div class="stat"><div class="stat-label">Quantum Exposed</div><div class="stat-val" style="color:var(--orange)">312</div><div class="stat-sub">42% of algorithms</div></div>
+        <div class="stat"><div class="stat-label">Compliance</div><div class="stat-val" style="color:var(--yellow)">72%</div><div class="stat-sub">NIST 800-131A avg</div></div>
+      </div>
+      <div class="g21">
+        <div class="card"><div class="card-title">Severity Distribution (All Repos)</div>
+          <div class="bars"><div class="bar" style="height:15%;background:var(--red)"></div><div class="bar" style="height:38%;background:var(--orange)"></div><div class="bar" style="height:70%;background:var(--yellow)"></div><div class="bar" style="height:48%;background:var(--blue)"></div><div class="bar" style="height:95%;background:var(--text-3)"></div></div>
+          <div class="bar-labels"><span>CRIT 12</span><span>HIGH 77</span><span>MED 234</span><span>LOW 156</span><span>INFO 768</span></div>
+        </div>
+        <div class="card"><div class="card-title">Quantum Risk Trend</div>
+          <div class="spark"><div style="height:90%;background:var(--red)"></div><div style="height:85%;background:var(--red)"></div><div style="height:80%;background:var(--orange)"></div><div style="height:75%;background:var(--orange)"></div><div style="height:68%;background:var(--yellow)"></div><div style="height:62%;background:var(--yellow)"></div><div style="height:58%;background:var(--yellow)"></div></div>
+          <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:9px;color:var(--text-4)"><span>Jan</span><span>Now: 58</span></div>
+          <div style="margin-top:10px;font-size:11px;color:var(--green)">Score improving: 75 &rarr; 58 (-22%)</div>
+        </div>
+      </div>
+      <div class="card"><div class="card-header"><div class="card-title">Repositories</div></div>
+        <table><thead><tr><th>Repository</th><th>Provider</th><th>Findings</th><th>Critical</th><th>Quantum Risk</th><th>Compliance</th><th>Last Scan</th></tr></thead><tbody>
+          <tr class="clickable" onclick="enterRepo('payment-service','GitHub','Java, JS',342)"><td><strong>payment-service</strong></td><td>GitHub</td><td>342</td><td><span class="badge b-crit">5</span></td><td><span class="badge b-vuln">High (72)</span></td><td>65%</td><td>2h ago</td></tr>
+          <tr class="clickable" onclick="enterRepo('auth-api','GitHub','Python, JS',187)"><td><strong>auth-api</strong></td><td>GitHub</td><td>187</td><td><span class="badge b-high">2</span></td><td><span class="badge b-med">Med (54)</span></td><td>82%</td><td>3h ago</td></tr>
+          <tr class="clickable" onclick="enterRepo('data-pipeline','GitLab','Python',98)"><td><strong>data-pipeline</strong></td><td>GitLab</td><td>98</td><td><span class="badge b-safe">0</span></td><td><span class="badge b-safe">Low (22)</span></td><td>94%</td><td>5h ago</td></tr>
+          <tr class="clickable" onclick="enterRepo('mobile-backend','Bitbucket','Java, Kotlin',456)"><td><strong>mobile-backend</strong></td><td>Bitbucket</td><td>456</td><td><span class="badge b-crit">3</span></td><td><span class="badge b-vuln">High (68)</span></td><td>45%</td><td>1d ago</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+
+    <!-- ========== REPOSITORIES LIST ========== -->
+    <div id="p-repos" class="page">
+      <div class="topbar"><h1>Repositories</h1><div class="topbar-right"><input class="input" style="width:220px" placeholder="Search..."/><button class="btn btn-accent">+ Connect Repo</button></div></div>
+      <div class="card"><table><thead><tr><th>Repository</th><th>Provider</th><th>Languages</th><th>Findings</th><th>Compliance</th><th>Quantum</th><th>Last Scan</th><th></th></tr></thead><tbody>
+        <tr class="clickable" onclick="enterRepo('payment-service','GitHub','Java, JS',342)"><td><strong>payment-service</strong><br><span style="font-size:10px;color:var(--text-4)">nk-sentinel/payment-service</span></td><td>GitHub</td><td>Java, JS</td><td>342</td><td><div class="progress" style="width:70px"><div class="progress-fill" style="width:65%;background:var(--yellow)"></div></div> 65%</td><td><span class="badge b-vuln">72</span></td><td>2h ago</td><td><button class="btn btn-outline" onclick="event.stopPropagation()">Scan</button></td></tr>
+        <tr class="clickable" onclick="enterRepo('auth-api','GitHub','Python, JS',187)"><td><strong>auth-api</strong><br><span style="font-size:10px;color:var(--text-4)">nk-sentinel/auth-api</span></td><td>GitHub</td><td>Python, JS</td><td>187</td><td><div class="progress" style="width:70px"><div class="progress-fill" style="width:82%;background:var(--green)"></div></div> 82%</td><td><span class="badge b-med">34</span></td><td>3h ago</td><td><button class="btn btn-outline" onclick="event.stopPropagation()">Scan</button></td></tr>
+        <tr class="clickable" onclick="enterRepo('data-pipeline','GitLab','Python',98)"><td><strong>data-pipeline</strong><br><span style="font-size:10px;color:var(--text-4)">nk-sentinel/data-pipeline</span></td><td>GitLab</td><td>Python</td><td>98</td><td><div class="progress" style="width:70px"><div class="progress-fill" style="width:94%;background:var(--green)"></div></div> 94%</td><td><span class="badge b-safe">8</span></td><td>5h ago</td><td><button class="btn btn-outline" onclick="event.stopPropagation()">Scan</button></td></tr>
+        <tr class="clickable" onclick="enterRepo('mobile-backend','Bitbucket','Java, Kotlin',456)"><td><strong>mobile-backend</strong><br><span style="font-size:10px;color:var(--text-4)">nk-sentinel/mobile-backend</span></td><td>Bitbucket</td><td>Java, Kotlin</td><td>456</td><td><div class="progress" style="width:70px"><div class="progress-fill" style="width:45%;background:var(--red)"></div></div> 45%</td><td><span class="badge b-vuln">128</span></td><td>1d ago</td><td><button class="btn btn-outline" onclick="event.stopPropagation()">Scan</button></td></tr>
+      </tbody></table></div>
+    </div>
+
+    <!-- ========== REPO DETAIL (contextual sub-pages) ========== -->
+    <div id="p-repo" class="page">
+      <div class="breadcrumb"><a onclick="exitRepo()">Repositories</a><span>/</span><strong id="repo-breadcrumb-name">payment-service</strong></div>
+
+      <!-- Sub-tab: Overview -->
+      <div id="repo-overview" class="page active">
+        <div class="topbar"><div class="repo-header"><h1 id="repo-title">payment-service</h1><span class="repo-provider" id="repo-provider-badge">GitHub</span></div><div class="topbar-right"><button class="btn btn-accent">Scan Now</button><button class="btn btn-outline">Settings</button></div></div>
+        <div class="g4">
+          <div class="stat"><div class="stat-label">Total Findings</div><div class="stat-val" style="color:var(--accent)" id="repo-stat-total">342</div></div>
+          <div class="stat"><div class="stat-label">Critical</div><div class="stat-val" style="color:var(--red)">5</div></div>
+          <div class="stat"><div class="stat-label">Quantum Risk</div><div class="stat-val" style="color:var(--orange)">72</div></div>
+          <div class="stat"><div class="stat-label">Compliance</div><div class="stat-val" style="color:var(--yellow)">65%</div></div>
+        </div>
+        <div class="g2">
+          <div class="card"><div class="card-title">Algorithm Distribution</div>
+            <div class="bars"><div class="bar" style="height:100%;background:var(--blue)"></div><div class="bar" style="height:75%;background:var(--red)"></div><div class="bar" style="height:60%;background:var(--green)"></div><div class="bar" style="height:36%;background:var(--orange)"></div><div class="bar" style="height:31%;background:var(--yellow)"></div><div class="bar" style="height:27%;background:var(--accent)"></div></div>
+            <div class="bar-labels"><span>AES 89</span><span>RSA 67</span><span>SHA2 54</span><span>MD5 32</span><span>SHA1 28</span><span>HMAC 24</span></div>
+          </div>
+          <div class="card"><div class="card-title">By Language</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Java</span><span style="color:var(--text-3)">156</span></div><div class="progress"><div class="progress-fill" style="width:46%;background:var(--orange)"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>JavaScript</span><span style="color:var(--text-3)">98</span></div><div class="progress"><div class="progress-fill" style="width:29%;background:var(--yellow)"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span>Config</span><span style="color:var(--text-3)">36</span></div><div class="progress"><div class="progress-fill" style="width:10%;background:var(--purple)"></div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="card"><div class="card-header"><div class="card-title">Recent Scans</div></div>
+          <table><thead><tr><th>Scan #</th><th>Branch</th><th>Commit</th><th>Findings</th><th>Critical</th><th>Duration</th><th>Time</th></tr></thead><tbody>
+            <tr><td>#47</td><td>main</td><td>a2b2fbc</td><td>342</td><td><span class="badge b-crit">5</span></td><td>4.2s</td><td>2h ago</td></tr>
+            <tr><td>#46</td><td>main</td><td>f7950f8</td><td>335</td><td><span class="badge b-crit">5</span></td><td>4.1s</td><td>1d ago</td></tr>
+            <tr><td>#45</td><td>feat/auth</td><td>0dd3b27</td><td>318</td><td><span class="badge b-high">3</span></td><td>3.8s</td><td>2d ago</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+
+      <!-- Sub-tab: Scans -->
+      <div id="repo-scans" class="page">
+        <div class="topbar"><h1>Scan #47 — main (a2b2fbc)</h1><div class="topbar-right"><button class="btn btn-outline">CBOM</button><button class="btn btn-outline">SARIF</button><button class="btn btn-outline">PDF</button></div></div>
+        <div class="g4">
+          <div class="stat"><div class="stat-label">Critical</div><div class="stat-val" style="color:var(--red)">5</div></div>
+          <div class="stat"><div class="stat-label">High</div><div class="stat-val" style="color:var(--orange)">28</div></div>
+          <div class="stat"><div class="stat-label">Medium</div><div class="stat-val" style="color:var(--yellow)">67</div></div>
+          <div class="stat"><div class="stat-label">Low + Info</div><div class="stat-val" style="color:var(--text-3)">242</div></div>
+        </div>
+        <div class="card"><div class="card-title">Top Findings</div>
+          <table><thead><tr><th>Severity</th><th>File</th><th>Line</th><th>Finding</th><th>Quantum</th></tr></thead><tbody>
+            <tr><td><span class="badge b-crit">CRIT</span></td><td>SSLConfig.java</td><td>45</td><td>Certificate validation disabled</td><td><span class="badge b-vuln">Vuln</span></td></tr>
+            <tr><td><span class="badge b-crit">CRIT</span></td><td>jwt.js</td><td>23</td><td>JWT alg:none</td><td>&mdash;</td></tr>
+            <tr><td><span class="badge b-high">HIGH</span></td><td>CryptoUtil.java</td><td>67</td><td>DES/ECB/PKCS5</td><td><span class="badge b-broken">Broken</span></td></tr>
+            <tr><td><span class="badge b-high">HIGH</span></td><td>hash.py</td><td>12</td><td>MD5</td><td><span class="badge b-broken">Broken</span></td></tr>
+            <tr><td><span class="badge b-high">HIGH</span></td><td>.env</td><td>5</td><td>Hardcoded ENCRYPTION_KEY</td><td>&mdash;</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+
+      <!-- Sub-tab: Findings -->
+      <div id="repo-findings" class="page">
+        <div class="topbar"><h1>Findings</h1><div class="topbar-right"><input class="input" style="width:200px" placeholder="Search..."/></div></div>
+        <div class="filters">
+          <button class="filter active">All (342)</button><button class="filter">Critical (5)</button><button class="filter">High (28)</button><button class="filter">Medium (67)</button><button class="filter">Quantum Vulnerable</button>
+        </div>
+        <div class="card"><table><thead><tr><th>Severity</th><th>File</th><th>Finding</th><th>Algorithm</th><th>Quantum</th><th>Pass</th></tr></thead><tbody>
+          <tr class="clickable" onclick="document.getElementById('finding-panel').style.display='block'"><td><span class="badge b-crit">CRIT</span></td><td>SSLConfig.java:45</td><td>Certificate validation disabled</td><td>&mdash;</td><td><span class="badge b-vuln">Vuln</span></td><td>1</td></tr>
+          <tr><td><span class="badge b-high">HIGH</span></td><td>hash.py:12</td><td>MD5 hash function</td><td>MD5</td><td><span class="badge b-broken">Broken</span></td><td>1</td></tr>
+          <tr><td><span class="badge b-high">HIGH</span></td><td>CryptoUtil.java:67</td><td>DES/ECB — broken cipher</td><td>DES</td><td><span class="badge b-broken">Broken</span></td><td>1</td></tr>
+          <tr><td><span class="badge b-high">HIGH</span></td><td>.env:5</td><td>Hardcoded ENCRYPTION_KEY</td><td>&mdash;</td><td>&mdash;</td><td>1</td></tr>
+          <tr><td><span class="badge b-med">MED</span></td><td>KeyGen.java:89</td><td>RSA-2048 key generation</td><td>RSA</td><td><span class="badge b-vuln">Vuln</span></td><td>1</td></tr>
+          <tr><td><span class="badge b-safe">INFO</span></td><td>aes.py:15</td><td>AES-256-GCM encryption</td><td>AES</td><td><span class="badge b-safe">Safe</span></td><td>1</td></tr>
+        </tbody></table></div>
+
+        <div id="finding-panel" class="card" style="display:none;border-color:var(--red)">
+          <div class="card-header"><div><span class="badge b-crit">CRITICAL</span> <strong style="margin-left:8px">Certificate validation disabled</strong><div style="font-size:10px;color:var(--text-3);margin-top:4px">SSLConfig.java:45 &middot; Pass 1 &middot; Rule: cbom-java-trust-all-certificates</div></div><button class="btn btn-outline" onclick="this.closest('#finding-panel').style.display='none'">Close</button></div>
+          <div class="g4" style="margin-bottom:12px"><div><div class="field-label">Quantum</div><span class="badge b-vuln">Vulnerable</span></div><div><div class="field-label">Confidence</div>High</div><div><div class="field-label">Asset Type</div>Certificate</div><div><div class="field-label">Algorithm</div>X.509 / TLS</div></div>
+          <div class="field-label">Source Code</div>
+          <div class="code">
+            <div class="code-line"><span class="code-num">43</span> TrustManager[] trustAll = new TrustManager[] {</div>
+            <div class="code-line"><span class="code-num">44</span>     new X509TrustManager() {</div>
+            <div class="code-line code-hl"><span class="code-num">45</span>         public void checkClientTrusted(...) { }</div>
+            <div class="code-line code-hl"><span class="code-num">46</span>         public void checkServerTrusted(...) { }</div>
+            <div class="code-line"><span class="code-num">47</span>     }</div>
+            <div class="code-line"><span class="code-num">48</span> };</div>
+          </div>
+          <div class="alert alert-warn" style="margin-top:12px"><strong>Remediation:</strong>&nbsp; Remove custom TrustManager. Use system default or configure a truststore with your CA certificates.</div>
+        </div>
+      </div>
+
+      <!-- Sub-tab: CBOM Diff -->
+      <div id="repo-diff" class="page">
+        <div class="topbar"><h1>CBOM Diff</h1><div class="topbar-right"><span style="color:var(--text-3)">Scan #46 vs #47</span></div></div>
+        <div class="g4">
+          <div class="stat"><div class="stat-label">Added</div><div class="stat-val" style="color:var(--green)">+7</div></div>
+          <div class="stat"><div class="stat-label">Removed</div><div class="stat-val" style="color:var(--red)">-3</div></div>
+          <div class="stat"><div class="stat-label">Changed</div><div class="stat-val" style="color:var(--yellow)">~5</div></div>
+          <div class="stat"><div class="stat-label">Unchanged</div><div class="stat-val" style="color:var(--text-3)">=327</div></div>
+        </div>
+        <div class="card"><table><thead><tr><th>Type</th><th>Component</th><th>File</th><th>Details</th></tr></thead><tbody>
+          <tr class="diff-add"><td style="color:var(--green)">+ Added</td><td>PBKDF2-SHA256</td><td>auth/password.py:22</td><td>New KDF</td></tr>
+          <tr class="diff-add"><td style="color:var(--green)">+ Added</td><td>AES-256-GCM</td><td>crypto/encrypt.py:15</td><td>New encryption</td></tr>
+          <tr class="diff-rm"><td style="color:var(--red)">&minus; Removed</td><td>MD5</td><td>crypto/legacy.py:8</td><td>Legacy hash removed</td></tr>
+          <tr class="diff-ch"><td style="color:var(--yellow)">~ Changed</td><td>RSA-2048 &rarr; RSA-4096</td><td>keys/gen.py:5</td><td>Key size upgraded</td></tr>
+          <tr class="diff-ch"><td style="color:var(--yellow)">~ Changed</td><td>TLS 1.0 &rarr; TLS 1.3</td><td>network/cfg.py:10</td><td>Protocol upgraded</td></tr>
+        </tbody></table></div>
+      </div>
+
+      <!-- Sub-tab: Quantum -->
+      <div id="repo-quantum" class="page">
+        <div class="topbar"><h1>Quantum Readiness</h1><div class="topbar-right"><button class="btn btn-outline">Export PQC Report</button></div></div>
+        <div class="g3">
+          <div class="stat" style="text-align:center;padding:20px"><div class="stat-val" style="font-size:42px;color:var(--orange)">72</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Quantum Risk Score</div></div>
+          <div class="stat" style="text-align:center;padding:20px"><div class="stat-val" style="font-size:42px;color:var(--red)">67</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Vulnerable Algorithms</div></div>
+          <div class="stat" style="text-align:center;padding:20px"><div class="stat-val" style="font-size:42px;color:var(--green)">89</div><div style="font-size:11px;color:var(--text-3);margin-top:4px">Quantum-Safe Algorithms</div></div>
+        </div>
+        <div class="card"><div class="card-title">Migration Priority</div>
+          <table><thead><tr><th>Algorithm</th><th>Count</th><th>Migrate To</th><th>Priority</th></tr></thead><tbody>
+            <tr><td><strong>RSA</strong></td><td>42</td><td>ML-KEM / ML-DSA</td><td><span class="badge b-crit">Critical</span></td></tr>
+            <tr><td><strong>ECDSA</strong></td><td>15</td><td>ML-DSA</td><td><span class="badge b-high">High</span></td></tr>
+            <tr><td><strong>ECDH</strong></td><td>10</td><td>ML-KEM</td><td><span class="badge b-high">High</span></td></tr>
+          </tbody></table>
+        </div>
+      </div>
+
+      <!-- Sub-tab: Compliance -->
+      <div id="repo-compliance" class="page">
+        <div class="topbar"><h1>Compliance</h1><div class="topbar-right"><button class="btn btn-outline">Download Gap Report</button></div></div>
+        <div class="g3">
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:600">NIST 800-131A</div><div class="progress" style="width:120px;margin-top:6px"><div class="progress-fill" style="width:65%;background:var(--yellow)"></div></div></div><div style="font-size:28px;font-weight:700;color:var(--yellow)">65%</div></div>
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:600">FIPS 140-3</div><div class="progress" style="width:120px;margin-top:6px"><div class="progress-fill" style="width:58%;background:var(--orange)"></div></div></div><div style="font-size:28px;font-weight:700;color:var(--orange)">58%</div></div>
+          <div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:600">CNSA 2.0</div><div class="progress" style="width:120px;margin-top:6px"><div class="progress-fill" style="width:30%;background:var(--red)"></div></div></div><div style="font-size:28px;font-weight:700;color:var(--red)">30%</div></div>
+        </div>
+        <div class="card"><div class="card-title">Non-Compliant Findings (NIST 800-131A)</div>
+          <table><thead><tr><th>Status</th><th>Algorithm</th><th>Classification</th><th>Count</th><th>Action</th></tr></thead><tbody>
+            <tr><td><span class="badge b-crit">Disallowed</span></td><td>DES</td><td>Disallowed after 2023</td><td>4</td><td>Replace with AES-256</td></tr>
+            <tr><td><span class="badge b-high">Deprecated</span></td><td>SHA-1</td><td>Deprecated for signatures</td><td>12</td><td>Migrate to SHA-256</td></tr>
+            <tr><td><span class="badge b-safe">Acceptable</span></td><td>AES-256</td><td>Acceptable</td><td>89</td><td>No action</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== PORTFOLIO: Quantum (Org-wide) ========== -->
+    <div id="p-portfolio-quantum" class="page">
+      <div class="topbar"><h1>Quantum Readiness (Portfolio)</h1><div class="topbar-right"><button class="btn btn-outline">Export PQC Report</button></div></div>
+      <div class="g3">
+        <div class="stat" style="text-align:center;padding:20px"><div class="stat-val" style="font-size:48px;color:var(--yellow)">58</div><div style="font-size:12px;color:var(--text-3);margin-top:4px">Org Quantum Risk Score</div></div>
+        <div class="stat" style="text-align:center;padding:20px"><div class="stat-val" style="font-size:48px;color:var(--red)">312</div><div style="font-size:12px;color:var(--text-3);margin-top:4px">Vulnerable Algorithms</div></div>
+        <div class="stat" style="text-align:center;padding:20px"><div class="stat-val" style="font-size:48px;color:var(--orange)">~6mo</div><div style="font-size:12px;color:var(--text-3);margin-top:4px">Est. Migration Effort</div></div>
+      </div>
+      <div class="g2">
+        <div class="card"><div class="card-title">Migration Priority (All Repos)</div>
+          <table><thead><tr><th>Algorithm</th><th>Count</th><th>Repos</th><th>Migrate To</th><th>Priority</th></tr></thead><tbody>
+            <tr><td><strong>RSA</strong></td><td>134</td><td>7</td><td>ML-KEM / ML-DSA</td><td><span class="badge b-crit">Critical</span></td></tr>
+            <tr><td><strong>ECDSA</strong></td><td>67</td><td>5</td><td>ML-DSA</td><td><span class="badge b-high">High</span></td></tr>
+            <tr><td><strong>ECDH</strong></td><td>45</td><td>4</td><td>ML-KEM</td><td><span class="badge b-high">High</span></td></tr>
+            <tr><td><strong>Ed25519</strong></td><td>34</td><td>3</td><td>ML-DSA</td><td><span class="badge b-med">Med</span></td></tr>
+            <tr><td><strong>DH</strong></td><td>22</td><td>2</td><td>ML-KEM</td><td><span class="badge b-med">Med</span></td></tr>
+          </tbody></table>
+        </div>
+        <div class="card"><div class="card-title">Risk by Repository</div>
+          <table><thead><tr><th>Repository</th><th>Risk Score</th><th>Vulnerable</th><th>Safe</th></tr></thead><tbody>
+            <tr class="clickable" onclick="enterRepo('payment-service','GitHub','Java, JS',342)"><td>payment-service</td><td style="color:var(--orange)">72</td><td>67</td><td>89</td></tr>
+            <tr class="clickable" onclick="enterRepo('mobile-backend','Bitbucket','Java, Kotlin',456)"><td>mobile-backend</td><td style="color:var(--orange)">68</td><td>128</td><td>45</td></tr>
+            <tr class="clickable" onclick="enterRepo('auth-api','GitHub','Python, JS',187)"><td>auth-api</td><td style="color:var(--yellow)">54</td><td>34</td><td>67</td></tr>
+            <tr class="clickable" onclick="enterRepo('data-pipeline','GitLab','Python',98)"><td>data-pipeline</td><td style="color:var(--green)">22</td><td>8</td><td>52</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== PORTFOLIO: Compliance (Org-wide) ========== -->
+    <div id="p-portfolio-compliance" class="page">
+      <div class="topbar"><h1>Compliance (Portfolio)</h1><div class="topbar-right"><button class="btn btn-outline">Download Gap Report (PDF)</button></div></div>
+      <div class="g3">
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:600">NIST 800-131A</div><div style="font-size:11px;color:var(--text-3)">Org average</div><div class="progress" style="width:140px;margin-top:6px"><div class="progress-fill" style="width:72%;background:var(--yellow)"></div></div></div><div style="font-size:32px;font-weight:700;color:var(--yellow)">72%</div></div>
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:600">FIPS 140-3</div><div style="font-size:11px;color:var(--text-3)">Org average</div><div class="progress" style="width:140px;margin-top:6px"><div class="progress-fill" style="width:65%;background:var(--orange)"></div></div></div><div style="font-size:32px;font-weight:700;color:var(--orange)">65%</div></div>
+        <div class="card" style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:14px;font-weight:600">CNSA 2.0</div><div style="font-size:11px;color:var(--text-3)">Org average</div><div class="progress" style="width:140px;margin-top:6px"><div class="progress-fill" style="width:38%;background:var(--red)"></div></div></div><div style="font-size:32px;font-weight:700;color:var(--red)">38%</div></div>
+      </div>
+      <div class="card"><div class="card-title">Compliance by Repository</div>
+        <table><thead><tr><th>Repository</th><th>NIST 800-131A</th><th>FIPS 140-3</th><th>CNSA 2.0</th><th>Disallowed</th></tr></thead><tbody>
+          <tr class="clickable" onclick="enterRepo('data-pipeline','GitLab','Python',98)"><td>data-pipeline</td><td style="color:var(--green)">94%</td><td style="color:var(--green)">91%</td><td style="color:var(--yellow)">62%</td><td>0</td></tr>
+          <tr class="clickable" onclick="enterRepo('auth-api','GitHub','Python, JS',187)"><td>auth-api</td><td style="color:var(--green)">82%</td><td style="color:var(--yellow)">75%</td><td style="color:var(--yellow)">45%</td><td>2</td></tr>
+          <tr class="clickable" onclick="enterRepo('payment-service','GitHub','Java, JS',342)"><td>payment-service</td><td style="color:var(--yellow)">65%</td><td style="color:var(--orange)">58%</td><td style="color:var(--red)">30%</td><td>8</td></tr>
+          <tr class="clickable" onclick="enterRepo('mobile-backend','Bitbucket','Java, Kotlin',456)"><td>mobile-backend</td><td style="color:var(--red)">45%</td><td style="color:var(--red)">38%</td><td style="color:var(--red)">22%</td><td>14</td></tr>
+        </tbody></table>
+      </div>
+    </div>
+
+    <!-- ========== POLICY RULES (Org-wide) ========== -->
+    <div id="p-policy" class="page">
+      <div class="topbar"><h1>Policy Rules</h1><div class="topbar-right"><button class="btn btn-accent">+ Add Rule</button><button class="btn btn-outline">Import YAML</button></div></div>
+      <div class="card"><table><thead><tr><th>Rule ID</th><th>Description</th><th>Action</th><th>Severity</th><th>Violations</th></tr></thead><tbody>
+        <tr><td style="color:var(--accent)">no-broken-algorithms</td><td>Deny MD5, SHA-1, DES, 3DES, RC4</td><td><span class="badge b-crit">Fail</span></td><td>Critical</td><td style="color:var(--red)">72</td></tr>
+        <tr><td style="color:var(--accent)">no-ecb-mode</td><td>Deny ECB block cipher mode</td><td><span class="badge b-crit">Fail</span></td><td>High</td><td style="color:var(--orange)">8</td></tr>
+        <tr><td style="color:var(--accent)">rsa-min-key-size</td><td>RSA keys >= 2048 bits</td><td><span class="badge b-crit">Fail</span></td><td>High</td><td style="color:var(--orange)">6</td></tr>
+        <tr><td style="color:var(--accent)">no-deprecated-tls</td><td>Deny TLS 1.0, 1.1</td><td><span class="badge b-crit">Fail</span></td><td>High</td><td style="color:var(--orange)">12</td></tr>
+        <tr><td style="color:var(--accent)">quantum-vulnerable</td><td>Warn on quantum-vulnerable algos</td><td><span class="badge b-med">Warn</span></td><td>Medium</td><td style="color:var(--yellow)">312</td></tr>
+        <tr><td style="color:var(--accent)">no-hardcoded-keys</td><td>Deny hardcoded crypto keys</td><td><span class="badge b-crit">Fail</span></td><td>Critical</td><td style="color:var(--red)">15</td></tr>
+      </tbody></table></div>
+    </div>
+
+    <!-- ========== MY PROFILE (all roles) ========== -->
+    <div id="p-profile" class="page">
+      <div class="topbar"><h1>My Profile</h1></div>
+      <div style="display:flex;gap:20px">
+        <div style="width:180px;display:flex;flex-direction:column;gap:2px">
+          <div style="padding:7px 12px;border-radius:var(--radius);background:var(--accent-dim);color:var(--accent);font-size:12px;cursor:pointer">Appearance</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">Notifications</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">Security</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">My API Keys</div>
+        </div>
+        <div style="flex:1">
+          <div class="card">
+            <div class="card-title">Account</div>
+            <div class="g2" style="margin-bottom:0">
+              <div class="field"><label class="field-label">Name</label><input class="input" value="Admin User"/></div>
+              <div class="field"><label class="field-label">Email</label><input class="input" value="admin@nk-sentinel.com"/></div>
+              <div class="field"><label class="field-label">Role</label><input class="input" value="Org Admin" disabled style="opacity:0.6"/></div>
+              <div class="field"><label class="field-label">Member since</label><input class="input" value="2026-03-15" disabled style="opacity:0.6"/></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Theme</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <div class="theme-option active" onclick="setTheme('radar',this)"><div class="theme-dot" style="background:#06b6d4"></div> Radar (SOC Dark)</div>
+              <div class="theme-option" onclick="setTheme('crystal',this)"><div class="theme-dot" style="background:#667eea"></div> Crystal (Clean SaaS)</div>
+              <div class="theme-option" onclick="setTheme('sentinel',this)"><div class="theme-dot" style="background:#f59e0b"></div> Sentinel (Data Dense)</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Notification Preferences</div>
+            <table><thead><tr><th>Event</th><th>In-App</th><th>Email</th></tr></thead><tbody>
+              <tr><td>Critical findings detected</td><td style="color:var(--green)">On</td><td style="color:var(--green)">On</td></tr>
+              <tr><td>Scan completed</td><td style="color:var(--green)">On</td><td style="color:var(--text-4)">Off</td></tr>
+              <tr><td>Policy violations on PR</td><td style="color:var(--green)">On</td><td style="color:var(--green)">On</td></tr>
+              <tr><td>Suppression request updates</td><td style="color:var(--green)">On</td><td style="color:var(--text-4)">Off</td></tr>
+              <tr><td>Certificate expiry warnings</td><td style="color:var(--green)">On</td><td style="color:var(--green)">On</td></tr>
+              <tr><td>Compliance score changes</td><td style="color:var(--green)">On</td><td style="color:var(--text-4)">Off</td></tr>
+            </tbody></table>
+          </div>
+          <div class="card">
+            <div class="card-title">Security</div>
+            <div class="g2" style="margin-bottom:0">
+              <div class="field"><label class="field-label">Change Password</label><input class="input" type="password" placeholder="New password"/></div>
+              <div class="field"><label class="field-label">Confirm Password</label><input class="input" type="password" placeholder="Confirm"/></div>
+            </div>
+            <div style="margin-top:12px"><button class="btn btn-outline">Enable MFA</button></div>
+          </div>
+          <div class="card">
+            <div class="card-title">My API Keys</div>
+            <table><thead><tr><th>Name</th><th>Scopes</th><th>Created</th><th>Last Used</th></tr></thead><tbody>
+              <tr><td>Local development</td><td>scan:write, cbom:read</td><td>2026-03-18</td><td>1h ago</td></tr>
+            </tbody></table>
+            <div style="margin-top:10px"><button class="btn btn-outline">+ Create API Key</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== CLI DOWNLOADS ========== -->
+    <div id="p-downloads" class="page">
+      <div class="topbar"><h1>CLI Downloads</h1><div class="topbar-right"><span style="color:var(--green)">Latest: v0.1.0</span><span style="color:var(--text-4)">Released: 2026-03-18</span></div></div>
+
+      <div class="dl-tabs">
+        <button class="dl-tab active" onclick="showDLFlavor('light',this)">cbom (lightweight ~15MB)</button>
+        <button class="dl-tab" onclick="showDLFlavor('full',this)">cbom-full (with OpenGrep ~80MB)</button>
+      </div>
+
+      <div id="dl-light">
+        <div class="dl-grid">
+          <div class="dl-card"><div class="dl-card-os">&#63743;</div><div class="dl-card-name">macOS (Apple Silicon)</div><div class="dl-card-arch">darwin / arm64</div><div class="dl-card-size">cbom_0.1.0_darwin_arm64.tar.gz &middot; 14.2 MB</div></div>
+          <div class="dl-card"><div class="dl-card-os">&#63743;</div><div class="dl-card-name">macOS (Intel)</div><div class="dl-card-arch">darwin / amd64</div><div class="dl-card-size">cbom_0.1.0_darwin_amd64.tar.gz &middot; 15.1 MB</div></div>
+          <div class="dl-card"><div class="dl-card-os">&#128039;</div><div class="dl-card-name">Linux (x86_64)</div><div class="dl-card-arch">linux / amd64</div><div class="dl-card-size">cbom_0.1.0_linux_amd64.tar.gz &middot; 14.8 MB</div></div>
+          <div class="dl-card"><div class="dl-card-os">&#128039;</div><div class="dl-card-name">Linux (ARM64)</div><div class="dl-card-arch">linux / arm64</div><div class="dl-card-size">cbom_0.1.0_linux_arm64.tar.gz &middot; 13.9 MB</div></div>
+          <div class="dl-card"><div class="dl-card-os">&#127987;</div><div class="dl-card-name">Windows (x86_64)</div><div class="dl-card-arch">windows / amd64</div><div class="dl-card-size">cbom_0.1.0_windows_amd64.zip &middot; 15.4 MB</div></div>
+        </div>
+      </div>
+
+      <div id="dl-full" style="display:none">
+        <div class="alert alert-warn">cbom-full includes the OpenGrep binary for air-gapped / firewalled environments. No internet access required for Pass 2 taint analysis.</div>
+        <div class="dl-grid">
+          <div class="dl-card"><div class="dl-card-os">&#63743;</div><div class="dl-card-name">macOS (Apple Silicon)</div><div class="dl-card-arch">darwin / arm64</div><div class="dl-card-size">cbom-full_0.1.0_darwin_arm64.tar.gz &middot; 78.3 MB</div></div>
+          <div class="dl-card"><div class="dl-card-os">&#63743;</div><div class="dl-card-name">macOS (Intel)</div><div class="dl-card-arch">darwin / amd64</div><div class="dl-card-size">cbom-full_0.1.0_darwin_amd64.tar.gz &middot; 82.1 MB</div></div>
+          <div class="dl-card"><div class="dl-card-os">&#128039;</div><div class="dl-card-name">Linux (x86_64)</div><div class="dl-card-arch">linux / amd64</div><div class="dl-card-size">cbom-full_0.1.0_linux_amd64.tar.gz &middot; 80.5 MB</div></div>
+          <div class="dl-card"><div class="dl-card-os">&#128039;</div><div class="dl-card-name">Linux (ARM64)</div><div class="dl-card-arch">linux / arm64</div><div class="dl-card-size">cbom-full_0.1.0_linux_arm64.tar.gz &middot; 76.8 MB</div></div>
+          <div class="dl-card"><div class="dl-card-os">&#127987;</div><div class="dl-card-name">Windows (x86_64)</div><div class="dl-card-arch">windows / amd64</div><div class="dl-card-size">cbom-full_0.1.0_windows_amd64.zip &middot; 83.2 MB</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Checksums (SHA-256)</div>
+        <div class="code" style="font-size:10px">
+          <div>a1b2c3d4...  cbom_0.1.0_darwin_arm64.tar.gz</div>
+          <div>e5f6g7h8...  cbom_0.1.0_darwin_amd64.tar.gz</div>
+          <div>i9j0k1l2...  cbom_0.1.0_linux_amd64.tar.gz</div>
+          <div>m3n4o5p6...  cbom_0.1.0_linux_arm64.tar.gz</div>
+          <div>q7r8s9t0...  cbom_0.1.0_windows_amd64.zip</div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">Quick Install</div>
+          <div class="code" style="font-size:11px">
+            <div style="color:var(--text-4)"># Download and extract</div>
+            <div>curl -sL https://github.com/nk-sentinel/cipherradar/releases/latest/download/cbom_0.1.0_darwin_arm64.tar.gz | tar xz</div>
+            <div style="margin-top:8px;color:var(--text-4)"># Move to PATH</div>
+            <div>sudo mv cbom /usr/local/bin/</div>
+            <div style="margin-top:8px;color:var(--text-4)"># Verify</div>
+            <div>cbom version</div>
+            <div style="margin-top:8px;color:var(--text-4)"># Install OpenGrep (optional — for Pass 2 taint analysis)</div>
+            <div>cbom install-tools</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Connect CLI to Dashboard</div>
+          <div class="code" style="font-size:11px">
+            <div style="color:var(--text-4)"># Generate an API key in Settings &gt; API Keys, then:</div>
+            <div style="margin-top:4px">export CBOM_API_KEY="your-api-key-here"</div>
+            <div>export CBOM_API_URL="https://cipherradar.yourcompany.com/api/v1"</div>
+            <div style="margin-top:8px;color:var(--text-4)"># Scan and upload results to dashboard</div>
+            <div>cbom scan . --format cyclonedx-json --output cbom.json</div>
+            <div>curl -X POST $CBOM_API_URL/scans \</div>
+            <div>&nbsp;&nbsp;-H "Authorization: Bearer $CBOM_API_KEY" \</div>
+            <div>&nbsp;&nbsp;-F "cbom=@cbom.json"</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="g2">
+        <div class="card">
+          <div class="card-title">GitHub Actions</div>
+          <div class="code" style="font-size:11px">
+            <div style="color:var(--text-4)"># .github/workflows/cbom.yml</div>
+            <div>- uses: nk-sentinel/cipherradar/deploy/github-action@main</div>
+            <div>&nbsp;&nbsp;with:</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;format: cyclonedx-json</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;upload-sarif: 'true'</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;policy: policy.cbom.yml</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;fail-on: high</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">GitLab CI</div>
+          <div class="code" style="font-size:11px">
+            <div style="color:var(--text-4)"># .gitlab-ci.yml</div>
+            <div>include:</div>
+            <div>&nbsp;&nbsp;- project: 'nk-sentinel/cipherradar'</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;ref: main</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;file: 'deploy/gitlab-ci/cbom-scan.gitlab-ci.yml'</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ========== SETTINGS ========== -->
+    <div id="p-settings" class="page">
+      <div class="topbar"><h1>Settings</h1></div>
+      <div style="display:flex;gap:20px">
+        <div style="width:180px;display:flex;flex-direction:column;gap:2px">
+          <div style="padding:7px 12px;border-radius:var(--radius);background:var(--accent-dim);color:var(--accent);font-size:12px;cursor:pointer">General</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">Scan Config</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">Notifications</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">Integrations</div>
+          <div style="font-size:10px;color:var(--text-4);text-transform:uppercase;letter-spacing:0.06em;padding:12px 12px 4px">Admin</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">Team Members</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">API Keys</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">Audit Log</div>
+          <div style="padding:7px 12px;border-radius:var(--radius);color:var(--text-2);font-size:12px;cursor:pointer">Data Retention</div>
+        </div>
+        <div style="flex:1">
+          <div class="card">
+            <div class="card-title">General</div>
+            <div class="g2" style="margin-bottom:0"><div class="field"><label class="field-label">Organisation</label><input class="input" value="nk-sentinel"/></div><div class="field"><label class="field-label">Default Passes</label><input class="input" value="1, 2"/></div><div class="field"><label class="field-label">CBOM Format</label><input class="input" value="cyclonedx-json"/></div><div class="field"><label class="field-label">Snippet Lines</label><input class="input" value="3"/></div></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Integrations</div>
+            <table><thead><tr><th>Provider</th><th>Status</th><th>Repos</th><th>Webhooks</th></tr></thead><tbody>
+              <tr><td>GitHub</td><td style="color:var(--green)">Connected</td><td>6</td><td>Active</td></tr>
+              <tr><td>GitLab</td><td style="color:var(--green)">Connected</td><td>2</td><td>Active</td></tr>
+              <tr><td>Bitbucket</td><td style="color:var(--text-4)">Not connected</td><td>&mdash;</td><td>&mdash;</td></tr>
+            </tbody></table>
+          </div>
+          <div class="card">
+            <div class="card-title">API Keys</div>
+            <table><thead><tr><th>Name</th><th>Scopes</th><th>Created</th><th>Last Used</th></tr></thead><tbody>
+              <tr><td>CI/CD Pipeline</td><td>scan:write, cbom:read</td><td>2026-03-15</td><td>2h ago</td></tr>
+              <tr><td>Monitoring</td><td>scan:read, cbom:read</td><td>2026-03-18</td><td>Never</td></tr>
+            </tbody></table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// Navigation
+function goPage(page, el) {
+  document.querySelectorAll('#nav-global .nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.content > .page').forEach(p => p.classList.remove('active'));
+  document.getElementById('p-' + page).classList.add('active');
+  document.getElementById('nav-global').style.display = '';
+  document.getElementById('nav-repo').style.display = 'none';
+}
+
+// Enter a repository — switch sidebar to repo context
+function enterRepo(name, provider, langs, findings) {
+  document.getElementById('nav-global').style.display = 'none';
+  document.getElementById('nav-repo').style.display = '';
+  document.getElementById('repo-sidebar-name').textContent = name;
+  document.getElementById('repo-sidebar-meta').textContent = provider + ' \u00B7 ' + langs;
+  document.getElementById('repo-breadcrumb-name').textContent = name;
+  document.getElementById('repo-title').textContent = name;
+  document.getElementById('repo-provider-badge').textContent = provider;
+  document.getElementById('repo-stat-total').textContent = findings;
+
+  // Show repo page, default to overview
+  document.querySelectorAll('.content > .page').forEach(p => p.classList.remove('active'));
+  document.getElementById('p-repo').classList.add('active');
+  goRepoTab('overview', document.querySelector('#nav-repo .nav-item:nth-child(3)'));
+}
+
+// Navigate between repo sub-tabs
+function goRepoTab(tab, el) {
+  document.querySelectorAll('#nav-repo .nav-item').forEach(n => n.classList.remove('active'));
+  if (el) el.classList.add('active');
+  document.querySelectorAll('#p-repo > .page').forEach(p => p.classList.remove('active'));
+  document.getElementById('repo-' + tab).classList.add('active');
+}
+
+// Exit repo — back to global nav
+function exitRepo() {
+  document.getElementById('nav-global').style.display = '';
+  document.getElementById('nav-repo').style.display = 'none';
+  goPage('repos', document.querySelectorAll('#nav-global .nav-item')[1]);
+}
+
+// Login/App toggle
+function showApp() {
+  document.getElementById('login-page').classList.remove('active');
+  document.getElementById('app').style.display = 'flex';
+}
+function showLogin() {
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-page').classList.add('active');
+}
+
+// Theme switcher
+function setTheme(theme, el) {
+  document.body.className = 'theme-' + theme;
+  document.querySelectorAll('.theme-option').forEach(t => t.classList.remove('active'));
+  if (el) el.classList.add('active');
+}
+
+// Notification dropdown
+function toggleNotif() {
+  document.getElementById('notif-dropdown').classList.toggle('open');
+  document.getElementById('avatar-dropdown').classList.remove('open');
+}
+function markAllRead() {
+  document.querySelectorAll('.notif-item.unread').forEach(n => n.classList.remove('unread'));
+  document.querySelector('.notif-count').style.display = 'none';
+  document.getElementById('notif-dropdown').classList.remove('open');
+}
+
+// Avatar dropdown
+function toggleAvatar() {
+  document.getElementById('avatar-dropdown').classList.toggle('open');
+  document.getElementById('notif-dropdown').classList.remove('open');
+}
+function closeAvatar() {
+  document.getElementById('avatar-dropdown').classList.remove('open');
+}
+
+// Close dropdowns on outside click
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.notif-bell') && !e.target.closest('.notif-dropdown')) {
+    document.getElementById('notif-dropdown').classList.remove('open');
+  }
+  if (!e.target.closest('.avatar-area')) {
+    document.getElementById('avatar-dropdown').classList.remove('open');
+  }
+});
+
+// Download flavor tabs
+function showDLFlavor(flavor, el) {
+  document.getElementById('dl-light').style.display = flavor === 'light' ? '' : 'none';
+  document.getElementById('dl-full').style.display = flavor === 'full' ? '' : 'none';
+  document.querySelectorAll('.dl-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+// Role switcher — hides/shows nav items and pages based on role
+function switchRole(role) {
+  var desc = document.getElementById('role-desc');
+  var label = document.getElementById('current-role-label');
+  var navItems = document.querySelectorAll('#nav-global .nav-item');
+
+  // Map: which nav items each role can see (by page name)
+  // Sidebar-only pages (downloads + profile are in avatar dropdown, always accessible)
+  var access = {
+    'org-admin':          ['dashboard','repos','portfolio-quantum','portfolio-compliance','policy','settings'],
+    'security-manager':   ['dashboard','repos','portfolio-quantum','portfolio-compliance','policy','settings'],
+    'security-engineer':  ['dashboard','repos','portfolio-quantum','portfolio-compliance','policy','settings'],
+    'team-manager':       ['dashboard','repos','portfolio-quantum','portfolio-compliance'],
+    'compliance-auditor': ['dashboard','repos','portfolio-quantum','portfolio-compliance'],
+    'developer':          ['dashboard','repos'],
+    'guest':              ['repos']
+  };
+
+  var descriptions = {
+    'org-admin':          'Full control — all pages visible',
+    'security-manager':   'Read all repos, configure policy, approve suppressions',
+    'security-engineer':  'Manage scanners and policies, suppress findings',
+    'team-manager':       'Group-scoped read + scan — no policy or suppression access',
+    'compliance-auditor': 'Read-only — compliance reports, signed CBOMs only',
+    'developer':          'View own projects, trigger scans, raise suppressions',
+    'guest':              'Read-only — scoped to assigned projects only'
+  };
+
+  var roleLabels = {
+    'org-admin': 'Org Admin',
+    'security-manager': 'Security Manager',
+    'security-engineer': 'Security Engineer',
+    'team-manager': 'Team Manager',
+    'compliance-auditor': 'Compliance Auditor',
+    'developer': 'Developer',
+    'guest': 'Guest / Viewer'
+  };
+
+  desc.textContent = descriptions[role] || '';
+  label.textContent = roleLabels[role] || role;
+
+  var allowed = access[role] || [];
+  navItems.forEach(function(item) {
+    var onclick = item.getAttribute('onclick') || '';
+    var match = onclick.match(/goPage\('([^']+)'/);
+    if (match) {
+      var page = match[1];
+      item.style.display = allowed.indexOf(page) >= 0 ? '' : 'none';
+    }
+  });
+
+  // Hide section headers when all their children are hidden
+  var sections = document.querySelectorAll('#nav-global .nav-section');
+  sections.forEach(function(section) {
+    var next = section.nextElementSibling;
+    var hasVisible = false;
+    while (next && !next.classList.contains('nav-section')) {
+      if (next.classList.contains('nav-item') && next.style.display !== 'none') {
+        hasVisible = true;
+        break;
+      }
+      next = next.nextElementSibling;
+    }
+    section.style.display = hasVisible ? '' : 'none';
+  });
+
+  // If current page is not allowed, go to first allowed
+  var currentPage = document.querySelector('.content > .page.active');
+  if (currentPage) {
+    var currentId = currentPage.id.replace('p-', '');
+    if (allowed.indexOf(currentId) < 0 && allowed.length > 0) {
+      var firstItem = document.querySelector('#nav-global .nav-item[onclick*="' + allowed[0] + '"]');
+      if (firstItem) goPage(allowed[0], firstItem);
+    }
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CipherRadar — Dashboard Mockups</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --bg-primary: #0a0f1a;
+    --bg-secondary: #111827;
+    --bg-card: #1a2236;
+    --bg-card-hover: #1e2a42;
+    --border: #2a3654;
+    --text-primary: #e5e7eb;
+    --text-secondary: #9ca3af;
+    --text-muted: #6b7280;
+    --accent-blue: #3b82f6;
+    --accent-blue-dim: #1e3a5f;
+    --accent-cyan: #06b6d4;
+    --accent-green: #22c55e;
+    --accent-yellow: #eab308;
+    --accent-orange: #f97316;
+    --accent-red: #ef4444;
+    --accent-purple: #a855f7;
+    --radius: 8px;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif; background: var(--bg-primary); color: var(--text-primary); min-height: 100vh; }
+
+  /* Layout */
+  .app { display: flex; min-height: 100vh; }
+  .sidebar { width: 240px; background: var(--bg-secondary); border-right: 1px solid var(--border); padding: 20px 0; flex-shrink: 0; position: fixed; height: 100vh; overflow-y: auto; }
+  .main { flex: 1; margin-left: 240px; padding: 24px 32px; }
+
+  /* Sidebar */
+  .logo { display: flex; align-items: center; gap: 10px; padding: 0 20px 24px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .logo svg { width: 32px; height: 32px; }
+  .logo span { font-size: 16px; font-weight: 700; }
+  .logo .cipher { color: var(--accent-blue); }
+  .logo .radar { color: var(--text-primary); }
+
+  .nav-section { padding: 8px 12px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-top: 16px; }
+  .nav-item { display: flex; align-items: center; gap: 10px; padding: 8px 20px; font-size: 14px; color: var(--text-secondary); cursor: pointer; border-left: 3px solid transparent; transition: all 0.15s; }
+  .nav-item:hover { background: var(--bg-card); color: var(--text-primary); }
+  .nav-item.active { background: var(--accent-blue-dim); color: var(--accent-blue); border-left-color: var(--accent-blue); }
+  .nav-icon { width: 18px; height: 18px; opacity: 0.7; }
+
+  /* Page tabs */
+  .page-tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg-secondary); border-radius: var(--radius); padding: 4px; border: 1px solid var(--border); flex-wrap: wrap; }
+  .page-tab { padding: 8px 16px; border-radius: 6px; font-size: 13px; cursor: pointer; color: var(--text-secondary); transition: all 0.15s; }
+  .page-tab:hover { color: var(--text-primary); }
+  .page-tab.active { background: var(--accent-blue); color: white; }
+
+  /* Cards */
+  .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .card-title { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .card-subtitle { font-size: 12px; color: var(--text-muted); }
+
+  /* Grid */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .grid-2-1 { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+  /* Stat cards */
+  .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+  .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+  .stat-value { font-size: 28px; font-weight: 700; }
+  .stat-change { font-size: 12px; margin-top: 4px; }
+  .stat-change.up { color: var(--accent-red); }
+  .stat-change.down { color: var(--accent-green); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; }
+  th { text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 1px solid var(--border); }
+  td { padding: 12px; font-size: 13px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: var(--bg-card-hover); }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em; }
+  .badge-critical { background: #7f1d1d; color: #fca5a5; }
+  .badge-high { background: #7c2d12; color: #fdba74; }
+  .badge-medium { background: #713f12; color: #fde047; }
+  .badge-low { background: #1e3a5f; color: #93c5fd; }
+  .badge-info { background: #1f2937; color: #9ca3af; }
+  .badge-pass { background: #14532d; color: #86efac; }
+  .badge-fail { background: #7f1d1d; color: #fca5a5; }
+  .badge-warn { background: #713f12; color: #fde047; }
+  .badge-vulnerable { background: #7f1d1d; color: #fca5a5; }
+  .badge-safe { background: #14532d; color: #86efac; }
+  .badge-broken { background: #4c1d1d; color: #f87171; }
+  .badge-unknown { background: #1f2937; color: #9ca3af; }
+
+  /* Charts (CSS-only) */
+  .bar-chart { display: flex; align-items: end; gap: 8px; height: 160px; padding-top: 8px; }
+  .bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; }
+  .bar { width: 100%; border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.3s; }
+  .bar-label { font-size: 11px; color: var(--text-muted); margin-top: 6px; }
+  .bar-value { font-size: 11px; color: var(--text-secondary); margin-bottom: 4px; }
+
+  .donut-chart { width: 160px; height: 160px; border-radius: 50%; position: relative; margin: 0 auto; }
+  .donut-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; background: var(--bg-card); width: 90px; height: 90px; border-radius: 50%; display: flex; flex-direction: column; justify-content: center; }
+  .donut-value { font-size: 24px; font-weight: 700; }
+  .donut-label { font-size: 11px; color: var(--text-muted); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+
+  /* Gauge */
+  .gauge-container { text-align: center; padding: 20px; }
+  .gauge { width: 200px; height: 100px; margin: 0 auto; position: relative; overflow: hidden; }
+  .gauge-bg { width: 200px; height: 100px; border-radius: 100px 100px 0 0; background: conic-gradient(from 0.75turn, var(--accent-red) 0%, var(--accent-orange) 25%, var(--accent-yellow) 50%, var(--accent-green) 75%); }
+  .gauge-mask { position: absolute; bottom: 0; left: 20px; right: 20px; height: 80px; background: var(--bg-card); border-radius: 80px 80px 0 0; }
+  .gauge-score { font-size: 48px; font-weight: 800; margin-top: 8px; }
+  .gauge-label { font-size: 14px; color: var(--text-muted); }
+
+  /* Progress bar */
+  .progress-bar { height: 8px; background: var(--bg-secondary); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+
+  /* Filters */
+  .filters { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .filter-btn { padding: 6px 12px; border-radius: 6px; font-size: 12px; border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer; }
+  .filter-btn.active { border-color: var(--accent-blue); color: var(--accent-blue); background: var(--accent-blue-dim); }
+  .search-input { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-primary); font-size: 13px; width: 280px; }
+
+  /* Diff */
+  .diff-added { background: rgba(34, 197, 94, 0.1); border-left: 3px solid var(--accent-green); }
+  .diff-removed { background: rgba(239, 68, 68, 0.1); border-left: 3px solid var(--accent-red); }
+  .diff-changed { background: rgba(234, 179, 8, 0.1); border-left: 3px solid var(--accent-yellow); }
+
+  /* Timeline */
+  .timeline-chart { display: flex; align-items: end; gap: 2px; height: 80px; }
+  .timeline-bar { flex: 1; border-radius: 2px 2px 0 0; min-height: 2px; }
+
+  /* Buttons */
+  .btn { padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+  .btn-primary { background: var(--accent-blue); color: white; }
+  .btn-primary:hover { background: #2563eb; }
+  .btn-outline { background: transparent; border: 1px solid var(--border); color: var(--text-secondary); }
+  .btn-outline:hover { border-color: var(--accent-blue); color: var(--accent-blue); }
+
+  /* Code snippet */
+  .code-snippet { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 12px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; }
+  .code-line { display: flex; }
+  .code-line-num { color: var(--text-muted); width: 40px; text-align: right; padding-right: 12px; user-select: none; }
+  .code-highlight { background: rgba(239, 68, 68, 0.15); display: block; margin: 0 -12px; padding: 0 12px; }
+
+  /* Page sections */
+  .page { display: none; }
+  .page.active { display: block; }
+  .page-header { margin-bottom: 24px; }
+  .page-header h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+  .page-header p { font-size: 14px; color: var(--text-muted); }
+
+  /* Compliance framework cards */
+  .framework-card { display: flex; justify-content: space-between; align-items: center; padding: 16px; }
+  .framework-score { font-size: 32px; font-weight: 700; }
+  .framework-name { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .framework-desc { font-size: 12px; color: var(--text-muted); }
+
+  /* Responsive */
+  @media (max-width: 1200px) { .grid-4 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 800px) { .grid-2, .grid-3, .grid-2-1 { grid-template-columns: 1fr; } .sidebar { display: none; } .main { margin-left: 0; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="logo">
+      <svg viewBox="0 0 32 32" fill="none">
+        <path d="M16 2L28 9V23L16 30L4 23V9L16 2Z" stroke="#3b82f6" stroke-width="1.5" fill="none"/>
+        <path d="M16 6L24 11V21L16 26L8 21V11L16 6Z" stroke="#3b82f6" stroke-width="1" fill="none" opacity="0.5"/>
+        <circle cx="16" cy="16" r="3" fill="#3b82f6"/>
+      </svg>
+      <span><span class="cipher">Cipher</span><span class="radar">Radar</span></span>
+    </div>
+
+    <div class="nav-section">Overview</div>
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span>Dashboard</span>
+    </div>
+    <div class="nav-item" onclick="showPage('repositories')">
+      <span>Repositories</span>
+    </div>
+
+    <div class="nav-section">Analysis</div>
+    <div class="nav-item" onclick="showPage('scan')">
+      <span>Scan Results</span>
+    </div>
+    <div class="nav-item" onclick="showPage('findings')">
+      <span>Findings</span>
+    </div>
+    <div class="nav-item" onclick="showPage('diff')">
+      <span>CBOM Diff</span>
+    </div>
+
+    <div class="nav-section">Risk & Compliance</div>
+    <div class="nav-item" onclick="showPage('quantum')">
+      <span>Quantum Readiness</span>
+    </div>
+    <div class="nav-item" onclick="showPage('compliance')">
+      <span>Compliance</span>
+    </div>
+
+    <div class="nav-section">Settings</div>
+    <div class="nav-item" onclick="showPage('policy')">
+      <span>Policy Rules</span>
+    </div>
+    <div class="nav-item">
+      <span>Integrations</span>
+    </div>
+  </nav>
+
+  <!-- Main Content -->
+  <main class="main">
+    <!-- Page selector for mockup navigation -->
+    <div class="page-tabs">
+      <div class="page-tab active" onclick="showPage('dashboard')">Dashboard</div>
+      <div class="page-tab" onclick="showPage('repositories')">Repositories</div>
+      <div class="page-tab" onclick="showPage('scan')">Scan Results</div>
+      <div class="page-tab" onclick="showPage('findings')">Findings</div>
+      <div class="page-tab" onclick="showPage('diff')">CBOM Diff</div>
+      <div class="page-tab" onclick="showPage('quantum')">Quantum Readiness</div>
+      <div class="page-tab" onclick="showPage('compliance')">Compliance</div>
+      <div class="page-tab" onclick="showPage('policy')">Policy Rules</div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE 1: DASHBOARD -->
+    <!-- ============================================ -->
+    <div id="page-dashboard" class="page active">
+      <div class="page-header">
+        <h1>Dashboard</h1>
+        <p>Cryptographic asset overview across all repositories</p>
+      </div>
+
+      <div class="grid-4">
+        <div class="stat-card">
+          <div class="stat-label">Total Findings</div>
+          <div class="stat-value">1,247</div>
+          <div class="stat-change up">+23 since last scan</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Critical + High</div>
+          <div class="stat-value" style="color: var(--accent-red)">89</div>
+          <div class="stat-change down">-5 since last scan</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Quantum Vulnerable</div>
+          <div class="stat-value" style="color: var(--accent-orange)">312</div>
+          <div class="stat-change">42% of algorithms</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Repositories</div>
+          <div class="stat-value" style="color: var(--accent-cyan)">8</div>
+          <div class="stat-change">Last scan: 2 hours ago</div>
+        </div>
+      </div>
+
+      <div class="grid-2-1">
+        <!-- Severity distribution -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Findings by Severity</div>
+            <div class="card-subtitle">All repositories</div>
+          </div>
+          <div class="bar-chart">
+            <div class="bar-group">
+              <div class="bar-value">12</div>
+              <div class="bar" style="height: 30px; background: var(--accent-red);"></div>
+              <div class="bar-label">Critical</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-value">77</div>
+              <div class="bar" style="height: 80px; background: var(--accent-orange);"></div>
+              <div class="bar-label">High</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-value">234</div>
+              <div class="bar" style="height: 140px; background: var(--accent-yellow);"></div>
+              <div class="bar-label">Medium</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-value">156</div>
+              <div class="bar" style="height: 100px; background: var(--accent-blue);"></div>
+              <div class="bar-label">Low</div>
+            </div>
+            <div class="bar-group">
+              <div class="bar-value">768</div>
+              <div class="bar" style="height: 160px; background: var(--text-muted);"></div>
+              <div class="bar-label">Info</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quantum status breakdown -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Quantum Status</div>
+          </div>
+          <div class="donut-chart" style="background: conic-gradient(var(--accent-red) 0% 42%, var(--accent-green) 42% 72%, var(--text-muted) 72% 86%, #4c1d1d 86% 100%);">
+            <div class="donut-center">
+              <div class="donut-value">58%</div>
+              <div class="donut-label">Safe</div>
+            </div>
+          </div>
+          <div class="legend" style="justify-content: center;">
+            <div class="legend-item"><div class="legend-dot" style="background: var(--accent-red);"></div> Vulnerable (42%)</div>
+            <div class="legend-item"><div class="legend-dot" style="background: var(--accent-green);"></div> Safe (30%)</div>
+            <div class="legend-item"><div class="legend-dot" style="background: var(--text-muted);"></div> Unknown (14%)</div>
+            <div class="legend-item"><div class="legend-dot" style="background: #4c1d1d;"></div> Broken (14%)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent scans -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Recent Scans</div>
+          <button class="btn btn-primary">+ New Scan</button>
+        </div>
+        <table>
+          <thead>
+            <tr><th>Repository</th><th>Branch</th><th>Findings</th><th>Critical</th><th>Quantum Risk</th><th>Duration</th><th>Time</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>payment-service</strong></td><td>main</td><td>342</td><td><span class="badge badge-critical">5</span></td><td><span class="badge badge-vulnerable">High</span></td><td>4.2s</td><td>2h ago</td></tr>
+            <tr><td><strong>auth-api</strong></td><td>main</td><td>187</td><td><span class="badge badge-high">2</span></td><td><span class="badge badge-warn">Medium</span></td><td>2.8s</td><td>3h ago</td></tr>
+            <tr><td><strong>data-pipeline</strong></td><td>feat/encrypt</td><td>98</td><td><span class="badge badge-info">0</span></td><td><span class="badge badge-safe">Low</span></td><td>1.5s</td><td>5h ago</td></tr>
+            <tr><td><strong>mobile-backend</strong></td><td>main</td><td>456</td><td><span class="badge badge-critical">3</span></td><td><span class="badge badge-vulnerable">High</span></td><td>6.1s</td><td>1d ago</td></tr>
+            <tr><td><strong>internal-tools</strong></td><td>develop</td><td>64</td><td><span class="badge badge-info">0</span></td><td><span class="badge badge-safe">Low</span></td><td>0.8s</td><td>1d ago</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE 2: REPOSITORIES -->
+    <!-- ============================================ -->
+    <div id="page-repositories" class="page">
+      <div class="page-header">
+        <h1>Repositories</h1>
+        <p>Manage connected repositories and scan schedules</p>
+      </div>
+
+      <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+        <input class="search-input" placeholder="Search repositories..." />
+        <button class="btn btn-primary">+ Connect Repository</button>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead>
+            <tr><th>Repository</th><th>Provider</th><th>Languages</th><th>Last Scan</th><th>Findings</th><th>Compliance</th><th>Quantum Risk</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>payment-service</strong><br><span style="font-size:11px;color:var(--text-muted)">nk-sentinel/payment-service</span></td>
+              <td>GitHub</td>
+              <td>Java, JS</td>
+              <td>2h ago</td>
+              <td>342</td>
+              <td><div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:65%;background:var(--accent-yellow)"></div></div><span style="font-size:11px;color:var(--text-muted)">65%</span></td>
+              <td><span class="badge badge-vulnerable">72</span></td>
+              <td><button class="btn btn-outline" style="font-size:11px;padding:4px 8px;">Scan Now</button></td>
+            </tr>
+            <tr>
+              <td><strong>auth-api</strong><br><span style="font-size:11px;color:var(--text-muted)">nk-sentinel/auth-api</span></td>
+              <td>GitHub</td>
+              <td>Python, JS</td>
+              <td>3h ago</td>
+              <td>187</td>
+              <td><div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:82%;background:var(--accent-green)"></div></div><span style="font-size:11px;color:var(--text-muted)">82%</span></td>
+              <td><span class="badge badge-warn">34</span></td>
+              <td><button class="btn btn-outline" style="font-size:11px;padding:4px 8px;">Scan Now</button></td>
+            </tr>
+            <tr>
+              <td><strong>data-pipeline</strong><br><span style="font-size:11px;color:var(--text-muted)">nk-sentinel/data-pipeline</span></td>
+              <td>GitLab</td>
+              <td>Python</td>
+              <td>5h ago</td>
+              <td>98</td>
+              <td><div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:94%;background:var(--accent-green)"></div></div><span style="font-size:11px;color:var(--text-muted)">94%</span></td>
+              <td><span class="badge badge-safe">8</span></td>
+              <td><button class="btn btn-outline" style="font-size:11px;padding:4px 8px;">Scan Now</button></td>
+            </tr>
+            <tr>
+              <td><strong>mobile-backend</strong><br><span style="font-size:11px;color:var(--text-muted)">nk-sentinel/mobile-backend</span></td>
+              <td>Bitbucket</td>
+              <td>Java, Kotlin</td>
+              <td>1d ago</td>
+              <td>456</td>
+              <td><div class="progress-bar" style="width:80px"><div class="progress-fill" style="width:45%;background:var(--accent-red)"></div></div><span style="font-size:11px;color:var(--text-muted)">45%</span></td>
+              <td><span class="badge badge-vulnerable">128</span></td>
+              <td><button class="btn btn-outline" style="font-size:11px;padding:4px 8px;">Scan Now</button></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE 3: SCAN RESULTS -->
+    <!-- ============================================ -->
+    <div id="page-scan" class="page">
+      <div class="page-header">
+        <h1>Scan Results — payment-service</h1>
+        <p>Scan #47 &middot; main branch &middot; commit a2b2fbc &middot; 4.2s &middot; 342 findings</p>
+      </div>
+
+      <div class="grid-4">
+        <div class="stat-card"><div class="stat-label">Critical</div><div class="stat-value" style="color:var(--accent-red)">5</div></div>
+        <div class="stat-card"><div class="stat-label">High</div><div class="stat-value" style="color:var(--accent-orange)">28</div></div>
+        <div class="stat-card"><div class="stat-label">Medium</div><div class="stat-value" style="color:var(--accent-yellow)">67</div></div>
+        <div class="stat-card"><div class="stat-label">Low + Info</div><div class="stat-value" style="color:var(--text-muted)">242</div></div>
+      </div>
+
+      <div class="grid-2">
+        <!-- Algorithm distribution -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Algorithm Distribution</div></div>
+          <div class="bar-chart" style="height:140px">
+            <div class="bar-group"><div class="bar-value">89</div><div class="bar" style="height:140px;background:var(--accent-blue)"></div><div class="bar-label">AES</div></div>
+            <div class="bar-group"><div class="bar-value">67</div><div class="bar" style="height:105px;background:var(--accent-red)"></div><div class="bar-label">RSA</div></div>
+            <div class="bar-group"><div class="bar-value">54</div><div class="bar" style="height:85px;background:var(--accent-green)"></div><div class="bar-label">SHA-256</div></div>
+            <div class="bar-group"><div class="bar-value">32</div><div class="bar" style="height:50px;background:var(--accent-orange)"></div><div class="bar-label">MD5</div></div>
+            <div class="bar-group"><div class="bar-value">28</div><div class="bar" style="height:44px;background:var(--accent-yellow)"></div><div class="bar-label">SHA-1</div></div>
+            <div class="bar-group"><div class="bar-value">24</div><div class="bar" style="height:38px;background:var(--accent-cyan)"></div><div class="bar-label">HMAC</div></div>
+            <div class="bar-group"><div class="bar-value">18</div><div class="bar" style="height:28px;background:var(--accent-purple)"></div><div class="bar-label">EC</div></div>
+            <div class="bar-group"><div class="bar-value">30</div><div class="bar" style="height:47px;background:var(--text-muted)"></div><div class="bar-label">Other</div></div>
+          </div>
+        </div>
+
+        <!-- Language breakdown -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Findings by Language</div></div>
+          <div style="display:flex;flex-direction:column;gap:12px;margin-top:8px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">Java</span><span style="font-size:13px;color:var(--text-muted)">156 findings</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:46%;background:var(--accent-orange)"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">JavaScript</span><span style="font-size:13px;color:var(--text-muted)">98 findings</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:29%;background:var(--accent-yellow)"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">Python</span><span style="font-size:13px;color:var(--text-muted)">52 findings</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:15%;background:var(--accent-blue)"></div></div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span style="font-size:13px">Config files</span><span style="font-size:13px;color:var(--text-muted)">36 findings</span></div>
+              <div class="progress-bar"><div class="progress-fill" style="width:10%;background:var(--accent-purple)"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top findings -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Top Findings</div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-outline" style="font-size:11px;padding:4px 8px;">Export CBOM</button>
+            <button class="btn btn-outline" style="font-size:11px;padding:4px 8px;">Export PDF</button>
+            <button class="btn btn-outline" style="font-size:11px;padding:4px 8px;">Export SARIF</button>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>Severity</th><th>File</th><th>Line</th><th>Finding</th><th>Quantum</th><th>Confidence</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-critical">CRITICAL</span></td><td>src/main/java/SSLConfig.java</td><td>45</td><td>Certificate validation disabled (CERT_NONE)</td><td><span class="badge badge-vulnerable">Vulnerable</span></td><td>High</td></tr>
+            <tr><td><span class="badge badge-critical">CRITICAL</span></td><td>src/auth/jwt.js</td><td>23</td><td>JWT algorithm: none (unsigned tokens)</td><td>—</td><td>High</td></tr>
+            <tr><td><span class="badge badge-high">HIGH</span></td><td>src/main/java/CryptoUtil.java</td><td>67</td><td>DES/ECB/PKCS5Padding — broken algorithm + insecure mode</td><td><span class="badge badge-broken">Broken</span></td><td>High</td></tr>
+            <tr><td><span class="badge badge-high">HIGH</span></td><td>src/crypto/hash.py</td><td>12</td><td>MD5 hash — collision attacks practical since 2004</td><td><span class="badge badge-broken">Broken</span></td><td>High</td></tr>
+            <tr><td><span class="badge badge-high">HIGH</span></td><td>config/.env</td><td>5</td><td>Hardcoded secret: ENCRYPTION_KEY</td><td>—</td><td>Medium</td></tr>
+            <tr><td><span class="badge badge-medium">MEDIUM</span></td><td>src/main/java/KeyGen.java</td><td>89</td><td>RSA-2048 — quantum vulnerable, migrate to ML-KEM</td><td><span class="badge badge-vulnerable">Vulnerable</span></td><td>High</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE 4: FINDINGS -->
+    <!-- ============================================ -->
+    <div id="page-findings" class="page">
+      <div class="page-header">
+        <h1>Findings</h1>
+        <p>All cryptographic findings across repositories</p>
+      </div>
+
+      <div class="filters">
+        <input class="search-input" placeholder="Search findings..." />
+        <div class="filter-btn active">All (1,247)</div>
+        <div class="filter-btn">Critical (12)</div>
+        <div class="filter-btn">High (77)</div>
+        <div class="filter-btn">Medium (234)</div>
+        <div class="filter-btn">Quantum Vulnerable</div>
+        <div class="filter-btn">Broken</div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <table>
+          <thead><tr><th style="width:80px">Severity</th><th>Repository</th><th>File</th><th>Finding</th><th>Algorithm</th><th>Quantum</th><th>Pass</th></tr></thead>
+          <tbody>
+            <tr style="cursor:pointer" onclick="document.getElementById('finding-detail').style.display='block'">
+              <td><span class="badge badge-critical">CRITICAL</span></td>
+              <td>payment-service</td>
+              <td>src/main/java/SSLConfig.java:45</td>
+              <td>Certificate validation disabled</td>
+              <td>—</td>
+              <td><span class="badge badge-vulnerable">Vuln</span></td>
+              <td>1</td>
+            </tr>
+            <tr><td><span class="badge badge-high">HIGH</span></td><td>payment-service</td><td>src/crypto/hash.py:12</td><td>MD5 hash function</td><td>MD5</td><td><span class="badge badge-broken">Broken</span></td><td>1</td></tr>
+            <tr><td><span class="badge badge-high">HIGH</span></td><td>auth-api</td><td>src/auth/password.py:34</td><td>SHA-1 hash function</td><td>SHA-1</td><td><span class="badge badge-broken">Broken</span></td><td>1</td></tr>
+            <tr><td><span class="badge badge-high">HIGH</span></td><td>payment-service</td><td>src/main/java/Cipher.java:67</td><td>DES/ECB — broken cipher</td><td>DES</td><td><span class="badge badge-broken">Broken</span></td><td>1</td></tr>
+            <tr><td><span class="badge badge-high">HIGH</span></td><td>mobile-backend</td><td>config/.env:5</td><td>Hardcoded secret: API_KEY</td><td>—</td><td>—</td><td>1</td></tr>
+            <tr><td><span class="badge badge-medium">MEDIUM</span></td><td>auth-api</td><td>src/crypto/rsa.py:56</td><td>RSA-2048 key generation</td><td>RSA</td><td><span class="badge badge-vulnerable">Vuln</span></td><td>1</td></tr>
+            <tr><td><span class="badge badge-medium">MEDIUM</span></td><td>payment-service</td><td>src/tls/config.java:23</td><td>TLS 1.0 deprecated protocol</td><td>TLS 1.0</td><td><span class="badge badge-vulnerable">Vuln</span></td><td>1</td></tr>
+            <tr><td><span class="badge badge-info">INFO</span></td><td>data-pipeline</td><td>src/crypto/aes.py:15</td><td>AES-256-GCM encryption</td><td>AES</td><td><span class="badge badge-safe">Safe</span></td><td>1</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Finding detail panel -->
+      <div id="finding-detail" class="card" style="display:none; border-color: var(--accent-red);">
+        <div class="card-header">
+          <div>
+            <div class="card-title"><span class="badge badge-critical">CRITICAL</span> &nbsp; Certificate validation disabled</div>
+            <div class="card-subtitle" style="margin-top:4px;">payment-service &middot; src/main/java/SSLConfig.java:45 &middot; Detected by Pass 1 (tree-sitter)</div>
+          </div>
+          <button class="btn btn-outline" onclick="this.closest('#finding-detail').style.display='none'" style="font-size:11px;padding:4px 8px;">Close</button>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+          <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Rule ID</div>
+            <div style="font-size:13px;">cbom-java-trust-all-certificates</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Quantum Status</div>
+            <div><span class="badge badge-vulnerable">Vulnerable</span></div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Confidence</div>
+            <div style="font-size:13px;">High</div>
+          </div>
+          <div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">Asset Type</div>
+            <div style="font-size:13px;">Certificate</div>
+          </div>
+        </div>
+
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:6px;">Source Code</div>
+        <div class="code-snippet">
+          <div class="code-line"><span class="code-line-num">43</span> TrustManager[] trustAll = new TrustManager[] {</div>
+          <div class="code-line"><span class="code-line-num">44</span>     new X509TrustManager() {</div>
+          <div class="code-line code-highlight"><span class="code-line-num">45</span>         public void checkClientTrusted(X509Certificate[] certs, String t) { }</div>
+          <div class="code-line code-highlight"><span class="code-line-num">46</span>         public void checkServerTrusted(X509Certificate[] certs, String t) { }</div>
+          <div class="code-line"><span class="code-line-num">47</span>         public X509Certificate[] getAcceptedIssuers() { return null; }</div>
+          <div class="code-line"><span class="code-line-num">48</span>     }</div>
+          <div class="code-line"><span class="code-line-num">49</span> };</div>
+        </div>
+
+        <div style="margin-top:16px;padding:12px;background:var(--bg-secondary);border-radius:6px;border:1px solid var(--border);">
+          <div style="font-size:12px;font-weight:600;color:var(--accent-yellow);margin-bottom:6px;">Remediation</div>
+          <div style="font-size:13px;color:var(--text-secondary);">Remove the custom TrustManager that accepts all certificates. Use the system default TrustManager or configure a specific truststore with your CA certificates. This pattern disables all certificate validation and enables man-in-the-middle attacks.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE 5: CBOM DIFF -->
+    <!-- ============================================ -->
+    <div id="page-diff" class="page">
+      <div class="page-header">
+        <h1>CBOM Diff</h1>
+        <p>Compare scan #46 (Mar 17) vs scan #47 (Mar 18) — payment-service</p>
+      </div>
+
+      <div class="grid-4">
+        <div class="stat-card"><div class="stat-label">Added</div><div class="stat-value" style="color:var(--accent-green)">+7</div></div>
+        <div class="stat-card"><div class="stat-label">Removed</div><div class="stat-value" style="color:var(--accent-red)">-3</div></div>
+        <div class="stat-card"><div class="stat-label">Changed</div><div class="stat-value" style="color:var(--accent-yellow)">~5</div></div>
+        <div class="stat-card"><div class="stat-label">Unchanged</div><div class="stat-value" style="color:var(--text-muted)">=327</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">Changes</div></div>
+        <table>
+          <thead><tr><th style="width:80px">Type</th><th>Component</th><th>File</th><th>Details</th></tr></thead>
+          <tbody>
+            <tr class="diff-added"><td style="color:var(--accent-green)">+ Added</td><td>PBKDF2-SHA256</td><td>auth/password.py:22</td><td>New KDF implementation</td></tr>
+            <tr class="diff-added"><td style="color:var(--accent-green)">+ Added</td><td>AES-256-GCM</td><td>crypto/new_encrypt.py:15</td><td>New encryption module</td></tr>
+            <tr class="diff-removed"><td style="color:var(--accent-red)">- Removed</td><td>MD5</td><td>crypto/legacy.py:8</td><td>Legacy hash removed</td></tr>
+            <tr class="diff-removed"><td style="color:var(--accent-red)">- Removed</td><td>DES-ECB</td><td>crypto/legacy.py:34</td><td>Broken cipher removed</td></tr>
+            <tr class="diff-changed"><td style="color:var(--accent-yellow)">~ Changed</td><td>RSA-2048 → RSA-4096</td><td>keys/generate.py:5</td><td>Key size: 2048 → 4096</td></tr>
+            <tr class="diff-changed"><td style="color:var(--accent-yellow)">~ Changed</td><td>TLS 1.0 → TLS 1.3</td><td>network/config.py:10</td><td>Protocol version upgraded</td></tr>
+            <tr class="diff-changed"><td style="color:var(--accent-yellow)">~ Changed</td><td>AES-128-CBC → AES-256-GCM</td><td>crypto/symmetric.py:20</td><td>Algorithm + mode upgraded</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE 6: QUANTUM READINESS -->
+    <!-- ============================================ -->
+    <div id="page-quantum" class="page">
+      <div class="page-header">
+        <h1>Quantum Readiness</h1>
+        <p>Post-quantum cryptography migration status</p>
+      </div>
+
+      <div class="grid-3">
+        <div class="card">
+          <div class="gauge-container">
+            <div class="gauge">
+              <div class="gauge-bg"></div>
+              <div class="gauge-mask"></div>
+            </div>
+            <div class="gauge-score" style="color:var(--accent-yellow)">58</div>
+            <div class="gauge-label">Quantum Risk Score</div>
+          </div>
+        </div>
+        <div class="stat-card" style="display:flex;flex-direction:column;justify-content:center;text-align:center;">
+          <div class="stat-label">Quantum-Vulnerable Algorithms</div>
+          <div class="stat-value" style="color:var(--accent-red);font-size:42px;">312</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">across 8 repositories</div>
+        </div>
+        <div class="stat-card" style="display:flex;flex-direction:column;justify-content:center;text-align:center;">
+          <div class="stat-label">Estimated Migration Effort</div>
+          <div class="stat-value" style="color:var(--accent-orange);font-size:42px;">~6mo</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-top:4px;">for critical services</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Vulnerable Algorithms — Migration Priority</div></div>
+          <table>
+            <thead><tr><th>Algorithm</th><th>Count</th><th>Repositories</th><th>Migrate To</th><th>Priority</th></tr></thead>
+            <tbody>
+              <tr><td><strong>RSA</strong></td><td>134</td><td>7</td><td>ML-KEM / ML-DSA</td><td><span class="badge badge-critical">Critical</span></td></tr>
+              <tr><td><strong>ECDSA</strong></td><td>67</td><td>5</td><td>ML-DSA</td><td><span class="badge badge-high">High</span></td></tr>
+              <tr><td><strong>ECDH</strong></td><td>45</td><td>4</td><td>ML-KEM</td><td><span class="badge badge-high">High</span></td></tr>
+              <tr><td><strong>Ed25519</strong></td><td>34</td><td>3</td><td>ML-DSA</td><td><span class="badge badge-medium">Medium</span></td></tr>
+              <tr><td><strong>DH</strong></td><td>22</td><td>2</td><td>ML-KEM</td><td><span class="badge badge-medium">Medium</span></td></tr>
+              <tr><td><strong>DSA</strong></td><td>10</td><td>1</td><td>ML-DSA</td><td><span class="badge badge-low">Low</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Quantum Risk Trend</div></div>
+          <div class="timeline-chart">
+            <div class="timeline-bar" style="height:75px;background:var(--accent-red);" title="Jan: 75"></div>
+            <div class="timeline-bar" style="height:72px;background:var(--accent-red);" title="Feb: 72"></div>
+            <div class="timeline-bar" style="height:70px;background:var(--accent-orange);" title="Mar W1: 70"></div>
+            <div class="timeline-bar" style="height:68px;background:var(--accent-orange);" title="Mar W2: 68"></div>
+            <div class="timeline-bar" style="height:64px;background:var(--accent-yellow);" title="Mar W3: 64"></div>
+            <div class="timeline-bar" style="height:60px;background:var(--accent-yellow);" title="Mar W4: 60"></div>
+            <div class="timeline-bar" style="height:58px;background:var(--accent-yellow);" title="Now: 58"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--text-muted);">
+            <span>Jan</span><span>Feb</span><span>Mar W1</span><span>W2</span><span>W3</span><span>W4</span><span>Now</span>
+          </div>
+          <div style="margin-top:16px;padding:12px;background:var(--bg-secondary);border-radius:6px;">
+            <div style="font-size:12px;color:var(--accent-green);">Score improving: 75 → 58 (-22.7%) over 3 months</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">At current velocity, target score 40 estimated by June 2026</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE 7: COMPLIANCE -->
+    <!-- ============================================ -->
+    <div id="page-compliance" class="page">
+      <div class="page-header">
+        <h1>Compliance</h1>
+        <p>Framework compliance status across all repositories</p>
+      </div>
+
+      <div class="grid-3" style="margin-bottom:24px;">
+        <div class="card framework-card">
+          <div>
+            <div class="framework-name">NIST SP 800-131A</div>
+            <div class="framework-desc">Algorithm transition guidance</div>
+            <div class="progress-bar" style="width:160px;margin-top:8px;"><div class="progress-fill" style="width:72%;background:var(--accent-yellow)"></div></div>
+          </div>
+          <div class="framework-score" style="color:var(--accent-yellow)">72%</div>
+        </div>
+        <div class="card framework-card">
+          <div>
+            <div class="framework-name">FIPS 140-3</div>
+            <div class="framework-desc">Cryptographic module validation</div>
+            <div class="progress-bar" style="width:160px;margin-top:8px;"><div class="progress-fill" style="width:65%;background:var(--accent-orange)"></div></div>
+          </div>
+          <div class="framework-score" style="color:var(--accent-orange)">65%</div>
+        </div>
+        <div class="card framework-card">
+          <div>
+            <div class="framework-name">CNSA 2.0</div>
+            <div class="framework-desc">NSA quantum-resistant suite</div>
+            <div class="progress-bar" style="width:160px;margin-top:8px;"><div class="progress-fill" style="width:38%;background:var(--accent-red)"></div></div>
+          </div>
+          <div class="framework-score" style="color:var(--accent-red)">38%</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">NIST SP 800-131A — Non-Compliant Findings</div>
+          <button class="btn btn-outline" style="font-size:11px;padding:4px 8px;">Download PDF Report</button>
+        </div>
+        <table>
+          <thead><tr><th>Status</th><th>Algorithm</th><th>NIST Classification</th><th>Count</th><th>Repositories</th><th>Action Required</th></tr></thead>
+          <tbody>
+            <tr><td><span class="badge badge-fail">Disallowed</span></td><td>DES</td><td>Disallowed after 2023</td><td>8</td><td>2</td><td>Remove immediately — replace with AES-256</td></tr>
+            <tr><td><span class="badge badge-fail">Disallowed</span></td><td>3DES (2-key)</td><td>Disallowed after 2023</td><td>4</td><td>1</td><td>Remove immediately — replace with AES-256</td></tr>
+            <tr><td><span class="badge badge-warn">Deprecated</span></td><td>SHA-1</td><td>Deprecated for digital signatures</td><td>28</td><td>5</td><td>Migrate to SHA-256 or SHA-3</td></tr>
+            <tr><td><span class="badge badge-warn">Deprecated</span></td><td>RSA-1024</td><td>Deprecated — min 2048 required</td><td>6</td><td>2</td><td>Upgrade to RSA-2048 minimum</td></tr>
+            <tr><td><span class="badge badge-pass">Acceptable</span></td><td>AES-128</td><td>Acceptable</td><td>89</td><td>6</td><td>No action — consider AES-256 for PQ margin</td></tr>
+            <tr><td><span class="badge badge-pass">Acceptable</span></td><td>AES-256</td><td>Acceptable</td><td>134</td><td>8</td><td>No action</td></tr>
+            <tr><td><span class="badge badge-pass">Acceptable</span></td><td>SHA-256</td><td>Acceptable</td><td>167</td><td>8</td><td>No action</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ============================================ -->
+    <!-- PAGE 8: POLICY RULES -->
+    <!-- ============================================ -->
+    <div id="page-policy" class="page">
+      <div class="page-header">
+        <h1>Policy Rules</h1>
+        <p>Enforce cryptographic standards across your organization</p>
+      </div>
+
+      <div style="display:flex;gap:12px;margin-bottom:20px;">
+        <button class="btn btn-primary">+ Add Rule</button>
+        <button class="btn btn-outline">Import YAML</button>
+        <button class="btn btn-outline">Export</button>
+      </div>
+
+      <div class="card">
+        <table>
+          <thead><tr><th>Rule ID</th><th>Description</th><th>Action</th><th>Severity</th><th>Violations</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><code style="font-size:12px;color:var(--accent-cyan)">no-broken-algorithms</code></td><td>Deny MD5, SHA-1, DES, 3DES, RC4</td><td><span class="badge badge-fail">Fail</span></td><td>Critical</td><td style="color:var(--accent-red)">72</td><td>Active</td></tr>
+            <tr><td><code style="font-size:12px;color:var(--accent-cyan)">no-ecb-mode</code></td><td>Deny ECB block cipher mode</td><td><span class="badge badge-fail">Fail</span></td><td>High</td><td style="color:var(--accent-orange)">8</td><td>Active</td></tr>
+            <tr><td><code style="font-size:12px;color:var(--accent-cyan)">rsa-min-key-size</code></td><td>RSA keys must be >= 2048 bits</td><td><span class="badge badge-fail">Fail</span></td><td>High</td><td style="color:var(--accent-orange)">6</td><td>Active</td></tr>
+            <tr><td><code style="font-size:12px;color:var(--accent-cyan)">no-deprecated-tls</code></td><td>Deny TLS 1.0 and 1.1</td><td><span class="badge badge-fail">Fail</span></td><td>High</td><td style="color:var(--accent-orange)">12</td><td>Active</td></tr>
+            <tr><td><code style="font-size:12px;color:var(--accent-cyan)">quantum-vulnerable-warn</code></td><td>Warn on quantum-vulnerable algorithms</td><td><span class="badge badge-warn">Warn</span></td><td>Medium</td><td style="color:var(--accent-yellow)">312</td><td>Active</td></tr>
+            <tr><td><code style="font-size:12px;color:var(--accent-cyan)">no-hardcoded-keys</code></td><td>Deny hardcoded cryptographic keys in source</td><td><span class="badge badge-fail">Fail</span></td><td>Critical</td><td style="color:var(--accent-red)">15</td><td>Active</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.page-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  document.querySelectorAll('.page-tab').forEach(t => {
+    if (t.textContent.toLowerCase().replace(/\s/g,'') === name.replace(/\s/g,'') ||
+        t.onclick.toString().includes(name)) t.classList.add('active');
+  });
+  document.querySelectorAll('.nav-item').forEach(n => {
+    if (n.onclick && n.onclick.toString().includes(name)) n.classList.add('active');
+  });
+}
+</script>
+</body>
+</html>

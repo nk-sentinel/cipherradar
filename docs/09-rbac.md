@@ -1,6 +1,6 @@
 # Role-Based Access Control (RBAC)
 
-> **Document version:** v1
+> **Document version:** v2
 > **Created:** 2026-03-16
 > **Last updated:** 2026-03-17
 > **Status:** Active
@@ -10,6 +10,7 @@
 | Version | Date | Change | Triggered By |
 |---|---|---|---|
 | v1 | 2026-03-16 | Initial document | ADR-006 |
+| v2 | 2026-03-19 | Added Team Manager role (7th role) — group-scoped read + scan access for engineering managers and team leads | UI mockup review |
 
 ---
 
@@ -71,6 +72,7 @@ Roles are assigned at **org level**, **group level** (any depth), or **project l
 | **Org Admin** | Platform / IT Admin | Full control — users, billing, org settings, all features |
 | **Security Manager** | CISO / Security Leadership | Read all repos; configure org-wide policy; approve suppression requests; export audit evidence |
 | **Security Engineer** | AppSec / Security Architect | Manage scanners and policies; view and suppress findings; approve/reject Developer suppression requests |
+| **Team Manager** | Engineering Manager / Team Lead / VP | Read all repos in assigned group; view portfolio quantum + compliance for group; trigger scans on group repos; export CBOMs and reports; cannot configure policy, suppress findings, or approve suppressions |
 | **Compliance Auditor** | GRC / External Auditors | Read-only — compliance reports, signed CBOMs only, audit evidence; cannot suppress or modify anything |
 | **Developer** | Developer / DevSecOps | View findings on own projects; trigger scans on own repos; raise suppression requests (requires approval) |
 | **Guest / Viewer** | External auditors, stakeholders, contractors | Read-only access to a specific group or project's findings and signed CBOMs; no action permissions |
@@ -85,26 +87,26 @@ Roles are assigned at **org level**, **group level** (any depth), or **project l
 
 ## 4. Permission Matrix
 
-| Resource / Action | Org Admin | Security Manager | Security Engineer | Compliance Auditor | Developer | Guest / Viewer |
-|---|---|---|---|---|---|---|
-| Org settings / billing | CRUD | R | — | — | — | — |
-| User & team management | CRUD | R | — | — | — | — |
-| Add / remove groups | CRUD | CRUD | — | — | — | — |
-| Add / remove projects | CRUD | CRUD | CRUD | R | R (own) | — |
-| Trigger scans | ✓ | ✓ | ✓ | — | ✓ (own) | — |
-| View findings | ✓ | ✓ | ✓ | ✓ | ✓ (own) | ✓ (scoped) |
-| Suppress findings (direct) | ✓ | ✓ | ✓ | — | — | — |
-| Raise suppression request | ✓ | ✓ | ✓ | — | ✓ (own) | — |
-| Approve / reject suppression request | ✓ | ✓ | ✓ | — | — | — |
-| View CBOMs | ✓ | ✓ | ✓ | Signed only | ✓ (own) | Signed only |
-| Export / download CBOMs | ✓ | ✓ | ✓ | Signed only | — | — |
-| Create / edit policies | ✓ | ✓ | ✓ | R | — | — |
-| Policy applies at | Org | Org | Org | — | — | — |
-| View compliance reports | ✓ | ✓ | ✓ | ✓ | — | — |
-| Export audit evidence package | ✓ | ✓ | ✓ | ✓ | — | — |
-| Portfolio dashboard | ✓ | ✓ | ✓ | ✓ | — | — |
-| Manage integrations (Jira/Slack) | ✓ | ✓ | ✓ | R | — | — |
-| Create API keys | ✓ | ✓ | ✓ | — | — | — |
+| Resource / Action | Org Admin | Security Manager | Security Engineer | Team Manager | Compliance Auditor | Developer | Guest / Viewer |
+|---|---|---|---|---|---|---|---|
+| Org settings / billing | CRUD | R | — | — | — | — | — |
+| User & team management | CRUD | R | — | — | — | — | — |
+| Add / remove groups | CRUD | CRUD | — | — | — | — | — |
+| Add / remove projects | CRUD | CRUD | CRUD | R (group) | R | R (own) | — |
+| Trigger scans | ✓ | ✓ | ✓ | ✓ (group) | — | ✓ (own) | — |
+| View findings | ✓ | ✓ | ✓ | ✓ (group) | ✓ | ✓ (own) | ✓ (scoped) |
+| Suppress findings (direct) | ✓ | ✓ | ✓ | — | — | — | — |
+| Raise suppression request | ✓ | ✓ | ✓ | — | — | ✓ (own) | — |
+| Approve / reject suppression request | ✓ | ✓ | ✓ | — | — | — | — |
+| View CBOMs | ✓ | ✓ | ✓ | ✓ (group) | Signed only | ✓ (own) | Signed only |
+| Export / download CBOMs | ✓ | ✓ | ✓ | ✓ (group) | Signed only | — | — |
+| Create / edit policies | ✓ | ✓ | ✓ | — | R | — | — |
+| Policy applies at | Org | Org | Org | — | — | — | — |
+| View compliance reports | ✓ | ✓ | ✓ | ✓ (group) | ✓ | — | — |
+| Export audit evidence package | ✓ | ✓ | ✓ | ✓ (group) | ✓ | — | — |
+| Portfolio dashboard | ✓ | ✓ | ✓ | ✓ (group) | ✓ | — | — |
+| Manage integrations (Jira/Slack) | ✓ | ✓ | ✓ | — | R | — | — |
+| Create API keys | ✓ | ✓ | ✓ | — | — | — | — |
 
 ---
 
