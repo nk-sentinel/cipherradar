@@ -43,25 +43,58 @@ Two GoReleaser artifacts per release:
 
 Do not load shared assets from the filesystem at runtime.
 
-## Phase 1 Implementation
+## Implementation
 
-Phase 1 uses an orchestrator + subagent model. Full plan with agent breakdown, dependencies, and skill assignments: `docs/11-phase1-implementation-plan.md`.
+Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 in progress (`docs/12-phase2-implementation-plan.md`).
 
-**Skills available** (`~/.claude/commands/`):
-- `/adr` — create a new ADR
-- `/lint` — golangci-lint + go vet (Go) / ruff (Python)
-- `/test-coverage` — test with coverage enforcement
-- `/sec-review` — gosec + govulncheck (Go) / bandit (Python)
+**Skills available** (`~/.claude/commands/`) — 37 total:
+
+*Go CLI (Workstream A):*
+- `/lint` — golangci-lint + go vet
+- `/test-coverage` — test with coverage enforcement (thresholds per package)
+- `/sec-review` — gosec + govulncheck
 - `/dep-audit` — govulncheck (Go) / pip-audit (Python)
 - `/fuzz` — fuzz scanner inputs
 - `/commit` — gates lint + sec-review + dep-audit before committing
-- `/benchmark` — validate performance targets
+- `/benchmark` — validate performance targets (7-language corpus)
 - `/profile` — CPU + memory pprof when benchmarks miss
 - `/build-cross` — build + verify all platforms
 - `/new-scanner` — scaffold a new language scanner
 - `/new-opengrep-rule` — scaffold an OpenGrep taint rule
+- `/new-joern-query` — scaffold a Joern CPG query script
 
-**Hook:** `go vet` runs automatically after every `.go` file write/edit.
+*Python Backend (Workstream B):*
+- `/lint-py` — ruff + mypy --strict
+- `/test-py` — pytest with coverage thresholds
+- `/sec-py` — bandit + pip-audit
+- `/commit-py` — gates lint-py + db-validate + sec-py + dep-audit
+- `/new-api-route` — scaffold FastAPI route with Pydantic models
+- `/db-migrate` — Alembic migration with reversibility check
+- `/db-validate` — schema integrity, CBOMStore/GAL rule enforcement
+- `/db-seed` — populate database with test data
+- `/load-test` — HTTP endpoint load testing (p50/p95/p99)
+- `/profile-py` — py-spy flamegraph profiling
+- `/webhook-test` — simulated GitHub/GitLab/Bitbucket webhooks
+
+*React Frontend (Workstream C):*
+- `/lint-fe` — eslint + tsc --noEmit
+- `/test-fe` — vitest with coverage thresholds
+- `/sec-fe` — npm audit
+- `/commit-fe` — gates lint-fe + sec-fe
+- `/build-fe` — production build + bundle size validation
+- `/new-page-fe` — scaffold page with TanStack Query/Router + RBAC guard
+- `/mock-api-fe` — MSW mock API layer validation
+- `/a11y-fe` — WCAG 2.1 AA accessibility checks (axe-core)
+
+*Cross-workstream:*
+- `/adr` — create ADR + update decision log
+- `/openapi-sync` — OpenAPI spec validation + TypeScript codegen
+- `/docker-compose` — dev stack management + health checks
+- `/docker-build` — Docker image build + security validation
+- `/e2e-test` — full-stack Playwright integration tests
+- `/changelog` — generate changelog from git history
+
+**Hooks:** `go vet` (.go), `ruff check` (.py), `tsc --noEmit` (.ts/.tsx) — all run automatically after file writes.
 
 ## Key Architecture Decisions
 
