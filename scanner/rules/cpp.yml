@@ -1,0 +1,76 @@
+rules:
+  - id: cbom-cpp-hardcoded-key-aes
+    message: >
+      Hardcoded cryptographic key detected flowing into AES_set_encrypt_key().
+      Hardcoded keys are extractable from compiled binaries and should be
+      loaded from secure key stores or environment variables.
+    severity: ERROR
+    languages: [cpp, c]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          unsigned char $KEY[] = { ... };
+          ...
+          AES_set_encrypt_key($KEY, ...);
+      - pattern: |
+          const unsigned char $KEY[] = { ... };
+          ...
+          AES_set_encrypt_key($KEY, ...);
+      - pattern: |
+          unsigned char $KEY[] = "...";
+          ...
+          AES_set_encrypt_key($KEY, ...);
+      - pattern: |
+          uint8_t $KEY[] = { ... };
+          ...
+          AES_set_encrypt_key($KEY, ...);
+
+  - id: cbom-cpp-weak-rand
+    message: >
+      rand() or srand() used for generating values. The C standard library
+      PRNG is not cryptographically secure. Use platform-specific CSPRNGs
+      such as RAND_bytes() from OpenSSL, getrandom(), or arc4random_buf().
+    severity: WARNING
+    languages: [cpp, c]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: rand()
+      - pattern: srand(...)
+      - pattern: |
+          $VAL = rand();
+      - pattern: |
+          $VAL = rand() % ...;
+
+  - id: cbom-cpp-deprecated-api
+    message: >
+      Deprecated or weak OpenSSL cryptographic API detected. DES, RC4, and
+      MD5 are considered broken and must not be used for security purposes.
+      Migrate to AES-256-GCM, ChaCha20-Poly1305, or SHA-256/SHA-3.
+    severity: ERROR
+    languages: [cpp, c]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: DES_set_key(...)
+      - pattern: DES_set_key_checked(...)
+      - pattern: DES_set_key_unchecked(...)
+      - pattern: DES_ecb_encrypt(...)
+      - pattern: DES_ncbc_encrypt(...)
+      - pattern: DES_cbc_encrypt(...)
+      - pattern: RC4_set_key(...)
+      - pattern: RC4(...)
+      - pattern: MD5_Init(...)
+      - pattern: MD5_Update(...)
+      - pattern: MD5_Final(...)
+      - pattern: MD5(...)

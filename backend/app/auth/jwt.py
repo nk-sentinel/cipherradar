@@ -22,6 +22,10 @@ def create_access_token(
     role: str,
     scopes: list[str],
     *,
+    org_id: str = "",
+    assignment_level: str = "org",
+    assigned_group_id: str | None = None,
+    assigned_project_ids: list[str] | None = None,
     expires_delta: timedelta | None = None,
 ) -> str:
     """Create a short-lived JWT access token.
@@ -30,6 +34,10 @@ def create_access_token(
         user_id: UUID of the authenticated user (stored as ``sub``).
         role: Active role string (e.g. ``"org_admin"``).
         scopes: Permission scopes granted for this session.
+        org_id: Organisation UUID for multi-tenant RLS enforcement.
+        assignment_level: ``"org"``, ``"group"``, or ``"project"``.
+        assigned_group_id: Group UUID when role is group-scoped.
+        assigned_project_ids: Project UUIDs when role is project-scoped.
         expires_delta: Override the default 15-minute expiry.
 
     Returns:
@@ -41,10 +49,16 @@ def create_access_token(
         "sub": user_id,
         "role": role,
         "scopes": scopes,
+        "org_id": org_id,
+        "assignment_level": assignment_level,
         "type": "access",
         "iat": now,
         "exp": expire,
     }
+    if assigned_group_id:
+        payload["assigned_group_id"] = assigned_group_id
+    if assigned_project_ids:
+        payload["assigned_project_ids"] = assigned_project_ids
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 

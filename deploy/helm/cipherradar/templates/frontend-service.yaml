@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "cipherradar.fullname" . }}-frontend
+  namespace: {{ include "cipherradar.namespace" . }}
+  labels:
+    {{- include "cipherradar.frontend.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.frontend.service.type }}
+  ports:
+    - port: {{ .Values.frontend.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "cipherradar.frontend.selectorLabels" . | nindent 4 }}

@@ -7,7 +7,8 @@ import {
 } from '@tanstack/react-router';
 import { AppLayout } from './components/layout/AppLayout.tsx';
 import { Login } from './pages/Login.tsx';
-import { Dashboard } from './pages/Dashboard.tsx';
+import { PortfolioDashboard } from './pages/PortfolioDashboard.tsx';
+import { AssetExplorer } from './pages/AssetExplorer.tsx';
 import { Repositories } from './pages/Repositories.tsx';
 import { QuantumReadiness } from './pages/QuantumReadiness.tsx';
 import { Compliance } from './pages/Compliance.tsx';
@@ -46,7 +47,13 @@ const authenticatedRoute = createRoute({
 const dashboardRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/',
-  component: Dashboard,
+  component: PortfolioDashboard,
+});
+
+const assetsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/assets',
+  component: AssetExplorer,
 });
 
 const reposRoute = createRoute({
@@ -160,6 +167,7 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   authenticatedRoute.addChildren([
     dashboardRoute,
+    assetsRoute,
     reposRoute,
     quantumRoute,
     complianceRoute,

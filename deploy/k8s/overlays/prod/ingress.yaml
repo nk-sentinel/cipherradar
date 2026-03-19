@@ -1,0 +1,57 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cipherradar-api
+  namespace: cipherradar-prod
+  labels:
+    app.kubernetes.io/name: cipherradar
+    app.kubernetes.io/component: api
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - api.cipherradar.io
+      secretName: cipherradar-api-tls
+  rules:
+    - host: api.cipherradar.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cipherradar-api
+                port:
+                  number: 8000
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cipherradar-frontend
+  namespace: cipherradar-prod
+  labels:
+    app.kubernetes.io/name: cipherradar
+    app.kubernetes.io/component: frontend
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - cipherradar.io
+      secretName: cipherradar-frontend-tls
+  rules:
+    - host: cipherradar.io
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: cipherradar-frontend
+                port:
+                  number: 3000

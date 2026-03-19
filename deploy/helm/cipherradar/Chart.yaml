@@ -1,0 +1,17 @@
+apiVersion: v2
+name: cipherradar
+description: CipherRadar — Cryptography Bill of Materials (CBOM) platform
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - cbom
+  - cryptography
+  - security
+  - compliance
+  - post-quantum
+home: https://github.com/nk-sentinel/cipherradar
+sources:
+  - https://github.com/nk-sentinel/cipherradar
+maintainers:
+  - name: nk-sentinel

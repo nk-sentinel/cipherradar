@@ -1,0 +1,39 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cipherradar-staging
+
+namePrefix: staging-
+
+resources:
+  - ../../base
+  - ingress.yaml
+
+patches:
+  # API: 2 replicas for staging
+  - target:
+      kind: Deployment
+      name: cipherradar-api
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 2
+  # Frontend: 2 replicas for staging
+  - target:
+      kind: Deployment
+      name: cipherradar-frontend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 2
+  # Scanner worker: 2 replicas for staging
+  - target:
+      kind: Deployment
+      name: cipherradar-scanner-worker
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 2
+
+commonLabels:
+  app.kubernetes.io/environment: staging

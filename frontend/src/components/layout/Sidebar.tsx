@@ -20,6 +20,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Overview',
     items: [
       { label: 'Dashboard', icon: '\u25A0', to: '/', page: 'dashboard' },
+      { label: 'Asset Explorer', icon: '\u26B1', to: '/assets', page: 'assets' },
       { label: 'Repositories', icon: '\u2630', to: '/repos', page: 'repos' },
     ],
   },

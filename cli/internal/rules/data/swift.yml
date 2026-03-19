@@ -1,0 +1,71 @@
+rules:
+  - id: cbom-swift-hardcoded-key
+    message: >
+      Hardcoded string literal flows into SymmetricKey construction.
+      Hardcoded keys are extractable from application binaries and should
+      be loaded from the Keychain or a secure key management system.
+    severity: ERROR
+    languages: [swift]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          let $KEY = "..."
+          ...
+          SymmetricKey(data: $KEY.data(using: ...))
+      - pattern: |
+          let $KEY = "...".data(using: ...)!
+          ...
+          SymmetricKey(data: $KEY)
+      - pattern: |
+          let $KEY: [UInt8] = [...]
+          ...
+          SymmetricKey(data: Data($KEY))
+      - pattern: |
+          SymmetricKey(data: "...".data(using: ...)!)
+
+  - id: cbom-swift-insecure-hash
+    message: >
+      CC_MD5 or CC_SHA1 hash function detected via CommonCrypto. MD5 and
+      SHA-1 are cryptographically broken. Use SHA-256 or SHA-512 from
+      CryptoKit or CommonCrypto for integrity and authentication.
+    severity: ERROR
+    languages: [swift]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: CC_MD5(...)
+      - pattern: CC_MD5_Init(...)
+      - pattern: CC_MD5_Update(...)
+      - pattern: CC_MD5_Final(...)
+      - pattern: CC_SHA1(...)
+      - pattern: CC_SHA1_Init(...)
+      - pattern: CC_SHA1_Update(...)
+      - pattern: CC_SHA1_Final(...)
+      - pattern: Insecure.MD5.hash(...)
+      - pattern: Insecure.SHA1.hash(...)
+
+  - id: cbom-swift-weak-random
+    message: >
+      arc4random() or arc4random_uniform() used for generating
+      cryptographic values. While arc4random uses a CSPRNG internally on
+      modern platforms, prefer SecRandomCopyBytes() for explicit
+      cryptographic random generation to signal intent and ensure
+      portability.
+    severity: WARNING
+    languages: [swift]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: arc4random()
+      - pattern: arc4random_uniform(...)
+      - pattern: arc4random_buf(...)

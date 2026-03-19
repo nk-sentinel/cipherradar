@@ -6,6 +6,9 @@ import {
 import { getScansForRepo, getScanDetail } from './data/scans.ts';
 import { getPortfolioQuantum, getRepoQuantum } from './data/quantum.ts';
 import { getPortfolioCompliance, getRepoCompliance } from './data/compliance.ts';
+import { getPortfolioSummary, getHeatMap } from './data/portfolio.ts';
+import { searchAssets } from './data/assets.ts';
+import type { AssetFilters, AssetType, QuantumAssetStatus, ComplianceTag } from './data/assets.ts';
 
 export const handlers = [
   http.get('/api/v1/health', () => {
@@ -112,5 +115,36 @@ export const handlers = [
       );
     }
     return HttpResponse.json(data);
+  }),
+
+  // Portfolio dashboard — summary
+  http.get('/api/v1/portfolio/summary', () => {
+    return HttpResponse.json(getPortfolioSummary());
+  }),
+
+  // Portfolio dashboard — heat map
+  http.get('/api/v1/portfolio/heatmap', () => {
+    return HttpResponse.json(getHeatMap());
+  }),
+
+  // Asset explorer — search/filter
+  http.get('/api/v1/assets', ({ request }) => {
+    const url = new URL(request.url);
+    const filters: AssetFilters = {};
+    const typeParam = url.searchParams.get('type');
+    if (typeParam) filters.type = typeParam as AssetType;
+    const lang = url.searchParams.get('language');
+    if (lang) filters.language = lang;
+    const qs = url.searchParams.get('quantumStatus');
+    if (qs) filters.quantumStatus = qs as QuantumAssetStatus;
+    const comp = url.searchParams.get('compliance');
+    if (comp) filters.compliance = comp as ComplianceTag;
+    const search = url.searchParams.get('search');
+    if (search) filters.search = search;
+
+    const page = Number(url.searchParams.get('page') || '1');
+    const pageSize = Number(url.searchParams.get('pageSize') || '15');
+
+    return HttpResponse.json(searchAssets(filters, page, pageSize));
   }),
 ];

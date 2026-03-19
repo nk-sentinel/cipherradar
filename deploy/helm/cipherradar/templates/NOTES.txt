@@ -1,0 +1,45 @@
+CipherRadar has been deployed successfully!
+
+{{- if .Values.ingress.enabled }}
+
+Access the application at:
+  Frontend: https://{{ .Values.ingress.frontendHost }}
+  API:      https://{{ .Values.ingress.apiHost }}
+
+{{- else }}
+
+To access the application, set up port-forwarding:
+
+  Frontend:
+    kubectl port-forward svc/{{ include "cipherradar.fullname" . }}-frontend {{ .Values.frontend.service.port }}:{{ .Values.frontend.service.port }} -n {{ include "cipherradar.namespace" . }}
+    Open http://localhost:{{ .Values.frontend.service.port }}
+
+  API:
+    kubectl port-forward svc/{{ include "cipherradar.fullname" . }}-api {{ .Values.api.service.port }}:{{ .Values.api.service.port }} -n {{ include "cipherradar.namespace" . }}
+    Open http://localhost:{{ .Values.api.service.port }}/docs
+
+{{- end }}
+
+{{- if .Values.scannerWorker.hpa.enabled }}
+
+Scanner worker autoscaling is enabled ({{ .Values.scannerWorker.hpa.minReplicas }}-{{ .Values.scannerWorker.hpa.maxReplicas }} replicas).
+{{- else }}
+
+Scanner worker replicas: {{ .Values.scannerWorker.replicas }}
+{{- end }}
+
+{{- if .Values.redis.enabled }}
+
+Redis is running in-cluster.
+{{- else }}
+
+Using external Redis at {{ .Values.externalRedis.host }}:{{ .Values.externalRedis.port }}.
+{{- end }}
+
+{{- if .Values.postgresql.enabled }}
+
+PostgreSQL (TimescaleDB) is running in-cluster.
+{{- else }}
+
+Using external database at {{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}.
+{{- end }}

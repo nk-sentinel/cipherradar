@@ -19,12 +19,12 @@
 
 | # | Issue | Priority | Effort | Status |
 |---|---|---|---|---|
-| 1 | **Walker skip bug** — replace `.json` blanket-skip with content-based CycloneDX/SARIF detection | BLOCKER | 2h | ☐ |
-| 2 | **PEM false positive noise** — suppress line-level hex/base64 matches inside PEM blocks; skip `.md` files | HIGH | 3h | ☐ |
-| 3 | **Backend test failures** — fix 5 failing tests + migration test errors | HIGH | 2h | ☐ |
-| 4 | **Frontend test failures** — fix 7 async timing failures with proper `waitFor` | HIGH | 2h | ☐ |
-| 5 | **`org_id` denormalization** — add `org_id` to projects, scans, findings, cbom_documents for RLS | MEDIUM | 2h | ☐ |
-| 6 | **Dart grammar decision** — CGo binding POC or confirm regex-only approach | MEDIUM | 1d | ☐ |
+| 1 | **Walker skip bug** — replace `.json` blanket-skip with content-based CycloneDX/SARIF detection | BLOCKER | 2h | ✅ Fixed |
+| 2 | **PEM false positive noise** — suppress line-level hex/base64 matches inside PEM blocks; skip `.md` files | HIGH | 3h | ✅ Fixed |
+| 3 | **Backend test failures** — fix 5 failing tests + migration test errors | HIGH | 2h | ✅ 145 pass |
+| 4 | **Frontend test failures** — fix 7 async timing failures with proper `waitFor` | HIGH | 2h | ✅ 31 pass |
+| 5 | **`org_id` denormalization** — add `org_id` to projects, scans, findings, cbom_documents for RLS | MEDIUM | 2h | ✅ Migration 002 |
+| 6 | **Dart grammar decision** — CGo binding POC or confirm regex-only approach | MEDIUM | 1d | ✅ Regex-only |
 
 ## Feasibility Notes (from analysis, applied to plan)
 

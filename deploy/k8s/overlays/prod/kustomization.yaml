@@ -1,0 +1,67 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cipherradar-prod
+
+namePrefix: prod-
+
+resources:
+  - ../../base
+  - ingress.yaml
+  - hpa.yaml
+
+patches:
+  # API: 3 replicas for production
+  - target:
+      kind: Deployment
+      name: cipherradar-api
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 3
+  # Frontend: 3 replicas for production
+  - target:
+      kind: Deployment
+      name: cipherradar-frontend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 3
+  # Scanner worker: 4 replicas (HPA will manage)
+  - target:
+      kind: Deployment
+      name: cipherradar-scanner-worker
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 4
+  # Higher resource limits for production
+  - target:
+      kind: Deployment
+      name: cipherradar-api
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 500m
+            memory: 1Gi
+          limits:
+            cpu: "2"
+            memory: 2Gi
+  - target:
+      kind: Deployment
+      name: cipherradar-scanner-worker
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: "1"
+            memory: 2Gi
+          limits:
+            cpu: "4"
+            memory: 4Gi
+
+commonLabels:
+  app.kubernetes.io/environment: prod

@@ -1,0 +1,74 @@
+rules:
+  - id: cbom-dart-hardcoded-key
+    message: >
+      Hardcoded string literal flows into AES key construction. Hardcoded
+      keys are extractable from application bundles and should be loaded
+      from a secure key store or server-side configuration.
+    severity: ERROR
+    languages: [dart]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          final $KEY = Key.fromUtf8("...");
+      - pattern: |
+          var $KEY = Key.fromUtf8("...");
+      - pattern: |
+          final $KEY = Key.fromBase64("...");
+      - pattern: |
+          final $KEY = Key(Uint8List.fromList([...]));
+      - pattern: |
+          final $KEY = "..."
+          ...
+          Key.fromUtf8($KEY)
+
+  - id: cbom-dart-weak-hash
+    message: >
+      MD5 hash function detected via crypto package. MD5 is
+      cryptographically broken and must not be used for integrity or
+      authentication. Use sha256 or sha512 from the crypto package.
+    severity: ERROR
+    languages: [dart]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: md5.convert(...)
+      - pattern: Hmac(md5, ...).convert(...)
+      - pattern: |
+          var $DIGEST = md5.convert(...);
+      - pattern: |
+          final $DIGEST = md5.convert(...);
+      - pattern: sha1.convert(...)
+
+  - id: cbom-dart-insecure-random
+    message: >
+      dart:math Random used for generating values in a security context.
+      The default Random is not cryptographically secure. Use
+      Random.secure() for cryptographic random number generation.
+    severity: WARNING
+    languages: [dart]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: Random().nextInt(...)
+      - pattern: |
+          var $R = Random();
+          ...
+          $R.nextInt(...)
+      - pattern: |
+          final $R = Random();
+          ...
+          $R.nextInt(...)
+      - pattern: |
+          var $R = Random();
+          ...
+          $R.nextDouble()

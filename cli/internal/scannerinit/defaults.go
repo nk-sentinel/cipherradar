@@ -6,7 +6,9 @@ package scannerinit
 import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/config"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/cpp"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/csharp"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/dart"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/golang"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/java"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/javascript"
@@ -14,6 +16,9 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/php"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/python"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/regex"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/ruby"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/rust"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/swift"
 )
 
 // DefaultRegistry returns a registry with all built-in language scanners.
@@ -28,6 +33,11 @@ func DefaultRegistry() *scanner.Registry {
 	r.Register(csharp.New())
 	r.Register(php.New())
 	r.Register(golang.New())
+	r.Register(cpp.New())
+	r.Register(rust.New())
+	r.Register(swift.New())
+	r.Register(ruby.New())
+	r.Register(dart.New())
 
 	// Config file scanner (dispatched by .env / .properties extensions)
 	r.Register(config.New())

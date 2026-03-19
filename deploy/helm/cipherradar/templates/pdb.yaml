@@ -1,0 +1,28 @@
+{{- if .Values.pdb.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cipherradar.fullname" . }}-api
+  namespace: {{ include "cipherradar.namespace" . }}
+  labels:
+    {{- include "cipherradar.api.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.apiMinAvailable }}
+  selector:
+    matchLabels:
+      {{- include "cipherradar.api.selectorLabels" . | nindent 6 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "cipherradar.fullname" . }}-scanner-worker
+  namespace: {{ include "cipherradar.namespace" . }}
+  labels:
+    {{- include "cipherradar.scannerWorker.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.scannerWorkerMinAvailable }}
+  selector:
+    matchLabels:
+      {{- include "cipherradar.scannerWorker.selectorLabels" . | nindent 6 }}
+{{- end }}

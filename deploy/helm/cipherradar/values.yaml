@@ -1,0 +1,198 @@
+# -- Global settings
+global:
+  # -- Image pull secrets for private registries
+  imagePullSecrets: []
+  # -- Override the namespace for all resources
+  namespaceOverride: ""
+
+# -- API (FastAPI backend)
+api:
+  image:
+    repository: ghcr.io/nk-sentinel/cipherradar-api
+    tag: ""  # defaults to appVersion
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  service:
+    type: ClusterIP
+    port: 8000
+  env: {}
+  # -- Additional environment variables from secrets/configmaps
+  envFrom: []
+
+# -- Frontend (React dashboard)
+frontend:
+  image:
+    repository: ghcr.io/nk-sentinel/cipherradar-frontend
+    tag: ""  # defaults to appVersion
+    pullPolicy: IfNotPresent
+  replicas: 2
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  service:
+    type: ClusterIP
+    port: 3000
+  env: {}
+  envFrom: []
+
+# -- Scanner Worker (Taskiq async workers)
+scannerWorker:
+  image:
+    repository: ghcr.io/nk-sentinel/cipherradar-api
+    tag: ""  # defaults to appVersion (same image as api)
+    pullPolicy: IfNotPresent
+  replicas: 4
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+  hpa:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 16
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  env: {}
+  envFrom: []
+
+# -- PostgreSQL (in-cluster)
+postgresql:
+  enabled: true
+  image:
+    repository: timescale/timescaledb
+    tag: latest-pg17
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  storage:
+    size: 10Gi
+    storageClass: ""
+  auth:
+    database: cipherradar
+    username: postgres
+    password: ""  # set via secret
+    existingSecret: ""
+
+# -- External database (when postgresql.enabled=false)
+externalDatabase:
+  host: ""
+  port: 5432
+  user: postgres
+  password: ""
+  database: cipherradar
+  existingSecret: ""
+  existingSecretPasswordKey: password
+
+# -- Redis (in-cluster)
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: 7-alpine
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# -- External Redis (when redis.enabled=false)
+externalRedis:
+  host: ""
+  port: 6379
+
+# -- MinIO (in-cluster S3-compatible storage)
+minio:
+  enabled: false
+
+# -- External S3-compatible storage
+externalS3:
+  endpoint: ""
+  bucket: cipherradar-cbom
+  accessKey: ""
+  secretKey: ""
+  existingSecret: ""
+
+# -- Ingress configuration
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+  # -- API hostname
+  apiHost: api.cipherradar.local
+  # -- Frontend hostname
+  frontendHost: cipherradar.local
+  tls: []
+  #  - secretName: cipherradar-tls
+  #    hosts:
+  #      - cipherradar.local
+  #      - api.cipherradar.local
+
+# -- JWT authentication
+jwt:
+  # -- Secret key for signing JWT tokens (required)
+  secretKey: ""
+  # -- Use an existing secret instead of creating one
+  existingSecret: ""
+  existingSecretKey: jwt-secret-key
+
+# -- Pod Disruption Budget
+pdb:
+  enabled: true
+  # -- Minimum available pods for API
+  apiMinAvailable: 1
+  # -- Minimum available pods for scanner worker
+  scannerWorkerMinAvailable: 1
+
+# -- Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# -- Pod security context applied to all pods
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# -- Container security context applied to all containers
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+  capabilities:
+    drop:
+      - ALL
+
+# -- Node selector for all pods
+nodeSelector: {}
+
+# -- Tolerations for all pods
+tolerations: []
+
+# -- Affinity rules for all pods
+affinity: {}

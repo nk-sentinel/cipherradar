@@ -20,6 +20,7 @@ export const ROLE_LABELS: Record<Role, string> = {
 export const PAGE_ACCESS: Record<Role, string[]> = {
   'org-admin': [
     'dashboard',
+    'assets',
     'repos',
     'portfolio-quantum',
     'portfolio-compliance',
@@ -28,6 +29,7 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
   ],
   'security-manager': [
     'dashboard',
+    'assets',
     'repos',
     'portfolio-quantum',
     'portfolio-compliance',
@@ -36,6 +38,7 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
   ],
   'security-engineer': [
     'dashboard',
+    'assets',
     'repos',
     'portfolio-quantum',
     'portfolio-compliance',
@@ -44,17 +47,19 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
   ],
   'team-manager': [
     'dashboard',
+    'assets',
     'repos',
     'portfolio-quantum',
     'portfolio-compliance',
   ],
   'compliance-auditor': [
     'dashboard',
+    'assets',
     'repos',
     'portfolio-quantum',
     'portfolio-compliance',
   ],
-  developer: ['dashboard', 'repos'],
+  developer: ['dashboard', 'assets', 'repos'],
   guest: ['repos'],
 };
 

@@ -1,0 +1,68 @@
+rules:
+  - id: cbom-ruby-hardcoded-key
+    message: >
+      Hardcoded string literal flows into OpenSSL::Cipher key assignment.
+      Hardcoded keys are extractable from source code and should be loaded
+      from environment variables or a secrets manager.
+    severity: ERROR
+    languages: [ruby]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          $CIPHER = OpenSSL::Cipher.new(...)
+          ...
+          $CIPHER.key = "..."
+      - pattern: |
+          $CIPHER = OpenSSL::Cipher::AES.new(...)
+          ...
+          $CIPHER.key = "..."
+      - pattern: |
+          $KEY = "..."
+          ...
+          $CIPHER.key = $KEY
+
+  - id: cbom-ruby-weak-digest
+    message: >
+      Digest::MD5 is cryptographically broken and must not be used for
+      integrity or authentication. Use Digest::SHA256 or Digest::SHA512.
+    severity: ERROR
+    languages: [ruby]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: Digest::MD5.hexdigest(...)
+      - pattern: Digest::MD5.digest(...)
+      - pattern: Digest::MD5.new
+      - pattern: OpenSSL::Digest::MD5.new
+      - pattern: Digest::SHA1.hexdigest(...)
+      - pattern: Digest::SHA1.digest(...)
+      - pattern: Digest::SHA1.new
+
+  - id: cbom-ruby-insecure-ssl
+    message: >
+      SSL verification disabled by setting verify_mode to VERIFY_NONE.
+      This allows man-in-the-middle attacks by accepting any certificate.
+      Always use OpenSSL::SSL::VERIFY_PEER in production.
+    severity: ERROR
+    languages: [ruby]
+    metadata:
+      category: security
+      cbom-asset-type: protocol
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $CTX = OpenSSL::SSL::SSLContext.new
+          ...
+          $CTX.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      - pattern: |
+          $HTTP.verify_mode = OpenSSL::SSL::VERIFY_NONE
+      - pattern: |
+          $OBJ.ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE

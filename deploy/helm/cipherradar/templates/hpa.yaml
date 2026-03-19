@@ -1,0 +1,29 @@
+{{- if .Values.scannerWorker.hpa.enabled }}
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "cipherradar.fullname" . }}-scanner-worker
+  namespace: {{ include "cipherradar.namespace" . }}
+  labels:
+    {{- include "cipherradar.scannerWorker.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "cipherradar.fullname" . }}-scanner-worker
+  minReplicas: {{ .Values.scannerWorker.hpa.minReplicas }}
+  maxReplicas: {{ .Values.scannerWorker.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.scannerWorker.hpa.targetCPUUtilizationPercentage }}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.scannerWorker.hpa.targetMemoryUtilizationPercentage }}
+{{- end }}

@@ -1,0 +1,77 @@
+rules:
+  - id: cbom-rust-hardcoded-key
+    message: >
+      Hardcoded byte array flows into cipher key construction. Hardcoded
+      keys are extractable from compiled binaries and should be loaded from
+      environment variables or secret management systems.
+    severity: ERROR
+    languages: [rust]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          let $KEY: [u8; $N] = [...];
+          ...
+          Aes128::new(GenericArray::from_slice(&$KEY))
+      - pattern: |
+          let $KEY: [u8; $N] = [...];
+          ...
+          Aes256::new(GenericArray::from_slice(&$KEY))
+      - pattern: |
+          let $KEY = b"...";
+          ...
+          Aes128::new(GenericArray::from_slice($KEY))
+      - pattern: |
+          let $KEY = b"...";
+          ...
+          Aes256::new(GenericArray::from_slice($KEY))
+      - pattern: |
+          let $KEY: [u8; $N] = [...];
+          ...
+          ChaCha20Poly1305::new(GenericArray::from_slice(&$KEY))
+
+  - id: cbom-rust-weak-tls
+    message: >
+      Insecure or deprecated cipher suite configured in rustls. Weak cipher
+      suites enable downgrade attacks and may not provide forward secrecy.
+      Use only TLS 1.3 suites or strong TLS 1.2 AEAD suites.
+    severity: WARNING
+    languages: [rust]
+    metadata:
+      category: security
+      cbom-asset-type: protocol
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
+      - pattern: rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
+      - pattern: |
+          dangerous_configuration::DangerousClientConfig { ... }
+      - pattern: |
+          .with_custom_certificate_verifier(...)
+
+  - id: cbom-rust-deprecated-hash
+    message: >
+      MD5 or SHA-1 hash function detected. These algorithms are
+      cryptographically broken and must not be used for integrity or
+      authentication. Use SHA-256, SHA-3, or BLAKE3 instead.
+    severity: ERROR
+    languages: [rust]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: md5::compute(...)
+      - pattern: md5::Md5::digest(...)
+      - pattern: Md5::new()
+      - pattern: |
+          use md5::Md5;
+      - pattern: sha1::Sha1::digest(...)
+      - pattern: Sha1::new()
+      - pattern: |
+          use sha1::Sha1;

@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cipherradar
+  namespace: cipherradar
+  labels:
+    app.kubernetes.io/name: cipherradar
+data:
+  CBOM_DATABASE_URL: "postgresql+asyncpg://postgres:$(CBOM_DB_PASSWORD)@cipherradar-postgresql:5432/cipherradar"
+  CBOM_REDIS_URL: "redis://cipherradar-redis:6379"

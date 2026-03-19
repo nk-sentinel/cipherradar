@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: cipherradar
+  labels:
+    app.kubernetes.io/name: cipherradar
+    app.kubernetes.io/part-of: cipherradar

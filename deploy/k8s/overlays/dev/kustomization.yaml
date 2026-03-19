@@ -1,0 +1,65 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cipherradar-dev
+
+namePrefix: dev-
+
+resources:
+  - ../../base
+
+patches:
+  # API: 1 replica for dev
+  - target:
+      kind: Deployment
+      name: cipherradar-api
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  # Frontend: 1 replica for dev
+  - target:
+      kind: Deployment
+      name: cipherradar-frontend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  # Scanner worker: 1 replica for dev
+  - target:
+      kind: Deployment
+      name: cipherradar-scanner-worker
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 1
+  # Lower resource limits for dev
+  - target:
+      kind: Deployment
+      name: cipherradar-api
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 500m
+            memory: 512Mi
+  - target:
+      kind: Deployment
+      name: cipherradar-scanner-worker
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources
+        value:
+          requests:
+            cpu: 250m
+            memory: 512Mi
+          limits:
+            cpu: "1"
+            memory: 1Gi
+
+commonLabels:
+  app.kubernetes.io/environment: dev

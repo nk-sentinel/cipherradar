@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cipherradar.fullname" . }}-scanner-worker
+  namespace: {{ include "cipherradar.namespace" . }}
+  labels:
+    {{- include "cipherradar.scannerWorker.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.scannerWorker.hpa.enabled }}
+  replicas: {{ .Values.scannerWorker.replicas }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "cipherradar.scannerWorker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cipherradar.scannerWorker.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- include "cipherradar.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "cipherradar.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: scanner-worker
+          image: "{{ .Values.scannerWorker.image.repository }}:{{ include "cipherradar.scannerWorkerImageTag" . }}"
+          imagePullPolicy: {{ .Values.scannerWorker.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          command: ["python", "-m", "taskiq", "worker", "app.worker:broker"]
+          env:
+            - name: CBOM_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.jwt.existingSecret | default (include "cipherradar.secretName" .) }}
+                  key: db-password
+            - name: CBOM_JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.jwt.existingSecret | default (include "cipherradar.secretName" .) }}
+                  key: {{ .Values.jwt.existingSecretKey | default "jwt-secret-key" }}
+            {{- range $key, $value := .Values.scannerWorker.env }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "cipherradar.fullname" . }}
+            {{- with .Values.scannerWorker.envFrom }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          livenessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import os; os.getpid()"
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - python
+                - -c
+                - "import os; os.getpid()"
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.scannerWorker.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
