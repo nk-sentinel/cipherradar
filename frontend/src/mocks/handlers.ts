@@ -1,4 +1,9 @@
 import { http, HttpResponse } from 'msw';
+import {
+  MOCK_REPOSITORIES,
+  MOCK_REPOSITORY_DETAILS,
+} from './data/repositories.ts';
+import { getScansForRepo, getScanDetail } from './data/scans.ts';
 
 export const handlers = [
   http.get('/api/v1/health', () => {
@@ -35,5 +40,39 @@ export const handlers = [
         initials: initials || 'U',
       },
     });
+  }),
+
+  http.get('/api/v1/projects', () => {
+    return HttpResponse.json(MOCK_REPOSITORIES);
+  }),
+
+  http.get('/api/v1/projects/:id', ({ params }) => {
+    const { id } = params;
+    const detail = MOCK_REPOSITORY_DETAILS[id as string];
+    if (!detail) {
+      return new HttpResponse(
+        JSON.stringify({ error: 'Repository not found' }),
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json(detail);
+  }),
+
+  http.get('/api/v1/repos/:repoId/scans', ({ params }) => {
+    const repoId = params['repoId'] as string;
+    const scans = getScansForRepo(repoId);
+    return HttpResponse.json(scans);
+  }),
+
+  http.get('/api/v1/scans/:scanId', ({ params }) => {
+    const scanId = params['scanId'] as string;
+    const scan = getScanDetail(scanId);
+    if (!scan) {
+      return new HttpResponse(
+        JSON.stringify({ error: 'Scan not found' }),
+        { status: 404 },
+      );
+    }
+    return HttpResponse.json(scan);
   }),
 ];

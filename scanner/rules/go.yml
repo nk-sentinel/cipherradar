@@ -1,0 +1,60 @@
+rules:
+  - id: cbom-go-hardcoded-key-aes
+    message: >
+      Hardcoded byte slice key flows into aes.NewCipher(). Hardcoded keys
+      are extractable from compiled binaries and should be loaded from
+      environment variables or secret management systems.
+    severity: ERROR
+    languages: [go]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          $KEY := []byte{...}
+          ...
+          aes.NewCipher($KEY)
+      - pattern: |
+          $KEY := []byte("...")
+          ...
+          aes.NewCipher($KEY)
+
+  - id: cbom-go-hardcoded-key-hmac
+    message: >
+      Hardcoded key flows into hmac.New(). HMAC keys should be stored
+      securely and rotated regularly, not embedded in source code.
+    severity: ERROR
+    languages: [go]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $KEY := []byte{...}
+          ...
+          hmac.New($HASH, $KEY)
+      - pattern: |
+          $KEY := []byte("...")
+          ...
+          hmac.New($HASH, $KEY)
+
+  - id: cbom-go-weak-rand
+    message: >
+      math/rand is not cryptographically secure. Use crypto/rand for
+      generating keys, nonces, IVs, or any security-sensitive random values.
+    severity: WARNING
+    languages: [go]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: rand.Read(...)
+        fix: Use crypto/rand.Read() instead of math/rand.
+      - pattern: rand.Int(...)
+      - pattern: rand.Intn(...)

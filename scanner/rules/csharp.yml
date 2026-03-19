@@ -1,0 +1,55 @@
+rules:
+  - id: cbom-csharp-hardcoded-key-aes
+    message: >
+      Hardcoded byte array assigned to Aes.Key property. Cryptographic
+      keys must not be embedded in source code — load them from secure
+      key vaults or configuration providers.
+    severity: ERROR
+    languages: [csharp]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          byte[] $KEY = new byte[] { ... };
+          ...
+          $AES.Key = $KEY;
+      - pattern: |
+          $AES.Key = new byte[] { ... };
+
+  - id: cbom-csharp-weak-rng
+    message: >
+      System.Random is not cryptographically secure. Use
+      System.Security.Cryptography.RandomNumberGenerator for generating
+      keys, nonces, tokens, or any security-sensitive random values.
+    severity: WARNING
+    languages: [csharp]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: new Random(...)
+      - pattern: |
+          Random $R = new Random(...);
+          ...
+          $R.NextBytes($ARG);
+
+  - id: cbom-csharp-ecb-mode
+    message: >
+      ECB cipher mode detected. ECB does not provide semantic security —
+      identical plaintext blocks produce identical ciphertext. Use CBC,
+      GCM, or another authenticated mode instead.
+    severity: WARNING
+    languages: [csharp]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: $AES.Mode = CipherMode.ECB
+      - pattern: $ALGO.Mode = CipherMode.ECB

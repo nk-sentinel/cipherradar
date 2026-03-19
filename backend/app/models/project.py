@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid  # noqa: TCH003 — required at runtime for SQLAlchemy Mapped[uuid.UUID]
 from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, String
@@ -9,8 +10,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    import uuid
-
     from app.models.organisation import Organisation
     from app.models.scan import Scan
 
@@ -60,3 +59,6 @@ class Project(Base):
     # Relationships
     group: Mapped[Group] = relationship("Group", back_populates="projects")
     scans: Mapped[list[Scan]] = relationship("Scan", back_populates="project", cascade="all, delete-orphan")
+
+    from app.models.organisation import Organisation
+    from app.models.scan import Scan

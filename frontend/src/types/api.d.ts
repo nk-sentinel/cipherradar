@@ -25,3 +25,44 @@ export interface LoginResponse {
     initials: string;
   };
 }
+
+export interface Repository {
+  id: string;
+  name: string;
+  orgPath: string;
+  provider: string;
+  languages: string[];
+  findings: number;
+  compliancePercent: number;
+  quantumScore: number;
+  lastScan: string;
+}
+
+export interface RecentScan {
+  id: number;
+  branch: string;
+  commit: string;
+  findings: number;
+  critical: number;
+  duration: string;
+  time: string;
+}
+
+export interface AlgorithmEntry {
+  name: string;
+  count: number;
+}
+
+export interface LanguageEntry {
+  language: string;
+  count: number;
+  percent: number;
+}
+
+export interface RepositoryDetail extends Repository {
+  critical: number;
+  quantumRisk: number;
+  algorithmDistribution: AlgorithmEntry[];
+  languageBreakdown: LanguageEntry[];
+  recentScans: RecentScan[];
+}

@@ -20,7 +20,7 @@ const NAV_SECTIONS: NavSection[] = [
     title: 'Overview',
     items: [
       { label: 'Dashboard', icon: '\u25A0', to: '/', page: 'dashboard' },
-      { label: 'Repositories', icon: '\u2630', to: '/', page: 'repos' },
+      { label: 'Repositories', icon: '\u2630', to: '/repos', page: 'repos' },
     ],
   },
   {
@@ -88,8 +88,9 @@ export function Sidebar(): React.ReactElement {
                   to={item.to}
                   className={cn(
                     'nav-item',
-                    currentPath === item.to &&
-                      item.page === 'dashboard' &&
+                    (item.page === 'dashboard'
+                      ? currentPath === item.to
+                      : currentPath.startsWith(item.to) && item.to !== '/') &&
                       'active',
                   )}
                 >

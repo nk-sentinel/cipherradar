@@ -1,0 +1,55 @@
+rules:
+  - id: cbom-kotlin-hardcoded-key-secretkeyspec
+    message: >
+      Hardcoded cryptographic key detected flowing into SecretKeySpec.
+      Hardcoded keys are extractable from compiled bytecode and should
+      be loaded from secure key stores or environment variables.
+    severity: ERROR
+    languages: [kotlin]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          val $KEY = byteArrayOf(...)
+          ...
+          SecretKeySpec($KEY, ...)
+      - pattern: |
+          val $KEY = "..."
+          ...
+          SecretKeySpec($KEY.toByteArray(...), ...)
+
+  - id: cbom-kotlin-hardcoded-iv
+    message: >
+      Static initialization vector (IV) detected. IVs must be randomly
+      generated for each encryption operation to prevent pattern leakage.
+    severity: WARNING
+    languages: [kotlin]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          val $IV = byteArrayOf(...)
+          ...
+          IvParameterSpec($IV)
+      - pattern: |
+          IvParameterSpec("...".toByteArray(...))
+
+  - id: cbom-kotlin-ecb-mode
+    message: >
+      ECB mode used for block cipher. ECB does not provide semantic
+      security — identical plaintext blocks produce identical ciphertext.
+      Use CBC, GCM, or another authenticated mode instead.
+    severity: WARNING
+    languages: [kotlin]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    pattern: Cipher.getInstance("=~/.*ECB.*/")

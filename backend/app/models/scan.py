@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import enum
+import uuid  # noqa: TCH003 — required at runtime for SQLAlchemy Mapped[uuid.UUID]
+from datetime import datetime  # noqa: TCH003 — required at runtime for SQLAlchemy Mapped[datetime]
 from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text
@@ -10,9 +12,6 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    import uuid
-    from datetime import datetime
-
     from app.models.cbom import CBOMDocument
     from app.models.finding import Finding
     from app.models.project import Project

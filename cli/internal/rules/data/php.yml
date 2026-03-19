@@ -1,0 +1,53 @@
+rules:
+  - id: cbom-php-hardcoded-key-openssl
+    message: >
+      Hardcoded cryptographic key flows into openssl_encrypt(). Keys
+      should be loaded from environment variables or secret management
+      systems, never embedded in source code.
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          $KEY = "...";
+          ...
+          openssl_encrypt($DATA, $METHOD, $KEY, ...);
+      - pattern: openssl_encrypt($DATA, $METHOD, "...", ...)
+
+  - id: cbom-php-weak-hash-md5
+    message: >
+      md5() produces a 128-bit hash that is cryptographically broken.
+      Use hash('sha256', ...) or password_hash() for security-sensitive
+      hashing operations.
+    severity: WARNING
+    languages: [php]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: md5(...)
+
+  - id: cbom-php-mcrypt-deprecated
+    message: >
+      mcrypt extension is deprecated since PHP 7.1 and removed in PHP 7.2.
+      Migrate to openssl_encrypt()/openssl_decrypt() with authenticated
+      encryption modes (e.g., AES-256-GCM).
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: mcrypt_encrypt(...)
+      - pattern: mcrypt_decrypt(...)
+      - pattern: mcrypt_create_iv(...)
+      - pattern: mcrypt_get_iv_size(...)
+      - pattern: mcrypt_module_open(...)
