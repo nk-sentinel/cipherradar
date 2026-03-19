@@ -1,0 +1,87 @@
+# NIST SP 800-131A Rev. 3 — Algorithm Transition Guidance
+framework: nist-800-131a
+version: "rev3"
+algorithms:
+  # Disallowed algorithms — must not be used
+  - family: des
+    classification: disallowed
+    note: "Disallowed after 2023"
+  - family: 3des
+    classification: disallowed
+    note: "2-key disallowed; 3-key deprecated through 2023, now disallowed"
+  - family: rc4
+    classification: disallowed
+    note: "Not approved for any cryptographic use"
+  - family: md5
+    classification: disallowed
+    note: "Not approved for any cryptographic use"
+  - family: sha1
+    classification: disallowed
+    note: "Disallowed for digital signatures and HMAC"
+  - family: rsa
+    classification: disallowed
+    max_key_size: 2047
+    note: "RSA below 2048 bits is disallowed"
+
+  # Deprecated algorithms — transitional, must migrate by deadline
+  - family: rsa
+    classification: deprecated
+    min_key_size: 2048
+    note: "Deprecated through 2030; must migrate to PQC"
+    migrate_to: ml-dsa
+    deadline: "2030"
+  - family: ecdsa
+    classification: deprecated
+    note: "Deprecated through 2030; must migrate to PQC"
+    migrate_to: ml-dsa
+    deadline: "2030"
+  - family: ecdh
+    classification: deprecated
+    note: "Deprecated through 2030; must migrate to PQC"
+    migrate_to: ml-kem
+    deadline: "2030"
+  - family: ecc
+    classification: deprecated
+    note: "ECC curves deprecated through 2030; must migrate to PQC"
+    migrate_to: ml-kem
+    deadline: "2030"
+  - family: dh
+    classification: deprecated
+    min_key_size: 2048
+    note: "Deprecated through 2030; must migrate to PQC"
+    migrate_to: ml-kem
+    deadline: "2030"
+  - family: dsa
+    classification: deprecated
+    note: "Deprecated through 2030; must migrate to PQC"
+    migrate_to: ml-dsa
+    deadline: "2030"
+
+  # Acceptable algorithms — approved for current use
+  - family: aes
+    classification: acceptable
+    min_key_size: 128
+    note: "AES-256 preferred"
+  - family: sha256
+    classification: acceptable
+  - family: sha384
+    classification: acceptable
+  - family: sha512
+    classification: acceptable
+  - family: sha3-256
+    classification: acceptable
+  - family: sha3-384
+    classification: acceptable
+  - family: sha3-512
+    classification: acceptable
+
+  # NIST PQC finalized 2024
+  - family: ml-kem
+    classification: acceptable
+    note: "FIPS 203 — Module Lattice Key Encapsulation"
+  - family: ml-dsa
+    classification: acceptable
+    note: "FIPS 204 — Module Lattice Digital Signature"
+  - family: slh-dsa
+    classification: acceptable
+    note: "FIPS 205 — Stateless Hash-Based Digital Signature"

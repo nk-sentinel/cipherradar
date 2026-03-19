@@ -10,6 +10,7 @@ import (
 	goLang "github.com/smacker/go-tree-sitter/golang"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/kdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -108,7 +109,7 @@ func (s *GoScanner) ScanFile(path string, content []byte) ([]types.Finding, erro
 	findings = append(findings, s.detectCryptoX509(root, path, content, imports)...)
 
 	// Detect golang.org/x/crypto packages
-	findings = append(findings, s.detectXCrypto(root, path, content, imports)...)
+	findings = append(findings, s.detectXCrypto(root, path, content, imports, cp)...)
 
 	return findings, nil
 }
@@ -845,16 +846,24 @@ func (s *GoScanner) detectCryptoRSA(root *sitter.Node, path string, content []by
 	for _, funcName := range []string{"EncryptPKCS1v15", "EncryptOAEP", "DecryptPKCS1v15", "DecryptOAEP"} {
 		for _, callNode := range s.findSelectorCalls(root, content, alias, funcName) {
 			qi := quantum.GetInfo("rsa")
+			// Flag PKCS1v15 as MEDIUM severity (padding oracle vulnerability)
+			severity := types.SeverityInfo
+			padding := ""
+			if strings.Contains(funcName, "PKCS1v15") {
+				severity = types.SeverityMedium
+				padding = "pkcs1v15"
+			}
 			findings = append(findings, types.Finding{
 				ID:         nextFindingID(),
 				AssetType:  types.AssetAlgorithm,
 				Name:       "RSA",
 				Location:   scanner.NodeLocation(callNode, path, content),
-				Severity:   types.SeverityInfo,
+				Severity:   severity,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "pke",
 					AlgorithmFamily:  "rsa",
+					Padding:          padding,
 					QuantumStatus:    qi.Status,
 					NistQuantumLevel: qi.NistLevel,
 					CryptoFunctions:  []string{"encrypt"},
@@ -869,16 +878,24 @@ func (s *GoScanner) detectCryptoRSA(root *sitter.Node, path string, content []by
 	for _, funcName := range []string{"SignPKCS1v15", "SignPSS"} {
 		for _, callNode := range s.findSelectorCalls(root, content, alias, funcName) {
 			qi := quantum.GetInfo("rsa")
+			// Flag PKCS1v15 as MEDIUM severity (padding oracle vulnerability)
+			severity := types.SeverityInfo
+			padding := ""
+			if strings.Contains(funcName, "PKCS1v15") {
+				severity = types.SeverityMedium
+				padding = "pkcs1v15"
+			}
 			findings = append(findings, types.Finding{
 				ID:         nextFindingID(),
 				AssetType:  types.AssetAlgorithm,
 				Name:       "RSA",
 				Location:   scanner.NodeLocation(callNode, path, content),
-				Severity:   types.SeverityInfo,
+				Severity:   severity,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "signature",
 					AlgorithmFamily:  "rsa",
+					Padding:          padding,
 					QuantumStatus:    qi.Status,
 					NistQuantumLevel: qi.NistLevel,
 					CryptoFunctions:  []string{"sign"},
@@ -1234,7 +1251,7 @@ func (s *GoScanner) detectCryptoX509(root *sitter.Node, path string, content []b
 // golang.org/x/crypto detection
 // ---------------------------------------------------------------------------
 
-func (s *GoScanner) detectXCrypto(root *sitter.Node, path string, content []byte, imports map[string]string) []types.Finding {
+func (s *GoScanner) detectXCrypto(root *sitter.Node, path string, content []byte, imports map[string]string, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding
 
 	// ChaCha20-Poly1305
@@ -1247,7 +1264,7 @@ func (s *GoScanner) detectXCrypto(root *sitter.Node, path string, content []byte
 	findings = append(findings, s.detectArgon2(root, path, content, imports)...)
 
 	// bcrypt
-	findings = append(findings, s.detectBcrypt(root, path, content, imports)...)
+	findings = append(findings, s.detectBcrypt(root, path, content, imports, cp)...)
 
 	// scrypt
 	findings = append(findings, s.detectScrypt(root, path, content, imports)...)
@@ -1386,7 +1403,7 @@ func (s *GoScanner) detectArgon2(root *sitter.Node, path string, content []byte,
 	return findings
 }
 
-func (s *GoScanner) detectBcrypt(root *sitter.Node, path string, content []byte, imports map[string]string) []types.Finding {
+func (s *GoScanner) detectBcrypt(root *sitter.Node, path string, content []byte, imports map[string]string, cp *ConstPropagator) []types.Finding {
 	alias := aliasFor(imports, "golang.org/x/crypto/bcrypt")
 	if alias == "" {
 		return nil
@@ -1396,12 +1413,26 @@ func (s *GoScanner) detectBcrypt(root *sitter.Node, path string, content []byte,
 
 	// bcrypt.GenerateFromPassword(password, cost)
 	for _, callNode := range s.findSelectorCalls(root, content, alias, "GenerateFromPassword") {
+		// Try to extract cost (2nd argument, index 1)
+		severity := types.SeverityInfo
+		argsNode := s.findChildByType(callNode, "argument_list")
+		if argsNode != nil {
+			cost, _ := resolveNthArg(argsNode, 1, content, cp)
+			if cost != "" {
+				costVal, err := strconv.Atoi(cost)
+				if err == nil {
+					if s, _ := kdf.CheckKDFIterations("bcrypt", costVal); s != types.SeverityInfo {
+						severity = s
+					}
+				}
+			}
+		}
 		findings = append(findings, types.Finding{
 			ID:         nextFindingID(),
 			AssetType:  types.AssetAlgorithm,
 			Name:       "bcrypt",
 			Location:   scanner.NodeLocation(callNode, path, content),
-			Severity:   types.SeverityInfo,
+			Severity:   severity,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:       "kdf",

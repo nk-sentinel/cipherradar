@@ -4,10 +4,13 @@ package regex
 
 import (
 	"bytes"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"regexp"
 	"strings"
 	"sync/atomic"
+	"time"
 	"unicode/utf8"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -120,6 +123,9 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 			})
 		}
 	}
+
+	// --- PEM certificate block parsing ---
+	findings = append(findings, s.parseCertificateBlocks(path, content)...)
 
 	// --- Algorithm name detection ---
 	for _, ap := range s.algoPatterns {
@@ -381,6 +387,144 @@ func looksLikeGitHash(line string) bool {
 		strings.Contains(lower, "revision") ||
 		strings.Contains(lower, "rev ") ||
 		strings.Contains(lower, "sha:")
+}
+
+// certBlockRe matches a full PEM CERTIFICATE block including markers.
+var certBlockRe = regexp.MustCompile(`(?s)-----BEGIN CERTIFICATE-----\s*\n(.*?)\n\s*-----END CERTIFICATE-----`)
+
+// parseCertificateBlocks extracts and parses PEM CERTIFICATE blocks from file
+// content. For each block, it tries to parse the X.509 certificate and extract
+// subject, issuer, validity dates, and signature algorithm. It also checks
+// whether the certificate is expired or expiring soon.
+func (s *RegexScanner) parseCertificateBlocks(path string, content []byte) []types.Finding {
+	var findings []types.Finding
+
+	// First pass: try standard pem.Decode for well-formed PEM blocks
+	rest := content
+	decodedOffsets := make(map[int]bool) // track which cert blocks were handled by pem.Decode
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		if block.Type != "CERTIFICATE" {
+			continue
+		}
+
+		// Find the line number of this certificate block in the file
+		blockStart := len(content) - len(rest) - len(pem.EncodeToMemory(block))
+		lineNum := bytes.Count(content[:max(blockStart, 0)], []byte("\n")) + 1
+		decodedOffsets[lineNum] = true
+
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			// Decoded PEM but invalid X.509
+			findings = append(findings, types.Finding{
+				ID:        nextID(),
+				AssetType: types.AssetCertificate,
+				Name:      "X.509 Certificate (unparseable)",
+				Location: types.Location{
+					File:      path,
+					StartLine: lineNum,
+					StartCol:  1,
+					EndLine:   lineNum,
+					EndCol:    1,
+					Snippet:   "-----BEGIN CERTIFICATE-----",
+				},
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceLow,
+				Properties: types.CryptoProperties{
+					CertificateFormat: "PEM",
+				},
+				Description: "PEM certificate block found but could not be parsed",
+				RuleID:      "cbom-regex-pem-certificate-parse",
+				Pass:        1,
+			})
+			continue
+		}
+
+		findings = append(findings, buildCertFinding(cert, path, lineNum))
+	}
+
+	// Second pass: use regex to find CERTIFICATE blocks that pem.Decode could not handle
+	// (e.g., blocks with invalid base64 / fake test content)
+	matches := certBlockRe.FindAllIndex(content, -1)
+	for _, loc := range matches {
+		lineNum := bytes.Count(content[:loc[0]], []byte("\n")) + 1
+		if decodedOffsets[lineNum] {
+			continue // already handled by pem.Decode
+		}
+
+		findings = append(findings, types.Finding{
+			ID:        nextID(),
+			AssetType: types.AssetCertificate,
+			Name:      "X.509 Certificate (unparseable)",
+			Location: types.Location{
+				File:      path,
+				StartLine: lineNum,
+				StartCol:  1,
+				EndLine:   lineNum,
+				EndCol:    1,
+				Snippet:   "-----BEGIN CERTIFICATE-----",
+			},
+			Severity:   types.SeverityInfo,
+			Confidence: types.ConfidenceLow,
+			Properties: types.CryptoProperties{
+				CertificateFormat: "PEM",
+			},
+			Description: "PEM certificate block found but could not be parsed",
+			RuleID:      "cbom-regex-pem-certificate-parse",
+			Pass:        1,
+		})
+	}
+
+	return findings
+}
+
+// buildCertFinding creates a finding for a successfully parsed X.509 certificate.
+func buildCertFinding(cert *x509.Certificate, path string, lineNum int) types.Finding {
+	severity := types.SeverityInfo
+	state := "active"
+	now := time.Now()
+	if now.After(cert.NotAfter) {
+		severity = types.SeverityHigh
+		state = "expired"
+	} else if cert.NotAfter.Before(now.Add(30 * 24 * time.Hour)) {
+		severity = types.SeverityMedium
+		state = "expiring-soon"
+	}
+
+	sigAlgo := cert.SignatureAlgorithm.String()
+
+	return types.Finding{
+		ID:        nextID(),
+		AssetType: types.AssetCertificate,
+		Name:      fmt.Sprintf("X.509 Certificate (%s)", cert.Subject.CommonName),
+		Location: types.Location{
+			File:      path,
+			StartLine: lineNum,
+			StartCol:  1,
+			EndLine:   lineNum,
+			EndCol:    1,
+			Snippet:   "-----BEGIN CERTIFICATE-----",
+		},
+		Severity:   severity,
+		Confidence: types.ConfidenceHigh,
+		Properties: types.CryptoProperties{
+			SubjectName:        cert.Subject.String(),
+			IssuerName:         cert.Issuer.String(),
+			NotValidBefore:     cert.NotBefore.Format(time.RFC3339),
+			NotValidAfter:      cert.NotAfter.Format(time.RFC3339),
+			SignatureAlgorithm: sigAlgo,
+			CertificateFormat:  "PEM",
+			State:              state,
+		},
+		Description: fmt.Sprintf("X.509 certificate for %q signed with %s (expires %s)",
+			cert.Subject.CommonName, sigAlgo, cert.NotAfter.Format("2006-01-02")),
+		RuleID: "cbom-regex-pem-certificate-parsed",
+		Pass:   1,
+	}
 }
 
 func nextID() string {

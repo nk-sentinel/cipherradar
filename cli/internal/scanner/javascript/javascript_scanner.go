@@ -12,6 +12,7 @@ import (
 	tsLang "github.com/smacker/go-tree-sitter/typescript/typescript"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/kdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -476,12 +477,21 @@ func (s *JSScanner) handlePBKDF2(callNode *sitter.Node, argsNode *sitter.Node, p
 
 	name := fmt.Sprintf("PBKDF2-%s", strings.ToUpper(hashAlgo))
 
+	// Check iteration count (3rd argument, index 2)
+	severity := types.SeverityInfo
+	if argsNode != nil {
+		iterations := resolveNthArgInt(argsNode, 2, content, cp)
+		if s, _ := kdf.CheckKDFIterations("pbkdf2", iterations); s != types.SeverityInfo {
+			severity = s
+		}
+	}
+
 	return &types.Finding{
 		ID:         nextFindingID(),
 		AssetType:  types.AssetAlgorithm,
 		Name:       name,
 		Location:   scanner.NodeLocation(callNode, path, content),
-		Severity:   types.SeverityInfo,
+		Severity:   severity,
 		Confidence: confidence,
 		Properties: types.CryptoProperties{
 			Primitive:       "kdf",
@@ -1343,6 +1353,20 @@ func resolveNthArg(argsNode *sitter.Node, n int, content []byte, cp *ConstPropag
 	}
 
 	return "", types.ConfidenceLow
+}
+
+// resolveNthArgInt resolves the nth positional argument (0-indexed) to an integer.
+// Returns 0 if unable to resolve.
+func resolveNthArgInt(argsNode *sitter.Node, n int, content []byte, cp *ConstPropagator) int {
+	val, _ := resolveNthArg(argsNode, n, content, cp)
+	if val == "" {
+		return 0
+	}
+	v, err := strconv.Atoi(val)
+	if err != nil {
+		return 0
+	}
+	return v
 }
 
 // resolveObjectPropertyInt extracts an integer property from an object literal

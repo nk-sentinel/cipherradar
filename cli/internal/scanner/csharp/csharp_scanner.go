@@ -420,6 +420,62 @@ func init() {
 				return buildSslFinding(path, line, "Tls")
 			},
 		},
+		// CipherMode.ECB — ECB mode is insecure
+		{
+			re: regexp.MustCompile(`CipherMode\s*\.\s*ECB\b`),
+			buildResult: func(path string, line int, _ []string) *types.Finding {
+				return &types.Finding{
+					ID:        nextFindingID(),
+					AssetType: types.AssetAlgorithm,
+					Name:      "ECB Mode",
+					Location: types.Location{
+						File:      path,
+						StartLine: line,
+						StartCol:  1,
+						EndLine:   line,
+						EndCol:    1,
+					},
+					Severity:   types.SeverityHigh,
+					Confidence: types.ConfidenceHigh,
+					Properties: types.CryptoProperties{
+						Primitive: "block-cipher",
+						Mode:      "ecb",
+					},
+					Description: "ECB cipher mode is insecure — does not provide semantic security",
+					RuleID:      "cbom-csharp-dotnet-ciphermode-ecb",
+					Pass:        1,
+				}
+			},
+		},
+		// RSAEncryptionPadding.Pkcs1 — PKCS1v15 padding (padding oracle)
+		{
+			re: regexp.MustCompile(`RSAEncryptionPadding\s*\.\s*Pkcs1\b`),
+			buildResult: func(path string, line int, _ []string) *types.Finding {
+				return &types.Finding{
+					ID:        nextFindingID(),
+					AssetType: types.AssetAlgorithm,
+					Name:      "RSA-PKCS1v15",
+					Location: types.Location{
+						File:      path,
+						StartLine: line,
+						StartCol:  1,
+						EndLine:   line,
+						EndCol:    1,
+					},
+					Severity:   types.SeverityMedium,
+					Confidence: types.ConfidenceHigh,
+					Properties: types.CryptoProperties{
+						Primitive:       "pke",
+						AlgorithmFamily: "rsa",
+						Padding:         "pkcs1v15",
+						CryptoFunctions: []string{"encrypt"},
+					},
+					Description: "RSA PKCS1v15 padding is vulnerable to padding oracle attacks — use OAEP instead",
+					RuleID:      "cbom-csharp-dotnet-rsa-pkcs1v15",
+					Pass:        1,
+				}
+			},
+		},
 	}
 }
 

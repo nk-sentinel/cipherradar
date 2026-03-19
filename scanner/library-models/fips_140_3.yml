@@ -1,0 +1,118 @@
+# FIPS 140-3 — Approved Algorithms, Modes, and Key Sizes
+framework: fips-140-3
+version: "2024"
+algorithms:
+  # Symmetric ciphers
+  - family: aes
+    classification: approved
+    min_key_size: 128
+    approved_modes:
+      - cbc
+      - ctr
+      - gcm
+      - ccm
+      - kwp
+      - kw
+      - xts
+    disallowed_modes:
+      - ecb
+    note: "AES with approved modes; ECB not approved for confidentiality"
+  - family: 3des
+    classification: not-approved
+    note: "Disallowed after 2023"
+  - family: des
+    classification: not-approved
+    note: "Not a FIPS-approved algorithm"
+  - family: rc4
+    classification: not-approved
+    note: "Not a FIPS-approved algorithm"
+  - family: blowfish
+    classification: not-approved
+    note: "Not a FIPS-approved algorithm"
+  - family: chacha20
+    classification: not-approved
+    note: "Not listed as FIPS-approved (acceptable in TLS via RFC 8439 but not FIPS validated)"
+
+  # Hash functions
+  - family: sha1
+    classification: not-approved
+    note: "Not approved for digital signatures; limited legacy use only"
+  - family: md5
+    classification: not-approved
+    note: "Not a FIPS-approved hash function"
+  - family: md4
+    classification: not-approved
+    note: "Not a FIPS-approved hash function"
+  - family: sha256
+    classification: approved
+  - family: sha384
+    classification: approved
+  - family: sha512
+    classification: approved
+  - family: sha3-256
+    classification: approved
+  - family: sha3-384
+    classification: approved
+  - family: sha3-512
+    classification: approved
+
+  # Asymmetric algorithms
+  - family: rsa
+    classification: approved
+    min_key_size: 2048
+    note: "RSA below 2048 bits is not approved"
+  - family: ecdsa
+    classification: approved
+    min_key_size: 224
+    approved_curves:
+      - p-224
+      - p-256
+      - p-384
+      - p-521
+    note: "EC key size must be >= 224 bits"
+  - family: ecdh
+    classification: approved
+    min_key_size: 224
+    approved_curves:
+      - p-224
+      - p-256
+      - p-384
+      - p-521
+  - family: ecc
+    classification: approved
+    min_key_size: 224
+  - family: dsa
+    classification: approved
+    min_key_size: 2048
+    note: "DSA with key size >= 2048"
+  - family: dh
+    classification: approved
+    min_key_size: 2048
+
+  # PQC
+  - family: ml-kem
+    classification: approved
+    note: "FIPS 203"
+  - family: ml-dsa
+    classification: approved
+    note: "FIPS 204"
+  - family: slh-dsa
+    classification: approved
+    note: "FIPS 205"
+
+  # RNG
+  - family: hash-drbg
+    classification: approved
+    note: "Approved DRBG mechanism"
+  - family: hmac-drbg
+    classification: approved
+    note: "Approved DRBG mechanism"
+  - family: ctr-drbg
+    classification: approved
+    note: "Approved DRBG mechanism"
+  - family: math-random
+    classification: not-approved
+    note: "Not a cryptographic RNG"
+  - family: rand
+    classification: not-approved
+    note: "Not a cryptographic RNG"

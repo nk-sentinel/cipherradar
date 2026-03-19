@@ -10,6 +10,7 @@ import (
 	javaLang "github.com/smacker/go-tree-sitter/java"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/kdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -67,6 +68,10 @@ func (s *JavaScanner) ScanFile(path string, content []byte) ([]types.Finding, er
 	// Detect SSL/TLS usage
 	sslFindings := s.detectSSL(root, path, content, cp)
 	findings = append(findings, sslFindings...)
+
+	// Detect PBEKeySpec (PBKDF2 with iteration count checking)
+	pbeFindings := s.detectPBEKeySpec(root, path, content, cp)
+	findings = append(findings, pbeFindings...)
 
 	return findings, nil
 }
@@ -272,6 +277,14 @@ func (s *JavaScanner) handleCipherGetInstance(callNode, argsNode *sitter.Node, p
 	qi := quantum.GetInfo(algoFamily)
 	severity := cipherSeverity(algoFamily, mode)
 
+	// Flag PKCS1v15 padding as MEDIUM severity (padding oracle vulnerability)
+	paddingLower := strings.ToLower(parsed.Padding)
+	if paddingLower == "pkcs1padding" && strings.ToUpper(parsed.Algorithm) == "RSA" {
+		if severity == types.SeverityInfo {
+			severity = types.SeverityMedium
+		}
+	}
+
 	name := buildCipherName(strings.ToUpper(parsed.Algorithm), mode)
 	if parsed.Padding != "" {
 		name = fmt.Sprintf("%s/%s", name, parsed.Padding)
@@ -298,7 +311,7 @@ func (s *JavaScanner) handleCipherGetInstance(callNode, argsNode *sitter.Node, p
 			Primitive:        primitive,
 			AlgorithmFamily:  algoFamily,
 			Mode:             mode,
-			Padding:          strings.ToLower(parsed.Padding),
+			Padding:          paddingLower,
 			QuantumStatus:    qi.Status,
 			NistQuantumLevel: qi.NistLevel,
 			CryptoFunctions:  []string{"encrypt"},
@@ -923,4 +936,68 @@ func buildCipherName(algoClass, mode string) string {
 		name = fmt.Sprintf("%s-%s", algoClass, strings.ToUpper(mode))
 	}
 	return name
+}
+
+// ---------------------------------------------------------------------------
+// PBEKeySpec (PBKDF2) detection
+// ---------------------------------------------------------------------------
+
+func (s *JavaScanner) detectPBEKeySpec(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
+	var findings []types.Finding
+
+	// Query for new PBEKeySpec(password, salt, iterationCount, keyLength)
+	queryStr := `(object_creation_expression
+		type: (type_identifier) @cls
+		arguments: (argument_list) @args
+		(#eq? @cls "PBEKeySpec"))`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return nil
+	}
+
+	for _, match := range matches {
+		var clsNode, argsNode *sitter.Node
+		for _, capture := range match.Captures {
+			switch capture.Index {
+			case 0: // @cls
+				clsNode = capture.Node
+			case 1: // @args
+				argsNode = capture.Node
+			}
+		}
+		if clsNode == nil || argsNode == nil {
+			continue
+		}
+
+		callNode := getObjectCreationNode(clsNode)
+
+		// PBEKeySpec(char[] password, byte[] salt, int iterationCount, int keyLength)
+		// iterationCount is the 3rd argument (index 2)
+		iterations := resolveNthArgInt(argsNode, 2, content, cp)
+
+		severity := types.SeverityInfo
+		if s, _ := kdf.CheckKDFIterations("pbkdf2", iterations); s != types.SeverityInfo {
+			severity = s
+		}
+
+		findings = append(findings, types.Finding{
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       "PBKDF2",
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   severity,
+			Confidence: types.ConfidenceHigh,
+			Properties: types.CryptoProperties{
+				Primitive:       "kdf",
+				AlgorithmFamily: "pbkdf2",
+				CryptoFunctions: []string{"derive"},
+			},
+			Description: "PBKDF2 key derivation via new PBEKeySpec()",
+			RuleID:      "cbom-java-jca-pbekeyspec-pbkdf2",
+			Pass:        1,
+		})
+	}
+
+	return findings
 }

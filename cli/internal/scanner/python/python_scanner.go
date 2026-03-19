@@ -75,6 +75,10 @@ func (s *PythonScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 	hmacFindings := s.detectHMAC(root, path, content, cp)
 	findings = append(findings, hmacFindings...)
 
+	// Detect PKCS1v15 padding usage
+	pkcs1Findings := s.detectPKCS1v15(root, path, content)
+	findings = append(findings, pkcs1Findings...)
+
 	return findings, nil
 }
 
@@ -1608,4 +1612,110 @@ func buildCipherName(algoClass, mode string) string {
 		name = fmt.Sprintf("%s-%s", algoClass, strings.ToUpper(mode))
 	}
 	return name
+}
+
+// ---------------------------------------------------------------------------
+// PKCS1v15 padding detection
+// ---------------------------------------------------------------------------
+
+func (s *PythonScanner) detectPKCS1v15(root *sitter.Node, path string, content []byte) []types.Finding {
+	var findings []types.Finding
+
+	// Match: padding.PKCS1v15() or PKCS1v15()
+	queryStr := `(call
+		function: (attribute
+			object: (identifier) @obj
+			attribute: (identifier) @attr)
+		(#eq? @obj "padding")
+		(#eq? @attr "PKCS1v15"))`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return nil
+	}
+
+	for _, match := range matches {
+		var attrNode *sitter.Node
+		for _, capture := range match.Captures {
+			if capture.Index == 1 { // @attr
+				attrNode = capture.Node
+			}
+		}
+		if attrNode == nil {
+			continue
+		}
+
+		callNode := attrNode.Parent()
+		if callNode != nil {
+			callNode = callNode.Parent()
+		}
+		if callNode == nil {
+			callNode = attrNode
+		}
+
+		findings = append(findings, types.Finding{
+			ID:        nextFindingID(),
+			AssetType: types.AssetAlgorithm,
+			Name:      "RSA-PKCS1v15",
+			Location:  scanner.NodeLocation(callNode, path, content),
+			Severity:  types.SeverityMedium,
+			Confidence: types.ConfidenceHigh,
+			Properties: types.CryptoProperties{
+				Primitive:       "pke",
+				AlgorithmFamily: "rsa",
+				Padding:         "pkcs1v15",
+				CryptoFunctions: []string{"encrypt"},
+			},
+			Description: "RSA PKCS1v15 padding is vulnerable to padding oracle attacks — use OAEP instead",
+			RuleID:      "cbom-python-cryptography-pkcs1v15",
+			Pass:        1,
+		})
+	}
+
+	// Also match direct PKCS1v15() call (without module prefix)
+	queryStr2 := `(call
+		function: (identifier) @fn
+		(#eq? @fn "PKCS1v15"))`
+
+	matches2, err := scanner.QueryMatches(root, queryStr2, s.lang, content)
+	if err != nil {
+		return findings
+	}
+
+	for _, match := range matches2 {
+		var fnNode *sitter.Node
+		for _, capture := range match.Captures {
+			if capture.Index == 0 {
+				fnNode = capture.Node
+			}
+		}
+		if fnNode == nil {
+			continue
+		}
+
+		callNode := fnNode.Parent()
+		if callNode == nil {
+			callNode = fnNode
+		}
+
+		findings = append(findings, types.Finding{
+			ID:        nextFindingID(),
+			AssetType: types.AssetAlgorithm,
+			Name:      "RSA-PKCS1v15",
+			Location:  scanner.NodeLocation(callNode, path, content),
+			Severity:  types.SeverityMedium,
+			Confidence: types.ConfidenceHigh,
+			Properties: types.CryptoProperties{
+				Primitive:       "pke",
+				AlgorithmFamily: "rsa",
+				Padding:         "pkcs1v15",
+				CryptoFunctions: []string{"encrypt"},
+			},
+			Description: "RSA PKCS1v15 padding is vulnerable to padding oracle attacks — use OAEP instead",
+			RuleID:      "cbom-python-cryptography-pkcs1v15",
+			Pass:        1,
+		})
+	}
+
+	return findings
 }

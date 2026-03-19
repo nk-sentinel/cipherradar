@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/joern"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
@@ -32,6 +33,8 @@ func init() {
 	scanCmd.Flags().String("branch", "", "git branch to scan (for git URLs)")
 	scanCmd.Flags().Bool("validate", false, "validate output against CycloneDX 1.7 schema")
 	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
+	scanCmd.Flags().String("queries-dir", "", "directory containing Joern .sc query scripts for Pass 3")
+	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (enables inter-procedural analysis)")
 
 	rootCmd.AddCommand(scanCmd)
 }
@@ -39,8 +42,12 @@ func init() {
 func runScan(cmd *cobra.Command, args []string) error {
 	targetPath := args[0]
 
-	// Parse passes flag.
+	// Parse passes flag. --deep is an alias for --passes 1,2,3.
+	deep, _ := cmd.Flags().GetBool("deep")
 	passesStr, _ := cmd.Flags().GetString("passes")
+	if deep {
+		passesStr = "1,2,3"
+	}
 	passes, err := parsePasses(passesStr)
 	if err != nil {
 		return fmt.Errorf("invalid --passes flag: %w", err)
@@ -70,6 +77,24 @@ func runScan(cmd *cobra.Command, args []string) error {
 			})
 		} else if pass2Findings != nil {
 			result.Findings = opengrep.DeduplicateFindings(result.Findings, pass2Findings)
+		}
+	}
+
+	// Run Pass 3 (Joern inter-procedural analysis) if requested.
+	if containsPass(passes, 3) {
+		queriesDir, _ := cmd.Flags().GetString("queries-dir")
+		if queriesDir == "" {
+			queriesDir = os.Getenv("CBOM_QUERIES_DIR")
+		}
+
+		pass3Findings, pass3Err := runPass3(targetPath, queriesDir)
+		if pass3Err != nil {
+			result.Errors = append(result.Errors, types.ScanError{
+				File:    "",
+				Message: fmt.Sprintf("Pass 3 error: %v", pass3Err),
+			})
+		} else if pass3Findings != nil {
+			result.Findings = joern.DeduplicateFindings(result.Findings, pass3Findings)
 		}
 	}
 
@@ -178,4 +203,17 @@ func runPass2(target string, rulesDir string) ([]types.Finding, error) {
 	}
 
 	return runner.Scan(target, rulesDir)
+}
+
+// runPass3 runs Joern Pass 3 inter-procedural analysis if the binary is available.
+// Returns nil findings (not an error) if Joern is not installed.
+// If no queries directory is specified, uses embedded query scripts extracted to a temp dir.
+func runPass3(target string, queriesDir string) ([]types.Finding, error) {
+	runner := joern.NewRunner()
+	if runner == nil || !runner.Available() {
+		fmt.Fprintln(os.Stderr, "Pass 3 skipped — joern not found. Run 'cbom install-tools' or use cbom-full.")
+		return nil, nil
+	}
+
+	return runner.Scan(target, queriesDir)
 }
