@@ -16,8 +16,8 @@ backend/      Python/FastAPI + Taskiq workers
 frontend/     React 19 + TypeScript dashboard
 scanner/      Shared detection assets used by CLI and backend
   rules/        OpenGrep YAML rules (per language)
-  library-models/  Crypto API → CBOM asset type mappings (placeholder — Phase 2)
-  grammars/     tree-sitter grammar configs (placeholder — Phase 2)
+  library-models/  Crypto API → CBOM asset type mappings + compliance framework YAMLs
+  grammars/     tree-sitter grammar configs
 deploy/       Docker Compose, Kubernetes (Helm)
 docs/         Design documentation and ADRs
 logo/         Brand assets
@@ -45,7 +45,13 @@ Do not load shared assets from the filesystem at runtime.
 
 ## Implementation
 
-Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 in progress (`docs/12-phase2-implementation-plan.md`).
+Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`docs/12-phase2-implementation-plan.md`). Phase 3 in progress (`docs/13-phase3-implementation-plan.md`) — Week 1-2 (A-M1 + B-M1 + C-M1 + D-M1) complete.
+
+**Phase 3 status:**
+- 12 language scanners (Java, Python, JS/TS, Go, Kotlin, C#, PHP, C/C++, Rust, Swift, Ruby, Dart) with 15 new OpenGrep taint rules
+- Multi-tenant RBAC: PostgreSQL RLS, 7-role enforcement, group hierarchy
+- Portfolio dashboard with heat map + asset explorer
+- Helm chart (15 templates) + Kustomize manifests (dev/staging/prod overlays)
 
 **Skills available** (`~/.claude/commands/`) — 37 total:
 

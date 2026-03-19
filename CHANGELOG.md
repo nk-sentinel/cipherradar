@@ -4,6 +4,17 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## Phase 3 — Enterprise (In Progress)
+
+### Week 1-2: A-M1 + B-M1 + C-M1 + D-M1
+- 5 new language scanners: C/C++ (OpenSSL, libsodium, mbedTLS), Rust (ring, rustls), Swift (CryptoKit, CommonCrypto), Ruby (OpenSSL, BCrypt, Digest), Dart (package:crypto, pointycastle)
+- 12 languages total with 15 new OpenGrep taint rules
+- Multi-tenant RBAC: PostgreSQL RLS, 7-role enforcement, group hierarchy
+- Portfolio dashboard with heat map + asset explorer
+- Helm chart (15 templates) + Kustomize manifests (dev/staging/prod overlays)
+
+---
+
 ## Phase 2 — Coverage + Risk (2026-03-20)
 
 ### Workstream A — CLI: More Languages + Detection (Go)

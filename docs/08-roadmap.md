@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Document version:** v6
+> **Document version:** v7
 > **Last updated:** 2026-03-20
 > **Status:** Active
 
@@ -16,6 +16,7 @@
 | v4 | 2026-03-18 | Phase 1: Semgrep → OpenGrep (Pass 2 engine). Git hosting integrations moved to Phase 2 (require backend server). | ADR-009 |
 | v5 | 2026-03-18 | Phase 1 complete — all checkboxes checked | Phase 1 close |
 | v6 | 2026-03-20 | Phase 2 complete — 7 languages, backend API, React dashboard, Docker Compose full stack | Phase 2 close |
+| v7 | 2026-03-20 | Phase 3 A-M1 + B-M1 + C-M1 + D-M1 complete: 12 languages, multi-tenant RBAC, Helm/K8s | Phase 3 Week 1-2 |
 
 ---
 
@@ -157,11 +158,11 @@ cbom report cbom.json [--output report.pdf] [--format pdf]
 ### Deliverables
 
 **Language Completion**
-- [ ] **C/C++** analyzer (OpenSSL, libsodium, mbedTLS — via Joern)
-- [ ] **Rust** analyzer (`ring`, `rustls`, `openssl` crate)
-- [ ] **Swift** analyzer (CryptoKit, CommonCrypto)
-- [ ] **Ruby** analyzer (OpenSSL, BCrypt, Digest)
-- [ ] **Dart/Flutter** analyzer (`package:crypto`, `pointycastle`)
+- [x] **C/C++** analyzer (OpenSSL, libsodium, mbedTLS — via Joern)
+- [x] **Rust** analyzer (`ring`, `rustls`, `openssl` crate)
+- [x] **Swift** analyzer (CryptoKit, CommonCrypto)
+- [x] **Ruby** analyzer (OpenSSL, BCrypt, Digest)
+- [x] **Dart/Flutter** analyzer (`package:crypto`, `pointycastle`)
 
 **Detection Expansion**
 - [ ] Container image layer scanning (OCI image → extract + scan filesystem)
@@ -187,13 +188,13 @@ cbom report cbom.json [--output report.pdf] [--format pdf]
 - [ ] Migration Kanban board
 
 **Enterprise Features**
-- [ ] Multi-tenant support with RBAC
+- [x] Multi-tenant support with RBAC
 - [ ] CBOM signing via Sigstore / cosign
 - [ ] Jira integration — auto-create tickets on policy violation
 - [ ] Slack / Teams notifications
 - [ ] Dependency-Track integration
 - [ ] SonarQube plugin (adds CBOM tab to SonarQube)
-- [ ] Self-hosted Docker / Kubernetes deployment package
+- [x] Self-hosted Docker / Kubernetes deployment package
 
 **Success Criteria**
 - 12 languages supported
