@@ -37,6 +37,12 @@ class Scan(Base):
         nullable=False,
         index=True,
     )
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     status: Mapped[ScanStatus] = mapped_column(
         Enum(ScanStatus, name="scan_status", values_callable=lambda x: [e.value for e in x]),
         nullable=False,

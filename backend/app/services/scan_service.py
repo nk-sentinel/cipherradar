@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import joinedload
 
+from app.models.project import Group, Project
 from app.models.scan import Scan, ScanStatus
 from app.schemas.scan import CBOMResponse, ScanCreate, ScanListResponse, ScanResponse
 
@@ -16,11 +17,24 @@ if TYPE_CHECKING:
     from app.models.cbom import CBOMDocument
 
 
+async def _resolve_org_id(session: AsyncSession, project_id: uuid.UUID) -> uuid.UUID:
+    """Resolve org_id from project -> group -> organisation chain."""
+    result = await session.execute(
+        select(Group.org_id).join(Project, Project.group_id == Group.id).where(Project.id == project_id)
+    )
+    org_id = result.scalar_one_or_none()
+    if org_id is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return org_id
+
+
 async def create_scan(session: AsyncSession, scan_create: ScanCreate) -> ScanResponse:
     """Create a new scan record with status=queued."""
+    org_id = await _resolve_org_id(session, scan_create.project_id)
     scan = Scan(
         id=uuid.uuid4(),
         project_id=scan_create.project_id,
+        org_id=org_id,
         status=ScanStatus.QUEUED,
         branch=scan_create.branch,
         commit_sha=scan_create.commit_sha,

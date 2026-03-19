@@ -32,6 +32,12 @@ class CBOMDocument(Base):
         unique=True,
         index=True,
     )
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     storage_uri: Mapped[str] = mapped_column(String(2048), nullable=False)
     spec_version: Mapped[str] = mapped_column(String(20), nullable=False, default="1.7")
     serial_number: Mapped[str | None] = mapped_column(String(255), nullable=True)

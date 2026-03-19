@@ -37,6 +37,12 @@ class Finding(Base):
         nullable=False,
         index=True,
     )
+    org_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organisations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     rule_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(512), nullable=False)
     severity: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
