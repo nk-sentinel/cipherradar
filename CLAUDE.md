@@ -106,6 +106,11 @@ All ADRs are in `docs/decisions/`. Decisions that affect day-to-day coding:
 - **ADR-004** — Detection is 3-pass: tree-sitter (Pass 1) → OpenGrep (Pass 2) → Joern (Pass 3). No custom taint engine.
 - **ADR-005** — CLI in Go, backend in Python/FastAPI.
 - **ADR-008** — Monorepo. `scanner/` is shared between CLI and backend.
+- **ADR-011** — Joern Pass 3 via subprocess (same pattern as OpenGrep).
+- **ADR-012** — DB schema: CBOMStore abstraction, TimescaleDB hypertables, JSONB+GIN, GAL.
+- **ADR-013** — Auth: JWT + scoped API keys. 7 RBAC roles: Org Admin, Security Manager, Security Engineer, **Team Manager**, Compliance Auditor, Developer, Guest/Viewer (`docs/09-rbac.md` v2).
+- **ADR-014** — Git provider abstraction: common interface for GitHub/GitLab/Bitbucket.
+- **ADR-015** — Frontend: React 19, TanStack Query/Router, shadcn/ui, 3 CSS themes, MSW mock API. UI mockup: `frontend/mockups/full-mockup-v2.html`.
 
 ---
 
