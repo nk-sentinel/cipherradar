@@ -1,6 +1,6 @@
 # Phase 2 — Implementation Plan
 
-> **Document version:** v1
+> **Document version:** v2
 > **Last updated:** 2026-03-19
 > **Status:** Draft
 
@@ -11,6 +11,7 @@
 | Version | Date | Change |
 |---|---|---|
 | v1 | 2026-03-19 | Initial plan — orchestrator + subagent model, 3 workstreams, 15 milestones |
+| v2 | 2026-03-19 | Full skills reference (37 total), all agents updated with correct skill assignments |
 
 ---
 
@@ -71,21 +72,59 @@ All agents use the same model and effort level — no mixing.
 | `/new-scanner` | Scaffolding | Scaffold new language scanner |
 | `/new-opengrep-rule` | Scaffolding | Scaffold OpenGrep YAML taint rule |
 
-### New Skills (Phase 2)
+### New Skills (Phase 2) — 25 total
 
-| Skill | Category | Workstream | Purpose |
+**Backend (Workstream B):**
+
+| Skill | Category | Purpose | Milestones |
 |---|---|---|---|
-| `/lint-py` | Quality | B | `ruff check .` + `ruff format --check .` + `mypy --strict` from `backend/` |
-| `/test-py` | Quality | B | `pytest` with coverage enforcement; min 80% API routes, 85% compliance, 70% workers |
-| `/sec-py` | Security | B | `bandit -r . --severity-level medium` + `pip-audit` from `backend/` |
-| `/commit-py` | Workflow | B | Gates `/lint-py` + `/sec-py` + `/dep-audit` before every commit |
-| `/lint-fe` | Quality | C | `eslint .` + `tsc --noEmit` from `frontend/` |
-| `/test-fe` | Quality | C | `vitest run --coverage`; min 70% components, 80% hooks/utilities |
-| `/sec-fe` | Security | C | `npm audit --audit-level=moderate` from `frontend/` |
-| `/commit-fe` | Workflow | C | Gates `/lint-fe` + `/sec-fe` before every commit |
-| `/new-api-route` | Scaffolding | B | Scaffold FastAPI router with Pydantic models, dependency injection, tests |
-| `/db-migrate` | Database | B | Create + run Alembic migration; validate up/down; check for data loss |
-| `/openapi-sync` | Contract | B+C | Validate OpenAPI spec matches implementation; generate TypeScript client types |
+| `/lint-py` | Quality | `ruff check .` + `ruff format --check .` + `mypy --strict` from `backend/` | B-M1 → B-M4 |
+| `/test-py` | Quality | `pytest` with coverage; min 80% API routes, 85% compliance, 70% workers | B-M1 → B-M4 |
+| `/sec-py` | Security | `bandit -r . --severity-level medium` + `pip-audit` from `backend/` | B-M1 → B-M4 |
+| `/commit-py` | Workflow | Gates `/lint-py` → `/db-validate` (if models changed) → `/sec-py` → `/dep-audit` | Every B commit |
+| `/new-api-route` | Scaffolding | Scaffold FastAPI router with Pydantic models, DI, tests | B-M2, B-M3 |
+| `/db-migrate` | Database | Alembic migration with reversibility check, data-loss detection | B-M1 |
+| `/db-validate` | Database | Schema integrity: migration sync, GIN indexes, CBOMStore/GAL rule enforcement | B-M1 → B-M4 |
+| `/db-seed` | Database | Populate DB with realistic test data (2 orgs, 5 projects, 500+ findings) | B-M2 → B-M4 |
+| `/load-test` | Performance | HTTP load test (locust/k6): p50/p95/p99 latencies, CBOM retrieval < 200ms | B-M4 |
+| `/profile-py` | Performance | py-spy flamegraph profiling when `/load-test` misses targets | B-M4 |
+| `/webhook-test` | Integration | Simulated GitHub/GitLab/Bitbucket webhooks with HMAC signature verification | B-M3, B-M4 |
+
+**Frontend (Workstream C):**
+
+| Skill | Category | Purpose | Milestones |
+|---|---|---|---|
+| `/lint-fe` | Quality | `eslint .` + `tsc --noEmit` from `frontend/` | C-M1 → C-M3 |
+| `/test-fe` | Quality | `vitest run --coverage`; min 70% components, 80% hooks/utilities | C-M1 → C-M3 |
+| `/sec-fe` | Security | `npm audit --audit-level=moderate` from `frontend/` | C-M1 → C-M3 |
+| `/commit-fe` | Workflow | Gates `/lint-fe` → `/sec-fe` | Every C commit |
+| `/build-fe` | Quality | Production build + bundle size validation (< 500KB gzip), no source maps | C-M1 → C-M3 gates |
+| `/new-page-fe` | Scaffolding | Scaffold page with TanStack Query/Router, RBAC guard, test file | C-M1 → C-M3 |
+| `/mock-api-fe` | Integration | MSW mock API validation, mock-vs-real response comparison at C-M3 | C-M1 → C-M3 |
+| `/a11y-fe` | Quality | WCAG 2.1 AA accessibility checks via axe-core on key routes | C-M2, C-M3 |
+
+**CLI (Workstream A):**
+
+| Skill | Category | Purpose | Milestones |
+|---|---|---|---|
+| `/new-joern-query` | Scaffolding | Scaffold Joern CPG query script with metadata and traversal template | A-M3 |
+
+**Cross-workstream:**
+
+| Skill | Category | Purpose | Milestones |
+|---|---|---|---|
+| `/openapi-sync` | Contract | Validate OpenAPI spec matches implementation; generate TypeScript client types | B-M3, B-M4, C-M3 |
+| `/docker-compose` | Infrastructure | Dev stack management: validate YAML, start services, health checks | B-M1 → B-M4, final integration |
+| `/docker-build` | Infrastructure | Docker image build + validation: size, non-root, distroless base | B-M4, C-M3, final integration |
+| `/e2e-test` | Integration | Full-stack Playwright tests: scan → CBOM → dashboard → report | Final integration |
+| `/changelog` | Documentation | Generate changelog from git history, grouped by workstream | Every milestone close |
+
+### Modified Skills (Phase 1 → Phase 2)
+
+| Skill | Change |
+|---|---|
+| `/test-coverage` | Added thresholds for Go/Kotlin/C#/PHP scanner packages (80%) and Joern integration (70%) |
+| `/benchmark` | Added 7-language corpus target (< 7 min) and per-scanner benchmark requirements |
 
 **Hooks:**
 - `go vet` runs after every `.go` file write/edit (existing)
@@ -107,7 +146,7 @@ All agents use the same model and effort level — no mixing.
 | **A-M2** | **Orchestrator gate** | All A-M2 | — | Merge registry (7 languages), merge rules, validate build | `/lint`, `/sec-review`, `/test-coverage`, `/fuzz`, `/build-cross` |
 | **A-M3** | Agent-DetectionExpansion | A-M2 | No | Certificate parsing from PEM, certificate expiry checking, PBKDF2/bcrypt/scrypt/Argon2 iteration checks (all 7 langs), ECB mode detection, PKCS1v15 flagging, JWT/JOSE alg detection | `/lint`, `/sec-review`, `/test-coverage`, `/fuzz` |
 | **A-M3** | Agent-JoernIntegration | A-M2 | Yes | Joern Pass 3: `cli/internal/joern/` (runner, parser, dedup). Binary discovery (same pattern as OpenGrep). CPG export to JSON, finding extraction, merge with Pass 1+2. `--deep` flag. Graceful skip if not installed. | `/lint`, `/sec-review`, `/test-coverage` |
-| **A-M3** | Agent-JoernRules | Agent-JoernIntegration | No | Joern query scripts: inter-procedural crypto patterns (key flow across methods, factory patterns). Min: Java + Python + JS. Stored in `scanner/joern-queries/`. | `/lint`, `/test-coverage` |
+| **A-M3** | Agent-JoernRules | Agent-JoernIntegration | No | Joern query scripts: inter-procedural crypto patterns (key flow across methods, factory patterns). Min: Java + Python + JS. Stored in `scanner/joern-queries/`. | `/new-joern-query`, `/lint`, `/test-coverage` |
 | **A-M3** | **Orchestrator gate** | All A-M3 | — | Full Workstream A close: 7 languages, Pass 1+2+3, detection expansion | `/lint`, `/sec-review`, `/dep-audit`, `/test-coverage`, `/fuzz`, `/benchmark`, `/build-cross` |
 
 ---
@@ -118,17 +157,17 @@ All agents use the same model and effort level — no mixing.
 |---|---|---|---|---|---|
 | **B-M1** | Agent-BackendSkeleton | — | No | FastAPI app: `backend/app/` with main.py, config (Pydantic Settings), db (SQLAlchemy 2.0 async + Alembic), models, schemas, router stubs. PostgreSQL 17 + TimescaleDB. Redis. Taskiq. Docker Compose dev services. Health endpoint. | `/lint-py`, `/sec-py`, `/test-py` |
 | **B-M1** | Agent-DBSchema | Agent-BackendSkeleton | No | Alembic initial migration: organisations, projects, scans, cbom_documents, findings, policy_sets, compliance_mappings. TimescaleDB hypertables for scan_metrics. CBOMStore abstraction. GIN indexes. | `/db-migrate`, `/lint-py`, `/test-py` |
-| **B-M1** | **Orchestrator gate** | All B-M1 | — | FastAPI starts, migrations apply, health returns 200, Taskiq connects | `/lint-py`, `/sec-py`, `/test-py` |
+| **B-M1** | **Orchestrator gate** | All B-M1 | — | FastAPI starts, migrations apply, health returns 200, Taskiq connects | `/lint-py`, `/sec-py`, `/test-py`, `/docker-compose`, `/db-validate` |
 | **B-M2** | Agent-ScanAPI | B-M1 | No | `POST /api/v1/scans`, `GET /api/v1/scans/{id}`, `GET /api/v1/scans/{id}/cbom`. Taskiq worker shells out to `cbom` CLI. Status: queued → running → completed/failed. CBOM stored via CBOMStore. Pagination. | `/new-api-route`, `/lint-py`, `/sec-py`, `/test-py` |
 | **B-M2** | Agent-AuthJWT | B-M1 | Yes | JWT login/refresh, API keys for CI/CD. 7 RBAC roles: Org Admin, Security Manager, Security Engineer, Team Manager, Compliance Auditor, Developer, Guest/Viewer (see `docs/09-rbac.md` v2). Scopes: `scan:read`, `scan:write`, `cbom:read`, `project:read`, `project:write`. No `policy:write` on API keys. Roles assigned at org/group/project level, cascade down. | `/lint-py`, `/sec-py`, `/test-py` |
-| **B-M2** | **Orchestrator gate** | All B-M2 | — | Scan submission → poll → retrieve works e2e; JWT protects routes; API keys work | `/lint-py`, `/sec-py`, `/test-py` |
+| **B-M2** | **Orchestrator gate** | All B-M2 | — | Scan submission → poll → retrieve works e2e; JWT protects routes; API keys work | `/lint-py`, `/sec-py`, `/test-py`, `/db-validate`, `/db-seed` |
 | **B-M3** | Agent-GitIntegrations | B-M2 | No | GitHub (OAuth, webhooks, Checks API, PR comments). GitLab (OAuth, webhooks, MR notes). Bitbucket Cloud + Data Center. Common `GitProvider` interface. Webhook signature verification. | `/new-api-route`, `/lint-py`, `/sec-py`, `/test-py` |
 | **B-M3** | Agent-ComplianceEngine | B-M2 | Yes | NIST SP 800-131A (Acceptable/Deprecated/Disallowed). FIPS 140-3 checks. Quantum Risk Score (0-100). Migration Priority Queue. Mappings in `scanner/library-models/` embedded via `importlib.resources`. | `/lint-py`, `/test-py` |
 | **B-M3** | Agent-CBOMManagement | B-M2 | Yes | CBOM versioning (immutable snapshots). Diff API (`GET /api/v1/cbom/diff`). Merge API (`POST /api/v1/cbom/merge`). | `/new-api-route`, `/lint-py`, `/test-py` |
-| **B-M3** | **Orchestrator gate** | All B-M3 | — | GitHub webhook → scan → check run; compliance scores correct; OpenAPI spec frozen for frontend | `/lint-py`, `/sec-py`, `/test-py`, `/openapi-sync` |
+| **B-M3** | **Orchestrator gate** | All B-M3 | — | GitHub webhook → scan → check run; compliance scores correct; OpenAPI spec frozen for frontend | `/lint-py`, `/sec-py`, `/test-py`, `/db-validate`, `/webhook-test`, `/openapi-sync` |
 | **B-M4** | Agent-BackendReports | B-M3 | No | PDF (ReportLab): quantum readiness, compliance gap. HTML (Jinja2). Excel/CSV (openpyxl). Taskiq background task. `GET /api/v1/reports/{scan_id}?format=pdf|html|csv`. | `/lint-py`, `/test-py` |
-| **B-M4** | Agent-BackendPerformance | B-M3 | Yes | CBOM retrieval < 200ms (GIN indexes, Redis caching). Connection pooling (asyncpg). Scan queue concurrency limits. Load test. | `/lint-py`, `/test-py` |
-| **B-M4** | **Orchestrator gate** | All B-M4 | — | Full Workstream B close: all API routes, git integrations, compliance, reports, perf targets | `/lint-py`, `/sec-py`, `/test-py`, `/openapi-sync` |
+| **B-M4** | Agent-BackendPerformance | B-M3 | Yes | CBOM retrieval < 200ms (GIN indexes, Redis caching). Connection pooling (asyncpg). Scan queue concurrency limits. Load test. | `/lint-py`, `/test-py`, `/load-test`, `/profile-py`, `/db-seed` |
+| **B-M4** | **Orchestrator gate** | All B-M4 | — | Full Workstream B close: all API routes, git integrations, compliance, reports, perf targets | `/lint-py`, `/sec-py`, `/test-py`, `/db-validate`, `/load-test`, `/docker-build`, `/openapi-sync` |
 
 ---
 
@@ -148,16 +187,16 @@ All agents use the same model and effort level — no mixing.
 
 | Milestone | Agent | Depends On | Parallel? | Work | Skills |
 |---|---|---|---|---|---|
-| **C-M1** | Agent-FrontendSkeleton | — | No | Vite + React 19 + TS strict. shadcn/ui + Tailwind. TanStack Query + Router. Layout shell. Auth context (JWT). API client from OpenAPI spec. | `/lint-fe`, `/test-fe` |
-| **C-M1** | **Orchestrator gate** | All C-M1 | — | `npm run build` succeeds, tests pass, dev server starts, auth flow works with mock API | `/lint-fe`, `/test-fe`, `/sec-fe` |
-| **C-M2** | Agent-RepositoryViews | C-M1 | No | Repo list (table: name, last scan, findings, risk score, compliance badges). Repo detail (scan history, CBOM summary). Project settings. | `/lint-fe`, `/test-fe` |
-| **C-M2** | Agent-ScanViews | C-M1 | Yes | Scan summary (severity bar chart, algo distribution pie, quantum breakdown). Scan trigger button. Scan comparison (diff view). | `/lint-fe`, `/test-fe` |
-| **C-M2** | Agent-FindingViews | C-M1 | Yes | Finding list (filterable table: severity, confidence, language, algo, quantum, compliance). Finding detail (snippet, location, remediation). Bulk actions. | `/lint-fe`, `/test-fe` |
-| **C-M2** | **Orchestrator gate** | All C-M2 | — | All pages render, filters work, data flows from mock API | `/lint-fe`, `/test-fe`, `/sec-fe` |
-| **C-M3** | Agent-QuantumReadinessView | C-M2 | No | Risk score gauge (0-100), algo breakdown by quantum status, PQC migration priority list, trend chart. | `/lint-fe`, `/test-fe` |
-| **C-M3** | Agent-ComplianceView | C-M2 | Yes | Per-framework compliance score, gap list, PDF download button. | `/lint-fe`, `/test-fe` |
-| **C-M3** | Agent-FrontendAPIIntegration | C-M2 + **B-M3** | No | Replace mock API with live backend. Regenerate TS types from frozen OpenAPI spec. CORS config. | `/lint-fe`, `/test-fe`, `/openapi-sync` |
-| **C-M3** | **Orchestrator gate** | All C-M3 | — | Full Workstream C close: all pages against live backend, production build clean | `/lint-fe`, `/test-fe`, `/sec-fe`, `/openapi-sync` |
+| **C-M1** | Agent-FrontendSkeleton | — | No | Vite + React 19 + TS strict. shadcn/ui + Tailwind. TanStack Query + Router. Layout shell. Auth context (JWT). API client from OpenAPI spec. MSW mock API setup. | `/lint-fe`, `/test-fe`, `/mock-api-fe` |
+| **C-M1** | **Orchestrator gate** | All C-M1 | — | `npm run build` succeeds, tests pass, dev server starts, auth flow works with mock API | `/lint-fe`, `/test-fe`, `/sec-fe`, `/build-fe`, `/mock-api-fe` |
+| **C-M2** | Agent-RepositoryViews | C-M1 | No | Repo list (table: name, last scan, findings, risk score, compliance badges). Repo detail (scan history, CBOM summary). Project settings. | `/new-page-fe`, `/lint-fe`, `/test-fe` |
+| **C-M2** | Agent-ScanViews | C-M1 | Yes | Scan summary (severity bar chart, algo distribution pie, quantum breakdown). Scan trigger button. Scan comparison (diff view). | `/new-page-fe`, `/lint-fe`, `/test-fe` |
+| **C-M2** | Agent-FindingViews | C-M1 | Yes | Finding list (filterable table: severity, confidence, language, algo, quantum, compliance). Finding detail (snippet, location, remediation). Bulk actions. | `/new-page-fe`, `/lint-fe`, `/test-fe` |
+| **C-M2** | **Orchestrator gate** | All C-M2 | — | All pages render, filters work, data flows from mock API | `/lint-fe`, `/test-fe`, `/sec-fe`, `/build-fe`, `/a11y-fe` |
+| **C-M3** | Agent-QuantumReadinessView | C-M2 | No | Risk score gauge (0-100), algo breakdown by quantum status, PQC migration priority list, trend chart. | `/new-page-fe`, `/lint-fe`, `/test-fe` |
+| **C-M3** | Agent-ComplianceView | C-M2 | Yes | Per-framework compliance score, gap list, PDF download button. | `/new-page-fe`, `/lint-fe`, `/test-fe` |
+| **C-M3** | Agent-FrontendAPIIntegration | C-M2 + **B-M3** | No | Replace mock API with live backend. Regenerate TS types from frozen OpenAPI spec. CORS config. | `/lint-fe`, `/test-fe`, `/openapi-sync`, `/mock-api-fe` |
+| **C-M3** | **Orchestrator gate** | All C-M3 | — | Full Workstream C close: all pages against live backend, production build clean | `/lint-fe`, `/test-fe`, `/sec-fe`, `/build-fe`, `/a11y-fe`, `/docker-build`, `/openapi-sync` |
 
 ---
 
@@ -254,5 +293,15 @@ Week 5-7:   A-M3 + B-M3 + C-M2    (C-M2 may still be in progress)
 Week 8-9:          B-M4 + C-M3    (C-M3 waits for B-M3 API freeze)
 Week 10:    Final integration      (Docker Compose full stack)
 ```
+
+### Final Integration (Week 10)
+
+Skills: `/docker-compose`, `/docker-build`, `/e2e-test`, `/changelog`
+
+Validation:
+1. `docker compose up` starts all services (API, frontend, PostgreSQL, Redis)
+2. `/e2e-test` — Playwright tests: submit scan → poll → verify CBOM in dashboard → compliance view → PDF report
+3. `/docker-build` — verify image sizes, non-root user, distroless base
+4. `/changelog` — generate release notes for Phase 2
 
 Estimated duration: 10-12 weeks (Months 4-6 per roadmap).
