@@ -1,7 +1,7 @@
 # Roadmap
 
-> **Document version:** v5
-> **Last updated:** 2026-03-18
+> **Document version:** v6
+> **Last updated:** 2026-03-20
 > **Status:** Active
 
 ---
@@ -15,6 +15,7 @@
 | v3 | 2026-03-17 | Phase 1: added GitHub, GitLab, Bitbucket (Cloud + Data Center) git hosting integrations | A-003 resolution |
 | v4 | 2026-03-18 | Phase 1: Semgrep → OpenGrep (Pass 2 engine). Git hosting integrations moved to Phase 2 (require backend server). | ADR-009 |
 | v5 | 2026-03-18 | Phase 1 complete — all checkboxes checked | Phase 1 close |
+| v6 | 2026-03-20 | Phase 2 complete — 7 languages, backend API, React dashboard, Docker Compose full stack | Phase 2 close |
 
 ---
 
@@ -102,45 +103,45 @@ cbom report cbom.json [--output report.pdf] [--format pdf]
 ### Deliverables
 
 **Language Expansion**
-- [ ] **Go** analyzer (stdlib `crypto/*`, `golang.org/x/crypto`)
-- [ ] **C#** analyzer (Roslyn, `System.Security.Cryptography`, BouncyCastle.NET)
-- [ ] **Kotlin** analyzer (reusing Java library model + Kotlin extensions)
-- [ ] **PHP** analyzer (`openssl_*`, `hash_*`, `password_hash`, `sodium_*`)
-- [ ] **Pass 3: Joern integration** — deep inter-procedural analysis for Java, Kotlin, Python, JS, C/C++ *(added in v2 per ADR-004; runs nightly)*
+- [x] **Go** analyzer (stdlib `crypto/*`, `golang.org/x/crypto`)
+- [x] **C#** analyzer (Roslyn, `System.Security.Cryptography`, BouncyCastle.NET)
+- [x] **Kotlin** analyzer (reusing Java library model + Kotlin extensions)
+- [x] **PHP** analyzer (`openssl_*`, `hash_*`, `password_hash`, `sodium_*`)
+- [x] **Pass 3: Joern integration** — deep inter-procedural analysis for Java, Kotlin, Python, JS, C/C++ *(added in v2 per ADR-004; runs nightly)*
 
 **Detection Expansion**
-- [ ] Certificate parsing from embedded PEM files
-- [ ] Certificate expiry checking
-- [ ] JWT/JOSE `alg` detection and `alg: none` flagging
-- [ ] PBKDF2 / bcrypt / scrypt / Argon2 iteration count checking
-- [ ] ECB mode detection
-- [ ] PKCS1v15 padding flagging
+- [x] Certificate parsing from embedded PEM files
+- [x] Certificate expiry checking
+- [x] JWT/JOSE `alg` detection and `alg: none` flagging
+- [x] PBKDF2 / bcrypt / scrypt / Argon2 iteration count checking
+- [x] ECB mode detection
+- [x] PKCS1v15 padding flagging
 
 **Quantum Readiness**
-- [ ] Quantum Risk Score per repository (0–100)
-- [ ] Migration Priority Queue (ranked service list by quantum exposure)
-- [ ] PQC Readiness Report (PDF) — % quantum-safe, top migration targets
+- [x] Quantum Risk Score per repository (0–100)
+- [x] Migration Priority Queue (ranked service list by quantum exposure)
+- [x] PQC Readiness Report (PDF) — % quantum-safe, top migration targets
 
 **Compliance Mapping**
-- [ ] NIST SP 800-131A Rev. 3 — Acceptable / Deprecated / Disallowed tagging
-- [ ] FIPS 140-3 compliance checks
-- [ ] Compliance gap report (PDF)
+- [x] NIST SP 800-131A Rev. 3 — Acceptable / Deprecated / Disallowed tagging
+- [x] FIPS 140-3 compliance checks
+- [x] Compliance gap report (PDF)
 
 **CBOM Management**
-- [ ] CBOM versioning — every scan stored as an immutable snapshot
-- [ ] CBOM diff API — compare two scans
-- [ ] CBOM merge — aggregate multiple CBOMs into one
+- [x] CBOM versioning — every scan stored as an immutable snapshot
+- [x] CBOM diff API — compare two scans
+- [x] CBOM merge — aggregate multiple CBOMs into one
 
 **Git Hosting Integrations** *(moved from Phase 1 — require backend server)*
-- [ ] GitHub — OAuth, webhooks, Checks API, PR review comments
-- [ ] GitLab — OAuth, webhooks, MR notes API
-- [ ] Bitbucket Cloud — OAuth, webhooks, PR comments API
-- [ ] Bitbucket Data Center — PAT auth, webhooks, REST API
+- [x] GitHub — OAuth, webhooks, Checks API, PR review comments
+- [x] GitLab — OAuth, webhooks, MR notes API
+- [x] Bitbucket Cloud — OAuth, webhooks, PR comments API
+- [x] Bitbucket Data Center — PAT auth, webhooks, REST API
 
 **REST API + Basic UI**
-- [ ] FastAPI backend with OpenAPI 3.1 spec
-- [ ] Scan submission, status polling, results retrieval
-- [ ] Basic React dashboard: repository list, latest scan summary, finding list
+- [x] FastAPI backend with OpenAPI 3.1 spec
+- [x] Scan submission, status polling, results retrieval
+- [x] Basic React dashboard: repository list, latest scan summary, finding list
 
 **Success Criteria**
 - 7 languages supported

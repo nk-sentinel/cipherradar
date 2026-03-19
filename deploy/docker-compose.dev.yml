@@ -25,5 +25,31 @@ services:
       timeout: 5s
       retries: 5
 
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    ports: ["8000:8000"]
+    environment:
+      CBOM_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/cipherradar
+      CBOM_REDIS_URL: redis://redis:6379
+      CBOM_JWT_SECRET_KEY: dev-secret-change-in-production
+      CBOM_DEBUG: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    ports: ["3000:3000"]
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000/api/v1
+    depends_on:
+      - api
+
 volumes:
   pgdata:
