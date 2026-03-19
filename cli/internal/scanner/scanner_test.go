@@ -379,3 +379,98 @@ func TestScanDirSkipsDirectories(t *testing.T) {
 		t.Errorf("expected 0 files scanned (all dirs skipped), got %d", result.FilesScanned)
 	}
 }
+
+func TestScanDirJSONContentBasedSkip(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// CycloneDX output JSON — should be skipped
+	cdxFile := filepath.Join(tmpDir, "sbom.json")
+	cdxContent := []byte(`{"bomFormat": "CycloneDX", "specVersion": "1.7", "components": []}`)
+	if err := os.WriteFile(cdxFile, cdxContent, 0644); err != nil {
+		t.Fatalf("failed to write CycloneDX file: %v", err)
+	}
+
+	// SARIF output JSON — should be skipped
+	sarifFile := filepath.Join(tmpDir, "results.json")
+	sarifContent := []byte(`{"$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec", "runs": []}`)
+	if err := os.WriteFile(sarifFile, sarifContent, 0644); err != nil {
+		t.Fatalf("failed to write SARIF file: %v", err)
+	}
+
+	// Config JSON (e.g. Terraform) — should NOT be skipped
+	configFile := filepath.Join(tmpDir, "main.tf.json")
+	configContent := []byte(`{"resource": {"aws_instance": {"web": {"ami": "ami-12345"}}}}`)
+	if err := os.WriteFile(configFile, configContent, 0644); err != nil {
+		t.Fatalf("failed to write config JSON file: %v", err)
+	}
+
+	univFinding := types.Finding{
+		ID:     "UNIV-001",
+		Name:   "Universal finding",
+		RuleID: "univ-json-rule",
+	}
+	univMock := &mockScanner{
+		name:       "universal",
+		extensions: nil,
+		findings:   []types.Finding{univFinding},
+	}
+
+	registry := NewRegistry()
+	registry.RegisterUniversal(univMock)
+
+	result, err := ScanDir(tmpDir, registry, []int{1})
+	if err != nil {
+		t.Fatalf("ScanDir returned error: %v", err)
+	}
+
+	// Only the config JSON should be scanned (CycloneDX and SARIF skipped)
+	if result.FilesScanned != 1 {
+		t.Errorf("expected 1 file scanned (config JSON only), got %d", result.FilesScanned)
+	}
+	if len(result.Findings) != 1 {
+		t.Errorf("expected 1 finding from config JSON, got %d", len(result.Findings))
+	}
+}
+
+func TestIsCycloneDXOrSARIF(t *testing.T) {
+	tests := []struct {
+		name    string
+		content []byte
+		want    bool
+	}{
+		{
+			name:    "CycloneDX BOM",
+			content: []byte(`{"bomFormat": "CycloneDX", "specVersion": "1.7"}`),
+			want:    true,
+		},
+		{
+			name:    "SARIF output",
+			content: []byte(`{"$schema": "https://raw.githubusercontent.com/sarif-spec", "runs": []}`),
+			want:    true,
+		},
+		{
+			name:    "normal config JSON",
+			content: []byte(`{"database": {"host": "localhost", "port": 5432}}`),
+			want:    false,
+		},
+		{
+			name:    "Terraform JSON",
+			content: []byte(`{"resource": {"aws_kms_key": {"example": {"description": "KMS key"}}}}`),
+			want:    false,
+		},
+		{
+			name:    "empty JSON",
+			content: []byte(`{}`),
+			want:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isCycloneDXOrSARIF(tt.content)
+			if got != tt.want {
+				t.Errorf("isCycloneDXOrSARIF() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

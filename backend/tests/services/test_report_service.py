@@ -56,7 +56,7 @@ _SAMPLE_SCAN_DATA = {
             "score": 83.3,
             "compliant_count": 1,
             "non_compliant_count": 1,
-            "items": [
+            "findings": [
                 {
                     "algorithm": "rsa",
                     "classification": "deprecated",
@@ -71,7 +71,7 @@ _SAMPLE_SCAN_DATA = {
             "score": 100.0,
             "compliant_count": 2,
             "non_compliant_count": 0,
-            "items": [],
+            "findings": [],
         },
     ],
 }

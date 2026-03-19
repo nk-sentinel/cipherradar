@@ -85,14 +85,14 @@ async def _assemble_scan_data(scan_id: uuid.UUID, session: AsyncSession) -> dict
                 "score": nist_report.score,
                 "compliant_count": nist_report.compliant_count,
                 "non_compliant_count": nist_report.non_compliant_count,
-                "items": [item.model_dump() for item in nist_report.items],
+                "findings": [item.model_dump() for item in nist_report.items],
             },
             {
                 "framework": fips_report.framework,
                 "score": fips_report.score,
                 "compliant_count": fips_report.compliant_count,
                 "non_compliant_count": fips_report.non_compliant_count,
-                "items": [item.model_dump() for item in fips_report.items],
+                "findings": [item.model_dump() for item in fips_report.items],
             },
         ],
     }

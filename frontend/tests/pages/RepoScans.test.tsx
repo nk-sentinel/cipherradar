@@ -37,11 +37,10 @@ describe('RepoScans', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('stat-critical')).toHaveTextContent('5');
+      expect(screen.getByTestId('stat-high')).toHaveTextContent('28');
+      expect(screen.getByTestId('stat-medium')).toHaveTextContent('67');
+      expect(screen.getByTestId('stat-low-info')).toHaveTextContent('242');
     });
-
-    expect(screen.getByTestId('stat-high')).toHaveTextContent('28');
-    expect(screen.getByTestId('stat-medium')).toHaveTextContent('67');
-    expect(screen.getByTestId('stat-low-info')).toHaveTextContent('242');
   });
 
   it('renders scan header with branch and commit', async () => {
@@ -49,10 +48,9 @@ describe('RepoScans', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/Scan #47/)).toBeInTheDocument();
+      expect(screen.getByText(/main/)).toBeInTheDocument();
+      expect(screen.getByText(/a2b2fbc/)).toBeInTheDocument();
     });
-
-    expect(screen.getByText(/main/)).toBeInTheDocument();
-    expect(screen.getByText(/a2b2fbc/)).toBeInTheDocument();
   });
 
   it('renders export buttons', async () => {
@@ -60,10 +58,9 @@ describe('RepoScans', () => {
 
     await waitFor(() => {
       expect(screen.getByText('CBOM')).toBeInTheDocument();
+      expect(screen.getByText('SARIF')).toBeInTheDocument();
+      expect(screen.getByText('PDF')).toBeInTheDocument();
     });
-
-    expect(screen.getByText('SARIF')).toBeInTheDocument();
-    expect(screen.getByText('PDF')).toBeInTheDocument();
   });
 
   it('renders findings table with severity badges', async () => {
@@ -71,11 +68,10 @@ describe('RepoScans', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Top Findings')).toBeInTheDocument();
+      // Check that findings from mock data appear
+      expect(screen.getByText('Certificate validation disabled')).toBeInTheDocument();
+      expect(screen.getByText('SSLConfig.java')).toBeInTheDocument();
     });
-
-    // Check that findings from mock data appear
-    expect(screen.getByText('Certificate validation disabled')).toBeInTheDocument();
-    expect(screen.getByText('SSLConfig.java')).toBeInTheDocument();
   });
 
   it('shows loading state initially', () => {
@@ -87,7 +83,7 @@ describe('RepoScans', () => {
     render(<RepoScans scanId="nonexistent" />, { wrapper: createWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByText('Scan not found.')).toBeInTheDocument();
+      expect(screen.getByText('Failed to load scan details.')).toBeInTheDocument();
     });
   });
 });

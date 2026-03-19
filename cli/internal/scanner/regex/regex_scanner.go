@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"sync/atomic"
@@ -68,9 +69,22 @@ func (s *RegexScanner) Extensions() []string {
 	return nil
 }
 
+// regexSkipExts lists file extensions that the regex scanner should skip entirely.
+// These produce excessive false positives or are not source code.
+var regexSkipExts = map[string]bool{
+	".md":       true,
+	".markdown": true,
+}
+
 // ScanFile scans a single file's content for crypto-related patterns.
 func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, error) {
 	if len(content) == 0 {
+		return nil, nil
+	}
+
+	// Skip files by extension that generate excessive false positives.
+	ext := strings.ToLower(filepath.Ext(path))
+	if regexSkipExts[ext] {
 		return nil, nil
 	}
 
@@ -91,6 +105,10 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 	var findings []types.Finding
 
 	lines := bytes.Split(content, []byte("\n"))
+
+	// Build a set of line ranges that are inside PEM blocks.
+	// Lines within PEM blocks suppress hex/base64 key material findings.
+	pemBlockLines := s.findPEMBlockLines(lines)
 
 	// --- PEM header detection ---
 	for _, pp := range s.pemPatterns {
@@ -166,6 +184,12 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 
 		// Skip lines that look like git commit contexts
 		if strings.Contains(lineStr, "commit ") || strings.Contains(lineStr, "Commit:") {
+			continue
+		}
+
+		// Suppress hex/base64 findings inside PEM blocks — the PEM header
+		// finding itself is kept, but the noisy per-line matches are not.
+		if pemBlockLines[lineIdx] {
 			continue
 		}
 
@@ -525,6 +549,37 @@ func buildCertFinding(cert *x509.Certificate, path string, lineNum int) types.Fi
 		RuleID: "cbom-regex-pem-certificate-parsed",
 		Pass:   1,
 	}
+}
+
+// pemBeginRe matches any PEM BEGIN header line.
+var pemBeginRe = regexp.MustCompile(`-----BEGIN [A-Z0-9 ]+-----`)
+
+// pemEndRe matches any PEM END footer line.
+var pemEndRe = regexp.MustCompile(`-----END [A-Z0-9 ]+-----`)
+
+// findPEMBlockLines scans lines and returns a map of 0-based line indices
+// that are inside a PEM block (between BEGIN and END markers, exclusive of the
+// BEGIN line but inclusive of content lines and the END line). The BEGIN line
+// itself is NOT marked so that PEM header findings are still emitted.
+func (s *RegexScanner) findPEMBlockLines(lines [][]byte) map[int]bool {
+	result := make(map[int]bool)
+	inBlock := false
+	for i, line := range lines {
+		if !inBlock {
+			if pemBeginRe.Match(line) {
+				inBlock = true
+				// Don't mark the BEGIN line — the PEM header finding should still fire.
+				continue
+			}
+		} else {
+			// Mark every line inside the block (including END line).
+			result[i] = true
+			if pemEndRe.Match(line) {
+				inBlock = false
+			}
+		}
+	}
+	return result
 }
 
 func nextID() string {

@@ -113,7 +113,7 @@ def _build_pdf_compliance_gap(scan_data: dict[str, Any]) -> bytes:
         elements.append(Paragraph(f"Non-compliant: {fw.get('non_compliant_count', 0)}", styles["Normal"]))
         elements.append(Spacer(1, 6))
 
-        items = fw.get("items", [])
+        items = fw.get("findings", [])
         if items:
             table_data = [["Algorithm", "Classification", "Count", "Action"]]
             for item in items:

@@ -39,7 +39,7 @@
         </div>
     </div>
 
-    {% if fw.items %}
+    {% if fw.findings %}
     <table>
         <thead>
             <tr>
@@ -51,7 +51,7 @@
             </tr>
         </thead>
         <tbody>
-            {% for item in fw.items %}
+            {% for item in fw.findings %}
             <tr>
                 <td>{{ item.algorithm }}</td>
                 <td>{{ item.classification }}</td>

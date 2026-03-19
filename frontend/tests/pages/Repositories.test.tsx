@@ -62,39 +62,39 @@ describe('Repositories page', () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('Repositories')).toBeInTheDocument();
+      expect(screen.getByText('+ Connect Repo')).toBeInTheDocument();
     });
-    expect(screen.getByText('+ Connect Repo')).toBeInTheDocument();
   });
 
   it('renders repository rows from mock data', async () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('payment-service')).toBeInTheDocument();
+      expect(screen.getByText('auth-api')).toBeInTheDocument();
+      expect(screen.getByText('data-pipeline')).toBeInTheDocument();
+      expect(screen.getByText('mobile-backend')).toBeInTheDocument();
     });
-    expect(screen.getByText('auth-api')).toBeInTheDocument();
-    expect(screen.getByText('data-pipeline')).toBeInTheDocument();
-    expect(screen.getByText('mobile-backend')).toBeInTheDocument();
   });
 
   it('shows provider for each repo', async () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('payment-service')).toBeInTheDocument();
+      expect(screen.getAllByText('GitHub')).toHaveLength(2);
+      expect(screen.getByText('GitLab')).toBeInTheDocument();
+      expect(screen.getByText('Bitbucket')).toBeInTheDocument();
     });
-    expect(screen.getAllByText('GitHub')).toHaveLength(2);
-    expect(screen.getByText('GitLab')).toBeInTheDocument();
-    expect(screen.getByText('Bitbucket')).toBeInTheDocument();
   });
 
   it('shows compliance percentages', async () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('payment-service')).toBeInTheDocument();
+      expect(screen.getByText('65%')).toBeInTheDocument();
+      expect(screen.getByText('82%')).toBeInTheDocument();
+      expect(screen.getByText('94%')).toBeInTheDocument();
+      expect(screen.getByText('45%')).toBeInTheDocument();
     });
-    expect(screen.getByText('65%')).toBeInTheDocument();
-    expect(screen.getByText('82%')).toBeInTheDocument();
-    expect(screen.getByText('94%')).toBeInTheDocument();
-    expect(screen.getByText('45%')).toBeInTheDocument();
   });
 
   it('renders search input', async () => {
@@ -108,8 +108,8 @@ describe('Repositories page', () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('payment-service')).toBeInTheDocument();
+      const scanButtons = screen.getAllByText('Scan');
+      expect(scanButtons.length).toBe(4);
     });
-    const scanButtons = screen.getAllByText('Scan');
-    expect(scanButtons.length).toBe(4);
   });
 });

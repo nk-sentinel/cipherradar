@@ -69,53 +69,55 @@ describe('QuantumReadiness page', () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('58')).toBeInTheDocument();
+      expect(screen.getByText('Org Quantum Risk Score')).toBeInTheDocument();
     });
-    expect(screen.getByText('Org Quantum Risk Score')).toBeInTheDocument();
   });
 
   it('renders vulnerable algorithm count', async () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('312')).toBeInTheDocument();
+      expect(screen.getByText('Vulnerable Algorithms')).toBeInTheDocument();
     });
-    expect(screen.getByText('Vulnerable Algorithms')).toBeInTheDocument();
   });
 
   it('renders migration effort', async () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('~6mo')).toBeInTheDocument();
+      expect(screen.getByText('Est. Migration Effort')).toBeInTheDocument();
     });
-    expect(screen.getByText('Est. Migration Effort')).toBeInTheDocument();
   });
 
   it('renders migration priority table', async () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('RSA')).toBeInTheDocument();
+      expect(screen.getByText('ECDSA')).toBeInTheDocument();
+      expect(screen.getByText('ECDH')).toBeInTheDocument();
+      expect(screen.getByText('ML-KEM / ML-DSA')).toBeInTheDocument();
     });
-    expect(screen.getByText('ECDSA')).toBeInTheDocument();
-    expect(screen.getByText('ECDH')).toBeInTheDocument();
-    expect(screen.getByText('ML-KEM / ML-DSA')).toBeInTheDocument();
   });
 
   it('renders risk by repository table', async () => {
     renderWithProviders();
     await waitFor(() => {
       expect(screen.getByText('payment-service')).toBeInTheDocument();
+      expect(screen.getByText('mobile-backend')).toBeInTheDocument();
+      expect(screen.getByText('auth-api')).toBeInTheDocument();
+      expect(screen.getByText('data-pipeline')).toBeInTheDocument();
     });
-    expect(screen.getByText('mobile-backend')).toBeInTheDocument();
-    expect(screen.getByText('auth-api')).toBeInTheDocument();
-    expect(screen.getByText('data-pipeline')).toBeInTheDocument();
   });
 
   it('renders quantum status breakdown', async () => {
     renderWithProviders();
     await waitFor(() => {
-      expect(screen.getByText('Vulnerable')).toBeInTheDocument();
+      expect(screen.getByText('Quantum Status Breakdown')).toBeInTheDocument();
+      // "Vulnerable" appears in both the migration table header and the status breakdown
+      expect(screen.getAllByText('Vulnerable').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Safe').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Unknown')).toBeInTheDocument();
+      expect(screen.getByText('Broken')).toBeInTheDocument();
     });
-    expect(screen.getByText('Safe')).toBeInTheDocument();
-    expect(screen.getByText('Unknown')).toBeInTheDocument();
-    expect(screen.getByText('Broken')).toBeInTheDocument();
   });
 });

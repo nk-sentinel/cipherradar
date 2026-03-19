@@ -1,6 +1,7 @@
 package scanner
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,26 @@ import (
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
+
+// isCycloneDXOrSARIF checks the first ~100 bytes of JSON content for signatures
+// of CycloneDX BOM output or SARIF scanner output. These are skipped to avoid
+// the regex scanner matching thousands of algorithm names in its own output.
+func isCycloneDXOrSARIF(content []byte) bool {
+	// Only inspect the first 512 bytes for efficiency
+	probe := content
+	if len(probe) > 512 {
+		probe = probe[:512]
+	}
+	// CycloneDX: contains both "bomFormat" and "CycloneDX"
+	if bytes.Contains(probe, []byte(`"bomFormat"`)) && bytes.Contains(probe, []byte(`"CycloneDX"`)) {
+		return true
+	}
+	// SARIF: contains both "$schema" and "sarif"
+	if bytes.Contains(probe, []byte(`"$schema"`)) && bytes.Contains(probe, []byte("sarif")) {
+		return true
+	}
+	return false
+}
 
 // scanJob represents a single file to be scanned by the worker pool.
 type scanJob struct {
@@ -64,12 +85,14 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 			return nil
 		}
 
-		// Skip scanner output files — the regex universal scanner would
-		// otherwise match thousands of algorithm names in its own output.
 		ext := DetectLanguage(path)
+
+		// Always skip binary and dedicated scanner output by extension.
 		switch strings.ToLower(ext) {
-		case ".json", ".sarif", ".pdf":
-			return nil
+		case ".sarif":
+			return nil // .sarif extension is always scanner output
+		case ".pdf":
+			return nil // binary, never source
 		}
 
 		s := registry.ForExtension(ext)
@@ -86,6 +109,14 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 				Message: err.Error(),
 			})
 			return nil
+		}
+
+		// For .json files, only skip CycloneDX and SARIF output files.
+		// Config JSON (Terraform, k8s manifests, etc.) should be scanned.
+		if strings.ToLower(ext) == ".json" {
+			if isCycloneDXOrSARIF(content) {
+				return nil
+			}
 		}
 
 		relPath, _ := filepath.Rel(root, path)

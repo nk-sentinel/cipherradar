@@ -20,14 +20,13 @@ describe('RepoFindings', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Findings')).toBeInTheDocument();
+      expect(screen.getByText('Severity')).toBeInTheDocument();
+      expect(screen.getByText('File')).toBeInTheDocument();
+      expect(screen.getByText('Finding')).toBeInTheDocument();
+      expect(screen.getByText('Algorithm')).toBeInTheDocument();
+      expect(screen.getByText('Quantum')).toBeInTheDocument();
+      expect(screen.getByText('Pass')).toBeInTheDocument();
     });
-
-    expect(screen.getByText('Severity')).toBeInTheDocument();
-    expect(screen.getByText('File')).toBeInTheDocument();
-    expect(screen.getByText('Finding')).toBeInTheDocument();
-    expect(screen.getByText('Algorithm')).toBeInTheDocument();
-    expect(screen.getByText('Quantum')).toBeInTheDocument();
-    expect(screen.getByText('Pass')).toBeInTheDocument();
   });
 
   it('renders filter buttons', async () => {
@@ -35,13 +34,13 @@ describe('RepoFindings', () => {
 
     await waitFor(() => {
       expect(screen.getByText(/^All\s*\(/)).toBeInTheDocument();
+      expect(screen.getByText(/^Critical\s*\(/)).toBeInTheDocument();
+      expect(screen.getByText(/^High\s*\(/)).toBeInTheDocument();
+      expect(screen.getByText(/^Medium\s*\(/)).toBeInTheDocument();
+      expect(screen.getByText('Quantum Vulnerable')).toBeInTheDocument();
+      // "Broken" appears in both the filter button and as severity badges in the table
+      expect(screen.getAllByText('Broken').length).toBeGreaterThanOrEqual(1);
     });
-
-    expect(screen.getByText(/^Critical\s*\(/)).toBeInTheDocument();
-    expect(screen.getByText(/^High\s*\(/)).toBeInTheDocument();
-    expect(screen.getByText(/^Medium\s*\(/)).toBeInTheDocument();
-    expect(screen.getByText('Quantum Vulnerable')).toBeInTheDocument();
-    expect(screen.getByText('Broken')).toBeInTheDocument();
   });
 
   it('renders finding rows from mock data', async () => {
@@ -49,12 +48,11 @@ describe('RepoFindings', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Certificate validation disabled')).toBeInTheDocument();
+      expect(screen.getByText('MD5 hash function')).toBeInTheDocument();
+      expect(screen.getByText('DES/ECB — broken cipher')).toBeInTheDocument();
+      expect(screen.getByText('AES-256-GCM encryption')).toBeInTheDocument();
+      expect(screen.getByText('RSA-2048 key generation')).toBeInTheDocument();
     });
-
-    expect(screen.getByText('MD5 hash function')).toBeInTheDocument();
-    expect(screen.getByText('DES/ECB — broken cipher')).toBeInTheDocument();
-    expect(screen.getByText('AES-256-GCM encryption')).toBeInTheDocument();
-    expect(screen.getByText('RSA-2048 key generation')).toBeInTheDocument();
   });
 
   it('renders search input', async () => {

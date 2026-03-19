@@ -8,7 +8,10 @@ import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
+
+from app.db.session import get_session
+from app.main import create_app
 
 
 def _make_mock_scan(scan_id: uuid.UUID, status: str = "completed") -> MagicMock:
@@ -37,8 +40,29 @@ def _make_mock_finding(name: str = "RSA-2048", severity: str = "high") -> MagicM
     return finding
 
 
+@pytest.fixture
+def report_app():
+    """Create a test app without lifespan (no DB required)."""
+    return create_app(include_lifespan=False)
+
+
+@pytest.fixture
+async def report_client(report_app):
+    """Async HTTP client with get_session dependency overridden."""
+    mock_session = AsyncMock()
+
+    async def _override_get_session():
+        yield mock_session
+
+    report_app.dependency_overrides[get_session] = _override_get_session
+    transport = ASGITransport(app=report_app)
+    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
+        yield ac
+    report_app.dependency_overrides.clear()
+
+
 @pytest.mark.asyncio
-async def test_report_pdf_returns_correct_content_type(client: AsyncClient) -> None:
+async def test_report_pdf_returns_correct_content_type(report_client: AsyncClient) -> None:
     """GET /api/v1/scans/{id}/reports?format=pdf should return application/pdf."""
     scan_id = uuid.uuid4()
 
@@ -49,7 +73,7 @@ async def test_report_pdf_returns_correct_content_type(client: AsyncClient) -> N
         mock_assemble.return_value = {"scan_id": str(scan_id), "findings": []}
         mock_pdf.return_value = b"%PDF-1.4 fake content"
 
-        response = await client.get(
+        response = await report_client.get(
             f"/api/v1/scans/{scan_id}/reports",
             params={"format": "pdf", "type": "findings-summary"},
         )
@@ -60,7 +84,7 @@ async def test_report_pdf_returns_correct_content_type(client: AsyncClient) -> N
 
 
 @pytest.mark.asyncio
-async def test_report_html_returns_correct_content_type(client: AsyncClient) -> None:
+async def test_report_html_returns_correct_content_type(report_client: AsyncClient) -> None:
     """GET /api/v1/scans/{id}/reports?format=html should return text/html."""
     scan_id = uuid.uuid4()
 
@@ -71,7 +95,7 @@ async def test_report_html_returns_correct_content_type(client: AsyncClient) -> 
         mock_assemble.return_value = {"scan_id": str(scan_id), "findings": []}
         mock_html.return_value = "<html><body>Report</body></html>"
 
-        response = await client.get(
+        response = await report_client.get(
             f"/api/v1/scans/{scan_id}/reports",
             params={"format": "html", "type": "quantum-readiness"},
         )
@@ -81,7 +105,7 @@ async def test_report_html_returns_correct_content_type(client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
-async def test_report_csv_returns_correct_content_type(client: AsyncClient) -> None:
+async def test_report_csv_returns_correct_content_type(report_client: AsyncClient) -> None:
     """GET /api/v1/scans/{id}/reports?format=csv should return text/csv."""
     scan_id = uuid.uuid4()
 
@@ -92,7 +116,7 @@ async def test_report_csv_returns_correct_content_type(client: AsyncClient) -> N
         mock_assemble.return_value = {"scan_id": str(scan_id), "findings": []}
         mock_csv.return_value = "scan_id,name\nval1,val2\n"
 
-        response = await client.get(
+        response = await report_client.get(
             f"/api/v1/scans/{scan_id}/reports",
             params={"format": "csv"},
         )
