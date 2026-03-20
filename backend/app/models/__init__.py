@@ -3,6 +3,7 @@ from app.models.cbom import CBOMDocument
 from app.models.finding import Finding
 from app.models.organisation import Organisation
 from app.models.project import Group, Project
+from app.models.sbom import SBOMDocument
 from app.models.scan import Scan
 from app.models.user import User
 
@@ -12,6 +13,7 @@ __all__ = [
     "Group",
     "Organisation",
     "Project",
+    "SBOMDocument",
     "Scan",
     "User",
 ]

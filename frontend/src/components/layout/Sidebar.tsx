@@ -29,6 +29,10 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Quantum Readiness', icon: '\u269B', to: '/quantum', page: 'portfolio-quantum' },
       { label: 'Compliance', icon: '\u2713', to: '/compliance', page: 'portfolio-compliance' },
+      { label: 'Compliance Dashboard', icon: '\u2611', to: '/compliance-dashboard', page: 'compliance-dashboard' },
+      { label: 'Dependency Graph', icon: '\u2B21', to: '/graph', page: 'graph' },
+      { label: 'Certificates', icon: '\u2B50', to: '/certificates', page: 'certificates' },
+      { label: 'CBOM Diff', icon: '\u0394', to: '/diff', page: 'diff' },
     ],
   },
   {

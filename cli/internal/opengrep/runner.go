@@ -19,15 +19,15 @@ type Runner struct {
 
 // NewRunner creates a new OpenGrep runner.
 // It searches for the opengrep binary in the following order:
-//  1. Bundled next to the cbom binary (cbom-full scenario)
-//  2. $CBOM_TOOLS_DIR/opengrep
-//  3. ~/.cbom/tools/opengrep
+//  1. Bundled next to the cradar binary (cradar-full scenario)
+//  2. $CRADAR_TOOLS_DIR/opengrep
+//  3. ~/.cradar/tools/opengrep
 //  4. $PATH opengrep
 //
 // Returns nil if no binary is found (Pass 2 will be skipped).
 func NewRunner() *Runner {
-	// 1. Check next to the cbom binary itself (cbom-full bundles OpenGrep here).
-	// This ensures cbom-full always uses its own bundled version,
+	// 1. Check next to the cradar binary itself (cradar-full bundles OpenGrep here).
+	// This ensures cradar-full always uses its own bundled version,
 	// regardless of any system-installed OpenGrep.
 	if self, err := os.Executable(); err == nil {
 		selfDir := filepath.Dir(self)
@@ -37,17 +37,17 @@ func NewRunner() *Runner {
 		}
 	}
 
-	// 2. Check $CBOM_TOOLS_DIR/opengrep
-	if toolsDir := os.Getenv("CBOM_TOOLS_DIR"); toolsDir != "" {
+	// 2. Check $CRADAR_TOOLS_DIR/opengrep
+	if toolsDir := os.Getenv("CRADAR_TOOLS_DIR"); toolsDir != "" {
 		candidate := filepath.Join(toolsDir, "opengrep")
 		if isExecutable(candidate) {
 			return &Runner{binaryPath: candidate}
 		}
 	}
 
-	// 3. Check ~/.cbom/tools/opengrep
+	// 3. Check ~/.cradar/tools/opengrep
 	if home, err := os.UserHomeDir(); err == nil {
-		candidate := filepath.Join(home, ".cbom", "tools", "opengrep")
+		candidate := filepath.Join(home, ".cradar", "tools", "opengrep")
 		if isExecutable(candidate) {
 			return &Runner{binaryPath: candidate}
 		}

@@ -8,11 +8,11 @@ import (
 
 func TestNewRunnerReturnsNilWhenNotInstalled(t *testing.T) {
 	// Save and clear environment variables that might point to a binary.
-	origToolsDir := os.Getenv("CBOM_TOOLS_DIR")
-	os.Unsetenv("CBOM_TOOLS_DIR")
+	origToolsDir := os.Getenv("CRADAR_TOOLS_DIR")
+	os.Unsetenv("CRADAR_TOOLS_DIR")
 	defer func() {
 		if origToolsDir != "" {
-			os.Setenv("CBOM_TOOLS_DIR", origToolsDir)
+			os.Setenv("CRADAR_TOOLS_DIR", origToolsDir)
 		}
 	}()
 
@@ -112,14 +112,14 @@ func TestIsExecutable(t *testing.T) {
 }
 
 func TestNewRunnerFindsBundledBinary(t *testing.T) {
-	// Create a temporary directory with a fake "cbom" executable and a
-	// sibling "opengrep" executable, simulating the cbom-full layout.
+	// Create a temporary directory with a fake "cradar" executable and a
+	// sibling "opengrep" executable, simulating the cradar-full layout.
 	tmpDir := t.TempDir()
 
-	// Create a fake cbom binary that just prints its own path.
-	cbomBin := filepath.Join(tmpDir, "cbom")
+	// Create a fake cradar binary that just prints its own path.
+	cradarBin := filepath.Join(tmpDir, "cradar")
 	script := "#!/bin/sh\necho \"$0\"\n"
-	if err := os.WriteFile(cbomBin, []byte(script), 0755); err != nil {
+	if err := os.WriteFile(cradarBin, []byte(script), 0755); err != nil {
 		t.Fatal(err)
 	}
 
@@ -137,15 +137,15 @@ func TestNewRunnerFindsBundledBinary(t *testing.T) {
 		t.Fatal("expected sibling opengrep to be executable")
 	}
 
-	// Verify that when CBOM_TOOLS_DIR points at the same directory, the
+	// Verify that when CRADAR_TOOLS_DIR points at the same directory, the
 	// runner finds the binary (exercising the code path end-to-end).
-	origToolsDir := os.Getenv("CBOM_TOOLS_DIR")
-	os.Setenv("CBOM_TOOLS_DIR", tmpDir)
+	origToolsDir := os.Getenv("CRADAR_TOOLS_DIR")
+	os.Setenv("CRADAR_TOOLS_DIR", tmpDir)
 	defer func() {
 		if origToolsDir != "" {
-			os.Setenv("CBOM_TOOLS_DIR", origToolsDir)
+			os.Setenv("CRADAR_TOOLS_DIR", origToolsDir)
 		} else {
-			os.Unsetenv("CBOM_TOOLS_DIR")
+			os.Unsetenv("CRADAR_TOOLS_DIR")
 		}
 	}()
 
@@ -155,7 +155,7 @@ func TestNewRunnerFindsBundledBinary(t *testing.T) {
 
 	runner := NewRunner()
 	if runner == nil {
-		t.Fatal("expected NewRunner to find bundled opengrep via CBOM_TOOLS_DIR")
+		t.Fatal("expected NewRunner to find bundled opengrep via CRADAR_TOOLS_DIR")
 	}
 	if runner.BinaryPath() != ogBin {
 		t.Errorf("expected binary path %s, got %s", ogBin, runner.BinaryPath())
@@ -169,24 +169,24 @@ func TestNewRunnerWithCBOMToolsDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	origToolsDir := os.Getenv("CBOM_TOOLS_DIR")
-	os.Setenv("CBOM_TOOLS_DIR", tmpDir)
+	origToolsDir := os.Getenv("CRADAR_TOOLS_DIR")
+	os.Setenv("CRADAR_TOOLS_DIR", tmpDir)
 	defer func() {
 		if origToolsDir != "" {
-			os.Setenv("CBOM_TOOLS_DIR", origToolsDir)
+			os.Setenv("CRADAR_TOOLS_DIR", origToolsDir)
 		} else {
-			os.Unsetenv("CBOM_TOOLS_DIR")
+			os.Unsetenv("CRADAR_TOOLS_DIR")
 		}
 	}()
 
-	// Clear PATH to ensure we only find via CBOM_TOOLS_DIR.
+	// Clear PATH to ensure we only find via CRADAR_TOOLS_DIR.
 	origPath := os.Getenv("PATH")
 	os.Setenv("PATH", "")
 	defer os.Setenv("PATH", origPath)
 
 	runner := NewRunner()
 	if runner == nil {
-		t.Fatal("expected NewRunner to find binary via CBOM_TOOLS_DIR")
+		t.Fatal("expected NewRunner to find binary via CRADAR_TOOLS_DIR")
 	}
 	if runner.BinaryPath() != execFile {
 		t.Errorf("expected binary path %s, got %s", execFile, runner.BinaryPath())

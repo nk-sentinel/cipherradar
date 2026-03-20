@@ -1,0 +1,102 @@
+# ISO 27001:2022 Annex A Control A.8.24 — Use of Cryptography
+# Evidence-based checklist (not a numeric score)
+framework: iso-27001-a8-24
+version: "2022"
+
+description: >
+  Control A.8.24 requires organisations to define and implement rules for the
+  effective use of cryptography, including cryptographic key management.
+  Evaluation produces an evidence report (checklist), not a numeric score.
+
+# Evidence checklist items — each maps to a sub-requirement of A.8.24
+checklist:
+  - id: "A.8.24-1"
+    title: "Cryptographic policy defined"
+    description: "A policy on the use of cryptographic controls has been defined, covering which algorithms are approved and key management procedures."
+    evidence_type: policy
+    auto_check: false
+    note: "Requires manual attestation or policy document upload"
+
+  - id: "A.8.24-2"
+    title: "Approved algorithms documented"
+    description: "Organisation has a documented list of approved cryptographic algorithms, key sizes, and modes of operation."
+    evidence_type: policy
+    auto_check: false
+    note: "Cross-reference with CBOM findings to verify consistency"
+
+  - id: "A.8.24-3"
+    title: "No broken algorithms in use"
+    description: "No classically broken algorithms (DES, RC4, MD5, MD4, SHA-1) detected in the codebase."
+    evidence_type: scan
+    auto_check: true
+    broken_families:
+      - des
+      - 3des
+      - rc4
+      - md5
+      - md4
+      - sha1
+
+  - id: "A.8.24-4"
+    title: "Adequate key sizes"
+    description: "All cryptographic keys meet minimum size requirements (RSA >= 2048, ECC >= 224, AES >= 128)."
+    evidence_type: scan
+    auto_check: true
+    min_key_sizes:
+      rsa: 2048
+      dsa: 2048
+      dh: 2048
+      ecc: 224
+      ecdsa: 224
+      ecdh: 224
+      aes: 128
+
+  - id: "A.8.24-5"
+    title: "Cryptographic key management"
+    description: "Key generation, storage, archival, retrieval, distribution, retirement, and destruction processes are documented and followed."
+    evidence_type: policy
+    auto_check: false
+    note: "Requires manual evidence — policy document and key management procedure review"
+
+  - id: "A.8.24-6"
+    title: "Secure random number generation"
+    description: "Only cryptographically secure random number generators are used for key generation and nonces."
+    evidence_type: scan
+    auto_check: true
+    insecure_rng_families:
+      - math-random
+      - rand
+
+  - id: "A.8.24-7"
+    title: "Quantum readiness assessment"
+    description: "Organisation has assessed the impact of quantum computing on current cryptographic controls and has a migration plan."
+    evidence_type: assessment
+    auto_check: true
+    quantum_vulnerable_families:
+      - rsa
+      - ecdsa
+      - ecdh
+      - ecc
+      - dh
+      - dsa
+
+  - id: "A.8.24-8"
+    title: "Compliance with applicable regulations"
+    description: "Cryptographic implementations comply with relevant laws, regulations, and contractual requirements."
+    evidence_type: policy
+    auto_check: false
+    note: "Cross-reference with NIST/FIPS/PCI-DSS compliance reports"
+
+  - id: "A.8.24-9"
+    title: "Data in transit protection"
+    description: "Data transmitted over networks is protected using approved cryptographic protocols (TLS 1.2+)."
+    evidence_type: scan
+    auto_check: false
+    note: "Requires network scan or TLS configuration review"
+
+  - id: "A.8.24-10"
+    title: "Data at rest protection"
+    description: "Sensitive data at rest is encrypted using approved algorithms and adequate key sizes."
+    evidence_type: scan
+    auto_check: false
+    note: "Requires storage configuration review"

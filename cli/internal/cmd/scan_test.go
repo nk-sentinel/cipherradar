@@ -158,3 +158,20 @@ h = hashlib.md5(b"hello")
 		t.Errorf("bomFormat = %v, want CycloneDX", raw["bomFormat"])
 	}
 }
+
+func TestScanCommand_PushFlagRegistered(t *testing.T) {
+	// Verify --push and related flags are registered on the scan command.
+	flags := []string{"push", "project", "group", "api-url", "api-key"}
+	for _, name := range flags {
+		f := scanCmd.Flags().Lookup(name)
+		if f == nil {
+			t.Errorf("expected --%s flag to be registered on scan command", name)
+		}
+	}
+
+	// Verify --push defaults to false.
+	pushFlag := scanCmd.Flags().Lookup("push")
+	if pushFlag != nil && pushFlag.DefValue != "false" {
+		t.Errorf("--push default = %q, want %q", pushFlag.DefValue, "false")
+	}
+}

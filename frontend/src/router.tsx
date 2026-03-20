@@ -21,6 +21,10 @@ import { ScanDetailPage } from './pages/repo/ScanDetailPage.tsx';
 import { RepoFindingsPage } from './pages/repo/RepoFindingsPage.tsx';
 import { RepoQuantum } from './pages/repo/RepoQuantum.tsx';
 import { RepoCompliance } from './pages/repo/RepoCompliance.tsx';
+import { DependencyGraph } from './pages/DependencyGraph.tsx';
+import { CertCalendar } from './pages/CertCalendar.tsx';
+import { ComplianceDashboard } from './pages/ComplianceDashboard.tsx';
+import { CBOMDiff } from './pages/CBOMDiff.tsx';
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -72,6 +76,30 @@ const complianceRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/compliance',
   component: Compliance,
+});
+
+const graphRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/graph',
+  component: DependencyGraph,
+});
+
+const certCalendarRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/certificates',
+  component: CertCalendar,
+});
+
+const complianceDashboardRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/compliance-dashboard',
+  component: ComplianceDashboard,
+});
+
+const cbomDiffRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/diff',
+  component: CBOMDiff,
 });
 
 const profileRoute = createRoute({
@@ -171,6 +199,10 @@ const routeTree = rootRoute.addChildren([
     reposRoute,
     quantumRoute,
     complianceRoute,
+    graphRoute,
+    certCalendarRoute,
+    complianceDashboardRoute,
+    cbomDiffRoute,
     profileRoute,
     downloadsRoute,
     repoScanDetailRoute,

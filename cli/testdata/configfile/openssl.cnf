@@ -1,0 +1,43 @@
+# OpenSSL configuration file for testing.
+
+[ ca ]
+default_ca = CA_default
+
+[ CA_default ]
+dir             = /etc/pki/CA
+certs           = $dir/certs
+crl_dir         = $dir/crl
+database        = $dir/index.txt
+serial          = $dir/serial
+
+# Weak default digest — should be detected.
+default_md      = md5
+
+# Weak key size — should be detected (< 2048).
+default_bits    = 1024
+
+default_days    = 365
+
+[ req ]
+distinguished_name = req_distinguished_name
+
+# Another weak digest reference.
+default_md = sha1
+
+# Weak key size in req section.
+default_bits = 1024
+
+[ req_distinguished_name ]
+countryName = Country Name
+stateOrProvinceName = State
+localityName = Locality
+organizationName = Organization
+
+[ v3_ca ]
+basicConstraints = critical,CA:TRUE
+keyUsage = critical,keyCertSign,cRLSign
+
+[ secure_section ]
+# Safe settings — should NOT flag.
+default_md = sha256
+default_bits = 4096

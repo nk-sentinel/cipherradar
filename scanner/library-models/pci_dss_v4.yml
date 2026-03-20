@@ -1,0 +1,179 @@
+# PCI-DSS v4.0 — Cryptographic Requirements
+framework: pci-dss-v4
+version: "4.0"
+
+requirements:
+  - id: "2.2.7"
+    title: "Strong cryptography for non-console administrative access"
+    description: "All non-console administrative access is encrypted using strong cryptography."
+    approved_algorithms:
+      - family: aes
+        min_key_size: 128
+        note: "AES-128 or higher required"
+      - family: chacha20
+        note: "ChaCha20-Poly1305 acceptable for TLS"
+    disallowed_algorithms:
+      - family: des
+        note: "DES is not considered strong cryptography"
+      - family: 3des
+        note: "3DES no longer acceptable after 2023"
+      - family: rc4
+        note: "RC4 prohibited"
+      - family: md5
+        note: "MD5 not acceptable for integrity"
+
+  - id: "3.5"
+    title: "Primary account number (PAN) key management"
+    description: "PAN is secured wherever it is stored using strong cryptography with associated key-management processes."
+    requirements:
+      - "Key encryption keys must be at least as strong as the data-encrypting key"
+      - "Key encryption keys must be stored separately from data-encrypting keys"
+      - "Keys must be stored in fewest possible locations"
+      - "Cryptographic key changes for keys past their cryptoperiod"
+    approved_algorithms:
+      - family: aes
+        min_key_size: 128
+      - family: rsa
+        min_key_size: 2048
+      - family: ecc
+        min_key_size: 224
+    disallowed_algorithms:
+      - family: des
+      - family: 3des
+      - family: rc4
+
+  - id: "4.2"
+    title: "Strong cryptography for data in transit"
+    description: "PAN is protected with strong cryptography during transmission over open, public networks."
+    approved_protocols:
+      - "tls-1.2"
+      - "tls-1.3"
+    disallowed_protocols:
+      - "ssl-3.0"
+      - "tls-1.0"
+      - "tls-1.1"
+    approved_algorithms:
+      - family: aes
+        min_key_size: 128
+      - family: chacha20
+      - family: sha256
+      - family: sha384
+      - family: sha512
+    disallowed_algorithms:
+      - family: des
+      - family: 3des
+      - family: rc4
+      - family: md5
+      - family: sha1
+        note: "SHA-1 not acceptable for TLS certificate signatures"
+
+  - id: "6.2.4"
+    title: "Secure coding — prevent common vulnerabilities"
+    description: "Software engineering techniques prevent or mitigate common software attacks and related vulnerabilities."
+    checks:
+      - "No hardcoded cryptographic keys in source code"
+      - "No use of insecure random number generators for cryptographic purposes"
+      - "No deprecated algorithms in new code"
+    disallowed_algorithms:
+      - family: math-random
+        note: "Not a cryptographic RNG"
+      - family: rand
+        note: "Not a cryptographic RNG"
+      - family: md4
+        note: "Broken hash function"
+
+# Scoring: per-finding classification
+algorithms:
+  # Strong / compliant
+  - family: aes
+    classification: compliant
+    min_key_size: 128
+    note: "AES-128+ is PCI-DSS compliant"
+  - family: sha256
+    classification: compliant
+  - family: sha384
+    classification: compliant
+  - family: sha512
+    classification: compliant
+  - family: sha3-256
+    classification: compliant
+  - family: sha3-384
+    classification: compliant
+  - family: sha3-512
+    classification: compliant
+  - family: chacha20
+    classification: compliant
+    note: "Acceptable for TLS"
+  - family: rsa
+    classification: compliant
+    min_key_size: 2048
+    note: "RSA-2048+ acceptable"
+  - family: ecdsa
+    classification: compliant
+    min_key_size: 224
+  - family: ecdh
+    classification: compliant
+    min_key_size: 224
+  - family: ecc
+    classification: compliant
+    min_key_size: 224
+  - family: dh
+    classification: compliant
+    min_key_size: 2048
+  - family: ml-kem
+    classification: compliant
+    note: "Post-quantum approved"
+  - family: ml-dsa
+    classification: compliant
+    note: "Post-quantum approved"
+  - family: slh-dsa
+    classification: compliant
+    note: "Post-quantum approved"
+  - family: hash-drbg
+    classification: compliant
+  - family: hmac-drbg
+    classification: compliant
+  - family: ctr-drbg
+    classification: compliant
+
+  # Non-compliant — weak or disallowed
+  - family: des
+    classification: non-compliant
+    note: "DES is not strong cryptography per PCI-DSS"
+    requirement: "2.2.7"
+  - family: 3des
+    classification: non-compliant
+    note: "3DES disallowed after 2023"
+    requirement: "2.2.7"
+  - family: rc4
+    classification: non-compliant
+    note: "RC4 prohibited"
+    requirement: "2.2.7"
+  - family: md5
+    classification: non-compliant
+    note: "MD5 not acceptable for cryptographic integrity"
+    requirement: "4.2"
+  - family: md4
+    classification: non-compliant
+    note: "MD4 broken"
+    requirement: "6.2.4"
+  - family: sha1
+    classification: non-compliant
+    note: "SHA-1 not acceptable for digital signatures"
+    requirement: "4.2"
+  - family: math-random
+    classification: non-compliant
+    note: "Not a cryptographic RNG"
+    requirement: "6.2.4"
+  - family: rand
+    classification: non-compliant
+    note: "Not a cryptographic RNG"
+    requirement: "6.2.4"
+  - family: blowfish
+    classification: non-compliant
+    note: "Not considered strong cryptography for PCI-DSS"
+    requirement: "2.2.7"
+  - family: dsa
+    classification: non-compliant
+    note: "DSA deprecated; use ECDSA or ML-DSA"
+    requirement: "2.2.7"

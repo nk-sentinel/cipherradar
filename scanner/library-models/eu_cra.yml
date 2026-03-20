@@ -1,0 +1,221 @@
+# EU Cyber Resilience Act (CRA) — Annex I Essential Cybersecurity Requirements
+# Gap report format: identifies gaps between current state and CRA requirements
+framework: eu-cra
+version: "2024"
+
+description: >
+  The EU Cyber Resilience Act (Regulation 2024/2847) establishes mandatory
+  cybersecurity requirements for products with digital elements. Annex I
+  defines essential requirements including cryptographic protections.
+  Evaluation produces a gap report, not a numeric score.
+
+# Essential requirements from Annex I relevant to cryptography
+essential_requirements:
+  - id: "CRA-ANNEX-I-1"
+    title: "Security by design"
+    section: "Annex I, Part I, (1)"
+    description: "Products shall be designed, developed and produced to ensure an appropriate level of cybersecurity based on the risks."
+    crypto_relevance: "Use of state-of-the-art cryptographic algorithms and adequate key sizes."
+    auto_check: true
+    check_type: algorithm_strength
+    disallowed_families:
+      - des
+      - 3des
+      - rc4
+      - md5
+      - md4
+      - sha1
+
+  - id: "CRA-ANNEX-I-2"
+    title: "No known exploitable vulnerabilities"
+    section: "Annex I, Part I, (2)"
+    description: "Products shall be delivered without any known exploitable vulnerabilities."
+    crypto_relevance: "No use of broken cryptographic primitives."
+    auto_check: true
+    check_type: broken_algorithms
+    broken_families:
+      - des
+      - rc4
+      - md5
+      - md4
+
+  - id: "CRA-ANNEX-I-3a"
+    title: "Data protection — confidentiality"
+    section: "Annex I, Part I, (3)(a)"
+    description: "Protect the confidentiality of stored, transmitted, or otherwise processed data."
+    crypto_relevance: "Use strong encryption for data at rest and in transit."
+    auto_check: true
+    check_type: encryption_strength
+    approved_encryption:
+      - family: aes
+        min_key_size: 128
+      - family: chacha20
+    disallowed_encryption:
+      - family: des
+      - family: 3des
+      - family: rc4
+      - family: blowfish
+
+  - id: "CRA-ANNEX-I-3b"
+    title: "Data protection — integrity"
+    section: "Annex I, Part I, (3)(b)"
+    description: "Protect the integrity of stored, transmitted, or otherwise processed data."
+    crypto_relevance: "Use approved hash functions and MACs."
+    auto_check: true
+    check_type: hash_strength
+    approved_hashes:
+      - sha256
+      - sha384
+      - sha512
+      - sha3-256
+      - sha3-384
+      - sha3-512
+    disallowed_hashes:
+      - md5
+      - md4
+      - sha1
+
+  - id: "CRA-ANNEX-I-3d"
+    title: "Data protection — availability"
+    section: "Annex I, Part I, (3)(d)"
+    description: "Protect the availability of essential and basic functions."
+    crypto_relevance: "Cryptographic implementations must not degrade availability (e.g., key management failures)."
+    auto_check: false
+    check_type: manual_review
+
+  - id: "CRA-ANNEX-I-4"
+    title: "Secure by default"
+    section: "Annex I, Part I, (4)"
+    description: "Products shall be delivered with secure default configurations."
+    crypto_relevance: "Default cryptographic settings must use strong algorithms."
+    auto_check: false
+    check_type: configuration_review
+
+  - id: "CRA-ANNEX-I-5"
+    title: "Secure authentication"
+    section: "Annex I, Part I, (5)"
+    description: "Products shall support secure authentication mechanisms."
+    crypto_relevance: "Authentication must use approved digital signature or MAC algorithms."
+    auto_check: true
+    check_type: auth_crypto
+    approved_signature_families:
+      - rsa
+      - ecdsa
+      - ml-dsa
+      - slh-dsa
+    min_key_sizes:
+      rsa: 2048
+      ecdsa: 224
+
+  - id: "CRA-ANNEX-I-7"
+    title: "Secure update mechanism"
+    section: "Annex I, Part I, (7)"
+    description: "Products shall support secure update mechanisms."
+    crypto_relevance: "Software updates must be cryptographically signed."
+    auto_check: false
+    check_type: manual_review
+
+  - id: "CRA-ANNEX-II-1"
+    title: "Vulnerability handling — SBOM"
+    section: "Annex I, Part II, (1)"
+    description: "Manufacturers shall identify and document vulnerabilities and components, including an SBOM."
+    crypto_relevance: "CBOM is a subset of SBOM; all cryptographic components must be documented."
+    auto_check: true
+    check_type: cbom_completeness
+
+  - id: "CRA-ANNEX-II-5"
+    title: "Vulnerability handling — timely updates"
+    section: "Annex I, Part II, (5)"
+    description: "Manufacturers shall address vulnerabilities without delay through security updates."
+    crypto_relevance: "Deprecated or broken crypto must be replaced in timely updates."
+    auto_check: false
+    check_type: manual_review
+
+# Algorithm classification for gap detection
+algorithms:
+  # Compliant
+  - family: aes
+    classification: compliant
+    min_key_size: 128
+  - family: sha256
+    classification: compliant
+  - family: sha384
+    classification: compliant
+  - family: sha512
+    classification: compliant
+  - family: sha3-256
+    classification: compliant
+  - family: sha3-384
+    classification: compliant
+  - family: sha3-512
+    classification: compliant
+  - family: chacha20
+    classification: compliant
+  - family: rsa
+    classification: compliant
+    min_key_size: 2048
+  - family: ecdsa
+    classification: compliant
+    min_key_size: 224
+  - family: ecdh
+    classification: compliant
+    min_key_size: 224
+  - family: ecc
+    classification: compliant
+    min_key_size: 224
+  - family: dh
+    classification: compliant
+    min_key_size: 2048
+  - family: dsa
+    classification: compliant
+    min_key_size: 2048
+  - family: ml-kem
+    classification: compliant
+  - family: ml-dsa
+    classification: compliant
+  - family: slh-dsa
+    classification: compliant
+  - family: hash-drbg
+    classification: compliant
+  - family: hmac-drbg
+    classification: compliant
+  - family: ctr-drbg
+    classification: compliant
+
+  # Non-compliant — gap items
+  - family: des
+    classification: non-compliant
+    note: "DES is broken — violates CRA Annex I (1) and (2)"
+    cra_requirements: ["CRA-ANNEX-I-1", "CRA-ANNEX-I-2", "CRA-ANNEX-I-3a"]
+  - family: 3des
+    classification: non-compliant
+    note: "3DES disallowed — violates CRA Annex I (1)"
+    cra_requirements: ["CRA-ANNEX-I-1", "CRA-ANNEX-I-3a"]
+  - family: rc4
+    classification: non-compliant
+    note: "RC4 is broken — violates CRA Annex I (1) and (2)"
+    cra_requirements: ["CRA-ANNEX-I-1", "CRA-ANNEX-I-2"]
+  - family: md5
+    classification: non-compliant
+    note: "MD5 is broken — violates CRA Annex I (1), (2), and (3)(b)"
+    cra_requirements: ["CRA-ANNEX-I-1", "CRA-ANNEX-I-2", "CRA-ANNEX-I-3b"]
+  - family: md4
+    classification: non-compliant
+    note: "MD4 is broken — violates CRA Annex I (1) and (2)"
+    cra_requirements: ["CRA-ANNEX-I-1", "CRA-ANNEX-I-2"]
+  - family: sha1
+    classification: non-compliant
+    note: "SHA-1 is deprecated — violates CRA Annex I (1) and (3)(b)"
+    cra_requirements: ["CRA-ANNEX-I-1", "CRA-ANNEX-I-3b"]
+  - family: blowfish
+    classification: non-compliant
+    note: "Blowfish not state-of-the-art — violates CRA Annex I (1)"
+    cra_requirements: ["CRA-ANNEX-I-1"]
+  - family: math-random
+    classification: non-compliant
+    note: "Not a cryptographic RNG"
+    cra_requirements: ["CRA-ANNEX-I-1"]
+  - family: rand
+    classification: non-compliant
+    note: "Not a cryptographic RNG"
+    cra_requirements: ["CRA-ANNEX-I-1"]

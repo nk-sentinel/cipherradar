@@ -8,11 +8,11 @@ import (
 
 func TestNewRunnerReturnsNilWhenNotInstalled(t *testing.T) {
 	// Save and clear environment variables that might point to a binary.
-	origToolsDir := os.Getenv("CBOM_TOOLS_DIR")
-	os.Unsetenv("CBOM_TOOLS_DIR")
+	origToolsDir := os.Getenv("CRADAR_TOOLS_DIR")
+	os.Unsetenv("CRADAR_TOOLS_DIR")
 	defer func() {
 		if origToolsDir != "" {
-			os.Setenv("CBOM_TOOLS_DIR", origToolsDir)
+			os.Setenv("CRADAR_TOOLS_DIR", origToolsDir)
 		}
 	}()
 
@@ -127,15 +127,15 @@ func TestNewRunnerFindsBundledBinary(t *testing.T) {
 		t.Fatal("expected sibling joern to be executable")
 	}
 
-	// Verify that when CBOM_TOOLS_DIR points at the same directory, the
+	// Verify that when CRADAR_TOOLS_DIR points at the same directory, the
 	// runner finds the binary (exercising the code path end-to-end).
-	origToolsDir := os.Getenv("CBOM_TOOLS_DIR")
-	os.Setenv("CBOM_TOOLS_DIR", tmpDir)
+	origToolsDir := os.Getenv("CRADAR_TOOLS_DIR")
+	os.Setenv("CRADAR_TOOLS_DIR", tmpDir)
 	defer func() {
 		if origToolsDir != "" {
-			os.Setenv("CBOM_TOOLS_DIR", origToolsDir)
+			os.Setenv("CRADAR_TOOLS_DIR", origToolsDir)
 		} else {
-			os.Unsetenv("CBOM_TOOLS_DIR")
+			os.Unsetenv("CRADAR_TOOLS_DIR")
 		}
 	}()
 
@@ -145,7 +145,7 @@ func TestNewRunnerFindsBundledBinary(t *testing.T) {
 
 	runner := NewRunner()
 	if runner == nil {
-		t.Fatal("expected NewRunner to find bundled joern via CBOM_TOOLS_DIR")
+		t.Fatal("expected NewRunner to find bundled joern via CRADAR_TOOLS_DIR")
 	}
 	if runner.BinaryPath() != joernBin {
 		t.Errorf("expected binary path %s, got %s", joernBin, runner.BinaryPath())
@@ -159,24 +159,24 @@ func TestNewRunnerWithCBOMToolsDir(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	origToolsDir := os.Getenv("CBOM_TOOLS_DIR")
-	os.Setenv("CBOM_TOOLS_DIR", tmpDir)
+	origToolsDir := os.Getenv("CRADAR_TOOLS_DIR")
+	os.Setenv("CRADAR_TOOLS_DIR", tmpDir)
 	defer func() {
 		if origToolsDir != "" {
-			os.Setenv("CBOM_TOOLS_DIR", origToolsDir)
+			os.Setenv("CRADAR_TOOLS_DIR", origToolsDir)
 		} else {
-			os.Unsetenv("CBOM_TOOLS_DIR")
+			os.Unsetenv("CRADAR_TOOLS_DIR")
 		}
 	}()
 
-	// Clear PATH to ensure we only find via CBOM_TOOLS_DIR.
+	// Clear PATH to ensure we only find via CRADAR_TOOLS_DIR.
 	origPath := os.Getenv("PATH")
 	os.Setenv("PATH", "")
 	defer os.Setenv("PATH", origPath)
 
 	runner := NewRunner()
 	if runner == nil {
-		t.Fatal("expected NewRunner to find binary via CBOM_TOOLS_DIR")
+		t.Fatal("expected NewRunner to find binary via CRADAR_TOOLS_DIR")
 	}
 	if runner.BinaryPath() != execFile {
 		t.Errorf("expected binary path %s, got %s", execFile, runner.BinaryPath())
@@ -201,7 +201,13 @@ func TestExtractQueriesToTempDir(t *testing.T) {
 	}
 
 	// Verify expected query files exist.
-	expectedFiles := []string{"crypto-key-flow.sc", "hardcoded-secret-flow.sc"}
+	expectedFiles := []string{
+		"crypto-key-flow.sc",
+		"hardcoded-secret-flow.sc",
+		"iv-reuse.sc",
+		"deprecated-api-chain.sc",
+		"cert-validation-bypass.sc",
+	}
 	for _, expected := range expectedFiles {
 		path := filepath.Join(tmpDir, expected)
 		if _, err := os.Stat(path); os.IsNotExist(err) {

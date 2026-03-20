@@ -1,0 +1,32 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: example-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-ciphers: "RC4-SHA:DES-CBC3-SHA:AES128-SHA"
+    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1 TLSv1.1 TLSv1.2"
+spec:
+  tls:
+    - hosts:
+        - example.com
+      secretName: example-tls-secret
+  rules:
+    - host: example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: example-service
+                port:
+                  number: 80
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: example-tls-secret
+type: kubernetes.io/tls
+data:
+  tls.crt: LS0tLS1CRUdJTi...
+  tls.key: LS0tLS1CRUdJTi...

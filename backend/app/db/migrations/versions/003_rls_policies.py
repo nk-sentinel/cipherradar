@@ -57,8 +57,7 @@ def upgrade() -> None:
     # Groups table: also tenant-scoped.
     op.execute("ALTER TABLE groups ENABLE ROW LEVEL SECURITY")
     op.execute(
-        "CREATE POLICY tenant_isolation_groups ON groups "
-        "USING (org_id = current_setting('app.current_org_id')::uuid)"
+        "CREATE POLICY tenant_isolation_groups ON groups USING (org_id = current_setting('app.current_org_id')::uuid)"
     )
 
 

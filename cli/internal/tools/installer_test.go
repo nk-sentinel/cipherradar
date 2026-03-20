@@ -11,10 +11,10 @@ import (
 	"testing"
 )
 
-func TestDefaultToolsDirEndsWithCbomTools(t *testing.T) {
+func TestDefaultToolsDirEndsWithCradarTools(t *testing.T) {
 	dir := DefaultToolsDir()
-	if !strings.HasSuffix(dir, filepath.Join(".cbom", "tools")) {
-		t.Errorf("expected DefaultToolsDir to end with .cbom/tools, got %s", dir)
+	if !strings.HasSuffix(dir, filepath.Join(".cradar", "tools")) {
+		t.Errorf("expected DefaultToolsDir to end with .cradar/tools, got %s", dir)
 	}
 }
 

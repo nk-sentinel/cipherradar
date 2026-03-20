@@ -1,6 +1,6 @@
 version: 2
 
-project_name: cbom
+project_name: cradar
 
 before:
   hooks:
@@ -8,10 +8,10 @@ before:
     - go generate ./internal/rules
 
 builds:
-  # Lightweight binary — cbom only, no tools bundled
-  - id: cbom
+  # Lightweight binary — cradar only, no tools bundled
+  - id: cradar
     main: ./cmd/cbom
-    binary: cbom
+    binary: cradar
     env:
       - CGO_ENABLED=1
     goos:
@@ -32,9 +32,9 @@ builds:
       - -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.BuildDate={{.Date}}
 
   # Full binary — same binary, bundled with OpenGrep in the archive
-  - id: cbom-full
+  - id: cradar-full
     main: ./cmd/cbom
-    binary: cbom
+    binary: cradar
     env:
       - CGO_ENABLED=1
     goos:
@@ -54,23 +54,23 @@ builds:
       - -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.BuildDate={{.Date}}
 
 archives:
-  # Lightweight archive — just the cbom binary
-  - id: cbom-archive
+  # Lightweight archive — just the cradar binary
+  - id: cradar-archive
     builds:
-      - cbom
-    name_template: "cbom_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+      - cradar
+    name_template: "cradar_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: tar.gz
     format_overrides:
       - goos: windows
         format: zip
 
-  # Full archive — cbom binary + OpenGrep binary
+  # Full archive — cradar binary + OpenGrep binary
   # NOTE: OpenGrep binary must be placed in dist/opengrep-<os>-<arch>/
   # before running goreleaser, via a CI pre-build step.
-  - id: cbom-full-archive
+  - id: cradar-full-archive
     builds:
-      - cbom-full
-    name_template: "cbom-full_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+      - cradar-full
+    name_template: "cradar-full_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     format: tar.gz
     files:
       - src: "dist/opengrep-{{ .Os }}-{{ .Arch }}/*"

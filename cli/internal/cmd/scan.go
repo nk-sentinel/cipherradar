@@ -7,9 +7,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/joern"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
+	"github.com/nk-sentinel/cipherradar/cli/internal/push"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
@@ -35,6 +37,13 @@ func init() {
 	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
 	scanCmd.Flags().String("queries-dir", "", "directory containing Joern .sc query scripts for Pass 3")
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (enables inter-procedural analysis)")
+
+	// Push flags (ADR-025).
+	scanCmd.Flags().Bool("push", false, "upload scan results to CipherRadar portal after scan")
+	scanCmd.Flags().String("project", "", "project name for portal upload (required with --push)")
+	scanCmd.Flags().String("group", "", "group path for portal upload (optional)")
+	scanCmd.Flags().String("api-url", "", "CipherRadar portal API URL")
+	scanCmd.Flags().String("api-key", "", "API key for portal authentication (also reads CRADAR_API_KEY env)")
 
 	rootCmd.AddCommand(scanCmd)
 }
@@ -66,7 +75,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if containsPass(passes, 2) {
 		rulesDir, _ := cmd.Flags().GetString("rules-dir")
 		if rulesDir == "" {
-			rulesDir = os.Getenv("CBOM_RULES_DIR")
+			rulesDir = os.Getenv("CRADAR_RULES_DIR")
 		}
 
 		pass2Findings, pass2Err := runPass2(targetPath, rulesDir)
@@ -84,7 +93,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if containsPass(passes, 3) {
 		queriesDir, _ := cmd.Flags().GetString("queries-dir")
 		if queriesDir == "" {
-			queriesDir = os.Getenv("CBOM_QUERIES_DIR")
+			queriesDir = os.Getenv("CRADAR_QUERIES_DIR")
 		}
 
 		pass3Findings, pass3Err := runPass3(targetPath, queriesDir)
@@ -145,6 +154,70 @@ func runScan(cmd *cobra.Command, args []string) error {
 		fmt.Fprintln(os.Stderr, "CycloneDX 1.7 schema validation PASSED")
 	}
 
+	// Push scan results to portal if --push is set (ADR-025).
+	pushEnabled, _ := cmd.Flags().GetBool("push")
+	if pushEnabled {
+		if err := runPush(cmd, result); err != nil {
+			return fmt.Errorf("push failed: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// runPush uploads scan results to the CipherRadar portal.
+// Flag values take precedence over config file values.
+func runPush(cmd *cobra.Command, result *types.ScanResult) error {
+	// Load config file for defaults.
+	configPath, _ := cmd.Flags().GetString("config")
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: could not load config file %s: %v\n", configPath, err)
+		cfg = &config.Config{}
+	}
+
+	// Resolve flags with config file fallbacks.
+	apiURL, _ := cmd.Flags().GetString("api-url")
+	if apiURL == "" {
+		apiURL = cfg.APIURL
+	}
+	if apiURL == "" {
+		return fmt.Errorf("--api-url is required (or set api_url in .cradar.yml)")
+	}
+
+	apiKey, _ := cmd.Flags().GetString("api-key")
+	if apiKey == "" {
+		apiKey = os.Getenv("CRADAR_API_KEY")
+	}
+	apiKey = cfg.ResolveAPIKey(apiKey)
+	if apiKey == "" {
+		return fmt.Errorf("--api-key or CRADAR_API_KEY env var is required")
+	}
+
+	project, _ := cmd.Flags().GetString("project")
+	if project == "" {
+		project = cfg.Project
+	}
+	if project == "" {
+		return fmt.Errorf("--project is required with --push (or set project in .cradar.yml)")
+	}
+
+	group, _ := cmd.Flags().GetString("group")
+	if group == "" {
+		group = cfg.Group
+	}
+
+	branch, _ := cmd.Flags().GetString("branch")
+	// commitSHA is not yet a flag; leave empty for now.
+	commitSHA := ""
+
+	client := push.NewPushClient(apiURL, apiKey)
+	resp, err := client.UploadScanResult(result, project, group, branch, commitSHA)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(os.Stderr, "Scan uploaded to portal (scan: %s, project: %s)\n", resp.ScanID, resp.ProjectID)
 	return nil
 }
 
@@ -188,7 +261,7 @@ func containsPass(passes []int, pass int) bool {
 func runPass2(target string, rulesDir string) ([]types.Finding, error) {
 	runner := opengrep.NewRunner()
 	if runner == nil || !runner.Available() {
-		fmt.Fprintln(os.Stderr, "Pass 2 skipped — opengrep not found. Run 'cbom install-tools' or use cbom-full.")
+		fmt.Fprintln(os.Stderr, "Pass 2 skipped — opengrep not found. Run 'cradar install-tools' or use cradar-full.")
 		return nil, nil
 	}
 
@@ -211,7 +284,7 @@ func runPass2(target string, rulesDir string) ([]types.Finding, error) {
 func runPass3(target string, queriesDir string) ([]types.Finding, error) {
 	runner := joern.NewRunner()
 	if runner == nil || !runner.Available() {
-		fmt.Fprintln(os.Stderr, "Pass 3 skipped — joern not found. Run 'cbom install-tools' or use cbom-full.")
+		fmt.Fprintln(os.Stderr, "Pass 3 skipped — joern not found. Run 'cradar install-tools' or use cradar-full.")
 		return nil, nil
 	}
 

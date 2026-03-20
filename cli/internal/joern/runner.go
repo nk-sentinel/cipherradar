@@ -23,14 +23,14 @@ type Runner struct {
 
 // NewRunner creates a new Joern runner.
 // It searches for the joern binary in the following order:
-//  1. Bundled next to the cbom binary (cbom-full scenario)
-//  2. $CBOM_TOOLS_DIR/joern
-//  3. ~/.cbom/tools/joern
+//  1. Bundled next to the cradar binary (cradar-full scenario)
+//  2. $CRADAR_TOOLS_DIR/joern
+//  3. ~/.cradar/tools/joern
 //  4. $PATH joern
 //
 // Returns nil if no binary is found (Pass 3 will be skipped).
 func NewRunner() *Runner {
-	// 1. Check next to the cbom binary itself (cbom-full bundles Joern here).
+	// 1. Check next to the cradar binary itself (cradar-full bundles Joern here).
 	if self, err := os.Executable(); err == nil {
 		selfDir := filepath.Dir(self)
 		candidate := filepath.Join(selfDir, "joern")
@@ -39,17 +39,17 @@ func NewRunner() *Runner {
 		}
 	}
 
-	// 2. Check $CBOM_TOOLS_DIR/joern
-	if toolsDir := os.Getenv("CBOM_TOOLS_DIR"); toolsDir != "" {
+	// 2. Check $CRADAR_TOOLS_DIR/joern
+	if toolsDir := os.Getenv("CRADAR_TOOLS_DIR"); toolsDir != "" {
 		candidate := filepath.Join(toolsDir, "joern")
 		if isExecutable(candidate) {
 			return &Runner{binaryPath: candidate}
 		}
 	}
 
-	// 3. Check ~/.cbom/tools/joern
+	// 3. Check ~/.cradar/tools/joern
 	if home, err := os.UserHomeDir(); err == nil {
-		candidate := filepath.Join(home, ".cbom", "tools", "joern")
+		candidate := filepath.Join(home, ".cradar", "tools", "joern")
 		if isExecutable(candidate) {
 			return &Runner{binaryPath: candidate}
 		}
@@ -93,7 +93,7 @@ func (r *Runner) Scan(target string, queriesDir string) ([]types.Finding, error)
 	}
 
 	// Create a temporary directory for the CPG and working files.
-	tmpDir, err := os.MkdirTemp("", "cbom-joern-*")
+	tmpDir, err := os.MkdirTemp("", "cradar-joern-*")
 	if err != nil {
 		return nil, fmt.Errorf("creating temp dir: %w", err)
 	}
@@ -196,7 +196,7 @@ func ExtractQueriesToTempDir() (string, error) {
 		return "", fmt.Errorf("reading embedded queries: %w", err)
 	}
 
-	tmpDir, err := os.MkdirTemp("", "cbom-joern-queries-*")
+	tmpDir, err := os.MkdirTemp("", "cradar-joern-queries-*")
 	if err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}

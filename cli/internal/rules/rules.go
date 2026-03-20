@@ -24,7 +24,7 @@ func ExtractToTempDir() (string, error) {
 		return "", fmt.Errorf("reading embedded rules: %w", err)
 	}
 
-	tmpDir, err := os.MkdirTemp("", "cbom-rules-*")
+	tmpDir, err := os.MkdirTemp("", "cradar-rules-*")
 	if err != nil {
 		return "", fmt.Errorf("creating temp dir: %w", err)
 	}

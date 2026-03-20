@@ -350,6 +350,5 @@ def test_migration_002_downgrade_drops_all_org_id(migration_002: types.ModuleTyp
     downgrade_source = inspect.getsource(migration_002.downgrade)
     for table_name in ORG_ID_TABLES:
         assert f'"{table_name}"' in downgrade_source, (
-            f"Table {table_name!r} not found in downgrade(). "
-            f"All org_id additions must be reversed in downgrade()."
+            f"Table {table_name!r} not found in downgrade(). All org_id additions must be reversed in downgrade()."
         )

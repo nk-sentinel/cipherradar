@@ -5,13 +5,13 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "cbom",
-	Short: "CipherRadar — Cryptography Bill of Materials scanner",
-	Long:  "CipherRadar — Cryptography Bill of Materials scanner",
+	Use:   "cradar",
+	Short: "CipherRadar — cryptographic asset scanner, CBOM generator, and compliance checker",
+	Long:  "CipherRadar — cryptographic asset scanner, CBOM generator, and compliance checker",
 }
 
 func init() {
-	rootCmd.PersistentFlags().String("config", ".cbom.yml", "path to configuration file")
+	rootCmd.PersistentFlags().String("config", ".cradar.yml", "path to configuration file")
 	rootCmd.PersistentFlags().Bool("verbose", false, "enable verbose output")
 }
 

@@ -1,0 +1,195 @@
+# NSA CNSA 2.0 — Commercial National Security Algorithm Suite
+# Transition timeline: software/firmware by 2025, all systems by 2030
+framework: cnsa-2
+version: "2.0"
+
+# CNSA 2.0 approved algorithms (post-quantum only for asymmetric)
+approved_algorithms:
+  # Symmetric encryption
+  - family: aes
+    min_key_size: 256
+    note: "AES-256 only; AES-128 and AES-192 not CNSA 2.0 approved"
+    category: symmetric
+
+  # Hash functions
+  - family: sha384
+    note: "SHA-384 approved for digital signatures"
+    category: hash
+  - family: sha512
+    note: "SHA-512 approved"
+    category: hash
+  - family: sha3-384
+    note: "SHA3-384 approved"
+    category: hash
+  - family: sha3-512
+    note: "SHA3-512 approved"
+    category: hash
+
+  # Key encapsulation (post-quantum)
+  - family: ml-kem
+    note: "ML-KEM-1024 (FIPS 203) — only 1024 parameter set approved"
+    min_parameter_set: 1024
+    category: kem
+
+  # Digital signatures (post-quantum)
+  - family: ml-dsa
+    note: "ML-DSA-87 (FIPS 204) — only level 87 parameter set approved"
+    min_parameter_set: 87
+    category: signature
+
+  # Hash-based signatures
+  - family: slh-dsa
+    note: "SLH-DSA (FIPS 205) — approved for firmware/software signing"
+    category: signature
+
+# Transition deadlines
+deadlines:
+  software_firmware:
+    date: "2025-12-31"
+    description: "Software and firmware implementations must use CNSA 2.0 algorithms"
+    applies_to:
+      - "web browsers and servers"
+      - "operating systems"
+      - "networking equipment firmware"
+
+  nss_preference:
+    date: "2027-12-31"
+    description: "Prefer CNSA 2.0 for all new National Security Systems"
+    applies_to:
+      - "new NSS deployments"
+
+  full_transition:
+    date: "2030-12-31"
+    description: "All NSS must exclusively use CNSA 2.0 algorithms"
+    applies_to:
+      - "all deployed systems"
+
+# Per-algorithm migration deadlines and replacements
+algorithms:
+  # Approved by CNSA 2.0
+  - family: aes
+    classification: approved
+    min_key_size: 256
+    note: "AES-256 only"
+    deadline: null
+
+  - family: sha384
+    classification: approved
+    deadline: null
+  - family: sha512
+    classification: approved
+    deadline: null
+  - family: sha3-384
+    classification: approved
+    deadline: null
+  - family: sha3-512
+    classification: approved
+    deadline: null
+
+  - family: ml-kem
+    classification: approved
+    note: "ML-KEM-1024 (FIPS 203)"
+    deadline: null
+  - family: ml-dsa
+    classification: approved
+    note: "ML-DSA-87 (FIPS 204)"
+    deadline: null
+  - family: slh-dsa
+    classification: approved
+    note: "SLH-DSA (FIPS 205)"
+    deadline: null
+
+  # Deprecated — must migrate by deadline
+  - family: rsa
+    classification: deprecated
+    migrate_to: ml-dsa
+    deadline: "2030"
+    software_deadline: "2025"
+    note: "RSA must be replaced with ML-DSA"
+
+  - family: ecdsa
+    classification: deprecated
+    migrate_to: ml-dsa
+    deadline: "2030"
+    software_deadline: "2025"
+    note: "ECDSA must be replaced with ML-DSA"
+
+  - family: ecdh
+    classification: deprecated
+    migrate_to: ml-kem
+    deadline: "2030"
+    software_deadline: "2025"
+    note: "ECDH must be replaced with ML-KEM"
+
+  - family: ecc
+    classification: deprecated
+    migrate_to: ml-kem
+    deadline: "2030"
+    software_deadline: "2025"
+    note: "ECC curves must be replaced with PQC"
+
+  - family: dh
+    classification: deprecated
+    migrate_to: ml-kem
+    deadline: "2030"
+    software_deadline: "2025"
+    note: "DH must be replaced with ML-KEM"
+
+  - family: dsa
+    classification: deprecated
+    migrate_to: ml-dsa
+    deadline: "2030"
+    software_deadline: "2025"
+    note: "DSA must be replaced with ML-DSA"
+
+  # Not approved — below CNSA 2.0 minimums
+  - family: sha256
+    classification: not-approved
+    note: "SHA-256 does not meet CNSA 2.0 minimum (SHA-384+)"
+    migrate_to: sha384
+
+  - family: sha3-256
+    classification: not-approved
+    note: "SHA3-256 does not meet CNSA 2.0 minimum (SHA3-384+)"
+    migrate_to: sha3-384
+
+  # Disallowed — broken or classically insecure
+  - family: des
+    classification: disallowed
+    note: "DES is broken"
+    deadline: "immediate"
+  - family: 3des
+    classification: disallowed
+    note: "3DES is disallowed"
+    deadline: "immediate"
+  - family: rc4
+    classification: disallowed
+    note: "RC4 is broken"
+    deadline: "immediate"
+  - family: md5
+    classification: disallowed
+    note: "MD5 is broken"
+    deadline: "immediate"
+  - family: md4
+    classification: disallowed
+    note: "MD4 is broken"
+    deadline: "immediate"
+  - family: sha1
+    classification: disallowed
+    note: "SHA-1 is broken"
+    deadline: "immediate"
+  - family: blowfish
+    classification: disallowed
+    note: "Blowfish not approved for NSS"
+    deadline: "immediate"
+  - family: chacha20
+    classification: not-approved
+    note: "ChaCha20 not approved for CNSA 2.0"
+  - family: math-random
+    classification: disallowed
+    note: "Not a cryptographic RNG"
+    deadline: "immediate"
+  - family: rand
+    classification: disallowed
+    note: "Not a cryptographic RNG"
+    deadline: "immediate"

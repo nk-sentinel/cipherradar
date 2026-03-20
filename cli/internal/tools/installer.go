@@ -22,11 +22,11 @@ const (
 	OpenGrepBaseURL = "https://github.com/opengrep/opengrep/releases/download"
 )
 
-// DefaultToolsDir returns the default directory where cbom installs tools
-// (~/.cbom/tools).
+// DefaultToolsDir returns the default directory where cradar installs tools
+// (~/.cradar/tools).
 func DefaultToolsDir() string {
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".cbom", "tools")
+	return filepath.Join(home, ".cradar", "tools")
 }
 
 // IsOpenGrepInstalled returns true if an opengrep binary exists in toolsDir.

@@ -19,7 +19,7 @@ var versionCmd = &cobra.Command{
 	Use:   "version",
 	Short: "Print the version, commit, and build date",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("cbom %s\ncommit: %s\nbuilt:  %s\nschema: CycloneDX 1.7 (embedded)\n", Version, Commit, BuildDate)
+		fmt.Printf("cradar %s\ncommit: %s\nbuilt:  %s\nschema: CycloneDX 1.7 (embedded)\n", Version, Commit, BuildDate)
 		return nil
 	},
 }

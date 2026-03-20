@@ -9,6 +9,10 @@ import { getPortfolioCompliance, getRepoCompliance } from './data/compliance.ts'
 import { getPortfolioSummary, getHeatMap } from './data/portfolio.ts';
 import { searchAssets } from './data/assets.ts';
 import type { AssetFilters, AssetType, QuantumAssetStatus, ComplianceTag } from './data/assets.ts';
+import { getGraphData } from './data/graph.ts';
+import { getCertificates } from './data/certificates.ts';
+import { getComplianceDashboard } from './data/complianceDashboard.ts';
+import { getCBOMDiff, getScanSelectors } from './data/cbomDiff.ts';
 
 export const handlers = [
   http.get('/api/v1/health', () => {
@@ -146,5 +150,30 @@ export const handlers = [
     const pageSize = Number(url.searchParams.get('pageSize') || '15');
 
     return HttpResponse.json(searchAssets(filters, page, pageSize));
+  }),
+
+  // Dependency graph
+  http.get('/api/v1/graph', () => {
+    return HttpResponse.json(getGraphData());
+  }),
+
+  // Certificates
+  http.get('/api/v1/certificates', () => {
+    return HttpResponse.json(getCertificates());
+  }),
+
+  // Compliance dashboard (enhanced)
+  http.get('/api/v1/compliance/dashboard', () => {
+    return HttpResponse.json(getComplianceDashboard());
+  }),
+
+  // CBOM Diff
+  http.get('/api/v1/cbom/diff', () => {
+    return HttpResponse.json(getCBOMDiff());
+  }),
+
+  // CBOM scan selectors
+  http.get('/api/v1/cbom/scans', () => {
+    return HttpResponse.json(getScanSelectors());
   }),
 ];

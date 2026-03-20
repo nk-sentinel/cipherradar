@@ -1,0 +1,23 @@
+# Java security properties file for testing.
+
+# Disabled TLS algorithms — verify strong ones aren't re-enabled.
+# This is a GOOD configuration that disables weak algorithms.
+jdk.tls.disabledAlgorithms=SSLv3, TLSv1, TLSv1.1, RC4, DES, MD5withRSA, \
+    DH keySize < 2048, EC keySize < 224, 3DES_EDE_CBC, anon, NULL
+
+# Disabled certificate path algorithms.
+jdk.certpath.disabledAlgorithms=MD2, MD5, SHA1 jdkCA & usage TLSServer, \
+    RSA keySize < 2048, DSA keySize < 2048, EC keySize < 224
+
+# Bad configuration: re-enabling weak algorithms by omitting them.
+# This property has MD5 and RC4 missing from the disabled list.
+# jdk.tls.disabledAlgorithms=SSLv3
+
+# Crypto policy settings.
+security.useSystemPropertiesFile=true
+
+# Keystore type.
+keystore.type=pkcs12
+
+# TLS protocol constraints.
+jdk.tls.client.protocols=TLSv1.2,TLSv1.3

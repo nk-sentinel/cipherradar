@@ -13,12 +13,12 @@ import (
 var installToolsCmd = &cobra.Command{
 	Use:   "install-tools",
 	Short: "Download and install required analysis tools",
-	Long: `Download and install external analysis tools required by cbom.
+	Long: `Download and install external analysis tools required by cradar.
 
 Currently installs:
   - OpenGrep (taint analysis engine for Pass 2)
 
-Tools are installed to ~/.cbom/tools/ by default.
+Tools are installed to ~/.cradar/tools/ by default.
 Use --tools-dir to override the installation directory.
 Use --force to reinstall even if already present.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
