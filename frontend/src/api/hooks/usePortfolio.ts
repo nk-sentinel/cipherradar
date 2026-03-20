@@ -12,7 +12,17 @@ import type {
 export function usePortfolioSummary() {
   return useQuery({
     queryKey: ['portfolio', 'summary'],
-    queryFn: () => apiClient<PortfolioSummaryData>('/portfolio/summary'),
+    queryFn: async () => {
+      try {
+        return await apiClient<PortfolioSummaryData>('/portfolio/summary');
+      } catch {
+        if (import.meta.env.DEV) {
+          const { getPortfolioSummary } = await import('@/mocks/data/portfolio.ts');
+          return getPortfolioSummary();
+        }
+        throw new Error('Failed to fetch portfolio summary');
+      }
+    },
     staleTime: 30_000,
   });
 }
@@ -24,7 +34,17 @@ export function usePortfolioSummary() {
 export function useHeatMap() {
   return useQuery({
     queryKey: ['portfolio', 'heatmap'],
-    queryFn: () => apiClient<HeatMapData>('/portfolio/heatmap'),
+    queryFn: async () => {
+      try {
+        return await apiClient<HeatMapData>('/portfolio/heatmap');
+      } catch {
+        if (import.meta.env.DEV) {
+          const { getHeatMap } = await import('@/mocks/data/portfolio.ts');
+          return getHeatMap();
+        }
+        throw new Error('Failed to fetch heat map data');
+      }
+    },
     staleTime: 30_000,
   });
 }

@@ -188,6 +188,22 @@ securityContext:
     drop:
       - ALL
 
+# -- CBOM signing (cosign / Sigstore)
+signing:
+  # -- Enable CBOM signing after each scan
+  enabled: true
+  # -- Use keyless signing via Fulcio + Rekor (Sigstore public-good or self-hosted)
+  keylessMode: true
+  # -- cosign image used by the init container to install the cosign binary
+  cosignImage: "gcr.io/projectsigstore/cosign:v2"
+  # -- For key-based signing (keylessMode: false), reference a K8s secret
+  privateKeySecret: ""
+  privateKeySecretKey: "cosign.key"
+  # -- Self-hosted Sigstore URLs (leave empty for public-good instance)
+  rekorUrl: ""
+  fulcioUrl: ""
+  tufMirror: ""
+
 # -- Node selector for all pods
 nodeSelector: {}
 

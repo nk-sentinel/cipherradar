@@ -13,6 +13,8 @@ import { getGraphData } from './data/graph.ts';
 import { getCertificates } from './data/certificates.ts';
 import { getComplianceDashboard } from './data/complianceDashboard.ts';
 import { getCBOMDiff, getScanSelectors } from './data/cbomDiff.ts';
+import { getNotifications, getNotificationPreferences } from './data/notifications.ts';
+import { getKanbanCards } from './data/kanban.ts';
 
 export const handlers = [
   http.get('/api/v1/health', () => {
@@ -167,6 +169,11 @@ export const handlers = [
     return HttpResponse.json(getComplianceDashboard());
   }),
 
+  // Compliance trends (new endpoint name)
+  http.get('/api/v1/compliance/trends', () => {
+    return HttpResponse.json(getComplianceDashboard());
+  }),
+
   // CBOM Diff
   http.get('/api/v1/cbom/diff', () => {
     return HttpResponse.json(getCBOMDiff());
@@ -175,5 +182,33 @@ export const handlers = [
   // CBOM scan selectors
   http.get('/api/v1/cbom/scans', () => {
     return HttpResponse.json(getScanSelectors());
+  }),
+
+  // Notifications
+  http.get('/api/v1/notifications', () => {
+    return HttpResponse.json(getNotifications());
+  }),
+
+  http.patch('/api/v1/notifications/:id/read', () => {
+    return HttpResponse.json({ success: true });
+  }),
+
+  http.post('/api/v1/notifications/read-all', () => {
+    return HttpResponse.json({ success: true });
+  }),
+
+  // Notification preferences
+  http.get('/api/v1/notifications/preferences', () => {
+    return HttpResponse.json(getNotificationPreferences());
+  }),
+
+  http.put('/api/v1/notifications/preferences', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json(body);
+  }),
+
+  // Kanban
+  http.get('/api/v1/kanban', () => {
+    return HttpResponse.json(getKanbanCards());
   }),
 ];

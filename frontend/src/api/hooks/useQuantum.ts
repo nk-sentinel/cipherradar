@@ -12,7 +12,17 @@ import type {
 export function useQuantumRisk() {
   return useQuery({
     queryKey: ['quantum', 'portfolio'],
-    queryFn: () => apiClient<PortfolioQuantumData>('/quantum/portfolio'),
+    queryFn: async () => {
+      try {
+        return await apiClient<PortfolioQuantumData>('/quantum/portfolio');
+      } catch {
+        if (import.meta.env.DEV) {
+          const { getPortfolioQuantum } = await import('@/mocks/data/quantum.ts');
+          return getPortfolioQuantum();
+        }
+        throw new Error('Failed to fetch quantum portfolio data');
+      }
+    },
     staleTime: 30_000,
   });
 }
@@ -24,7 +34,19 @@ export function useQuantumRisk() {
 export function useQuantumRiskForRepo(repoId: string) {
   return useQuery({
     queryKey: ['quantum', 'repo', repoId],
-    queryFn: () => apiClient<RepoQuantumData>(`/repos/${repoId}/quantum`),
+    queryFn: async () => {
+      try {
+        return await apiClient<RepoQuantumData>(`/repos/${repoId}/quantum`);
+      } catch {
+        if (import.meta.env.DEV) {
+          const { getRepoQuantum } = await import('@/mocks/data/quantum.ts');
+          const data = getRepoQuantum(repoId);
+          if (!data) throw new Error('Repo not found');
+          return data;
+        }
+        throw new Error('Failed to fetch repo quantum data');
+      }
+    },
     enabled: !!repoId,
     staleTime: 30_000,
   });

@@ -9,10 +9,19 @@ import type { CBOMDiffData, ScanSelector } from '@/mocks/data/cbomDiff.ts';
 export function useCBOMDiff(baseScanId: string, targetScanId: string) {
   return useQuery({
     queryKey: ['cbom-diff', baseScanId, targetScanId],
-    queryFn: () =>
-      apiClient<CBOMDiffData>(
-        `/cbom/diff?base=${baseScanId}&target=${targetScanId}`,
-      ),
+    queryFn: async () => {
+      try {
+        return await apiClient<CBOMDiffData>(
+          `/cbom/diff?base=${baseScanId}&target=${targetScanId}`,
+        );
+      } catch {
+        if (import.meta.env.DEV) {
+          const { getCBOMDiff } = await import('@/mocks/data/cbomDiff.ts');
+          return getCBOMDiff();
+        }
+        throw new Error('Failed to fetch CBOM diff');
+      }
+    },
     enabled: !!baseScanId && !!targetScanId,
     staleTime: 30_000,
   });
@@ -25,7 +34,17 @@ export function useCBOMDiff(baseScanId: string, targetScanId: string) {
 export function useScanSelectors() {
   return useQuery({
     queryKey: ['cbom-scans'],
-    queryFn: () => apiClient<ScanSelector[]>('/cbom/scans'),
+    queryFn: async () => {
+      try {
+        return await apiClient<ScanSelector[]>('/cbom/scans');
+      } catch {
+        if (import.meta.env.DEV) {
+          const { getScanSelectors } = await import('@/mocks/data/cbomDiff.ts');
+          return getScanSelectors();
+        }
+        throw new Error('Failed to fetch scan selectors');
+      }
+    },
     staleTime: 60_000,
   });
 }

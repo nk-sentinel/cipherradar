@@ -21,6 +21,23 @@ spec:
       serviceAccountName: {{ include "cipherradar.serviceAccountName" . }}
       securityContext:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- if .Values.signing.enabled }}
+      initContainers:
+        - name: install-cosign
+          image: {{ .Values.signing.cosignImage | quote }}
+          command: ["cp", "/ko-app/cosign", "/shared-bin/cosign"]
+          volumeMounts:
+            - name: cosign-bin
+              mountPath: /shared-bin
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1000
+            capabilities:
+              drop:
+                - ALL
+      {{- end }}
       containers:
         - name: scanner-worker
           image: "{{ .Values.scannerWorker.image.repository }}:{{ include "cipherradar.scannerWorkerImageTag" . }}"
@@ -39,10 +56,30 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.jwt.existingSecret | default (include "cipherradar.secretName" .) }}
                   key: {{ .Values.jwt.existingSecretKey | default "jwt-secret-key" }}
+            - name: CRADAR_SIGNING_ENABLED
+              value: {{ .Values.signing.enabled | quote }}
+            {{- if and .Values.signing.enabled .Values.signing.rekorUrl }}
+            - name: COSIGN_REKOR_URL
+              value: {{ .Values.signing.rekorUrl | quote }}
+            {{- end }}
+            {{- if and .Values.signing.enabled .Values.signing.fulcioUrl }}
+            - name: COSIGN_FULCIO_URL
+              value: {{ .Values.signing.fulcioUrl | quote }}
+            {{- end }}
+            {{- if and .Values.signing.enabled .Values.signing.tufMirror }}
+            - name: COSIGN_MIRROR
+              value: {{ .Values.signing.tufMirror | quote }}
+            {{- end }}
             {{- range $key, $value := .Values.scannerWorker.env }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          {{- if .Values.signing.enabled }}
+          volumeMounts:
+            - name: cosign-bin
+              mountPath: /usr/local/cosign
+              readOnly: true
+          {{- end }}
           envFrom:
             - configMapRef:
                 name: {{ include "cipherradar.fullname" . }}
@@ -71,6 +108,11 @@ spec:
             failureThreshold: 3
           resources:
             {{- toYaml .Values.scannerWorker.resources | nindent 12 }}
+      {{- if .Values.signing.enabled }}
+      volumes:
+        - name: cosign-bin
+          emptyDir: {}
+      {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

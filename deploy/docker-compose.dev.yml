@@ -51,5 +51,24 @@ services:
     depends_on:
       - api
 
+  scanner-worker:
+    build:
+      context: ..
+      dockerfile: deploy/scanner-worker/Dockerfile
+    environment:
+      CBOM_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/cipherradar
+      CBOM_REDIS_URL: redis://redis:6379
+      CBOM_JWT_SECRET_KEY: dev-secret-change-in-production
+      CRADAR_SIGNING_ENABLED: "true"
+      CBOM_DEBUG: "true"
+    volumes:
+      # Mount locally-built cradar binary for fast iteration
+      - ../cli/cradar:/usr/local/bin/cradar:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   pgdata:

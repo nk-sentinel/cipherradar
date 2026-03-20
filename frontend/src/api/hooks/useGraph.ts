@@ -1,15 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '../client.ts';
 import type { GraphData } from '@/mocks/data/graph.ts';
 
 /**
  * Fetch crypto dependency graph data.
- * Real API endpoint: GET /api/v1/graph
+ * No backend endpoint yet — always uses mock data.
  */
 export function useGraph() {
   return useQuery({
     queryKey: ['graph'],
-    queryFn: () => apiClient<GraphData>('/graph'),
+    queryFn: async () => {
+      const { getGraphData } = await import('@/mocks/data/graph.ts');
+      return getGraphData() as GraphData;
+    },
     staleTime: 60_000,
   });
 }

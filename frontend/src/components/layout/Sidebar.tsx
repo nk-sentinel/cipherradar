@@ -33,6 +33,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Dependency Graph', icon: '\u2B21', to: '/graph', page: 'graph' },
       { label: 'Certificates', icon: '\u2B50', to: '/certificates', page: 'certificates' },
       { label: 'CBOM Diff', icon: '\u0394', to: '/diff', page: 'diff' },
+      { label: 'Migration Board', icon: '\u21C4', to: '/migration', page: 'migration' },
     ],
   },
   {

@@ -1,39 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import {
+  useNotifications,
+  useMarkRead,
+  useMarkAllRead,
+} from '@/api/hooks/useNotifications.ts';
+import type { NotificationSeverity } from '@/mocks/data/notifications.ts';
 
-interface Notification {
-  id: string;
-  message: string;
-  time: string;
-  unread: boolean;
-  severity: 'critical' | 'warning' | 'info' | 'success';
-}
-
-const MOCK_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1',
-    message: 'CRITICAL: Certificate validation disabled in payment-service',
-    time: '2 minutes ago',
-    unread: true,
-    severity: 'critical',
-  },
-  {
-    id: '2',
-    message: 'Suppression request pending — auth-api SHA-1',
-    time: '15 minutes ago',
-    unread: true,
-    severity: 'warning',
-  },
-  {
-    id: '3',
-    message: 'Compliance score dropped: mobile-backend 52% -> 45%',
-    time: '1 hour ago',
-    unread: true,
-    severity: 'warning',
-  },
-];
-
-const SEVERITY_COLORS: Record<Notification['severity'], string> = {
+const SEVERITY_COLORS: Record<NotificationSeverity, string> = {
   critical: 'var(--red)',
   warning: 'var(--orange)',
   info: 'var(--yellow)',
@@ -43,6 +17,10 @@ const SEVERITY_COLORS: Record<Notification['severity'], string> = {
 export function NotificationBell(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+
+  const { data: notifications = [] } = useNotifications();
+  const markRead = useMarkRead();
+  const markAllRead = useMarkAllRead();
 
   const handleClickOutside = useCallback((event: MouseEvent) => {
     if (ref.current && !ref.current.contains(event.target as Node)) {
@@ -55,7 +33,7 @@ export function NotificationBell(): React.ReactElement {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [handleClickOutside]);
 
-  const unreadCount = MOCK_NOTIFICATIONS.filter((n) => n.unread).length;
+  const unreadCount = notifications.filter((n) => n.unread).length;
 
   return (
     <div ref={ref} style={{ position: 'relative' }}>
@@ -85,13 +63,42 @@ export function NotificationBell(): React.ReactElement {
           <strong style={{ color: 'var(--text-1)' }}>Notifications</strong>
           <span
             style={{ color: 'var(--accent)', cursor: 'pointer', fontSize: '10px' }}
+            role="button"
+            tabIndex={0}
+            onClick={() => markAllRead.mutate()}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                markAllRead.mutate();
+              }
+            }}
           >
             Mark all read
           </span>
         </div>
-        {MOCK_NOTIFICATIONS.map((notif) => (
+        {notifications.length === 0 && (
+          <div style={{ padding: '16px 12px', fontSize: '11px', color: 'var(--text-3)' }}>
+            No notifications
+          </div>
+        )}
+        {notifications.map((notif) => (
           <div
             key={notif.id}
+            onClick={() => {
+              if (notif.unread) {
+                markRead.mutate(notif.id);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                if (notif.unread) {
+                  markRead.mutate(notif.id);
+                }
+              }
+            }}
             style={{
               padding: '10px 12px',
               borderBottom: '1px solid var(--border-light)',

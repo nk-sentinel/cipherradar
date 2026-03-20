@@ -25,6 +25,8 @@ import { DependencyGraph } from './pages/DependencyGraph.tsx';
 import { CertCalendar } from './pages/CertCalendar.tsx';
 import { ComplianceDashboard } from './pages/ComplianceDashboard.tsx';
 import { CBOMDiff } from './pages/CBOMDiff.tsx';
+import { MigrationKanban } from './pages/MigrationKanban.tsx';
+import { NotificationPreferences } from './pages/NotificationPreferences.tsx';
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -100,6 +102,18 @@ const cbomDiffRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/diff',
   component: CBOMDiff,
+});
+
+const migrationKanbanRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/migration',
+  component: MigrationKanban,
+});
+
+const notificationPreferencesRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/notifications/preferences',
+  component: NotificationPreferences,
 });
 
 const profileRoute = createRoute({
@@ -203,6 +217,8 @@ const routeTree = rootRoute.addChildren([
     certCalendarRoute,
     complianceDashboardRoute,
     cbomDiffRoute,
+    migrationKanbanRoute,
+    notificationPreferencesRoute,
     profileRoute,
     downloadsRoute,
     repoScanDetailRoute,

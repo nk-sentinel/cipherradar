@@ -21,7 +21,17 @@ export function useAssets(filters: AssetFilters, page: number, pageSize = 15) {
 
   return useQuery({
     queryKey: ['assets', filters, page, pageSize],
-    queryFn: () => apiClient<AssetSearchResult>(`/assets?${params.toString()}`),
+    queryFn: async () => {
+      try {
+        return await apiClient<AssetSearchResult>(`/assets?${params.toString()}`);
+      } catch {
+        if (import.meta.env.DEV) {
+          const { searchAssets } = await import('@/mocks/data/assets.ts');
+          return searchAssets(filters, page, pageSize);
+        }
+        throw new Error('Failed to fetch assets');
+      }
+    },
     staleTime: 30_000,
   });
 }

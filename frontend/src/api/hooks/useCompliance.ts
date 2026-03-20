@@ -12,7 +12,17 @@ import type {
 export function useCompliance() {
   return useQuery({
     queryKey: ['compliance', 'portfolio'],
-    queryFn: () => apiClient<PortfolioComplianceData>('/compliance/portfolio'),
+    queryFn: async () => {
+      try {
+        return await apiClient<PortfolioComplianceData>('/compliance/portfolio');
+      } catch {
+        if (import.meta.env.DEV) {
+          const { getPortfolioCompliance } = await import('@/mocks/data/compliance.ts');
+          return getPortfolioCompliance();
+        }
+        throw new Error('Failed to fetch compliance portfolio data');
+      }
+    },
     staleTime: 30_000,
   });
 }
@@ -24,7 +34,19 @@ export function useCompliance() {
 export function useComplianceForRepo(repoId: string) {
   return useQuery({
     queryKey: ['compliance', 'repo', repoId],
-    queryFn: () => apiClient<RepoComplianceData>(`/repos/${repoId}/compliance`),
+    queryFn: async () => {
+      try {
+        return await apiClient<RepoComplianceData>(`/repos/${repoId}/compliance`);
+      } catch {
+        if (import.meta.env.DEV) {
+          const { getRepoCompliance } = await import('@/mocks/data/compliance.ts');
+          const data = getRepoCompliance(repoId);
+          if (!data) throw new Error('Repo not found');
+          return data;
+        }
+        throw new Error('Failed to fetch repo compliance data');
+      }
+    },
     enabled: !!repoId,
     staleTime: 30_000,
   });
