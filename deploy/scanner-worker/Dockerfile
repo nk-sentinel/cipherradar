@@ -1,7 +1,7 @@
 FROM golang:1.22 AS cli-builder
 WORKDIR /build
 COPY cli/ .
-RUN go build -o /cradar ./cmd/cbom
+RUN go build -o /cradar ./cmd/cradar
 
 FROM python:3.12-slim
 WORKDIR /app

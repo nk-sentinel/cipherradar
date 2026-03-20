@@ -17,7 +17,7 @@ variables:
 .cradar-scan-base:
   image: golang:1.22
   before_script:
-    - cd cli && go build -o /usr/local/bin/cradar ./cmd/cbom && cd ..
+    - cd cli && go build -o /usr/local/bin/cradar ./cmd/cradar && cd ..
 
 cradar-scan:
   extends: .cradar-scan-base

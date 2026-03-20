@@ -17,7 +17,7 @@ type Writer interface {
 }
 
 // WriterFactory returns a Writer for the given format name.
-// Supported formats: "cyclonedx-json", "sarif", "text", "pdf".
+// Supported formats: "cyclonedx-json", "sarif", "text", "pdf", "sonarqube-generic".
 func WriterFactory(format string) (Writer, error) {
 	switch format {
 	case "cyclonedx-json":
@@ -28,6 +28,8 @@ func WriterFactory(format string) (Writer, error) {
 		return &TextWriter{}, nil
 	case "pdf":
 		return &PDFWriter{}, nil
+	case "sonarqube-generic":
+		return &SonarQubeWriter{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported output format: %s", format)
 	}

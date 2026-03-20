@@ -131,7 +131,7 @@ All ADRs are in `docs/decisions/`. Decisions that affect day-to-day coding:
 ### CLI (Go)
 ```bash
 cd cli
-go build -o cradar ./cmd/cbom   # build (binary renamed per ADR-024; entry point remains cmd/cbom until code rename)
+go build -o cradar ./cmd/cradar   # build (binary renamed per ADR-024; entry point remains cmd/cradar until code rename)
 go test ./...                    # test
 go vet ./...                     # vet
 

@@ -10,7 +10,7 @@ before:
 builds:
   # Lightweight binary — cradar only, no tools bundled
   - id: cradar
-    main: ./cmd/cbom
+    main: ./cmd/cradar
     binary: cradar
     env:
       - CGO_ENABLED=1
@@ -33,7 +33,7 @@ builds:
 
   # Full binary — same binary, bundled with OpenGrep in the archive
   - id: cradar-full
-    main: ./cmd/cbom
+    main: ./cmd/cradar
     binary: cradar
     env:
       - CGO_ENABLED=1

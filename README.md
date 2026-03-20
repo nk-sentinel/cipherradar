@@ -95,7 +95,7 @@ Source Code / Containers / Config Files
 
 ```bash
 # Build the CLI
-cd cli && go build -o cradar ./cmd/cbom
+cd cli && go build -o cradar ./cmd/cradar
 
 # Scan a project
 ./cradar scan /path/to/project --format text

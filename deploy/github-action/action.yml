@@ -61,7 +61,7 @@ runs:
       shell: bash
       run: |
         cd ${{ github.action_path }}/../../cli
-        go build -o ${{ runner.temp }}/cradar ./cmd/cbom
+        go build -o ${{ runner.temp }}/cradar ./cmd/cradar
         echo "${{ runner.temp }}" >> $GITHUB_PATH
 
     - name: Run CipherRadar scan

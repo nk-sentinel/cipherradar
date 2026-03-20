@@ -173,7 +173,7 @@ Both flavors produce identical `cradar` binaries — the only difference is whet
 
 ### How It Works
 
-1. **GoReleaser config** (`cli/.goreleaser.yml`) defines two builds (`cradar` and `cradar-full`) and two archive templates. Both builds compile the same `cmd/cbom` entry point with version/commit/date injected via ldflags.
+1. **GoReleaser config** (`cli/.goreleaser.yml`) defines two builds (`cradar` and `cradar-full`) and two archive templates. Both builds compile the same `cmd/cradar` entry point with version/commit/date injected via ldflags.
 2. **Release workflow** (`deploy/github-action/release.yml`) runs on any `v*` tag push. It downloads OpenGrep binaries for each platform into `dist/opengrep-<os>-<arch>/`, then invokes GoReleaser to build, archive, and create a draft GitHub release.
 
 ### Creating a Release

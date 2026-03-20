@@ -56,7 +56,7 @@ jobs:
             -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.Version=${GITHUB_REF_NAME#v} \
             -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.Commit=${GITHUB_SHA::8} \
             -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o "../dist/cradar${EXT}" ./cmd/cbom
+            -o "../dist/cradar${EXT}" ./cmd/cradar
         shell: bash
 
       - name: Download OpenGrep for bundling
