@@ -35,6 +35,8 @@ When a decision changes, the original ADR is kept and marked **Superseded**, and
 | [ADR-013](decisions/ADR-013-authentication-model.md) | Authentication Model — JWT + API Keys + Scoped Permissions | Accepted | 2026-03-19 | `docs/09-rbac.md`, `docs/12-phase2-implementation-plan.md` |
 | [ADR-014](decisions/ADR-014-git-provider-abstraction.md) | Git Provider Abstraction — Common Interface for GitHub/GitLab/Bitbucket | Accepted | 2026-03-19 | `docs/12-phase2-implementation-plan.md` |
 | [ADR-015](decisions/ADR-015-frontend-architecture.md) | Frontend Architecture — React 19, TanStack, Theme System | Accepted | 2026-03-19 | `docs/12-phase2-implementation-plan.md` |
+| [ADR-024](decisions/ADR-024-cli-binary-rename.md) | CLI Binary Rename — cbom → cradar | Accepted | 2026-03-20 | `CLAUDE.md`, `README.md`, `deploy/`, `docs/08-roadmap.md` |
+| [ADR-025](decisions/ADR-025-cli-portal-push.md) | CLI-to-Portal Push Model — `--push` flag + `.cradar.yml` config | Accepted | 2026-03-20 | `docs/13-phase3-implementation-plan.md`, `deploy/` |
 
 ---
 
@@ -93,7 +95,7 @@ Key findings from the analysis:
 ### 2026-03-18 — CLI Distribution Model and Shared Asset Embedding
 
 **ADR-010: Two CLI flavors + embedded shared assets**
-The CLI ships in two flavors: `cbom` (lightweight, ~15 MB, no tools bundled) and `cbom-full` (all-inclusive, ~80–100 MB, OpenGrep + Joern pre-bundled) for air-gapped/firewall environments. A `cbom install-tools` command covers internet-accessible users who want the lightweight binary but full scan coverage. Shared data assets (quantum algorithm table, library API models) live in `scanner/library-models/` as the single source of truth and are embedded into the CLI binary (`//go:embed`) and backend Python package at build time — ensuring air-gapped compatibility and version consistency between CLI and backend.
+The CLI ships in two flavors: `cradar` (lightweight, ~15 MB, no tools bundled) and `cradar-full` (all-inclusive, ~80–100 MB, OpenGrep + Joern pre-bundled) for air-gapped/firewall environments (renamed from `cbom`/`cbom-full` per ADR-024). A `cradar install-tools` command covers internet-accessible users who want the lightweight binary but full scan coverage. Shared data assets (quantum algorithm table, library API models) live in `scanner/library-models/` as the single source of truth and are embedded into the CLI binary (`//go:embed`) and backend Python package at build time — ensuring air-gapped compatibility and version consistency between CLI and backend.
 
 ---
 
@@ -113,7 +115,7 @@ Single repository with top-level directories for `cli/`, `backend/`, `frontend/`
 
 ### 2026-03-18 — Phase 1 Implementation Complete
 
-All 6 milestones (M1–M6) delivered. The `cbom` CLI binary scans Python, JavaScript/TypeScript, and Java codebases for cryptographic assets, outputting CycloneDX 1.7 JSON, SARIF 2.1, text summaries, and PDF reports. Key capabilities: 3-language tree-sitter scanning with constant propagation (Pass 1), OpenGrep taint rule integration (Pass 2, 16 rules embedded), regex and config file scanning, YAML policy engine with CI/CD exit codes, CBOM diff, parallel file scanning, CycloneDX 1.7 schema validation, GitHub Actions and GitLab CI templates.
+All 6 milestones (M1–M6) delivered. The CLI binary (now `cradar`, per ADR-024) scans Python, JavaScript/TypeScript, and Java codebases for cryptographic assets, outputting CycloneDX 1.7 JSON, SARIF 2.1, text summaries, and PDF reports. Key capabilities: 3-language tree-sitter scanning with constant propagation (Pass 1), OpenGrep taint rule integration (Pass 2, 16 rules embedded), regex and config file scanning, YAML policy engine with CI/CD exit codes, CBOM diff, parallel file scanning, CycloneDX 1.7 schema validation, GitHub Actions and GitLab CI templates.
 
 **Deviations from original tech stack:**
 - `cyclonedx-go` was not used — CycloneDX output implemented via internal structs in `cli/internal/cyclonedx17/` and `cli/internal/output/converter.go` (cyclonedx-go only supports 1.6; building internally was simpler than wrapping it)
@@ -129,19 +131,43 @@ All 6 milestones (M1–M6) delivered. The `cbom` CLI binary scans Python, JavaSc
 A 7th role ("Team Manager") was added to the RBAC model during UI mockup review. The role provides group-scoped read access + scan triggering for engineering managers and team leads — filling the gap between Developer (too limited for visibility) and Security Manager (too powerful for non-security leadership). Team Managers cannot configure policies, suppress findings, or approve suppression requests.
 
 **ADR-011: Joern Integration Model — Subprocess Execution**
-Joern (Apache 2.0, JVM/Scala) is integrated as a subprocess, the same pattern used for OpenGrep in Pass 2. Binary discovery follows the same resolution order (same dir → `$CBOM_TOOLS_DIR` → `~/.cbom/tools/` → `$PATH`). Persistent server mode and containerized deployment were evaluated but rejected: subprocess is simpler, consistent with the existing OpenGrep pattern, and the 5-10s JVM cold start is acceptable since Pass 3 runs nightly. The `cbom-full` binary bundles Joern alongside OpenGrep. Resolves OQ-002.
+Joern (Apache 2.0, JVM/Scala) is integrated as a subprocess, the same pattern used for OpenGrep in Pass 2. Binary discovery follows the same resolution order (same dir → `$CRADAR_TOOLS_DIR` → `~/.cradar/tools/` → `$PATH`; renamed from `$CBOM_TOOLS_DIR`/`~/.cbom/tools/` per ADR-024). Persistent server mode and containerized deployment were evaluated but rejected: subprocess is simpler, consistent with the existing OpenGrep pattern, and the 5-10s JVM cold start is acceptable since Pass 3 runs nightly. The `cradar-full` binary bundles Joern alongside OpenGrep. Resolves OQ-002.
 
 **ADR-012: Backend Database Schema — CBOMStore, TimescaleDB Hypertables, JSONB Strategy**
 The backend database schema formalises four design decisions: (1) a `CBOMStore` abstraction with two implementations — `PostgresCBOMStore` for dev/early stage (< 10 GB, < 500 scans/day) and `S3CBOMStore` for production, swappable via config; (2) TimescaleDB hypertables for the `scan_metrics` table, enabling efficient time-range queries, automatic compression, and continuous aggregates; (3) JSONB columns with GIN indexes for flexible crypto finding metadata that avoids rigid schema migrations; (4) a Graph Abstraction Layer (GAL) using PostgreSQL recursive CTEs in Phase 1–2 with a clean Neo4j migration path in Phase 3. Key tables: organisations, groups, projects, scans, cbom_documents, findings, scan_metrics, policy_sets, compliance_mappings. Implements the storage architecture from D-001 and A-001.
 
 **ADR-013: Authentication Model — JWT + API Keys + Scoped Permissions**
-Human users authenticate via JWT (15-min access token + 7-day refresh token) with login via email/password or SSO (SAML/OIDC). Machine users (CI/CD) use scoped API keys prefixed `cbom_sk_...`, SHA-256 hashed at rest. Seven permission scopes defined (`scan:read/write`, `cbom:read/write`, `project:read/write`, `report:read`); `policy:write` excluded from API keys per OQ-RBAC-7. RBAC enforcement via middleware with 7 roles at org/group/project level. JWT revocation handled via Redis deny-list. Libraries: `python-jose` (JWT), `passlib` (bcrypt).
+Human users authenticate via JWT (15-min access token + 7-day refresh token) with login via email/password or SSO (SAML/OIDC). Machine users (CI/CD) use scoped API keys prefixed `cradar_sk_...` (renamed from `cbom_sk_...` per ADR-024), SHA-256 hashed at rest. Seven permission scopes defined (`scan:read/write`, `cbom:read/write`, `project:read/write`, `report:read`); `policy:write` excluded from API keys per OQ-RBAC-7. RBAC enforcement via middleware with 7 roles at org/group/project level. JWT revocation handled via Redis deny-list. Libraries: `python-jose` (JWT), `passlib` (bcrypt).
 
 **ADR-014: Git Provider Abstraction — Common Interface for GitHub/GitLab/Bitbucket**
 A `GitProvider` protocol abstracts OAuth, repo listing, webhook management, status checks, and PR comments across GitHub, GitLab, Bitbucket Cloud, and Bitbucket Data Center. Four concrete implementations behind a single interface — business logic never touches provider-specific APIs. Webhook signature verification mandatory for all providers (HMAC-SHA256 for GitHub/Bitbucket, token validation for GitLab). New providers added by implementing one interface with no changes to scan orchestration or notification logic.
 
 **ADR-015: Frontend Architecture — React 19, TanStack, Theme System**
 Frontend built with React 19 + TypeScript strict mode + Vite. TanStack Router for type-safe routing, TanStack Query for server state (no `useState` + `useEffect` fetch patterns). shadcn/ui + Tailwind CSS for accessible, owned components. Three themes (Radar/Crystal/Sentinel) via CSS custom properties — zero-runtime-cost switching, no conditional rendering per theme. RBAC enforced via route guards and conditional navigation. MSW for mock API development (C-M1/C-M2); real API integration at C-M3. API types auto-generated from OpenAPI spec via `openapi-typescript`.
+
+---
+
+### 2026-03-20 — CLI Binary Rename and Portal Push Model
+
+**ADR-024: CLI binary rename — cbom → cradar**
+The CLI binary is renamed from `cbom` to `cradar` to reflect the full product capability. The tool now does far more than CBOM generation: 12-language scanning with 3 detection passes, policy enforcement, compliance checking, CBOM diffing, report generation, and portal push. The name "cradar" is the natural abbreviation of CipherRadar and aligns the CLI with the product brand. `cbom` is retained as a legacy alias (symlink) during Phase 3 for backward compatibility. All documentation, CI templates, GitHub Actions, GitLab CI files, environment variables (`CBOM_*` → `CRADAR_*`), config files (`.cbom.yml` → `.cradar.yml`), and tools directories (`~/.cbom/tools/` → `~/.cradar/tools/`) are updated. GoReleaser artifacts change from `cbom`/`cbom-full` to `cradar`/`cradar-full`.
+
+**ADR-025: CLI-to-portal push model**
+A `--push` flag on `cradar scan` enables combined scan + upload in a single command for CI/CD pipelines. The `--project` flag (required with `--push`) identifies the target project by name. The `--group` flag (optional) specifies the group path, falling back to the user's default group. API key authentication provides org context. A `.cradar.yml` config file can store defaults to reduce CLI verbosity. The backend endpoint `POST /api/v1/scans/upload` handles project auto-resolution (auto-create if user has `project:write` permission) and group fallback with security-safe error messages (identical 404 for "not found" and "no access" — same pattern as GitHub's 404-not-403 for private repos).
+
+**Documents updated following ADR-024 and ADR-025:**
+
+| Document | What Changed |
+|---|---|
+| `CLAUDE.md` | All `cbom` command references → `cradar`; legacy alias note; `--push` flag added |
+| `README.md` | Quick Start section updated; all command examples → `cradar` |
+| `docs/08-roadmap.md` | Phase 4 deliverables: SonarQube full plugin added |
+| `docs/13-phase3-implementation-plan.md` | A-M2: CLI rename + `--push` flag; B-M2: upload endpoint + project resolution |
+| `deploy/README.md` | All CI/CD examples → `cradar`; `cbom-action` → `cradar-action` |
+| `deploy/github-action/action.yml` | Binary build → `cradar`; scan commands → `cradar` |
+| `deploy/github-action/release.yml` | Artifact names → `cradar`/`cradar-full` |
+| `deploy/github-action/example-workflow.yml` | Workflow example → `cradar` |
+| `deploy/gitlab-ci/` | File renamed `cbom-scan.gitlab-ci.yml` → `cradar-scan.gitlab-ci.yml`; all references → `cradar` |
 
 ---
 

@@ -1,5 +1,5 @@
-# Example: Add to .github/workflows/cbom-scan.yml
-name: CBOM Scan
+# Example: Add to .github/workflows/cradar-scan.yml
+name: CipherRadar Scan
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  cbom-scan:
+  cradar-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,5 +24,5 @@ jobs:
       # - name: Run CipherRadar Scan with Policy
       #   uses: ./deploy/github-action
       #   with:
-      #     policy: policy.cbom.yml
+      #     policy: policy.cradar.yml
       #     fail-on: high

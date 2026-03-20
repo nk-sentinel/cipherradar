@@ -1,15 +1,17 @@
 # CipherRadar CI/CD Integration
 
-Run CipherRadar CBOM scans automatically in your CI/CD pipelines to detect cryptographic assets and enforce cryptographic policies on every commit.
+Run CipherRadar scans automatically in your CI/CD pipelines to detect cryptographic assets and enforce cryptographic policies on every commit.
+
+> **Note:** The CLI binary was renamed from `cbom` to `cradar` per ADR-024. The GitHub Action is now `cradar-action`. `cbom` remains as a legacy alias during Phase 3.
 
 ## GitHub Actions
 
 ### Quick Start
 
-Add the following to `.github/workflows/cbom-scan.yml` in your repository:
+Add the following to `.github/workflows/cradar-scan.yml` in your repository:
 
 ```yaml
-name: CBOM Scan
+name: CipherRadar Scan
 
 on:
   push:
@@ -17,7 +19,7 @@ on:
   pull_request:
 
 jobs:
-  cbom-scan:
+  cradar-scan:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -75,11 +77,11 @@ Fail the build when findings exceed a severity threshold:
 - name: Run CipherRadar Scan
   uses: ./deploy/github-action
   with:
-    policy: policy.cbom.yml
+    policy: policy.cradar.yml
     fail-on: high
 ```
 
-The `cbom policy check` command will exit non-zero if any findings at or above the specified severity are detected, causing the workflow to fail.
+The `cradar policy check` command will exit non-zero if any findings at or above the specified severity are detected, causing the workflow to fail.
 
 ---
 
@@ -93,28 +95,28 @@ Add the following to your `.gitlab-ci.yml`:
 include:
   - project: 'nk-sentinel/cipherradar'
     ref: main
-    file: 'deploy/gitlab-ci/cbom-scan.gitlab-ci.yml'
+    file: 'deploy/gitlab-ci/cradar-scan.gitlab-ci.yml'
 ```
 
 For local testing within the CipherRadar monorepo:
 
 ```yaml
 include:
-  - local: 'deploy/gitlab-ci/cbom-scan.gitlab-ci.yml'
+  - local: 'deploy/gitlab-ci/cradar-scan.gitlab-ci.yml'
 ```
 
 ### Variables
 
 Override these CI/CD variables to customize the scan:
 
-| Variable            | Description                                              | Default            |
-|---------------------|----------------------------------------------------------|--------------------|
-| `CBOM_FORMAT`       | Output format (`cyclonedx-json`, `sarif`, `text`, `pdf`) | `cyclonedx-json`   |
-| `CBOM_OUTPUT`       | Output file name                                         | `cbom.json`        |
-| `CBOM_PASSES`       | Scan passes to run (`1`, `2`, `3`)                       | `1`                |
-| `CBOM_POLICY`       | Path to policy file for enforcement                      | (none)             |
-| `CBOM_FAIL_ON`      | Minimum severity to fail the pipeline                    | (none)             |
-| `CBOM_SARIF_OUTPUT` | SARIF output file name                                   | `cbom.sarif`       |
+| Variable              | Description                                              | Default            |
+|-----------------------|----------------------------------------------------------|--------------------|
+| `CRADAR_FORMAT`       | Output format (`cyclonedx-json`, `sarif`, `text`, `pdf`) | `cyclonedx-json`   |
+| `CRADAR_OUTPUT`       | Output file name                                         | `cbom.json`        |
+| `CRADAR_PASSES`       | Scan passes to run (`1`, `2`, `3`)                       | `1`                |
+| `CRADAR_POLICY`       | Path to policy file for enforcement                      | (none)             |
+| `CRADAR_FAIL_ON`      | Minimum severity to fail the pipeline                    | (none)             |
+| `CRADAR_SARIF_OUTPUT` | SARIF output file name                                   | `cbom.sarif`       |
 
 ### SARIF and GitLab Security Dashboard
 
@@ -122,19 +124,19 @@ The template automatically generates a SARIF report and attaches it as a `sast` 
 
 ### Policy Enforcement
 
-Set the `CBOM_POLICY` and `CBOM_FAIL_ON` variables to enable policy checks:
+Set the `CRADAR_POLICY` and `CRADAR_FAIL_ON` variables to enable policy checks:
 
 ```yaml
 variables:
-  CBOM_POLICY: "policy.cbom.yml"
-  CBOM_FAIL_ON: "high"
+  CRADAR_POLICY: "policy.cradar.yml"
+  CRADAR_FAIL_ON: "high"
 ```
 
 The pipeline will fail if any findings meet or exceed the specified severity.
 
 ### Pipeline Rules
 
-By default, the `cbom-scan` job runs on:
+By default, the `cradar-scan` job runs on:
 - Merge request pipelines
 - Commits to the default branch
 
@@ -160,16 +162,18 @@ CipherRadar CLI releases are managed by [GoReleaser v2](https://goreleaser.com/)
 
 ### Binary Flavors
 
-| Artifact   | Size     | Description                                              |
-|------------|----------|----------------------------------------------------------|
-| `cbom`     | ~15 MB   | Lightweight binary. Users run `cbom install-tools` to download OpenGrep separately. |
-| `cbom-full`| ~80-100 MB | Same binary bundled with OpenGrep in the archive. For air-gapped environments. |
+| Artifact       | Size       | Description                                              |
+|----------------|------------|----------------------------------------------------------|
+| `cradar`       | ~15 MB     | Lightweight binary. Users run `cradar install-tools` to download OpenGrep separately. |
+| `cradar-full`  | ~80-100 MB | Same binary bundled with OpenGrep in the archive. For air-gapped environments. |
 
-Both flavors produce identical `cbom` binaries — the only difference is whether the OpenGrep executable is included alongside it in the archive.
+Both flavors produce identical `cradar` binaries — the only difference is whether the OpenGrep executable is included alongside it in the archive.
+
+> **Note:** Binary renamed from `cbom`/`cbom-full` to `cradar`/`cradar-full` per ADR-024. `cbom` is available as a legacy alias during Phase 3.
 
 ### How It Works
 
-1. **GoReleaser config** (`cli/.goreleaser.yml`) defines two builds (`cbom` and `cbom-full`) and two archive templates. Both builds compile the same `cmd/cbom` entry point with version/commit/date injected via ldflags.
+1. **GoReleaser config** (`cli/.goreleaser.yml`) defines two builds (`cradar` and `cradar-full`) and two archive templates. Both builds compile the same `cmd/cbom` entry point with version/commit/date injected via ldflags.
 2. **Release workflow** (`deploy/github-action/release.yml`) runs on any `v*` tag push. It downloads OpenGrep binaries for each platform into `dist/opengrep-<os>-<arch>/`, then invokes GoReleaser to build, archive, and create a draft GitHub release.
 
 ### Creating a Release
@@ -186,10 +190,10 @@ The release workflow triggers automatically. It creates a **draft** release on G
 
 For each release, the following artifacts are uploaded:
 
-- `cbom_<version>_<os>_<arch>.tar.gz` — lightweight archive (4 platform variants)
-- `cbom-full_<version>_<os>_<arch>.tar.gz` — full archive with OpenGrep (4 platform variants)
+- `cradar_<version>_<os>_<arch>.tar.gz` — lightweight archive (4 platform variants)
+- `cradar-full_<version>_<os>_<arch>.tar.gz` — full archive with OpenGrep (4 platform variants)
 - `checksums.txt` — SHA-256 checksums for all archives
 
 ### Version Information
 
-Version, commit, and build date are injected at build time via ldflags into `cli/internal/cmd/version.go`. Run `cbom version` to see the build metadata.
+Version, commit, and build date are injected at build time via ldflags into `cli/internal/cmd/version.go`. Run `cradar version` to see the build metadata.

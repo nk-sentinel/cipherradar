@@ -1,0 +1,48 @@
+# CipherRadar Scan -- GitLab CI Template
+#
+# Usage: Include this template in your .gitlab-ci.yml:
+#   include:
+#     - project: 'nk-sentinel/cipherradar'
+#       ref: main
+#       file: 'deploy/gitlab-ci/cradar-scan.gitlab-ci.yml'
+
+variables:
+  CRADAR_FORMAT: "cyclonedx-json"
+  CRADAR_OUTPUT: "cbom.json"
+  CRADAR_PASSES: "1"
+  CRADAR_POLICY: ""
+  CRADAR_FAIL_ON: ""
+  CRADAR_SARIF_OUTPUT: "cbom.sarif"
+
+.cradar-scan-base:
+  image: golang:1.22
+  before_script:
+    - cd cli && go build -o /usr/local/bin/cradar ./cmd/cbom && cd ..
+
+cradar-scan:
+  extends: .cradar-scan-base
+  stage: test
+  script:
+    - cradar scan . --format ${CRADAR_FORMAT} --output ${CRADAR_OUTPUT} --passes ${CRADAR_PASSES}
+    - cradar scan . --format text --passes ${CRADAR_PASSES}
+    # Generate SARIF for GitLab Security Dashboard
+    - cradar scan . --format sarif --output ${CRADAR_SARIF_OUTPUT} --passes ${CRADAR_PASSES}
+    # Policy check (optional)
+    - |
+      if [ -n "${CRADAR_POLICY}" ]; then
+        FAIL_FLAG=""
+        if [ -n "${CRADAR_FAIL_ON}" ]; then
+          FAIL_FLAG="--fail-on ${CRADAR_FAIL_ON}"
+        fi
+        cradar policy check ${CRADAR_OUTPUT} --policy ${CRADAR_POLICY} ${FAIL_FLAG}
+      fi
+  artifacts:
+    paths:
+      - ${CRADAR_OUTPUT}
+      - ${CRADAR_SARIF_OUTPUT}
+    reports:
+      sast: ${CRADAR_SARIF_OUTPUT}
+    when: always
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH

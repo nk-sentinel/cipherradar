@@ -11,7 +11,7 @@ Full design documentation is in `docs/`. Start with `README.md` and `docs/DECISI
 ## Repository Structure
 
 ```
-cli/          Go binary — cbom scan, diff, report (ADR-005)
+cli/          Go binary — cradar scan, diff, report (ADR-005, ADR-024)
 backend/      Python/FastAPI + Taskiq workers
 frontend/     React 19 + TypeScript dashboard
 scanner/      Shared detection assets used by CLI and backend
@@ -27,13 +27,17 @@ logo/         Brand assets
 
 `github.com/nk-sentinel/cipherradar/cli`
 
+Note: The Go module path is unchanged by the binary rename (ADR-024). The module path is an internal identifier; the user-facing binary name is `cradar`.
+
 ## CLI Distribution
 
-Two GoReleaser artifacts per release:
-- `cbom` — lightweight binary (~15 MB), no tools bundled
-- `cbom-full` — includes OpenGrep + Joern pre-bundled (~80–100 MB), for air-gapped environments
+Two GoReleaser artifacts per release (renamed from `cbom`/`cbom-full` per ADR-024):
+- `cradar` — lightweight binary (~15 MB), no tools bundled
+- `cradar-full` — includes OpenGrep + Joern pre-bundled (~80–100 MB), for air-gapped environments
 
-`cbom install-tools` downloads OpenGrep + Joern to `~/.cbom/tools/` for lightweight binary users.
+`cradar install-tools` downloads OpenGrep + Joern to `~/.cradar/tools/` for lightweight binary users.
+
+`cbom` is retained as a legacy alias (symlink) during Phase 3 for backward compatibility. The alias prints a deprecation warning and will be removed in a future release.
 
 ## Shared Assets
 
@@ -112,11 +116,13 @@ All ADRs are in `docs/decisions/`. Decisions that affect day-to-day coding:
 - **ADR-004** — Detection is 3-pass: tree-sitter (Pass 1) → OpenGrep (Pass 2) → Joern (Pass 3). No custom taint engine.
 - **ADR-005** — CLI in Go, backend in Python/FastAPI.
 - **ADR-008** — Monorepo. `scanner/` is shared between CLI and backend.
-- **ADR-011** — Joern Pass 3 via subprocess (same pattern as OpenGrep).
+- **ADR-011** — Joern Pass 3 via subprocess (same pattern as OpenGrep). Binary discovery: same dir → `$CRADAR_TOOLS_DIR` → `~/.cradar/tools/` → `$PATH`.
 - **ADR-012** — DB schema: CBOMStore abstraction, TimescaleDB hypertables, JSONB+GIN, GAL.
 - **ADR-013** — Auth: JWT + scoped API keys. 7 RBAC roles: Org Admin, Security Manager, Security Engineer, **Team Manager**, Compliance Auditor, Developer, Guest/Viewer (`docs/09-rbac.md` v2).
 - **ADR-014** — Git provider abstraction: common interface for GitHub/GitLab/Bitbucket.
 - **ADR-015** — Frontend: React 19, TanStack Query/Router, shadcn/ui, 3 CSS themes, MSW mock API. UI mockup: `frontend/mockups/full-mockup-v2.html`.
+- **ADR-024** — CLI binary rename: `cbom` → `cradar`. `cbom` kept as legacy alias during Phase 3.
+- **ADR-025** — CLI-to-portal push: `cradar scan --push` uploads results to portal. `.cradar.yml` config file for defaults.
 
 ---
 
@@ -125,9 +131,22 @@ All ADRs are in `docs/decisions/`. Decisions that affect day-to-day coding:
 ### CLI (Go)
 ```bash
 cd cli
-go build ./...          # build
-go test ./...           # test
-go vet ./...            # vet
+go build -o cradar ./cmd/cbom   # build (binary renamed per ADR-024; entry point remains cmd/cbom until code rename)
+go test ./...                    # test
+go vet ./...                     # vet
+
+# Scan a project
+cradar scan /path/to/project --format text
+cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate
+
+# Scan and push to portal (ADR-025)
+cradar scan /path/to/project --push --project "my-service" --api-key $CRADAR_API_KEY
+
+# Policy check
+cradar policy check cbom.json --policy policy.cradar.yml --fail-on high
+
+# Diff two scans
+cradar diff cbom-before.json cbom-after.json
 ```
 
 ### Backend (Python)

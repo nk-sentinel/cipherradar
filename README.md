@@ -91,24 +91,29 @@ Source Code / Containers / Config Files
 
 ## Quick Start
 
+> **Note:** The CLI binary was renamed from `cbom` to `cradar` in ADR-024 to reflect the full product capability. `cbom` is available as a legacy alias during Phase 3.
+
 ```bash
 # Build the CLI
-cd cli && go build -o cbom ./cmd/cbom
+cd cli && go build -o cradar ./cmd/cbom
 
 # Scan a project
-./cbom scan /path/to/project --format text
+./cradar scan /path/to/project --format text
 
 # Generate CycloneDX 1.7 CBOM
-./cbom scan /path/to/project --format cyclonedx-json --output cbom.json --validate
+./cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate
 
 # Check against policy
-./cbom policy check cbom.json --policy policy.cbom.yml --fail-on high
+./cradar policy check cbom.json --policy policy.cradar.yml --fail-on high
 
 # Compare two scans
-./cbom diff cbom-before.json cbom-after.json
+./cradar diff cbom-before.json cbom-after.json
 
 # Generate PDF report
-./cbom scan /path/to/project --format pdf --output report.pdf
+./cradar scan /path/to/project --format pdf --output report.pdf
+
+# Scan and push results to CipherRadar portal
+./cradar scan /path/to/project --push --project "my-service" --api-key $CRADAR_API_KEY
 ```
 
 ---

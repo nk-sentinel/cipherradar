@@ -42,7 +42,7 @@ jobs:
         with:
           go-version: '1.22'
 
-      - name: Build cbom binary
+      - name: Build cradar binary
         working-directory: cli
         env:
           GOOS: ${{ matrix.goos }}
@@ -56,7 +56,7 @@ jobs:
             -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.Version=${GITHUB_REF_NAME#v} \
             -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.Commit=${GITHUB_SHA::8} \
             -X github.com/nk-sentinel/cipherradar/cli/internal/cmd.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            -o "../dist/cbom${EXT}" ./cmd/cbom
+            -o "../dist/cradar${EXT}" ./cmd/cbom
         shell: bash
 
       - name: Download OpenGrep for bundling
@@ -68,34 +68,34 @@ jobs:
             echo "Warning: OpenGrep not available for ${{ matrix.opengrep_arch }}"
         shell: bash
 
-      - name: Package cbom (lightweight)
+      - name: Package cradar (lightweight)
         run: |
-          mkdir -p dist/cbom-pkg
+          mkdir -p dist/cradar-pkg
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
-          cp dist/cbom${EXT} dist/cbom-pkg/
-          cd dist/cbom-pkg
+          cp dist/cradar${EXT} dist/cradar-pkg/
+          cd dist/cradar-pkg
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            7z a "../cbom_${{ matrix.goos }}_${{ matrix.goarch }}.zip" .
+            7z a "../cradar_${{ matrix.goos }}_${{ matrix.goarch }}.zip" .
           else
-            tar czf "../cbom_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" .
+            tar czf "../cradar_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" .
           fi
         shell: bash
 
-      - name: Package cbom-full (with OpenGrep)
+      - name: Package cradar-full (with OpenGrep)
         run: |
-          mkdir -p dist/cbom-full-pkg
+          mkdir -p dist/cradar-full-pkg
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
-          cp dist/cbom${EXT} dist/cbom-full-pkg/
+          cp dist/cradar${EXT} dist/cradar-full-pkg/
           if [ -f dist/opengrep/opengrep ]; then
-            cp dist/opengrep/opengrep dist/cbom-full-pkg/
+            cp dist/opengrep/opengrep dist/cradar-full-pkg/
           fi
-          cd dist/cbom-full-pkg
+          cd dist/cradar-full-pkg
           if [ "${{ matrix.goos }}" = "windows" ]; then
-            7z a "../cbom-full_${{ matrix.goos }}_${{ matrix.goarch }}.zip" .
+            7z a "../cradar-full_${{ matrix.goos }}_${{ matrix.goarch }}.zip" .
           else
-            tar czf "../cbom-full_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" .
+            tar czf "../cradar-full_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" .
           fi
         shell: bash
 
@@ -104,8 +104,8 @@ jobs:
         with:
           name: release-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
-            dist/cbom_*
-            dist/cbom-full_*
+            dist/cradar_*
+            dist/cradar-full_*
 
   # Collect all platform artifacts and create a GitHub Release
   release:
@@ -123,7 +123,7 @@ jobs:
       - name: Generate checksums
         run: |
           cd dist
-          sha256sum cbom_* cbom-full_* > checksums.txt
+          sha256sum cradar_* cradar-full_* > checksums.txt
           cat checksums.txt
 
       - name: Create GitHub Release
@@ -132,6 +132,6 @@ jobs:
           draft: true
           generate_release_notes: true
           files: |
-            dist/cbom_*
-            dist/cbom-full_*
+            dist/cradar_*
+            dist/cradar-full_*
             dist/checksums.txt

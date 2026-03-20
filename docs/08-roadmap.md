@@ -76,16 +76,19 @@ Four phases, sequenced to deliver usable value at the end of each phase.
 - [x] `--fail-on CRITICAL` flag
 
 **CI/CD**
-- [x] GitHub Actions `cbom-action` — scan on push/PR; upload CBOM as artifact
+- [x] GitHub Actions `cradar-action` — scan on push/PR; upload CBOM as artifact
 - [x] GitLab CI template
 
 **CLI Commands**
+> Binary renamed from `cbom` to `cradar` per ADR-024. `cbom` available as legacy alias during Phase 3.
+
 ```bash
-cbom scan ./path [--output cbom.json] [--format cyclonedx-json|sarif|text|pdf]
-cbom scan <git-url> [--branch main]
-cbom diff cbom-before.json cbom-after.json
-cbom policy check cbom.json --policy policy.cbom.yml
-cbom report cbom.json [--output report.pdf] [--format pdf]
+cradar scan ./path [--output cbom.json] [--format cyclonedx-json|sarif|text|pdf]
+cradar scan <git-url> [--branch main]
+cradar scan ./path --push --project "my-service" --api-key $CRADAR_API_KEY
+cradar diff cbom-before.json cbom-after.json
+cradar policy check cbom.json --policy policy.cradar.yml
+cradar report cbom.json [--output report.pdf] [--format pdf]
 ```
 
 **Success Criteria**
@@ -234,6 +237,9 @@ cbom report cbom.json [--output report.pdf] [--format pdf]
 - [ ] CBOM attestation via Sigstore — keyless signing; Rekor transparency log entry per scan
 - [ ] SBOM ↔ CBOM CVE correlation — when a CVE is published for a crypto library, instantly show affected services
 - [ ] OWASP MASVS compliance report (mobile security — aligned with CycloneDX mobile extensions)
+
+**Enterprise Integrations**
+- [ ] Full SonarQube plugin with CBOM tab + marketplace publishing (deferred from Phase 3 D-M3)
 
 **Success Criteria**
 - IDE plugins published to VS Code Marketplace and JetBrains Marketplace

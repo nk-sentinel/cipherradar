@@ -1,9 +1,9 @@
 # Example: Add to your project's .gitlab-ci.yml
 include:
-  - local: 'deploy/gitlab-ci/cbom-scan.gitlab-ci.yml'
+  - local: 'deploy/gitlab-ci/cradar-scan.gitlab-ci.yml'
 
 # Override variables as needed
 variables:
-  CBOM_PASSES: "1"
-  # CBOM_POLICY: "policy.cbom.yml"
-  # CBOM_FAIL_ON: "high"
+  CRADAR_PASSES: "1"
+  # CRADAR_POLICY: "policy.cradar.yml"
+  # CRADAR_FAIL_ON: "high"

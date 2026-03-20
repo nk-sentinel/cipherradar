@@ -1,5 +1,5 @@
-name: 'CipherRadar CBOM Scan'
-description: 'Scan your repository for cryptographic assets and generate a CycloneDX 1.7 CBOM'
+name: 'CipherRadar Scan'
+description: 'Scan your repository for cryptographic assets and generate a CycloneDX 1.7 CBOM using cradar'
 branding:
   icon: 'shield'
   color: 'blue'
@@ -57,30 +57,30 @@ runs:
       with:
         go-version: '1.22'
 
-    - name: Build cbom
+    - name: Build cradar
       shell: bash
       run: |
         cd ${{ github.action_path }}/../../cli
-        go build -o ${{ runner.temp }}/cbom ./cmd/cbom
+        go build -o ${{ runner.temp }}/cradar ./cmd/cbom
         echo "${{ runner.temp }}" >> $GITHUB_PATH
 
-    - name: Run CBOM scan
+    - name: Run CipherRadar scan
       id: scan
       shell: bash
       run: |
-        cbom scan ${{ inputs.path }} \
+        cradar scan ${{ inputs.path }} \
           --format ${{ inputs.format }} \
           --output ${{ inputs.output }} \
           --passes ${{ inputs.passes }} \
-          2>&1 | tee /tmp/cbom-output.txt
+          2>&1 | tee /tmp/cradar-output.txt
 
         # Also generate text output for summary
-        cbom scan ${{ inputs.path }} --format text --passes ${{ inputs.passes }} > /tmp/cbom-summary.txt 2>&1 || true
+        cradar scan ${{ inputs.path }} --format text --passes ${{ inputs.passes }} > /tmp/cradar-summary.txt 2>&1 || true
 
         # Extract counts from text summary
-        FINDINGS=$(grep -oP 'Findings: \K\d+' /tmp/cbom-summary.txt || echo "0")
-        CRITICAL=$(grep -oP 'CRITICAL: \K\d+' /tmp/cbom-summary.txt || echo "0")
-        HIGH=$(grep -oP 'HIGH:\s+\K\d+' /tmp/cbom-summary.txt || echo "0")
+        FINDINGS=$(grep -oP 'Findings: \K\d+' /tmp/cradar-summary.txt || echo "0")
+        CRITICAL=$(grep -oP 'CRITICAL: \K\d+' /tmp/cradar-summary.txt || echo "0")
+        HIGH=$(grep -oP 'HIGH:\s+\K\d+' /tmp/cradar-summary.txt || echo "0")
         echo "findings-count=$FINDINGS" >> $GITHUB_OUTPUT
         echo "critical-count=$CRITICAL" >> $GITHUB_OUTPUT
         echo "high-count=$HIGH" >> $GITHUB_OUTPUT
@@ -88,15 +88,15 @@ runs:
     - name: Post summary
       shell: bash
       run: |
-        echo "## CipherRadar CBOM Scan Results" >> $GITHUB_STEP_SUMMARY
+        echo "## CipherRadar Scan Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        cat /tmp/cbom-summary.txt >> $GITHUB_STEP_SUMMARY
+        cat /tmp/cradar-summary.txt >> $GITHUB_STEP_SUMMARY
 
     - name: Upload CBOM artifact
       if: inputs.upload-artifact == 'true'
       uses: actions/upload-artifact@v4
       with:
-        name: cbom-report
+        name: cradar-report
         path: ${{ inputs.output }}
 
     - name: Upload SARIF
@@ -113,4 +113,4 @@ runs:
         if [ -n "${{ inputs.fail-on }}" ]; then
           FAIL_ON_FLAG="--fail-on ${{ inputs.fail-on }}"
         fi
-        cbom policy check ${{ inputs.output }} --policy ${{ inputs.policy }} $FAIL_ON_FLAG
+        cradar policy check ${{ inputs.output }} --policy ${{ inputs.policy }} $FAIL_ON_FLAG
