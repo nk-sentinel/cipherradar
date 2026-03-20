@@ -4,7 +4,22 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1 import auth, cbom, compliance, health, integrations, reports, sbom, scan_upload, scans, webhooks
+from app.api.v1 import (
+    auth,
+    cbom,
+    compliance,
+    health,
+    integrations,
+    jira,
+    notifications,
+    reports,
+    sbom,
+    scan_upload,
+    scans,
+    signing,
+    webhooks,
+    ws,
+)
 from app.config import settings
 from app.db.session import dispose_engine, init_engine
 from app.services.cache_service import close_redis, init_redis
@@ -55,6 +70,10 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(sbom.router, prefix="/api/v1")
     app.include_router(scan_upload.router, prefix="/api/v1")
     app.include_router(reports.router, prefix="/api/v1")
+    app.include_router(notifications.router, prefix="/api/v1")
+    app.include_router(jira.router, prefix="/api/v1")
+    app.include_router(signing.router, prefix="/api/v1")
+    app.include_router(ws.router, prefix="/api/v1")
 
     return app
 

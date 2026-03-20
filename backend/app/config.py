@@ -26,6 +26,18 @@ class Settings(BaseSettings):
     # CBOM Store (per ADR-012: "postgres" for dev, "s3" for production)
     cbom_store_type: str = "postgres"
 
+    # SMTP (email notifications)
+    smtp_host: str = "localhost"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_address: str = "noreply@cipherradar.io"
+
+    # Jira OAuth 2.0
+    jira_client_id: str = ""
+    jira_client_secret: str = ""
+    jira_redirect_uri: str = ""
+
     model_config = {"env_prefix": "CBOM_"}
 
 

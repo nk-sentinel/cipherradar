@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
+	"github.com/nk-sentinel/cipherradar/cli/internal/container"
 	"github.com/nk-sentinel/cipherradar/cli/internal/joern"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
@@ -21,10 +22,15 @@ import (
 )
 
 var scanCmd = &cobra.Command{
-	Use:   "scan <path>",
-	Short: "Scan a project for cryptographic assets",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runScan,
+	Use:   "scan [path]",
+	Short: "Scan a project or container image for cryptographic assets",
+	Long: `Scan a project directory or container image for cryptographic assets.
+
+When --container is set, the argument is an image reference (e.g. nginx:latest,
+gcr.io/project/image:tag) or a local tar file path. This flag is mutually
+exclusive with the directory path argument.`,
+	Args: cobra.MaximumNArgs(1),
+	RunE: runScan,
 }
 
 func init() {
@@ -38,6 +44,9 @@ func init() {
 	scanCmd.Flags().String("queries-dir", "", "directory containing Joern .sc query scripts for Pass 3")
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (enables inter-procedural analysis)")
 
+	// Container image scanning.
+	scanCmd.Flags().String("container", "", "scan a container image (reference or local .tar path)")
+
 	// Push flags (ADR-025).
 	scanCmd.Flags().Bool("push", false, "upload scan results to CipherRadar portal after scan")
 	scanCmd.Flags().String("project", "", "project name for portal upload (required with --push)")
@@ -49,7 +58,15 @@ func init() {
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
-	targetPath := args[0]
+	containerRef, _ := cmd.Flags().GetString("container")
+
+	// Validate mutually exclusive arguments: --container vs path.
+	if containerRef != "" && len(args) > 0 {
+		return fmt.Errorf("--container and path argument are mutually exclusive")
+	}
+	if containerRef == "" && len(args) == 0 {
+		return fmt.Errorf("either a path argument or --container flag is required")
+	}
 
 	// Parse passes flag. --deep is an alias for --passes 1,2,3.
 	deep, _ := cmd.Flags().GetBool("deep")
@@ -65,45 +82,58 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// Create scanner registry with all built-in scanners.
 	registry := scannerinit.DefaultRegistry()
 
-	// Run Pass 1 scan.
-	result, err := scanner.ScanDir(targetPath, registry, passes)
-	if err != nil {
-		return fmt.Errorf("scan failed: %w", err)
-	}
+	var result *types.ScanResult
 
-	// Run Pass 2 (OpenGrep taint analysis) if requested.
-	if containsPass(passes, 2) {
-		rulesDir, _ := cmd.Flags().GetString("rules-dir")
-		if rulesDir == "" {
-			rulesDir = os.Getenv("CRADAR_RULES_DIR")
+	if containerRef != "" {
+		// Container image scanning mode.
+		result, err = container.ScanImage(containerRef, registry, passes)
+		if err != nil {
+			return fmt.Errorf("container scan failed: %w", err)
+		}
+	} else {
+		// Directory scanning mode.
+		targetPath := args[0]
+
+		// Run Pass 1 scan.
+		result, err = scanner.ScanDir(targetPath, registry, passes)
+		if err != nil {
+			return fmt.Errorf("scan failed: %w", err)
 		}
 
-		pass2Findings, pass2Err := runPass2(targetPath, rulesDir)
-		if pass2Err != nil {
-			result.Errors = append(result.Errors, types.ScanError{
-				File:    "",
-				Message: fmt.Sprintf("Pass 2 error: %v", pass2Err),
-			})
-		} else if pass2Findings != nil {
-			result.Findings = opengrep.DeduplicateFindings(result.Findings, pass2Findings)
-		}
-	}
+		// Run Pass 2 (OpenGrep taint analysis) if requested.
+		if containsPass(passes, 2) {
+			rulesDir, _ := cmd.Flags().GetString("rules-dir")
+			if rulesDir == "" {
+				rulesDir = os.Getenv("CRADAR_RULES_DIR")
+			}
 
-	// Run Pass 3 (Joern inter-procedural analysis) if requested.
-	if containsPass(passes, 3) {
-		queriesDir, _ := cmd.Flags().GetString("queries-dir")
-		if queriesDir == "" {
-			queriesDir = os.Getenv("CRADAR_QUERIES_DIR")
+			pass2Findings, pass2Err := runPass2(targetPath, rulesDir)
+			if pass2Err != nil {
+				result.Errors = append(result.Errors, types.ScanError{
+					File:    "",
+					Message: fmt.Sprintf("Pass 2 error: %v", pass2Err),
+				})
+			} else if pass2Findings != nil {
+				result.Findings = opengrep.DeduplicateFindings(result.Findings, pass2Findings)
+			}
 		}
 
-		pass3Findings, pass3Err := runPass3(targetPath, queriesDir)
-		if pass3Err != nil {
-			result.Errors = append(result.Errors, types.ScanError{
-				File:    "",
-				Message: fmt.Sprintf("Pass 3 error: %v", pass3Err),
-			})
-		} else if pass3Findings != nil {
-			result.Findings = joern.DeduplicateFindings(result.Findings, pass3Findings)
+		// Run Pass 3 (Joern inter-procedural analysis) if requested.
+		if containsPass(passes, 3) {
+			queriesDir, _ := cmd.Flags().GetString("queries-dir")
+			if queriesDir == "" {
+				queriesDir = os.Getenv("CRADAR_QUERIES_DIR")
+			}
+
+			pass3Findings, pass3Err := runPass3(targetPath, queriesDir)
+			if pass3Err != nil {
+				result.Errors = append(result.Errors, types.ScanError{
+					File:    "",
+					Message: fmt.Sprintf("Pass 3 error: %v", pass3Err),
+				})
+			} else if pass3Findings != nil {
+				result.Findings = joern.DeduplicateFindings(result.Findings, pass3Findings)
+			}
 		}
 	}
 
