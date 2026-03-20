@@ -21,12 +21,16 @@ import { ScanDetailPage } from './pages/repo/ScanDetailPage.tsx';
 import { RepoFindingsPage } from './pages/repo/RepoFindingsPage.tsx';
 import { RepoQuantum } from './pages/repo/RepoQuantum.tsx';
 import { RepoCompliance } from './pages/repo/RepoCompliance.tsx';
-import { DependencyGraph } from './pages/DependencyGraph.tsx';
 import { CertCalendar } from './pages/CertCalendar.tsx';
 import { ComplianceDashboard } from './pages/ComplianceDashboard.tsx';
 import { CBOMDiff } from './pages/CBOMDiff.tsx';
 import { MigrationKanban } from './pages/MigrationKanban.tsx';
 import { NotificationPreferences } from './pages/NotificationPreferences.tsx';
+import { OrgSettings } from './pages/admin/OrgSettings.tsx';
+import { UserManagement } from './pages/admin/UserManagement.tsx';
+import { IntegrationManagement } from './pages/admin/IntegrationManagement.tsx';
+import { AuditLog } from './pages/admin/AuditLog.tsx';
+import { LazyDependencyGraph } from './pages/LazyDependencyGraph.tsx';
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -83,7 +87,7 @@ const complianceRoute = createRoute({
 const graphRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/graph',
-  component: DependencyGraph,
+  component: LazyDependencyGraph,
 });
 
 const certCalendarRoute = createRoute({
@@ -127,6 +131,34 @@ const downloadsRoute = createRoute({
   path: '/downloads',
   component: Downloads,
 });
+
+/* ---- Admin routes ---- */
+
+const adminSettingsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/admin/settings',
+  component: OrgSettings,
+});
+
+const adminUsersRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/admin/users',
+  component: UserManagement,
+});
+
+const adminIntegrationsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/admin/integrations',
+  component: IntegrationManagement,
+});
+
+const adminAuditLogRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/admin/audit-log',
+  component: AuditLog,
+});
+
+/* ---- Repo routes ---- */
 
 const repoLayoutRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
@@ -221,6 +253,10 @@ const routeTree = rootRoute.addChildren([
     notificationPreferencesRoute,
     profileRoute,
     downloadsRoute,
+    adminSettingsRoute,
+    adminUsersRoute,
+    adminIntegrationsRoute,
+    adminAuditLogRoute,
     repoScanDetailRoute,
     repoLayoutRoute.addChildren([
       repoOverviewRoute,

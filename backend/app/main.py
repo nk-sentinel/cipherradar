@@ -8,10 +8,13 @@ from app.api.v1 import (
     auth,
     cbom,
     compliance,
+    deptrack,
     health,
     integrations,
     jira,
+    metrics,
     notifications,
+    portfolio,
     reports,
     sbom,
     scan_upload,
@@ -74,6 +77,9 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(jira.router, prefix="/api/v1")
     app.include_router(signing.router, prefix="/api/v1")
     app.include_router(ws.router, prefix="/api/v1")
+    app.include_router(portfolio.router, prefix="/api/v1")
+    app.include_router(deptrack.router, prefix="/api/v1")
+    app.include_router(metrics.router, prefix="/api/v1")
 
     return app
 

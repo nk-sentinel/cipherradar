@@ -15,6 +15,13 @@ import { getComplianceDashboard } from './data/complianceDashboard.ts';
 import { getCBOMDiff, getScanSelectors } from './data/cbomDiff.ts';
 import { getNotifications, getNotificationPreferences } from './data/notifications.ts';
 import { getKanbanCards } from './data/kanban.ts';
+import {
+  getUserOrgs,
+  getOrgSettings,
+  getOrgUsers,
+  getIntegrations,
+  getAuditLog,
+} from './data/admin.ts';
 
 export const handlers = [
   http.get('/api/v1/health', () => {
@@ -210,5 +217,30 @@ export const handlers = [
   // Kanban
   http.get('/api/v1/kanban', () => {
     return HttpResponse.json(getKanbanCards());
+  }),
+
+  // User orgs
+  http.get('/api/v1/user/orgs', () => {
+    return HttpResponse.json(getUserOrgs());
+  }),
+
+  // Admin: org settings
+  http.get('/api/v1/admin/settings', () => {
+    return HttpResponse.json(getOrgSettings());
+  }),
+
+  // Admin: user list
+  http.get('/api/v1/admin/users', () => {
+    return HttpResponse.json(getOrgUsers());
+  }),
+
+  // Admin: integrations
+  http.get('/api/v1/admin/integrations', () => {
+    return HttpResponse.json(getIntegrations());
+  }),
+
+  // Admin: audit log
+  http.get('/api/v1/admin/audit-log', () => {
+    return HttpResponse.json(getAuditLog());
   }),
 ];

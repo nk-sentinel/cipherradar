@@ -2,6 +2,7 @@ import { Link, useRouterState } from '@tanstack/react-router';
 import { useAuth } from '@/lib/auth';
 import { canAccessPage } from '@/lib/roles';
 import { cn } from '@/lib/utils';
+import { OrgSwitcher } from './OrgSwitcher.tsx';
 
 interface NavItem {
   label: string;
@@ -34,6 +35,15 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Certificates', icon: '\u2B50', to: '/certificates', page: 'certificates' },
       { label: 'CBOM Diff', icon: '\u0394', to: '/diff', page: 'diff' },
       { label: 'Migration Board', icon: '\u21C4', to: '/migration', page: 'migration' },
+    ],
+  },
+  {
+    title: 'Admin',
+    items: [
+      { label: 'Org Settings', icon: '\u2699', to: '/admin/settings', page: 'admin-settings' },
+      { label: 'Users', icon: '\u263A', to: '/admin/users', page: 'admin-users' },
+      { label: 'Integrations', icon: '\u26A1', to: '/admin/integrations', page: 'admin-integrations' },
+      { label: 'Audit Log', icon: '\u2637', to: '/admin/audit-log', page: 'admin-audit-log' },
     ],
   },
   {
@@ -74,6 +84,8 @@ export function Sidebar(): React.ReactElement {
           <span className="logo-sub">CBOM Platform</span>
         </div>
       </div>
+
+      <OrgSwitcher />
 
       <div>
         {NAV_SECTIONS.map((section) => {

@@ -18,6 +18,7 @@ def init_engine(database_url: str) -> None:
         pool_size=20,
         max_overflow=10,
         pool_pre_ping=True,
+        connect_args={"server_settings": {"statement_timeout": "30000"}},
     )
     _async_session_factory = async_sessionmaker(
         bind=_engine,

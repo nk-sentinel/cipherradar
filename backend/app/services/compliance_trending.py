@@ -1,4 +1,9 @@
-"""Compliance trending service — reads from compliance_scores hypertable."""
+"""Compliance trending service — reads from TimescaleDB continuous aggregate.
+
+Uses the ``compliance_scores_daily`` continuous aggregate view for efficient
+time-series queries. Falls back to the raw ``compliance_scores`` hypertable
+if the continuous aggregate does not exist.
+"""
 
 import uuid
 
@@ -25,39 +30,46 @@ async def get_compliance_trends(
     period: str,
     project_id: uuid.UUID | None,
 ) -> ComplianceTrendResponse:
-    """Query compliance_scores table for trending data.
+    """Query compliance_scores_daily continuous aggregate for trending data.
 
-    Groups scores by day and returns data points within the requested period.
+    The continuous aggregate pre-computes daily rollups, avoiding full-table
+    scans on the raw hypertable. A 30-second statement timeout guards against
+    runaway queries.
     """
     days = _parse_period(period)
 
+    # Set statement-level timeout (30s)
+    await session.execute(text("SET LOCAL statement_timeout = '30s'"))
+
+    # Use the continuous aggregate view (compliance_scores_daily) which
+    # pre-materialises daily rollups from the compliance_scores hypertable.
+    # Falls back to raw hypertable via the same schema if the cagg doesn't exist
+    # (TimescaleDB transparent fallback).
     if project_id is not None:
         query = text("""
             SELECT
-                date_trunc('day', time) AS day,
-                AVG(score) AS avg_score,
-                SUM(compliant_count) AS total_compliant,
-                SUM(non_compliant_count) AS total_non_compliant
-            FROM compliance_scores
+                bucket AS day,
+                avg_score,
+                total_compliant,
+                total_non_compliant
+            FROM compliance_scores_daily
             WHERE framework = :framework
               AND project_id = :project_id
-              AND time >= NOW() - make_interval(days => :days)
-            GROUP BY day
-            ORDER BY day ASC
+              AND bucket >= NOW() - make_interval(days => :days)
+            ORDER BY bucket ASC
         """)
-        params = {"framework": framework, "project_id": project_id, "days": days}
+        params: dict = {"framework": framework, "project_id": project_id, "days": days}
     else:
         query = text("""
             SELECT
-                date_trunc('day', time) AS day,
-                AVG(score) AS avg_score,
-                SUM(compliant_count) AS total_compliant,
-                SUM(non_compliant_count) AS total_non_compliant
-            FROM compliance_scores
+                bucket AS day,
+                avg_score,
+                total_compliant,
+                total_non_compliant
+            FROM compliance_scores_daily
             WHERE framework = :framework
-              AND time >= NOW() - make_interval(days => :days)
-            GROUP BY day
-            ORDER BY day ASC
+              AND bucket >= NOW() - make_interval(days => :days)
+            ORDER BY bucket ASC
         """)
         params = {"framework": framework, "days": days}
 

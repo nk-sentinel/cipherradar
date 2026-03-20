@@ -17,6 +17,8 @@ export const ROLE_LABELS: Record<Role, string> = {
   guest: 'Guest / Viewer',
 };
 
+export const ADMIN_ROLES: Role[] = ['org-admin', 'security-manager'];
+
 export const PAGE_ACCESS: Record<Role, string[]> = {
   'org-admin': [
     'dashboard',
@@ -32,6 +34,10 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
     'notification-preferences',
     'policy',
     'settings',
+    'admin-settings',
+    'admin-users',
+    'admin-integrations',
+    'admin-audit-log',
   ],
   'security-manager': [
     'dashboard',
@@ -47,6 +53,10 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
     'notification-preferences',
     'policy',
     'settings',
+    'admin-settings',
+    'admin-users',
+    'admin-integrations',
+    'admin-audit-log',
   ],
   'security-engineer': [
     'dashboard',
