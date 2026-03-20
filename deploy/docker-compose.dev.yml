@@ -1,3 +1,5 @@
+name: cipherradar
+
 services:
   db:
     image: timescale/timescaledb:latest-pg17
@@ -6,7 +8,7 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +20,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -27,9 +29,9 @@ services:
 
   api:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
-    ports: ["8000:8000"]
+      context: ..
+      dockerfile: backend/Dockerfile
+    ports: ["8001:8000"]
     environment:
       CBOM_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/cipherradar
       CBOM_REDIS_URL: redis://redis:6379
@@ -45,7 +47,7 @@ services:
     build:
       context: ../frontend
       dockerfile: Dockerfile
-    ports: ["3000:3000"]
+    ports: ["3001:3000"]
     environment:
       VITE_API_BASE_URL: http://localhost:8000/api/v1
     depends_on:

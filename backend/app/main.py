@@ -28,11 +28,38 @@ from app.db.session import dispose_engine, init_engine
 from app.services.cache_service import close_redis, init_redis
 
 
+async def _lookup_user_by_email(email: str):
+    """Database-backed user lookup for auth module."""
+    from sqlalchemy import select, text
+
+    from app.db.session import get_session
+
+    async for session in get_session():
+        result = await session.execute(
+            text("SELECT id, email, hashed_password, role, is_active, org_id FROM users WHERE email = :email"),
+            {"email": email},
+        )
+        row = result.fetchone()
+        if row is None:
+            return None
+        return {
+            "id": str(row[0]),
+            "email": row[1],
+            "hashed_password": row[2],
+            "role": row[3],
+            "is_active": row[4],
+            "org_id": str(row[5]),
+        }
+    return None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan: initialise resources on startup, dispose on shutdown."""
     init_engine(settings.database_url)
     await init_redis()
+    # Wire auth callbacks to real database
+    auth.set_user_lookup(_lookup_user_by_email)
     yield
     await close_redis()
     await dispose_engine()
@@ -55,7 +82,7 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     # CORS — allow frontend dev server
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3000", "http://localhost:5173"],
+        allow_origins=["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

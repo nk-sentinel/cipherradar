@@ -9,7 +9,7 @@ import uuid
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from passlib.hash import bcrypt
+import bcrypt as _bcrypt_lib
 
 from app.auth.jwt import JWTError, create_access_token, create_refresh_token, decode_token
 from app.auth.middleware import AuthenticatedUser, get_current_user, require_role
@@ -61,7 +61,7 @@ async def login(body: LoginRequest) -> TokenResponse:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Auth backend not configured")
 
     user = await _user_by_email(body.email)
-    if user is None or not bcrypt.verify(body.password, user["hashed_password"]):
+    if user is None or not _bcrypt_lib.checkpw(body.password.encode(), user["hashed_password"].encode()):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     if not user.get("is_active", True):

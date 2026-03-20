@@ -2,11 +2,15 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-COPY pyproject.toml .
+COPY backend/pyproject.toml .
 RUN pip install --no-cache-dir .
 
-COPY app/ app/
-COPY alembic.ini .
+COPY backend/app/ app/
+COPY backend/alembic.ini .
+COPY backend/scripts/ scripts/
+COPY scanner/ scanner/
+
+RUN chmod +x scripts/entrypoint.sh
 
 EXPOSE 8000
 
@@ -14,4 +18,4 @@ EXPOSE 8000
 RUN useradd -m appuser
 USER appuser
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["bash", "scripts/entrypoint.sh"]

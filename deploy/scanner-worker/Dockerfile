@@ -1,4 +1,4 @@
-FROM golang:1.22 AS cli-builder
+FROM golang:latest AS cli-builder
 WORKDIR /build
 COPY cli/ .
 RUN go build -o /cradar ./cmd/cradar
