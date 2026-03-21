@@ -7,6 +7,7 @@ group = "com.cipherradar.sonarqube"
 version = "0.1.0"
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
@@ -17,7 +18,7 @@ java {
 
 dependencies {
     // SonarQube Plugin API
-    compileOnly("org.sonarsource.api.plugin:sonar-plugin-api:10.8.0.2315")
+    compileOnly("org.sonarsource.api.plugin:sonar-plugin-api:10.11.0.2468")
 
     // JSON parsing for SARIF / generic issue format
     implementation("com.google.code.gson:gson:2.11.0")

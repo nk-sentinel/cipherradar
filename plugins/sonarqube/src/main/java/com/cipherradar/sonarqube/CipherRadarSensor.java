@@ -201,6 +201,84 @@ public class CipherRadarSensor implements Sensor {
         }
 
         LOG.info("CipherRadar: imported {} issues, skipped {} issues.", imported, skipped);
+
+        // Save custom metrics
+        saveMetrics(context, issues);
+    }
+
+    /**
+     * Compute and save CipherRadar custom metrics based on imported issues.
+     */
+    private void saveMetrics(SensorContext context, JsonArray issues) {
+        int totalFindings = 0;
+        int quantumVulnerable = 0;
+        int criticalCount = 0;
+
+        for (JsonElement element : issues) {
+            JsonObject issue = element.getAsJsonObject();
+            String engineId = getStringOrDefault(issue, "engineId", "");
+            if (!ENGINE_ID.equals(engineId)) continue;
+            totalFindings++;
+
+            String ruleId = getStringOrDefault(issue, "ruleId", "");
+            if ("cbom-quantum-vulnerable".equals(ruleId)) {
+                quantumVulnerable++;
+            }
+
+            String severity = getStringOrDefault(issue, "severity", "INFO");
+            if ("CRITICAL".equals(severity) || "BLOCKER".equals(severity)) {
+                criticalCount++;
+            }
+        }
+
+        // Quantum risk score: weighted by severity, capped at 100
+        double riskScore = 0;
+        for (JsonElement element : issues) {
+            JsonObject issue = element.getAsJsonObject();
+            String engineId = getStringOrDefault(issue, "engineId", "");
+            if (!ENGINE_ID.equals(engineId)) continue;
+            String severity = getStringOrDefault(issue, "severity", "INFO");
+            switch (severity) {
+                case "BLOCKER":  riskScore += 25; break;
+                case "CRITICAL": riskScore += 20; break;
+                case "MAJOR":    riskScore += 10; break;
+                case "MINOR":    riskScore += 5; break;
+                default:         riskScore += 1; break;
+            }
+        }
+        riskScore = Math.min(100.0, riskScore);
+
+        // PQC readiness: percentage of non-quantum-vulnerable findings
+        double pqcReadiness = totalFindings > 0
+                ? ((double)(totalFindings - quantumVulnerable) / totalFindings) * 100.0
+                : 100.0;
+
+        context.<Integer>newMeasure()
+                .forMetric(CipherRadarWidget.CRYPTO_FINDINGS)
+                .on(context.module())
+                .withValue(totalFindings)
+                .save();
+
+        context.<Integer>newMeasure()
+                .forMetric(CipherRadarWidget.QUANTUM_VULNERABLE)
+                .on(context.module())
+                .withValue(quantumVulnerable)
+                .save();
+
+        context.<Double>newMeasure()
+                .forMetric(CipherRadarWidget.QUANTUM_RISK_SCORE)
+                .on(context.module())
+                .withValue(riskScore)
+                .save();
+
+        context.<Double>newMeasure()
+                .forMetric(CipherRadarWidget.PQC_READINESS)
+                .on(context.module())
+                .withValue(pqcReadiness)
+                .save();
+
+        LOG.info("CipherRadar: saved metrics — findings={}, quantum_vulnerable={}, risk_score={}, pqc_readiness={}%",
+                totalFindings, quantumVulnerable, Math.round(riskScore), Math.round(pqcReadiness));
     }
 
     // -----------------------------------------------------------------------
