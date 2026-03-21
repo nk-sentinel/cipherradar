@@ -3,10 +3,12 @@ from __future__ import annotations
 import uuid  # noqa: TCH003 — required at runtime for Pydantic
 from datetime import datetime  # noqa: TCH003 — required at runtime for Pydantic
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 
-class ScanCreate(BaseModel):
+class ScanCreate(CamelCaseModel):
     """Request schema for creating a new scan."""
 
     project_id: uuid.UUID
@@ -15,7 +17,7 @@ class ScanCreate(BaseModel):
     passes: list[int] = Field(default=[1], description="Detection passes to run (1=tree-sitter, 2=OpenGrep, 3=Joern)")
 
 
-class ScanResponse(BaseModel):
+class ScanResponse(CamelCaseModel):
     """Response schema for a single scan."""
 
     id: uuid.UUID
@@ -28,10 +30,10 @@ class ScanResponse(BaseModel):
     completed_at: datetime | None
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {**CamelCaseModel.model_config, "from_attributes": True}
 
 
-class ScanListResponse(BaseModel):
+class ScanListResponse(CamelCaseModel):
     """Paginated list of scans."""
 
     items: list[ScanResponse]
@@ -40,7 +42,7 @@ class ScanListResponse(BaseModel):
     per_page: int
 
 
-class CBOMResponse(BaseModel):
+class CBOMResponse(CamelCaseModel):
     """Response schema for a scan's CBOM document."""
 
     scan_id: uuid.UUID

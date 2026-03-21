@@ -58,13 +58,14 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
     }
 
     const data = (await response.json()) as {
+      accessToken?: string;
       access_token?: string;
       token?: string;
       user?: User;
     };
 
-    // Support both old { token, user } and new { access_token } response shapes
-    const accessToken = data.access_token ?? data.token ?? '';
+    // Support camelCase (accessToken), legacy snake_case (access_token), and old { token } shapes
+    const accessToken = data.accessToken ?? data.access_token ?? data.token ?? '';
     if (!accessToken) {
       throw new Error('No token in response');
     }

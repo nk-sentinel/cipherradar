@@ -1,7 +1,9 @@
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 
-class ComplianceItem(BaseModel):
+class ComplianceItem(CamelCaseModel):
     """A single algorithm's compliance classification within a framework."""
 
     algorithm: str
@@ -11,7 +13,7 @@ class ComplianceItem(BaseModel):
     action_required: str = Field(default="none", description="none, schedule-migration, or immediate-remediation")
 
 
-class ComplianceReport(BaseModel):
+class ComplianceReport(CamelCaseModel):
     """Compliance evaluation result for a specific framework."""
 
     framework: str
@@ -26,7 +28,7 @@ class ComplianceReport(BaseModel):
     )
 
 
-class MigrationItem(BaseModel):
+class MigrationItem(CamelCaseModel):
     """A single algorithm that needs migration to a quantum-safe alternative."""
 
     algorithm: str
@@ -36,7 +38,7 @@ class MigrationItem(BaseModel):
     priority: int = Field(ge=1, description="Priority rank (1 = highest)")
 
 
-class QuantumRiskScore(BaseModel):
+class QuantumRiskScore(CamelCaseModel):
     """Quantum risk assessment for a set of cryptographic findings."""
 
     score: float = Field(ge=0, le=100, description="0 = fully quantum-safe, 100 = critically exposed")
@@ -51,7 +53,7 @@ class QuantumRiskScore(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class EvidenceItem(BaseModel):
+class EvidenceItem(CamelCaseModel):
     """A single checklist item in an ISO 27001 A.8.24 evidence report."""
 
     check_id: str = Field(description="Checklist item ID (e.g. A.8.24-3)")
@@ -62,7 +64,7 @@ class EvidenceItem(BaseModel):
     findings_count: int = Field(default=0, ge=0, description="Number of relevant findings")
 
 
-class EvidenceReport(BaseModel):
+class EvidenceReport(CamelCaseModel):
     """ISO 27001 A.8.24 evidence-based compliance report (checklist, not score)."""
 
     framework: str = Field(default="iso-27001-a8-24")
@@ -78,7 +80,7 @@ class EvidenceReport(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class GapItem(BaseModel):
+class GapItem(CamelCaseModel):
     """A single gap identified against an EU CRA essential requirement."""
 
     requirement_id: str = Field(description="CRA requirement ID (e.g. CRA-ANNEX-I-1)")
@@ -90,7 +92,7 @@ class GapItem(BaseModel):
     recommendation: str = Field(default="")
 
 
-class GapReport(BaseModel):
+class GapReport(CamelCaseModel):
     """EU CRA Annex I gap analysis report."""
 
     framework: str = Field(default="eu-cra")
@@ -106,7 +108,7 @@ class GapReport(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class ComplianceTrendPoint(BaseModel):
+class ComplianceTrendPoint(CamelCaseModel):
     """A single data point in a compliance trend."""
 
     timestamp: str = Field(description="ISO 8601 timestamp")
@@ -115,7 +117,7 @@ class ComplianceTrendPoint(BaseModel):
     non_compliant_count: int = Field(ge=0)
 
 
-class ComplianceTrendResponse(BaseModel):
+class ComplianceTrendResponse(CamelCaseModel):
     """Compliance score trends over time."""
 
     framework: str

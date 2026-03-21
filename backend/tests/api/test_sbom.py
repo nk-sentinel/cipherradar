@@ -70,7 +70,7 @@ async def test_upload_sbom_cyclonedx(app, client: AsyncClient) -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["format"] == "cyclonedx"
-    assert body["components_count"] == 3
+    assert body["componentsCount"] == 3
 
     app.dependency_overrides.clear()
 
@@ -105,10 +105,10 @@ async def test_sbom_cbom_link(app, client: AsyncClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total_libraries"] == 3
-    assert body["linked_libraries"] == 1
+    assert body["totalLibraries"] == 3
+    assert body["linkedLibraries"] == 1
     assert len(body["links"]) == 3
-    assert body["links"][0]["library_name"] == "openssl"
-    assert body["links"][0]["findings_count"] == 1
+    assert body["links"][0]["libraryName"] == "openssl"
+    assert body["links"][0]["findingsCount"] == 1
 
     app.dependency_overrides.clear()

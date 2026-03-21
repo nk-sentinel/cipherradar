@@ -2,7 +2,9 @@ import enum
 import uuid  # noqa: TCH003 — required at runtime for Pydantic
 from datetime import datetime  # noqa: TCH003 — required at runtime for Pydantic
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 
 class ChangeType(enum.StrEnum):
@@ -13,7 +15,7 @@ class ChangeType(enum.StrEnum):
     CHANGED = "changed"
 
 
-class CBOMVersion(BaseModel):
+class CBOMVersion(CamelCaseModel):
     """A single CBOM snapshot version for a project."""
 
     scan_id: uuid.UUID
@@ -23,7 +25,7 @@ class CBOMVersion(BaseModel):
     spec_version: str
 
 
-class CBOMDiffItem(BaseModel):
+class CBOMDiffItem(CamelCaseModel):
     """A single component change between two CBOM documents."""
 
     name: str
@@ -33,7 +35,7 @@ class CBOMDiffItem(BaseModel):
     details: str | None = None
 
 
-class CBOMDiff(BaseModel):
+class CBOMDiff(CamelCaseModel):
     """Result of comparing two CBOM documents."""
 
     base_scan_id: uuid.UUID
@@ -44,7 +46,7 @@ class CBOMDiff(BaseModel):
     unchanged_count: int
 
 
-class MergedCBOM(BaseModel):
+class MergedCBOM(CamelCaseModel):
     """Aggregated CBOM from multiple scans."""
 
     project_ids: list[uuid.UUID]
@@ -52,7 +54,7 @@ class MergedCBOM(BaseModel):
     components: list[dict]
 
 
-class MergeRequest(BaseModel):
+class MergeRequest(CamelCaseModel):
     """Request body for merging multiple CBOMs."""
 
     scan_ids: list[uuid.UUID] = Field(..., min_length=1, description="Scan IDs to merge")

@@ -3,14 +3,16 @@
 import uuid  # noqa: TCH003 — required at runtime for Pydantic
 from datetime import datetime  # noqa: TCH003 — required at runtime for Pydantic
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 # ---------------------------------------------------------------------------
 # Notification responses
 # ---------------------------------------------------------------------------
 
 
-class NotificationResponse(BaseModel):
+class NotificationResponse(CamelCaseModel):
     """Single notification."""
 
     id: uuid.UUID
@@ -24,10 +26,10 @@ class NotificationResponse(BaseModel):
     read: bool
     created_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {**CamelCaseModel.model_config, "from_attributes": True}
 
 
-class NotificationListResponse(BaseModel):
+class NotificationListResponse(CamelCaseModel):
     """Paginated list of notifications."""
 
     items: list[NotificationResponse]
@@ -36,7 +38,7 @@ class NotificationListResponse(BaseModel):
     per_page: int
 
 
-class MarkReadResponse(BaseModel):
+class MarkReadResponse(CamelCaseModel):
     """Response after marking notification(s) as read."""
 
     success: bool = True
@@ -47,7 +49,7 @@ class MarkReadResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class NotificationPreferenceItem(BaseModel):
+class NotificationPreferenceItem(CamelCaseModel):
     """Preference for a single trigger type."""
 
     trigger_type: str
@@ -56,13 +58,13 @@ class NotificationPreferenceItem(BaseModel):
     teams: bool = False
 
 
-class NotificationPreferencesResponse(BaseModel):
+class NotificationPreferencesResponse(CamelCaseModel):
     """Full set of user notification preferences."""
 
     preferences: list[NotificationPreferenceItem]
 
 
-class NotificationPreferencesUpdate(BaseModel):
+class NotificationPreferencesUpdate(CamelCaseModel):
     """Update request for notification preferences."""
 
     preferences: list[NotificationPreferenceItem] = Field(min_length=1)
@@ -73,7 +75,7 @@ class NotificationPreferencesUpdate(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class WSNotificationMessage(BaseModel):
+class WSNotificationMessage(CamelCaseModel):
     """Notification payload pushed over WebSocket / Redis Pub/Sub."""
 
     id: uuid.UUID

@@ -71,7 +71,12 @@ async def login(body: LoginRequest) -> TokenResponse:
     role_enum = Role(role) if role in Role.__members__.values() else Role.DEVELOPER
     scopes = [str(s) for s in ROLE_DEFAULT_SCOPES.get(role_enum, [])]
 
-    access_token = create_access_token(user_id=str(user["id"]), role=role, scopes=scopes)
+    access_token = create_access_token(
+        user_id=str(user["id"]),
+        role=role,
+        scopes=scopes,
+        org_id=user.get("org_id", ""),
+    )
     refresh_token = create_refresh_token(user_id=str(user["id"]))
 
     return TokenResponse(

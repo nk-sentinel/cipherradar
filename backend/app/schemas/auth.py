@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 if TYPE_CHECKING:
     import uuid
@@ -15,14 +17,14 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 
-class LoginRequest(BaseModel):
+class LoginRequest(CamelCaseModel):
     """Email + password login payload."""
 
     email: str = Field(min_length=1, max_length=320)
     password: str = Field(min_length=1)
 
 
-class TokenResponse(BaseModel):
+class TokenResponse(CamelCaseModel):
     """JWT access + refresh token pair returned on login and refresh."""
 
     access_token: str
@@ -36,7 +38,7 @@ class TokenResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class RefreshRequest(BaseModel):
+class RefreshRequest(CamelCaseModel):
     """Payload for token refresh."""
 
     refresh_token: str
@@ -47,14 +49,14 @@ class RefreshRequest(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class ApiKeyCreate(BaseModel):
+class ApiKeyCreate(CamelCaseModel):
     """Request body when creating a new API key."""
 
     name: str = Field(min_length=1, max_length=255)
     scopes: list[str]
 
 
-class ApiKeyResponse(BaseModel):
+class ApiKeyResponse(CamelCaseModel):
     """API key details.  ``key`` is populated only on creation."""
 
     id: uuid.UUID
@@ -69,7 +71,7 @@ class ApiKeyResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class UserInfo(BaseModel):
+class UserInfo(CamelCaseModel):
     """Current user info returned by ``/me``."""
 
     user_id: str

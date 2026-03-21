@@ -81,7 +81,7 @@ async def test_list_notifications_returns_paginated(client: AsyncClient) -> None
         assert body["total"] == 1
         assert body["page"] == 1
         assert len(body["items"]) == 1
-        assert body["items"][0]["trigger_type"] == "scan_completed"
+        assert body["items"][0]["triggerType"] == "scan_completed"
     finally:
         notifications_mod._list_notifications = original
 
@@ -179,7 +179,7 @@ async def test_get_preferences_returns_prefs(client: AsyncClient) -> None:
         assert response.status_code == 200
         body = response.json()
         assert len(body["preferences"]) == 1
-        assert body["preferences"][0]["trigger_type"] == "scan_completed"
+        assert body["preferences"][0]["triggerType"] == "scan_completed"
     finally:
         notifications_mod._get_preferences = original
 

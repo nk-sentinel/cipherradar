@@ -1,15 +1,17 @@
 """Pydantic schemas for Jira integration endpoints."""
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 
-class JiraConnectRequest(BaseModel):
+class JiraConnectRequest(CamelCaseModel):
     """Initiate Jira OAuth connection."""
 
     code: str = Field(min_length=1, description="OAuth authorisation code")
 
 
-class JiraConnectResponse(BaseModel):
+class JiraConnectResponse(CamelCaseModel):
     """Response after Jira OAuth connection."""
 
     connected: bool
@@ -17,7 +19,7 @@ class JiraConnectResponse(BaseModel):
     cloud_id: str = ""
 
 
-class JiraStatusResponse(BaseModel):
+class JiraStatusResponse(CamelCaseModel):
     """Jira integration status."""
 
     connected: bool
@@ -25,7 +27,7 @@ class JiraStatusResponse(BaseModel):
     cloud_id: str = ""
 
 
-class JiraCallbackRequest(BaseModel):
+class JiraCallbackRequest(CamelCaseModel):
     """OAuth callback request."""
 
     code: str = Field(min_length=1)

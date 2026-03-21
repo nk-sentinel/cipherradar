@@ -96,9 +96,9 @@ async def test_nist_compliance_report(app, client: AsyncClient) -> None:
     body = response.json()
     assert body["framework"] == "nist-800-131a"
     assert body["score"] == 75.0
-    assert body["total_findings"] == 4
-    assert body["compliant_count"] == 2
-    assert body["non_compliant_count"] == 2
+    assert body["totalFindings"] == 4
+    assert body["compliantCount"] == 2
+    assert body["nonCompliantCount"] == 2
     assert len(body["items"]) == 3
 
     app.dependency_overrides.clear()
@@ -187,10 +187,10 @@ async def test_quantum_risk_endpoint(app, client: AsyncClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["score"] == 35.0
-    assert body["vulnerable_count"] == 3
-    assert body["safe_count"] == 5
-    assert body["broken_count"] == 1
-    assert len(body["migration_items"]) == 2
+    assert body["vulnerableCount"] == 3
+    assert body["safeCount"] == 5
+    assert body["brokenCount"] == 1
+    assert len(body["migrationItems"]) == 2
 
     app.dependency_overrides.clear()
 
@@ -268,7 +268,7 @@ async def test_compliance_report_has_required_fields(app, client: AsyncClient) -
         response = await client.get(f"/api/v1/projects/{FAKE_PROJECT_ID}/compliance/nist-800-131a")
 
     body = response.json()
-    required_keys = {"framework", "score", "total_findings", "compliant_count", "non_compliant_count", "items"}
+    required_keys = {"framework", "score", "totalFindings", "compliantCount", "nonCompliantCount", "items"}
     assert required_keys.issubset(set(body.keys()))
 
     app.dependency_overrides.clear()

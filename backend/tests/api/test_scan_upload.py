@@ -92,8 +92,8 @@ async def test_upload_scan_success(app, client: AsyncClient) -> None:
 
     assert response.status_code == 201
     body = response.json()
-    assert body["project_name"] == "my-project"
-    assert body["findings_count"] == 2
+    assert body["projectName"] == "my-project"
+    assert body["findingsCount"] == 2
     assert body["status"] == "completed"
     assert len(body["warnings"]) == 1
     # Check X-CipherRadar-Warning header
@@ -135,7 +135,7 @@ async def test_upload_scan_with_group_and_branch(app, client: AsyncClient) -> No
 
     assert response.status_code == 201
     body = response.json()
-    assert body["group_path"] == "team-alpha"
+    assert body["groupPath"] == "team-alpha"
 
     app.dependency_overrides.clear()
 

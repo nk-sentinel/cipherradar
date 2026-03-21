@@ -1,9 +1,11 @@
 """Portfolio-level aggregation schemas for dashboard views."""
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 
-class HeatMapEntry(BaseModel):
+class HeatMapEntry(CamelCaseModel):
     """Single cell in the repos x severity heat map."""
 
     project_id: str
@@ -14,7 +16,7 @@ class HeatMapEntry(BaseModel):
     low: int = Field(ge=0, default=0)
 
 
-class TopRepo(BaseModel):
+class TopRepo(CamelCaseModel):
     """A repo ranked by risk (total weighted findings)."""
 
     project_id: str
@@ -25,7 +27,7 @@ class TopRepo(BaseModel):
     risk_score: float = Field(ge=0, description="Weighted risk score")
 
 
-class PortfolioSummary(BaseModel):
+class PortfolioSummary(CamelCaseModel):
     """Aggregate portfolio summary across all accessible repos."""
 
     total_repos: int = Field(ge=0)
@@ -37,7 +39,7 @@ class PortfolioSummary(BaseModel):
     top_riskiest_repos: list[TopRepo]
 
 
-class FrameworkScore(BaseModel):
+class FrameworkScore(CamelCaseModel):
     """Compliance score for a single framework across all repos."""
 
     framework: str
@@ -47,13 +49,13 @@ class FrameworkScore(BaseModel):
     repos_evaluated: int = Field(ge=0)
 
 
-class PortfolioCompliance(BaseModel):
+class PortfolioCompliance(CamelCaseModel):
     """Per-framework compliance scores across all repos."""
 
     frameworks: list[FrameworkScore]
 
 
-class QuantumCategory(BaseModel):
+class QuantumCategory(CamelCaseModel):
     """Counts for a quantum readiness category."""
 
     vulnerable: int = Field(ge=0, default=0)
@@ -62,7 +64,7 @@ class QuantumCategory(BaseModel):
     unknown: int = Field(ge=0, default=0)
 
 
-class MigrationPriorityItem(BaseModel):
+class MigrationPriorityItem(CamelCaseModel):
     """An algorithm needing migration, aggregated across all repos."""
 
     algorithm: str
@@ -72,7 +74,7 @@ class MigrationPriorityItem(BaseModel):
     priority: int = Field(ge=1)
 
 
-class PortfolioQuantum(BaseModel):
+class PortfolioQuantum(CamelCaseModel):
     """Aggregate quantum readiness across all accessible repos."""
 
     counts: QuantumCategory

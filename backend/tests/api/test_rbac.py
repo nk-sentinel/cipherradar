@@ -88,7 +88,7 @@ class TestMeEndpointAllRoles:
         assert resp.status_code == 200
         body = resp.json()
         assert body["role"] == str(role)
-        assert body["user_id"] == USER_ID
+        assert body["userId"] == USER_ID
 
 
 # ---------------------------------------------------------------------------
@@ -310,7 +310,7 @@ class TestJWTTenantClaims:
         assert resp.status_code == 200
         # The /me endpoint returns user_id but not org_id directly.
         # Verify the middleware parsed it by checking the user_id is correct.
-        assert resp.json()["user_id"] == USER_ID
+        assert resp.json()["userId"] == USER_ID
 
 
 # ---------------------------------------------------------------------------

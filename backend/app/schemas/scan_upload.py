@@ -1,10 +1,12 @@
 import uuid  # noqa: TCH003 — required at runtime for Pydantic
 from datetime import datetime  # noqa: TCH003 — required at runtime for Pydantic
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 
-class ScanUploadRequest(BaseModel):
+class ScanUploadRequest(CamelCaseModel):
     """Request schema for uploading scan results via CycloneDX JSON."""
 
     project_name: str = Field(min_length=1, max_length=255)
@@ -13,7 +15,7 @@ class ScanUploadRequest(BaseModel):
     commit_sha: str | None = Field(default=None, max_length=40)
 
 
-class ScanUploadResponse(BaseModel):
+class ScanUploadResponse(CamelCaseModel):
     """Response after a successful scan upload."""
 
     scan_id: uuid.UUID

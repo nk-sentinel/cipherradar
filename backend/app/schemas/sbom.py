@@ -1,9 +1,11 @@
 import uuid  # noqa: TCH003 — required at runtime for Pydantic
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 
-class SBOMComponent(BaseModel):
+class SBOMComponent(CamelCaseModel):
     """A single component extracted from an SBOM."""
 
     name: str
@@ -12,7 +14,7 @@ class SBOMComponent(BaseModel):
     type: str = Field(default="library", description="Component type (library, framework, etc.)")
 
 
-class SBOMUploadResponse(BaseModel):
+class SBOMUploadResponse(CamelCaseModel):
     """Response after SBOM upload."""
 
     sbom_id: uuid.UUID
@@ -22,7 +24,7 @@ class SBOMUploadResponse(BaseModel):
     storage_uri: str
 
 
-class SBOMCBOMLink(BaseModel):
+class SBOMCBOMLink(CamelCaseModel):
     """A link between an SBOM component and CBOM findings."""
 
     library_name: str
@@ -35,7 +37,7 @@ class SBOMCBOMLink(BaseModel):
     findings_count: int = Field(default=0, ge=0)
 
 
-class SBOMCBOMLinkResponse(BaseModel):
+class SBOMCBOMLinkResponse(CamelCaseModel):
     """Response for SBOM-CBOM linkage."""
 
     project_id: uuid.UUID

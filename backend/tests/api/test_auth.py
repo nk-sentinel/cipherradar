@@ -65,10 +65,10 @@ class TestLogin:
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert "access_token" in body
-        assert "refresh_token" in body
-        assert body["token_type"] == "bearer"
-        assert body["expires_in"] == 15 * 60
+        assert "accessToken" in body
+        assert "refreshToken" in body
+        assert body["tokenType"] == "bearer"
+        assert body["expiresIn"] == 15 * 60
 
     @pytest.mark.asyncio
     async def test_login_wrong_password(self, client: AsyncClient) -> None:
@@ -116,8 +116,8 @@ class TestRefresh:
         resp = await client.post("/api/v1/auth/refresh", json={"refresh_token": refresh})
         assert resp.status_code == 200
         body = resp.json()
-        assert "access_token" in body
-        assert "refresh_token" in body
+        assert "accessToken" in body
+        assert "refreshToken" in body
 
     @pytest.mark.asyncio
     async def test_refresh_with_access_token_fails(self, client: AsyncClient) -> None:
@@ -147,10 +147,10 @@ class TestMe:
         resp = await client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"})
         assert resp.status_code == 200
         body = resp.json()
-        assert body["user_id"] == _TEST_USER_ID
+        assert body["userId"] == _TEST_USER_ID
         assert body["role"] == "org_admin"
         assert body["scopes"] == ["scan:read", "scan:write"]
-        assert body["auth_method"] == "jwt"
+        assert body["authMethod"] == "jwt"
 
     @pytest.mark.asyncio
     async def test_me_without_token_returns_401(self, client: AsyncClient) -> None:

@@ -26,7 +26,7 @@ def _make_fake_scan(
     status: ScanStatus = ScanStatus.QUEUED,
 ) -> MagicMock:
     """Build a mock Scan ORM object that Pydantic's from_attributes can read."""
-    scan = MagicMock()
+    scan = MagicMock(spec=["id", "project_id", "status", "branch", "commit_sha", "findings_count", "started_at", "completed_at", "created_at", "updated_at"])
     scan.id = scan_id
     scan.project_id = project_id
     scan.status = status.value
@@ -102,10 +102,10 @@ async def test_create_scan_returns_201(app, client: AsyncClient) -> None:
     assert response.status_code == 201
     body = response.json()
     assert body["id"] == str(FAKE_SCAN_ID)
-    assert body["project_id"] == str(FAKE_PROJECT_ID)
+    assert body["projectId"] == str(FAKE_PROJECT_ID)
     assert body["status"] == "queued"
     assert body["branch"] == "main"
-    assert body["findings_count"] == 0
+    assert body["findingsCount"] == 0
 
     app.dependency_overrides.clear()
 
@@ -199,7 +199,7 @@ async def test_list_scans_with_pagination(app, client: AsyncClient) -> None:
     body = response.json()
     assert body["total"] == 3
     assert body["page"] == 1
-    assert body["per_page"] == 20
+    assert body["perPage"] == 20
     assert len(body["items"]) == 3
 
     app.dependency_overrides.clear()
@@ -238,10 +238,10 @@ async def test_get_scan_cbom(app, client: AsyncClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["scan_id"] == str(FAKE_SCAN_ID)
-    assert body["spec_version"] == "1.7"
-    assert body["components_count"] == 1
-    assert "components" in body["cbom_json"]
+    assert body["scanId"] == str(FAKE_SCAN_ID)
+    assert body["specVersion"] == "1.7"
+    assert body["componentsCount"] == 1
+    assert "components" in body["cbomJson"]
 
     app.dependency_overrides.clear()
 

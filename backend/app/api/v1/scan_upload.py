@@ -55,7 +55,7 @@ async def upload_scan(
         headers["X-CipherRadar-Warning"] = "; ".join(warnings)
 
     return JSONResponse(
-        content=response_data.model_dump(mode="json"),
+        content=response_data.model_dump(mode="json", by_alias=True),
         status_code=201,
         headers=headers,
     )

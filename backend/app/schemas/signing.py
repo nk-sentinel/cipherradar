@@ -1,9 +1,9 @@
 """Pydantic schemas for CBOM signing endpoints."""
 
-from pydantic import BaseModel
+from app.schemas.base import CamelCaseModel
 
 
-class SigningVerifyResponse(BaseModel):
+class SigningVerifyResponse(CamelCaseModel):
     """Response from CBOM signature verification."""
 
     verified: bool

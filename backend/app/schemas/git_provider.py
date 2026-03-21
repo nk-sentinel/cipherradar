@@ -4,7 +4,9 @@ import uuid  # noqa: TCH003 — required at runtime for Pydantic
 from datetime import datetime  # noqa: TCH003 — required at runtime for Pydantic
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import Field
+
+from app.schemas.base import CamelCaseModel
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -33,7 +35,7 @@ class CheckStatus(StrEnum):
 # ---------------------------------------------------------------------------
 
 
-class OAuthToken(BaseModel):
+class OAuthToken(CamelCaseModel):
     """Token returned after completing the OAuth flow."""
 
     access_token: str
@@ -42,7 +44,7 @@ class OAuthToken(BaseModel):
     refresh_token: str | None = None
 
 
-class Repository(BaseModel):
+class Repository(CamelCaseModel):
     """Minimal representation of a remote repository."""
 
     id: str = Field(description="Provider-specific repository identifier")
@@ -51,7 +53,7 @@ class Repository(BaseModel):
     default_branch: str = "main"
 
 
-class Webhook(BaseModel):
+class Webhook(CamelCaseModel):
     """Webhook registration result."""
 
     id: str
@@ -64,13 +66,13 @@ class Webhook(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class OAuthConnectRequest(BaseModel):
+class OAuthConnectRequest(CamelCaseModel):
     """Initiate an OAuth connection by providing the authorisation code."""
 
     code: str = Field(min_length=1)
 
 
-class OAuthConnectResponse(BaseModel):
+class OAuthConnectResponse(CamelCaseModel):
     """Returned after a successful OAuth exchange."""
 
     provider: ProviderType
@@ -78,7 +80,7 @@ class OAuthConnectResponse(BaseModel):
     repositories_available: int = 0
 
 
-class IntegrationResponse(BaseModel):
+class IntegrationResponse(CamelCaseModel):
     """A single connected integration."""
 
     id: uuid.UUID
@@ -87,7 +89,7 @@ class IntegrationResponse(BaseModel):
     connected_at: datetime
 
 
-class IntegrationListResponse(BaseModel):
+class IntegrationListResponse(CamelCaseModel):
     """List of connected integrations."""
 
     items: list[IntegrationResponse]
@@ -99,7 +101,7 @@ class IntegrationListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-class WebhookScanTrigger(BaseModel):
+class WebhookScanTrigger(CamelCaseModel):
     """Internal representation of a webhook event that should trigger a scan."""
 
     provider: ProviderType

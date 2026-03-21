@@ -136,7 +136,7 @@ async def test_cnsa_2_endpoint(app, client: AsyncClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["framework"] == "cnsa-2"
-    assert body["migration_deadlines"]["rsa"] == "2025"
+    assert body["migrationDeadlines"]["rsa"] == "2025"
 
     app.dependency_overrides.clear()
 
@@ -192,7 +192,7 @@ async def test_iso_27001_endpoint(app, client: AsyncClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["framework"] == "iso-27001-a8-24"
-    assert body["total_checks"] == 10
+    assert body["totalChecks"] == 10
     assert body["passed"] == 4
     assert body["failed"] == 2
     assert len(body["items"]) == 2
@@ -254,8 +254,8 @@ async def test_eu_cra_endpoint(app, client: AsyncClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["framework"] == "eu-cra"
-    assert body["gaps_found"] == 2
-    assert body["total_requirements"] == 10
+    assert body["gapsFound"] == 2
+    assert body["totalRequirements"] == 10
     assert len(body["items"]) == 2
     # Verify no 'score' key
     assert "score" not in body
@@ -297,7 +297,7 @@ async def test_evidence_report_structure(app, client: AsyncClient) -> None:
         response = await client.get(f"/api/v1/projects/{FAKE_PROJECT_ID}/compliance/iso-27001")
 
     body = response.json()
-    required_keys = {"framework", "total_checks", "passed", "failed", "manual_review", "items"}
+    required_keys = {"framework", "totalChecks", "passed", "failed", "manualReview", "items"}
     assert required_keys.issubset(set(body.keys()))
 
     app.dependency_overrides.clear()
@@ -332,7 +332,7 @@ async def test_gap_report_structure(app, client: AsyncClient) -> None:
         response = await client.get(f"/api/v1/projects/{FAKE_PROJECT_ID}/compliance/eu-cra")
 
     body = response.json()
-    required_keys = {"framework", "total_requirements", "gaps_found", "no_gaps", "manual_review", "items"}
+    required_keys = {"framework", "totalRequirements", "gapsFound", "noGaps", "manualReview", "items"}
     assert required_keys.issubset(set(body.keys()))
 
     app.dependency_overrides.clear()

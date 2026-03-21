@@ -124,17 +124,17 @@ async def test_portfolio_summary_returns_correct_structure(app, client: AsyncCli
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total_repos"] == 2
-    assert body["total_findings"] == 15
-    assert body["quantum_readiness_pct"] == 60.0
-    assert len(body["heat_map"]) == 2
-    assert len(body["top_riskiest_repos"]) == 1
-    assert body["top_riskiest_repos"][0]["risk_score"] == 57.0
+    assert body["totalRepos"] == 2
+    assert body["totalFindings"] == 15
+    assert body["quantumReadinessPct"] == 60.0
+    assert len(body["heatMap"]) == 2
+    assert len(body["topRiskiestRepos"]) == 1
+    assert body["topRiskiestRepos"][0]["riskScore"] == 57.0
 
     # Verify heat map entry structure
-    hm = body["heat_map"][0]
-    assert "project_id" in hm
-    assert "project_name" in hm
+    hm = body["heatMap"][0]
+    assert "projectId" in hm
+    assert "projectName" in hm
     assert "critical" in hm
     assert "high" in hm
     assert "medium" in hm
@@ -193,10 +193,10 @@ async def test_portfolio_compliance_returns_all_frameworks(app, client: AsyncCli
 
     # Verify framework score structure
     fw = body["frameworks"][0]
-    assert "avg_score" in fw
-    assert "total_compliant" in fw
-    assert "total_non_compliant" in fw
-    assert "repos_evaluated" in fw
+    assert "avgScore" in fw
+    assert "totalCompliant" in fw
+    assert "totalNonCompliant" in fw
+    assert "reposEvaluated" in fw
 
     app.dependency_overrides.clear()
 
@@ -241,9 +241,9 @@ async def test_portfolio_quantum_returns_correct_structure(app, client: AsyncCli
     assert body["counts"]["safe"] == 10
     assert body["counts"]["broken"] == 2
     assert body["counts"]["unknown"] == 1
-    assert len(body["migration_priority"]) == 2
-    assert body["migration_priority"][0]["algorithm"] == "rsa"
-    assert body["migration_priority"][0]["migrate_to"] == "ml-dsa"
+    assert len(body["migrationPriority"]) == 2
+    assert body["migrationPriority"][0]["algorithm"] == "rsa"
+    assert body["migrationPriority"][0]["migrateTo"] == "ml-dsa"
 
     app.dependency_overrides.clear()
 
@@ -297,8 +297,8 @@ async def test_portfolio_summary_group_scoped(app, client: AsyncClient) -> None:
     assert response.status_code == 200
     body = response.json()
     # Verify only the group-scoped project is returned
-    assert body["total_repos"] == 1
-    assert body["heat_map"][0]["project_name"] == "group-repo"
+    assert body["totalRepos"] == 1
+    assert body["heatMap"][0]["projectName"] == "group-repo"
 
     # Verify get_accessible_project_ids was called with the user
     mock_access.assert_called_once()
@@ -342,10 +342,10 @@ async def test_portfolio_summary_empty(app, client: AsyncClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total_repos"] == 0
-    assert body["total_findings"] == 0
-    assert body["quantum_readiness_pct"] == 100.0
-    assert body["heat_map"] == []
-    assert body["top_riskiest_repos"] == []
+    assert body["totalRepos"] == 0
+    assert body["totalFindings"] == 0
+    assert body["quantumReadinessPct"] == 100.0
+    assert body["heatMap"] == []
+    assert body["topRiskiestRepos"] == []
 
     app.dependency_overrides.clear()

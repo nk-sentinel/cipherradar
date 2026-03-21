@@ -82,9 +82,9 @@ async def test_list_cbom_versions(app, client: AsyncClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert len(body) == 2
-    assert body[0]["version_number"] == 1
-    assert body[1]["version_number"] == 2
-    assert body[0]["scan_id"] == str(FAKE_SCAN_ID_1)
+    assert body[0]["versionNumber"] == 1
+    assert body[1]["versionNumber"] == 2
+    assert body[0]["scanId"] == str(FAKE_SCAN_ID_1)
 
     app.dependency_overrides.clear()
 
@@ -129,12 +129,12 @@ async def test_diff_endpoint(app, client: AsyncClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["base_scan_id"] == str(FAKE_SCAN_ID_1)
-    assert body["head_scan_id"] == str(FAKE_SCAN_ID_2)
+    assert body["baseScanId"] == str(FAKE_SCAN_ID_1)
+    assert body["headScanId"] == str(FAKE_SCAN_ID_2)
     assert len(body["added"]) == 1
     assert body["added"][0]["name"] == "AES-256-GCM"
-    assert body["added"][0]["change_type"] == "added"
-    assert body["unchanged_count"] == 0
+    assert body["added"][0]["changeType"] == "added"
+    assert body["unchangedCount"] == 0
 
     app.dependency_overrides.clear()
 
@@ -172,8 +172,8 @@ async def test_merge_endpoint(app, client: AsyncClient) -> None:
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total_components"] == 2
+    assert body["totalComponents"] == 2
     assert len(body["components"]) == 2
-    assert body["project_ids"] == [str(FAKE_PROJECT_ID)]
+    assert body["projectIds"] == [str(FAKE_PROJECT_ID)]
 
     app.dependency_overrides.clear()
