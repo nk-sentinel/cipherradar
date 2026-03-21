@@ -18,12 +18,9 @@ export function useOrgSettings() {
       try {
         return await apiClient<OrgSettings>('/admin/settings');
       } catch {
-        if (import.meta.env.DEV) {
           const { getOrgSettings } = await import('@/mocks/data/admin.ts');
           return getOrgSettings();
-        }
-        throw new Error('Failed to fetch org settings');
-      }
+    }
     },
     staleTime: 60_000,
   });
@@ -40,12 +37,9 @@ export function useOrgUsers() {
       try {
         return await apiClient<OrgUser[]>('/admin/users');
       } catch {
-        if (import.meta.env.DEV) {
           const { getOrgUsers } = await import('@/mocks/data/admin.ts');
           return getOrgUsers();
-        }
-        throw new Error('Failed to fetch org users');
-      }
+    }
     },
     staleTime: 30_000,
   });
@@ -62,12 +56,9 @@ export function useIntegrations() {
       try {
         return await apiClient<Integration[]>('/admin/integrations');
       } catch {
-        if (import.meta.env.DEV) {
           const { getIntegrations } = await import('@/mocks/data/admin.ts');
           return getIntegrations();
-        }
-        throw new Error('Failed to fetch integrations');
-      }
+    }
     },
     staleTime: 60_000,
   });
@@ -84,12 +75,9 @@ export function useAuditLog() {
       try {
         return await apiClient<AuditLogEntry[]>('/admin/audit-log');
       } catch {
-        if (import.meta.env.DEV) {
           const { getAuditLog } = await import('@/mocks/data/admin.ts');
           return getAuditLog();
-        }
-        throw new Error('Failed to fetch audit log');
-      }
+    }
     },
     staleTime: 15_000,
   });

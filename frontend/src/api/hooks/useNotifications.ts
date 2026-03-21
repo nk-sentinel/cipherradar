@@ -16,12 +16,9 @@ export function useNotifications() {
       try {
         return await apiClient<Notification[]>('/notifications');
       } catch {
-        if (import.meta.env.DEV) {
           const { getNotifications } = await import('@/mocks/data/notifications.ts');
           return getNotifications();
-        }
-        throw new Error('Failed to fetch notifications');
-      }
+    }
     },
     staleTime: 15_000,
     refetchInterval: 30_000,
@@ -113,14 +110,11 @@ export function useNotificationPreferences() {
       try {
         return await apiClient<NotificationPreferencesData>('/notifications/preferences');
       } catch {
-        if (import.meta.env.DEV) {
           const { getNotificationPreferences } = await import(
             '@/mocks/data/notifications.ts'
           );
           return getNotificationPreferences();
-        }
-        throw new Error('Failed to fetch notification preferences');
-      }
+    }
     },
     staleTime: 60_000,
   });

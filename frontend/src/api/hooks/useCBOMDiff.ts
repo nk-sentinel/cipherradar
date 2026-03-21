@@ -15,12 +15,9 @@ export function useCBOMDiff(baseScanId: string, targetScanId: string) {
           `/cbom/diff?base=${baseScanId}&target=${targetScanId}`,
         );
       } catch {
-        if (import.meta.env.DEV) {
           const { getCBOMDiff } = await import('@/mocks/data/cbomDiff.ts');
           return getCBOMDiff();
-        }
-        throw new Error('Failed to fetch CBOM diff');
-      }
+    }
     },
     enabled: !!baseScanId && !!targetScanId,
     staleTime: 30_000,
@@ -38,12 +35,9 @@ export function useScanSelectors() {
       try {
         return await apiClient<ScanSelector[]>('/cbom/scans');
       } catch {
-        if (import.meta.env.DEV) {
           const { getScanSelectors } = await import('@/mocks/data/cbomDiff.ts');
           return getScanSelectors();
-        }
-        throw new Error('Failed to fetch scan selectors');
-      }
+    }
     },
     staleTime: 60_000,
   });

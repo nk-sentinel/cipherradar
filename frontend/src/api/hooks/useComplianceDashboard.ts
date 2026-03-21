@@ -13,14 +13,11 @@ export function useComplianceDashboard() {
       try {
         return await apiClient<ComplianceDashboardData>('/compliance/trends');
       } catch {
-        if (import.meta.env.DEV) {
           const { getComplianceDashboard } = await import(
             '@/mocks/data/complianceDashboard.ts'
           );
           return getComplianceDashboard();
-        }
-        throw new Error('Failed to fetch compliance dashboard data');
-      }
+    }
     },
     staleTime: 30_000,
   });

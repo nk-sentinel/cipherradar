@@ -13,12 +13,9 @@ export function useUserOrgs() {
       try {
         return await apiClient<Org[]>('/user/orgs');
       } catch {
-        if (import.meta.env.DEV) {
           const { getUserOrgs } = await import('@/mocks/data/admin.ts');
           return getUserOrgs();
-        }
-        throw new Error('Failed to fetch user orgs');
-      }
+    }
     },
     staleTime: 60_000,
   });

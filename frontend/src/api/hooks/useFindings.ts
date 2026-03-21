@@ -43,7 +43,6 @@ export function useFindings(repoId: string, filters?: FindingsFilters) {
         const url = `/scans/${repoId}/findings${qs ? `?${qs}` : ''}`;
         return await apiClient<FindingsResult>(url);
       } catch {
-        if (import.meta.env.DEV) {
           const { getFindingsForRepo } = await import('@/mocks/data/findings');
           const allForRepo = getFindingsForRepo(repoId);
           let filtered = [...allForRepo];
@@ -78,9 +77,7 @@ export function useFindings(repoId: string, filters?: FindingsFilters) {
             total: filtered.length,
             counts,
           };
-        }
-        throw new Error('Failed to fetch findings');
-      }
+    }
     },
     staleTime: 30_000,
     enabled: !!repoId,
@@ -99,12 +96,9 @@ export function useFinding(findingId: string | null) {
       try {
         return await apiClient<Finding>(`/findings/${findingId!}`);
       } catch {
-        if (import.meta.env.DEV) {
           const { getFindingById } = await import('@/mocks/data/findings');
           return getFindingById(findingId!);
-        }
-        throw new Error('Failed to fetch finding');
-      }
+    }
     },
     staleTime: 30_000,
     enabled: !!findingId,

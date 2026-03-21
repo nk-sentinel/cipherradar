@@ -13,12 +13,9 @@ export function useScans(repoId: string) {
       try {
         return await apiClient<ScanSummary[]>(`/repos/${repoId}/scans`);
       } catch {
-        if (import.meta.env.DEV) {
           const { getScansForRepo } = await import('@/mocks/data/scans.ts');
           return getScansForRepo(repoId);
-        }
-        throw new Error('Failed to fetch scans');
-      }
+    }
     },
     staleTime: 30_000,
     enabled: !!repoId,
@@ -36,12 +33,9 @@ export function useScan(scanId: string) {
       try {
         return await apiClient<ScanDetail>(`/scans/${scanId}`);
       } catch {
-        if (import.meta.env.DEV) {
           const { getScanDetail } = await import('@/mocks/data/scans.ts');
           return getScanDetail(scanId);
-        }
-        throw new Error('Failed to fetch scan');
-      }
+    }
     },
     staleTime: 30_000,
     enabled: !!scanId,

@@ -16,12 +16,9 @@ export function usePortfolioSummary() {
       try {
         return await apiClient<PortfolioSummaryData>('/portfolio/summary');
       } catch {
-        if (import.meta.env.DEV) {
           const { getPortfolioSummary } = await import('@/mocks/data/portfolio.ts');
           return getPortfolioSummary();
-        }
-        throw new Error('Failed to fetch portfolio summary');
-      }
+    }
     },
     staleTime: 30_000,
   });
@@ -38,12 +35,9 @@ export function useHeatMap() {
       try {
         return await apiClient<HeatMapData>('/portfolio/heatmap');
       } catch {
-        if (import.meta.env.DEV) {
           const { getHeatMap } = await import('@/mocks/data/portfolio.ts');
           return getHeatMap();
-        }
-        throw new Error('Failed to fetch heat map data');
-      }
+    }
     },
     staleTime: 30_000,
   });
