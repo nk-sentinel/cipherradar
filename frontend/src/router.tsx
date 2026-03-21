@@ -32,6 +32,7 @@ import { IntegrationManagement } from './pages/admin/IntegrationManagement.tsx';
 import { AuditLog } from './pages/admin/AuditLog.tsx';
 import { LazyDependencyGraph } from './pages/LazyDependencyGraph.tsx';
 import { PolicyRules } from './pages/PolicyRules.tsx';
+import { createRouteGuard } from './lib/route-guard.ts';
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -58,72 +59,84 @@ const authenticatedRoute = createRoute({
 const dashboardRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/',
+  beforeLoad: createRouteGuard('dashboard'),
   component: PortfolioDashboard,
 });
 
 const assetsRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/assets',
+  beforeLoad: createRouteGuard('assets'),
   component: AssetExplorer,
 });
 
 const reposRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/repos',
+  beforeLoad: createRouteGuard('repos'),
   component: Repositories,
 });
 
 const quantumRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/quantum',
+  beforeLoad: createRouteGuard('portfolio-quantum'),
   component: QuantumReadiness,
 });
 
 const complianceRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/compliance',
+  beforeLoad: createRouteGuard('portfolio-compliance'),
   component: Compliance,
 });
 
 const graphRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/graph',
+  beforeLoad: createRouteGuard('graph'),
   component: LazyDependencyGraph,
 });
 
 const certCalendarRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/certificates',
+  beforeLoad: createRouteGuard('certificates'),
   component: CertCalendar,
 });
 
 const complianceDashboardRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/compliance-dashboard',
+  beforeLoad: createRouteGuard('compliance-dashboard'),
   component: ComplianceDashboard,
 });
 
 const cbomDiffRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/diff',
+  beforeLoad: createRouteGuard('diff'),
   component: CBOMDiff,
 });
 
 const migrationKanbanRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/migration',
+  beforeLoad: createRouteGuard('migration'),
   component: MigrationKanban,
 });
 
 const policyRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/policy',
+  beforeLoad: createRouteGuard('policy'),
   component: PolicyRules,
 });
 
 const notificationPreferencesRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/notifications/preferences',
+  beforeLoad: createRouteGuard('notification-preferences'),
   component: NotificationPreferences,
 });
 
@@ -144,24 +157,28 @@ const downloadsRoute = createRoute({
 const adminSettingsRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/admin/settings',
+  beforeLoad: createRouteGuard('admin-settings'),
   component: OrgSettings,
 });
 
 const adminUsersRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/admin/users',
+  beforeLoad: createRouteGuard('admin-users'),
   component: UserManagement,
 });
 
 const adminIntegrationsRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/admin/integrations',
+  beforeLoad: createRouteGuard('admin-integrations'),
   component: IntegrationManagement,
 });
 
 const adminAuditLogRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/admin/audit-log',
+  beforeLoad: createRouteGuard('admin-audit-log'),
   component: AuditLog,
 });
 
@@ -170,6 +187,7 @@ const adminAuditLogRoute = createRoute({
 const repoLayoutRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/repos/$repoId',
+  beforeLoad: createRouteGuard('repos'),
   component: RepoLayout,
 });
 
@@ -188,6 +206,7 @@ const repoScansRoute = createRoute({
 const repoScanDetailRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/repos/$repoId/scans/$scanId',
+  beforeLoad: createRouteGuard('repos'),
   component: ScanDetailPage,
 });
 

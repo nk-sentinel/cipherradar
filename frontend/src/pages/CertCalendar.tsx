@@ -315,7 +315,7 @@ export function CertCalendar(): React.ReactElement {
                             padding: '1px 3px',
                             borderRadius: '2px',
                             background: expiryColor(days),
-                            color: '#000',
+                            color: 'var(--bg-0)',
                             marginBottom: '1px',
                             overflow: 'hidden',
                             whiteSpace: 'nowrap',

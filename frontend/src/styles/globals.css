@@ -811,6 +811,10 @@ tr.clickable {
   color: var(--text-3);
 }
 
+/* Kanban & Download grids */
+.kanban-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.download-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+
 /* Responsive */
 @media (max-width: 1100px) {
   .sidebar {
@@ -819,4 +823,31 @@ tr.clickable {
   .content-area {
     margin-left: 200px;
   }
+}
+
+/* Tablet */
+@media (max-width: 768px) {
+  .sidebar { display: none; }  /* Hide sidebar, use hamburger in future */
+  .content-area { margin-left: 0; padding: 12px 16px; }
+  .g4 { grid-template-columns: repeat(2, 1fr); }
+  .g3 { grid-template-columns: repeat(2, 1fr); }
+  .g2 { grid-template-columns: 1fr; }
+  .g21 { grid-template-columns: 1fr; }
+  .topbar { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .topbar-right { width: 100%; justify-content: flex-end; }
+  table { font-size: 11px; }
+  th, td { padding: 6px 8px; }
+  .filters { flex-direction: column; }
+  .filter { width: 100%; }
+  .kanban-grid { grid-template-columns: repeat(2, 1fr); }
+  .download-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  .g4, .g3 { grid-template-columns: 1fr; }
+  .stat-val { font-size: 20px; }
+  .topbar h1 { font-size: 15px; }
+  .kanban-grid { grid-template-columns: 1fr; }
+  .download-grid { grid-template-columns: 1fr; }
 }

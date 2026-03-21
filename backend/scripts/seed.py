@@ -18,11 +18,10 @@ import json
 import os
 import random
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import asyncpg
 import bcrypt
-
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -82,7 +81,7 @@ PRJ_WEBFRONT = _duuid("project.web-frontend")
 PRJ_INFRA = _duuid("project.infra-tools")
 
 
-NOW = datetime.now(timezone.utc)
+NOW = datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------
@@ -627,7 +626,7 @@ async def seed_database() -> None:
 
         all_scans = []  # (scan_id, project_id, scan_index)
 
-        for pid, _gid, pname, _url, _prov in PROJECTS:
+        for pid, _gid, _pname, _url, _prov in PROJECTS:
             for scan_idx in range(3):
                 scan_id = _duuid(f"scan.{pid}.{scan_idx}")
                 days_ago = 30 - (scan_idx * 10) + random.randint(-2, 2)
@@ -639,7 +638,7 @@ async def seed_database() -> None:
                 all_scans.append((scan_id, pid, scan_idx, started, completed, commit, branch))
 
         # Insert scans first
-        for scan_id, pid, scan_idx, started, completed, commit, branch in all_scans:
+        for scan_id, pid, _scan_idx, started, completed, commit, branch in all_scans:
             await conn.execute(
                 """INSERT INTO scans (id, project_id, org_id, status, branch, commit_sha,
                                       started_at, completed_at, findings_count, created_at, updated_at)
@@ -649,7 +648,7 @@ async def seed_database() -> None:
             scan_count += 1
 
         # Insert findings for each scan
-        for scan_id, pid, scan_idx, started, completed, commit, branch in all_scans:
+        for scan_id, pid, scan_idx, started, _completed, _commit, _branch in all_scans:
             findings = _gen_findings_for_scan(pid, scan_id, scan_idx, org_id)
 
             for f in findings:
@@ -724,7 +723,7 @@ async def seed_database() -> None:
         print("=" * 50)
         print("  SEED COMPLETE")
         print("=" * 50)
-        print(f"  Organisation:     1")
+        print("  Organisation:     1")
         print(f"  Users:            {user_count} new")
         print(f"  Groups:           {group_count}")
         print(f"  Projects:         {project_count}")

@@ -5,6 +5,10 @@ import type { GraphNode, GraphLink, QuantumNodeStatus, NodeType } from '@/mocks/
 
 /* ---------- colour helpers ---------- */
 
+function getCSSVar(name: string): string {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 function quantumColor(status: QuantumNodeStatus): string {
   switch (status) {
     case 'safe':
@@ -21,13 +25,13 @@ function quantumColor(status: QuantumNodeStatus): string {
 function quantumHex(status: QuantumNodeStatus): string {
   switch (status) {
     case 'safe':
-      return '#4ade80';
+      return getCSSVar('--green');
     case 'vulnerable':
-      return '#fb923c';
+      return getCSSVar('--orange');
     case 'broken':
-      return '#f87171';
+      return getCSSVar('--red');
     case 'unknown':
-      return '#fbbf24';
+      return getCSSVar('--yellow');
   }
 }
 
@@ -142,6 +146,11 @@ export function DependencyGraph(): React.ReactElement {
   const draw = useCallback(
     (ctx: CanvasRenderingContext2D, nodes: SimNode[], links: SimLink[], transform: d3.ZoomTransform) => {
       const { width, height } = dimensions;
+
+      /* resolve CSS variables inside draw so current theme is used */
+      const labelColor = getCSSVar('--text-3');
+      const selectionStroke = getCSSVar('--text-1');
+
       ctx.save();
       ctx.clearRect(0, 0, width, height);
       ctx.translate(transform.x, transform.y);
@@ -204,7 +213,7 @@ export function DependencyGraph(): React.ReactElement {
         ctx.fill();
 
         if (isSelected) {
-          ctx.strokeStyle = '#fff';
+          ctx.strokeStyle = selectionStroke;
           ctx.lineWidth = 2;
           ctx.stroke();
         }
@@ -213,7 +222,7 @@ export function DependencyGraph(): React.ReactElement {
 
         /* label for larger nodes or when zoomed in */
         if (r >= 8 || transform.k > 1.2) {
-          ctx.fillStyle = '#c8d6e5';
+          ctx.fillStyle = labelColor;
           ctx.font = '9px sans-serif';
           ctx.textAlign = 'center';
           ctx.fillText(node.label, node.x, node.y + r + 12);
@@ -447,7 +456,7 @@ export function DependencyGraph(): React.ReactElement {
                       fontSize: '11px',
                       fontWeight: 600,
                       background: quantumColor(selectedNode.quantumStatus),
-                      color: selectedNode.quantumStatus === 'safe' || selectedNode.quantumStatus === 'unknown' ? '#000' : '#fff',
+                      color: selectedNode.quantumStatus === 'safe' || selectedNode.quantumStatus === 'unknown' ? 'var(--bg-0)' : 'var(--text-1)',
                     }}
                   >
                     {selectedNode.quantumStatus.toUpperCase()}

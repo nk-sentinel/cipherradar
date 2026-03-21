@@ -216,10 +216,8 @@ export function MigrationKanban(): React.ReactElement {
 
       {/* Kanban board */}
       <div
+        className="kanban-grid"
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: '12px',
           minHeight: '500px',
         }}
         data-testid="kanban-board"

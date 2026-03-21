@@ -5,6 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import (
+    admin,
+    assets,
     auth,
     cbom,
     compliance,
@@ -14,12 +16,15 @@ from app.api.v1 import (
     jira,
     metrics,
     notifications,
+    policy,
     portfolio,
+    projects,
     reports,
     sbom,
     scan_upload,
     scans,
     signing,
+    user,
     webhooks,
     ws,
 )
@@ -30,7 +35,7 @@ from app.services.cache_service import close_redis, init_redis
 
 async def _lookup_user_by_email(email: str):
     """Database-backed user lookup for auth module."""
-    from sqlalchemy import select, text
+    from sqlalchemy import text
 
     from app.db.session import get_session
 
@@ -107,6 +112,12 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(portfolio.router, prefix="/api/v1")
     app.include_router(deptrack.router, prefix="/api/v1")
     app.include_router(metrics.router, prefix="/api/v1")
+    app.include_router(projects.router, prefix="/api/v1")
+    app.include_router(projects.repos_router, prefix="/api/v1")
+    app.include_router(policy.router, prefix="/api/v1")
+    app.include_router(admin.router, prefix="/api/v1")
+    app.include_router(assets.router, prefix="/api/v1")
+    app.include_router(user.router, prefix="/api/v1")
 
     return app
 

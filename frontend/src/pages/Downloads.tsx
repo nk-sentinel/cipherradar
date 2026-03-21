@@ -150,10 +150,8 @@ export function Downloads(): React.ReactElement {
 
       {/* Download cards grid */}
       <div
+        className="download-grid"
         style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '12px',
           marginBottom: '16px',
         }}
       >
