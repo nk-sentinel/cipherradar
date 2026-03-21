@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { RequireRole } from '@/components/guards/RequireRole.tsx';
-import { useOrgUsers } from '@/api/hooks/useAdmin.ts';
+import { useOrgUsers, useInviteUser } from '@/api/hooks/useAdmin.ts';
 import { ROLE_LABELS, type Role } from '@/lib/roles.ts';
 
 export function UserManagement(): React.ReactElement {
@@ -13,9 +13,11 @@ export function UserManagement(): React.ReactElement {
 
 function UserManagementContent(): React.ReactElement {
   const { data, isLoading, error } = useOrgUsers();
+  const inviteUser = useInviteUser();
   const [showInvite, setShowInvite] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<Role>('developer');
+  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
 
   if (isLoading) {
     return (
@@ -90,7 +92,31 @@ function UserManagementContent(): React.ReactElement {
               </select>
             </div>
           </div>
-          <button className="btn btn-accent">Send Invite</button>
+          {inviteMessage && (
+            <span style={{ fontSize: '12px', color: 'var(--green)', marginBottom: '8px', display: 'block' }}>
+              {inviteMessage}
+            </span>
+          )}
+          <button
+            className="btn btn-accent"
+            disabled={inviteUser.isPending || !inviteEmail.trim()}
+            onClick={() => {
+              setInviteMessage(null);
+              inviteUser.mutate(
+                { email: inviteEmail, role: inviteRole },
+                {
+                  onSuccess: () => {
+                    setInviteMessage(`Invite sent to ${inviteEmail}.`);
+                    setInviteEmail('');
+                    setInviteRole('developer');
+                  },
+                  onError: () => setInviteMessage('Failed to send invite.'),
+                },
+              );
+            }}
+          >
+            {inviteUser.isPending ? 'Sending...' : 'Send Invite'}
+          </button>
         </div>
       )}
 

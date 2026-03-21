@@ -14,7 +14,7 @@ import {
 } from '@tanstack/react-router';
 
 const server = setupServer(
-  http.get('/api/v1/quantum/portfolio', () => {
+  http.get('/api/v1/portfolio/quantum', () => {
     return HttpResponse.json(MOCK_PORTFOLIO_QUANTUM);
   }),
 );

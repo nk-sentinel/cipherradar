@@ -141,7 +141,14 @@ export function ComplianceDashboard(): React.ReactElement {
           Compliance Dashboard
         </h1>
         <div className="topbar-right">
-          <button className="btn btn-outline">Download Gap Report (PDF)</button>
+          <button
+            className="btn btn-outline"
+            disabled
+            title="Coming soon"
+            style={{ opacity: 0.5, cursor: 'not-allowed' }}
+          >
+            Download Gap Report (PDF)
+          </button>
         </div>
       </div>
 

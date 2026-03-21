@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { RequireRole } from '@/components/guards/RequireRole.tsx';
-import { useOrgSettings } from '@/api/hooks/useAdmin.ts';
+import { useOrgSettings, useSaveOrgSettings } from '@/api/hooks/useAdmin.ts';
 
 export function OrgSettings(): React.ReactElement {
   return (
@@ -12,11 +12,13 @@ export function OrgSettings(): React.ReactElement {
 
 function OrgSettingsContent(): React.ReactElement {
   const { data, isLoading, error } = useOrgSettings();
+  const saveSettings = useSaveOrgSettings();
   const [orgName, setOrgName] = useState('');
   const [autoScan, setAutoScan] = useState(false);
   const [scanOnPr, setScanOnPr] = useState(false);
   const [policyFile, setPolicyFile] = useState('');
-  const [failOnSeverity, setFailOnSeverity] = useState('high');
+  const [failOnSeverity, setFailOnSeverity] = useState<'critical' | 'high' | 'medium' | 'low' | 'none'>('high');
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (data) {
@@ -66,7 +68,36 @@ function OrgSettingsContent(): React.ReactElement {
         >
           Organization Settings
         </h1>
-        <button className="btn btn-accent">Save Changes</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {saveMessage && (
+            <span style={{ fontSize: '12px', color: 'var(--green)' }}>{saveMessage}</span>
+          )}
+          <button
+            className="btn btn-accent"
+            disabled={saveSettings.isPending}
+            onClick={() => {
+              setSaveMessage(null);
+              saveSettings.mutate(
+                {
+                  name: orgName,
+                  plan: data!.plan,
+                  defaultScanConfig: {
+                    autoScan,
+                    scanOnPr,
+                    policyFile,
+                    failOnSeverity,
+                  },
+                },
+                {
+                  onSuccess: () => setSaveMessage('Settings saved successfully.'),
+                  onError: () => setSaveMessage('Failed to save settings.'),
+                },
+              );
+            }}
+          >
+            {saveSettings.isPending ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
       </div>
 
       {/* Org info */}
@@ -137,7 +168,7 @@ function OrgSettingsContent(): React.ReactElement {
               <select
                 className="input"
                 value={failOnSeverity}
-                onChange={(e) => setFailOnSeverity(e.target.value)}
+                onChange={(e) => setFailOnSeverity(e.target.value as typeof failOnSeverity)}
               >
                 <option value="critical">Critical</option>
                 <option value="high">High</option>

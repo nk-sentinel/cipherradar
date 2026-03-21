@@ -1,6 +1,7 @@
 import { useNavigate } from '@tanstack/react-router';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { usePortfolioSummary, useHeatMap } from '@/api/hooks/usePortfolio.ts';
+import { useTriggerScan } from '@/api/hooks/useTriggerScan.ts';
 import { useAuth } from '@/lib/auth.tsx';
 import { cn, formatNumber } from '@/lib/utils.ts';
 import type { HeatMapCell, SeverityLevel } from '@/mocks/data/portfolio.ts';
@@ -48,6 +49,7 @@ function complianceColor(score: number): string {
 export function PortfolioDashboard(): React.ReactElement {
   const { data: summary, isLoading: summaryLoading, error: summaryError } = usePortfolioSummary();
   const { data: heatMap, isLoading: heatMapLoading } = useHeatMap();
+  const triggerScan = useTriggerScan();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -111,7 +113,18 @@ export function PortfolioDashboard(): React.ReactElement {
         </h1>
         <div className="topbar-right">
           <span>Last scan: {summary.lastScanTime}</span>
-          <button className="btn btn-accent">+ New Scan</button>
+          <button
+            className="btn btn-accent"
+            disabled={triggerScan.isPending}
+            onClick={() => {
+              const projectId = prompt('Enter project ID to scan:');
+              if (projectId) {
+                triggerScan.mutate(projectId);
+              }
+            }}
+          >
+            {triggerScan.isPending ? 'Scanning...' : '+ New Scan'}
+          </button>
         </div>
       </div>
 

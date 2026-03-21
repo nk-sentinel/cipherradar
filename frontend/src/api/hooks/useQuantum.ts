@@ -7,14 +7,14 @@ import type {
 
 /**
  * Fetch org-wide quantum readiness data.
- * Real API endpoint: GET /api/v1/quantum/portfolio
+ * Real API endpoint: GET /api/v1/portfolio/quantum
  */
 export function useQuantumRisk() {
   return useQuery({
     queryKey: ['quantum', 'portfolio'],
     queryFn: async () => {
       try {
-        const data = await apiClient<PortfolioQuantumData>('/quantum/portfolio');
+        const data = await apiClient<PortfolioQuantumData>('/portfolio/quantum');
         if (data) return data;
       } catch {
           const { getPortfolioQuantum } = await import('@/mocks/data/quantum.ts');
@@ -27,14 +27,14 @@ export function useQuantumRisk() {
 
 /**
  * Fetch quantum readiness data for a single repository.
- * Real API endpoint: GET /api/v1/repos/:repoId/quantum
+ * Real API endpoint: GET /api/v1/projects/:repoId/quantum-risk
  */
 export function useQuantumRiskForRepo(repoId: string) {
   return useQuery({
     queryKey: ['quantum', 'repo', repoId],
     queryFn: async () => {
       try {
-        const data = await apiClient<RepoQuantumData>(`/repos/${repoId}/quantum`);
+        const data = await apiClient<RepoQuantumData>(`/projects/${repoId}/quantum-risk`);
         if (data) return data;
       } catch {
           const { getRepoQuantum } = await import('@/mocks/data/quantum.ts');

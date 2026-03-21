@@ -14,7 +14,7 @@ import {
 } from '@tanstack/react-router';
 
 const server = setupServer(
-  http.get('/api/v1/compliance/portfolio', () => {
+  http.get('/api/v1/portfolio/compliance', () => {
     return HttpResponse.json(MOCK_PORTFOLIO_COMPLIANCE);
   }),
 );

@@ -4,14 +4,14 @@ import type { ScanSummary, ScanDetail } from '@/mocks/data/scans.ts';
 
 /**
  * Fetch all scans for a repository.
- * Real API endpoint: GET /api/v1/repos/:repoId/scans
+ * Real API endpoint: GET /api/v1/projects/:repoId/scans
  */
 export function useScans(repoId: string) {
   return useQuery<ScanSummary[]>({
     queryKey: ['scans', repoId],
     queryFn: async (): Promise<ScanSummary[]> => {
       try {
-        const data = await apiClient<ScanSummary[]>(`/repos/${repoId}/scans`);
+        const data = await apiClient<ScanSummary[]>(`/projects/${repoId}/scans`);
         if (Array.isArray(data)) return data;
       } catch { /* fall through */ }
       const { getScansForRepo } = await import('@/mocks/data/scans.ts');

@@ -137,7 +137,14 @@ export function CBOMDiff(): React.ReactElement {
           CBOM Diff
         </h1>
         <div className="topbar-right">
-          <button className="btn btn-outline">Export Diff Report</button>
+          <button
+            className="btn btn-outline"
+            disabled
+            title="Coming soon"
+            style={{ opacity: 0.5, cursor: 'not-allowed' }}
+          >
+            Export Diff Report
+          </button>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useRepositories } from '@/api/hooks/useRepositories.ts';
+import { useTriggerScan } from '@/api/hooks/useTriggerScan.ts';
 import { cn } from '@/lib/utils.ts';
 
 function getComplianceColor(percent: number): string {
@@ -18,6 +19,7 @@ function getQuantumBadgeClass(score: number): string {
 
 export function Repositories(): React.ReactElement {
   const { data: repos, isLoading, error } = useRepositories();
+  const triggerScan = useTriggerScan();
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
 
@@ -74,7 +76,12 @@ export function Repositories(): React.ReactElement {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-          <button className="btn btn-accent">+ Connect Repo</button>
+          <button
+            className="btn btn-accent"
+            onClick={() => alert('Connect repository via Settings > Integrations')}
+          >
+            + Connect Repo
+          </button>
         </div>
       </div>
       <div className="card">
@@ -97,7 +104,10 @@ export function Repositories(): React.ReactElement {
                 key={repo.id}
                 className={cn('clickable')}
                 onClick={() =>
-                  void navigate({ to: `/repos/${repo.id}/overview` as string })
+                  void navigate({
+                    to: '/repos/$repoId/overview',
+                    params: { repoId: repo.id },
+                  })
                 }
                 data-testid={`repo-row-${repo.id}`}
               >
@@ -139,17 +149,24 @@ export function Repositories(): React.ReactElement {
                 <td>
                   <button
                     className="btn btn-outline"
+                    disabled={triggerScan.isPending}
                     onClick={(e) => {
                       e.stopPropagation();
+                      triggerScan.mutate(repo.id);
                     }}
                   >
-                    Scan
+                    {triggerScan.isPending ? 'Scanning...' : 'Scan'}
                   </button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+        {filtered.length === 0 && (
+          <p style={{ color: 'var(--text-3)', padding: '24px', textAlign: 'center' }}>
+            No repositories match your search.
+          </p>
+        )}
       </div>
     </div>
   );

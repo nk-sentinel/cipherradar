@@ -76,7 +76,7 @@ export const handlers = [
     return HttpResponse.json(detail);
   }),
 
-  http.get('/api/v1/repos/:repoId/scans', ({ params }) => {
+  http.get('/api/v1/projects/:repoId/scans', ({ params }) => {
     const repoId = params['repoId'] as string;
     const scans = getScansForRepo(repoId);
     return HttpResponse.json(scans);
@@ -95,12 +95,12 @@ export const handlers = [
   }),
 
   // Quantum readiness — portfolio
-  http.get('/api/v1/quantum/portfolio', () => {
+  http.get('/api/v1/portfolio/quantum', () => {
     return HttpResponse.json(getPortfolioQuantum());
   }),
 
   // Quantum readiness — per repo
-  http.get('/api/v1/repos/:repoId/quantum', ({ params }) => {
+  http.get('/api/v1/projects/:repoId/quantum-risk', ({ params }) => {
     const repoId = params['repoId'] as string;
     const data = getRepoQuantum(repoId);
     if (!data) {
@@ -113,12 +113,12 @@ export const handlers = [
   }),
 
   // Compliance — portfolio
-  http.get('/api/v1/compliance/portfolio', () => {
+  http.get('/api/v1/portfolio/compliance', () => {
     return HttpResponse.json(getPortfolioCompliance());
   }),
 
   // Compliance — per repo
-  http.get('/api/v1/repos/:repoId/compliance', ({ params }) => {
+  http.get('/api/v1/projects/:repoId/compliance/nist-800-131a', ({ params }) => {
     const repoId = params['repoId'] as string;
     const data = getRepoCompliance(repoId);
     if (!data) {
@@ -224,9 +224,25 @@ export const handlers = [
     return HttpResponse.json(getUserOrgs());
   }),
 
+  // Trigger scan
+  http.post('/api/v1/projects/:projectId/scans/trigger', () => {
+    return HttpResponse.json({ status: 'queued', scanId: 'scan-' + Date.now().toString() });
+  }),
+
   // Admin: org settings
   http.get('/api/v1/admin/settings', () => {
     return HttpResponse.json(getOrgSettings());
+  }),
+
+  http.put('/api/v1/admin/settings', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json(body);
+  }),
+
+  // Admin: user invite
+  http.post('/api/v1/admin/users/invite', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({ success: true, ...body as object });
   }),
 
   // Admin: user list

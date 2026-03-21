@@ -1,4 +1,4 @@
-import { useParams } from '@tanstack/react-router';
+import { useNavigate, useParams } from '@tanstack/react-router';
 import {
   BarChart,
   Bar,
@@ -30,6 +30,7 @@ function getCriticalBadgeClass(count: number): string {
 
 export function RepoOverview(): React.ReactElement {
   const { repoId } = useParams({ strict: false }) as { repoId: string };
+  const navigate = useNavigate();
   const { data: repo, isLoading, error } = useRepository(repoId);
 
   if (isLoading) {
@@ -175,7 +176,17 @@ export function RepoOverview(): React.ReactElement {
           </thead>
           <tbody>
             {repo.recentScans.map((scan) => (
-              <tr key={scan.id}>
+              <tr
+                key={scan.id}
+                className="clickable"
+                style={{ cursor: 'pointer' }}
+                onClick={() =>
+                  void navigate({
+                    to: '/repos/$repoId/scans/$scanId',
+                    params: { repoId, scanId: String(scan.id) },
+                  })
+                }
+              >
                 <td>#{scan.id}</td>
                 <td>{scan.branch}</td>
                 <td>{scan.commit}</td>

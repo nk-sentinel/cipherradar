@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../client.ts';
 import type {
   OrgSettings,
@@ -44,6 +44,44 @@ export function useOrgUsers() {
     }
     },
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Save org settings.
+ * Real API endpoint: PUT /api/v1/admin/settings
+ */
+export function useSaveOrgSettings() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (settings: Partial<OrgSettings>) => {
+      return apiClient<OrgSettings>('/admin/settings', {
+        method: 'PUT',
+        body: settings,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'org-settings'] });
+    },
+  });
+}
+
+/**
+ * Send user invite.
+ * Real API endpoint: POST /api/v1/admin/users/invite
+ */
+export function useInviteUser() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (invite: { email: string; role: string }) => {
+      return apiClient('/admin/users/invite', {
+        method: 'POST',
+        body: invite,
+      });
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'users'] });
+    },
   });
 }
 

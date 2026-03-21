@@ -55,7 +55,7 @@ export function AvatarDropdown(): React.ReactElement {
         </div>
         <div
           className="avatar-dropdown-item"
-          onClick={() => { setIsOpen(false); void navigate({ to: '/profile' as string }); }}
+          onClick={() => { setIsOpen(false); void navigate({ to: '/profile' }); }}
           role="button"
           tabIndex={0}
         >
@@ -63,7 +63,7 @@ export function AvatarDropdown(): React.ReactElement {
         </div>
         <div
           className="avatar-dropdown-item"
-          onClick={() => { setIsOpen(false); void navigate({ to: '/downloads' as string }); }}
+          onClick={() => { setIsOpen(false); void navigate({ to: '/downloads' }); }}
           role="button"
           tabIndex={0}
         >
@@ -72,7 +72,7 @@ export function AvatarDropdown(): React.ReactElement {
         <div className="avatar-dropdown-divider" />
         <div
           className="avatar-dropdown-item"
-          onClick={() => setIsOpen(false)}
+          onClick={() => { setIsOpen(false); window.open('/api/v1/docs', '_blank'); }}
           role="button"
           tabIndex={0}
         >
@@ -80,7 +80,7 @@ export function AvatarDropdown(): React.ReactElement {
         </div>
         <div
           className="avatar-dropdown-item"
-          onClick={() => setIsOpen(false)}
+          onClick={() => { setIsOpen(false); alert('Keyboard shortcuts: Ctrl+K to search, Ctrl+/ for help'); }}
           role="button"
           tabIndex={0}
         >
@@ -88,7 +88,7 @@ export function AvatarDropdown(): React.ReactElement {
         </div>
         <div
           className="avatar-dropdown-item"
-          onClick={() => setIsOpen(false)}
+          onClick={() => { setIsOpen(false); window.open('https://github.com/nk-sentinel/cipherradar', '_blank'); }}
           role="button"
           tabIndex={0}
         >

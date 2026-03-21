@@ -7,14 +7,14 @@ import type {
 
 /**
  * Fetch org-wide compliance scores.
- * Real API endpoint: GET /api/v1/compliance/portfolio
+ * Real API endpoint: GET /api/v1/portfolio/compliance
  */
 export function useCompliance() {
   return useQuery({
     queryKey: ['compliance', 'portfolio'],
     queryFn: async () => {
       try {
-        const data = await apiClient<PortfolioComplianceData>('/compliance/portfolio');
+        const data = await apiClient<PortfolioComplianceData>('/portfolio/compliance');
         if (data) return data;
       } catch {
           const { getPortfolioCompliance } = await import('@/mocks/data/compliance.ts');
@@ -27,14 +27,14 @@ export function useCompliance() {
 
 /**
  * Fetch compliance data for a single repository.
- * Real API endpoint: GET /api/v1/repos/:repoId/compliance
+ * Real API endpoint: GET /api/v1/projects/:repoId/compliance/nist-800-131a
  */
 export function useComplianceForRepo(repoId: string) {
   return useQuery({
     queryKey: ['compliance', 'repo', repoId],
     queryFn: async () => {
       try {
-        const data = await apiClient<RepoComplianceData>(`/repos/${repoId}/compliance`);
+        const data = await apiClient<RepoComplianceData>(`/projects/${repoId}/compliance/nist-800-131a`);
         if (data) return data;
       } catch {
           const { getRepoCompliance } = await import('@/mocks/data/compliance.ts');

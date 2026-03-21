@@ -82,7 +82,14 @@ export function QuantumReadiness(): React.ReactElement {
           Quantum Readiness (Portfolio)
         </h1>
         <div className="topbar-right">
-          <button className="btn btn-outline">Export PQC Report</button>
+          <button
+            className="btn btn-outline"
+            disabled
+            title="Coming soon"
+            style={{ opacity: 0.5, cursor: 'not-allowed' }}
+          >
+            Export PQC Report
+          </button>
         </div>
       </div>
 

@@ -38,11 +38,6 @@ export function RepoScans({ scanId }: RepoScansProps): React.ReactElement {
     );
   }
 
-  const handleExport = (format: string): void => {
-    // Placeholder: will integrate with real export API
-    console.log(`Export ${format} for scan ${scan.id}`);
-  };
-
   return (
     <div>
       {/* Header with export buttons */}
@@ -65,13 +60,13 @@ export function RepoScans({ scanId }: RepoScansProps): React.ReactElement {
           Scan #{scan.number} — {scan.branch} ({scan.commit})
         </h1>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-outline" onClick={() => handleExport('cbom')}>
+          <button className="btn btn-outline" disabled title="Coming soon" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
             CBOM
           </button>
-          <button className="btn btn-outline" onClick={() => handleExport('sarif')}>
+          <button className="btn btn-outline" disabled title="Coming soon" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
             SARIF
           </button>
-          <button className="btn btn-outline" onClick={() => handleExport('pdf')}>
+          <button className="btn btn-outline" disabled title="Coming soon" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
             PDF
           </button>
         </div>

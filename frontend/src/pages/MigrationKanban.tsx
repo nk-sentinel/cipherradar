@@ -1,6 +1,5 @@
 import { useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { apiClient } from '@/api/client.ts';
+import { useKanbanCards } from '@/api/hooks/useKanban.ts';
 import { cn } from '@/lib/utils.ts';
 import type {
   KanbanCard,
@@ -14,24 +13,6 @@ const COLUMN_DEFS: { id: KanbanColumnId; title: string }[] = [
   { id: 'in-review', title: 'In Review' },
   { id: 'done', title: 'Done' },
 ];
-
-function useKanbanCards() {
-  return useQuery({
-    queryKey: ['kanban'],
-    queryFn: async () => {
-      try {
-        return await apiClient<KanbanCard[]>('/kanban');
-      } catch {
-        if (import.meta.env.DEV) {
-          const { getKanbanCards } = await import('@/mocks/data/kanban.ts');
-          return getKanbanCards();
-        }
-        throw new Error('Failed to fetch kanban cards');
-      }
-    },
-    staleTime: 30_000,
-  });
-}
 
 function priorityBadgeClass(p: KanbanPriority): string {
   switch (p) {

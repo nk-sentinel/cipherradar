@@ -75,7 +75,14 @@ export function RepoCompliance(): React.ReactElement {
           Compliance
         </h1>
         <div className="topbar-right">
-          <button className="btn btn-outline">Download Gap Report</button>
+          <button
+            className="btn btn-outline"
+            disabled
+            title="Coming soon"
+            style={{ opacity: 0.5, cursor: 'not-allowed' }}
+          >
+            Download Gap Report
+          </button>
         </div>
       </div>
 

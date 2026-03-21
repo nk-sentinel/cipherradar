@@ -5,13 +5,15 @@ import { cn } from '@/lib/utils.ts';
 interface SubTab {
   label: string;
   path: string;
+  /** If set, navigates to this external path instead of the repo sub-path */
+  externalPath?: (repoId: string) => string;
 }
 
 const SUB_TABS: SubTab[] = [
   { label: 'Overview', path: 'overview' },
   { label: 'Scans', path: 'scans' },
   { label: 'Findings', path: 'findings' },
-  { label: 'CBOM Diff', path: 'diff' },
+  { label: 'CBOM Diff', path: 'diff', externalPath: (repoId) => `/diff?repo=${repoId}` },
   { label: 'Quantum', path: 'quantum' },
   { label: 'Compliance', path: 'compliance' },
 ];
@@ -37,12 +39,13 @@ export function RepoLayout(): React.ReactElement {
         {SUB_TABS.map((tab) => {
           const tabPath = `/repos/${repoId}/${tab.path}`;
           const isActive = currentPath === tabPath;
+          const target = tab.externalPath ? tab.externalPath(repoId) : tabPath;
           return (
             <a
               key={tab.path}
               className={cn('sub-tab', isActive && 'active')}
               style={{ cursor: 'pointer', textDecoration: 'none' }}
-              onClick={() => void navigate({ to: tabPath as string })}
+              onClick={() => void navigate({ to: target })}
             >
               {tab.label}
             </a>
