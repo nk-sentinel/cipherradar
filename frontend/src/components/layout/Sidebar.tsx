@@ -49,8 +49,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Manage',
     items: [
-      { label: 'Profile', icon: '\u2699', to: '/profile', page: 'settings' },
-      { label: 'Downloads', icon: '\u21E9', to: '/downloads', page: 'settings' },
+      { label: 'Policy Rules', icon: '\u2699', to: '/policy', page: 'policy' },
     ],
   },
 ];
