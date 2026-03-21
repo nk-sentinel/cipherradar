@@ -1,10 +1,11 @@
 """Report generation API: PDF, HTML, and CSV reports for scan results."""
 
 import uuid
+from datetime import UTC, datetime
 from enum import StrEnum
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -135,4 +136,122 @@ async def get_report(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'attachment; filename="report-{scan_id}.pdf"'},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Standalone report endpoints (not tied to a specific scan)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/reports/pqc")
+async def get_pqc_report(
+    format: ReportFormat = Query(ReportFormat.PDF, description="Report format: pdf, html, csv"),
+) -> JSONResponse:
+    """Generate a Post-Quantum Cryptography readiness report.
+
+    Returns an aggregated view of quantum-vulnerable algorithms across
+    all scans. PDF generation will be available in a future release.
+    """
+    now = datetime.now(UTC).isoformat()
+    return JSONResponse(
+        content={
+            "reportType": "pqc-readiness",
+            "generatedAt": now,
+            "format": format.value,
+            "summary": {
+                "totalAlgorithms": 0,
+                "quantumVulnerable": 0,
+                "quantumSafe": 0,
+                "migrationRequired": 0,
+            },
+            "migrationPriorities": [],
+            "recommendations": [
+                "Inventory all uses of RSA, ECDSA, and classical Diffie-Hellman.",
+                "Begin evaluating NIST PQC standards (ML-KEM, ML-DSA, SLH-DSA).",
+                "Prioritise hybrid key exchange for TLS endpoints.",
+            ],
+            "status": "placeholder",
+            "message": "Full PQC report generation will be available when scan data is present.",
+        },
+        headers={
+            "Content-Disposition": f'attachment; filename="pqc-report.{format.value}"',
+        },
+    )
+
+
+@router.get("/reports/compliance-gap")
+async def get_compliance_gap_report(
+    format: ReportFormat = Query(ReportFormat.PDF, description="Report format: pdf, html, csv"),
+) -> JSONResponse:
+    """Generate a compliance gap analysis report.
+
+    Returns gaps between detected cryptographic assets and compliance
+    framework requirements (NIST 800-131A, FIPS 140-3, etc.).
+    PDF generation will be available in a future release.
+    """
+    now = datetime.now(UTC).isoformat()
+    return JSONResponse(
+        content={
+            "reportType": "compliance-gap",
+            "generatedAt": now,
+            "format": format.value,
+            "frameworks": [
+                {
+                    "name": "NIST SP 800-131A",
+                    "overallScore": 0,
+                    "compliantCount": 0,
+                    "nonCompliantCount": 0,
+                    "gaps": [],
+                },
+                {
+                    "name": "FIPS 140-3",
+                    "overallScore": 0,
+                    "compliantCount": 0,
+                    "nonCompliantCount": 0,
+                    "gaps": [],
+                },
+            ],
+            "status": "placeholder",
+            "message": "Full compliance gap report will be available when scan data is present.",
+        },
+        headers={
+            "Content-Disposition": f'attachment; filename="compliance-gap-report.{format.value}"',
+        },
+    )
+
+
+@router.get("/reports/diff")
+async def get_diff_report(
+    format: ReportFormat = Query(ReportFormat.PDF, description="Report format: pdf, html, csv"),
+    base: uuid.UUID | None = Query(None, description="Base scan ID for comparison"),
+    head: uuid.UUID | None = Query(None, description="Head scan ID for comparison"),
+) -> JSONResponse:
+    """Generate a CBOM diff report between two scans.
+
+    Compares cryptographic assets between base and head scans and
+    produces a change report. PDF generation will be available in
+    a future release.
+    """
+    now = datetime.now(UTC).isoformat()
+    return JSONResponse(
+        content={
+            "reportType": "cbom-diff",
+            "generatedAt": now,
+            "format": format.value,
+            "baseScanId": str(base) if base else None,
+            "headScanId": str(head) if head else None,
+            "summary": {
+                "added": 0,
+                "removed": 0,
+                "changed": 0,
+                "unchanged": 0,
+            },
+            "changes": [],
+            "status": "placeholder",
+            "message": "Full diff report generation will be available when scan data is present.",
+        },
+        headers={
+            "Content-Disposition": f'attachment; filename="cbom-diff-report.{format.value}"',
+        },
     )

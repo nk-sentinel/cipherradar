@@ -7,13 +7,11 @@ export function useKanbanCards() {
     queryKey: ['kanban'],
     queryFn: async () => {
       try {
-        return await apiClient<KanbanCard[]>('/kanban');
+        const data = await apiClient<KanbanCard[]>('/kanban');
+        if (data) return data;
       } catch {
-        if (import.meta.env.DEV) {
           const { getKanbanCards } = await import('@/mocks/data/kanban.ts');
           return getKanbanCards();
-        }
-        throw new Error('Failed to fetch kanban cards');
       }
     },
     staleTime: 30_000,
