@@ -64,9 +64,9 @@ archives:
       - goos: windows
         format: zip
 
-  # Full archive — cradar binary + OpenGrep binary
-  # NOTE: OpenGrep binary must be placed in dist/opengrep-<os>-<arch>/
-  # before running goreleaser, via a CI pre-build step.
+  # Full archive — cradar binary + OpenGrep + Joern + YARA-X binaries
+  # NOTE: Tool binaries must be placed in dist/<tool>-<os>-<arch>/
+  # before running goreleaser, via CI pre-build steps.
   - id: cradar-full-archive
     builds:
       - cradar-full
@@ -74,6 +74,12 @@ archives:
     format: tar.gz
     files:
       - src: "dist/opengrep-{{ .Os }}-{{ .Arch }}/*"
+        dst: .
+        strip_parent: true
+      - src: "dist/joern-{{ .Os }}-{{ .Arch }}/*"
+        dst: .
+        strip_parent: true
+      - src: "dist/yara-x-{{ .Os }}-{{ .Arch }}/*"
         dst: .
         strip_parent: true
     format_overrides:

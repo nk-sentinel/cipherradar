@@ -15,8 +15,10 @@ var installToolsCmd = &cobra.Command{
 	Short: "Download and install required analysis tools",
 	Long: `Download and install external analysis tools required by cradar.
 
-Currently installs:
+Installs:
   - OpenGrep (taint analysis engine for Pass 2)
+  - Joern    (CPG analysis engine for Pass 3)
+  - YARA-X   (binary scanning engine for compiled artifact analysis)
 
 Tools are installed to ~/.cradar/tools/ by default.
 Use --tools-dir to override the installation directory.
@@ -34,13 +36,44 @@ Use --force to reinstall even if already present.`,
 			toolsDir = filepath.Join(home, toolsDir[2:])
 		}
 
-		if !force && tools.IsOpenGrepInstalled(toolsDir) {
+		var hadError bool
+
+		// Install OpenGrep.
+		if force || !tools.IsOpenGrepInstalled(toolsDir) {
+			if err := tools.InstallOpenGrep(toolsDir); err != nil {
+				fmt.Fprintf(os.Stderr, "Error installing OpenGrep: %v\n", err)
+				hadError = true
+			}
+		} else {
 			fmt.Printf("OpenGrep already installed at %s/opengrep\n", toolsDir)
-			fmt.Println("Use --force to reinstall")
-			return nil
 		}
 
-		return tools.InstallOpenGrep(toolsDir)
+		// Install Joern.
+		if force || !tools.IsJoernInstalled(toolsDir) {
+			if err := tools.InstallJoern(toolsDir); err != nil {
+				fmt.Fprintf(os.Stderr, "Error installing Joern: %v\n", err)
+				hadError = true
+			}
+		} else {
+			fmt.Printf("Joern already installed at %s/joern\n", toolsDir)
+		}
+
+		// Install YARA-X.
+		if force || !tools.IsYARAXInstalled(toolsDir) {
+			if err := tools.InstallYARAX(toolsDir); err != nil {
+				fmt.Fprintf(os.Stderr, "Error installing YARA-X: %v\n", err)
+				hadError = true
+			}
+		} else {
+			fmt.Printf("YARA-X already installed at %s/yr\n", toolsDir)
+		}
+
+		if hadError {
+			return fmt.Errorf("one or more tools failed to install")
+		}
+
+		fmt.Println("\nAll tools installed successfully.")
+		return nil
 	},
 }
 

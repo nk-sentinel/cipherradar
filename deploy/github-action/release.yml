@@ -68,6 +68,33 @@ jobs:
             echo "Warning: OpenGrep not available for ${{ matrix.opengrep_arch }}"
         shell: bash
 
+      - name: Download Joern for bundling
+        run: |
+          JOERN_VERSION="v4.0.0"
+          mkdir -p dist/joern
+          curl -sL "https://github.com/joernio/joern/releases/download/${JOERN_VERSION}/joern-cli.zip" -o /tmp/joern-cli.zip && \
+            unzip -qo /tmp/joern-cli.zip -d dist/joern/ 2>/dev/null || \
+            echo "Warning: Joern not available for download"
+          rm -f /tmp/joern-cli.zip
+        shell: bash
+
+      - name: Download YARA-X for bundling
+        run: |
+          YARAX_VERSION="v0.12.0"
+          mkdir -p dist/yara-x
+          # YARA-X uses platform-specific archive names
+          YARAX_OS="${{ matrix.goos }}"
+          YARAX_ARCH="${{ matrix.goarch }}"
+          if [ "$YARAX_ARCH" = "amd64" ]; then YARAX_ARCH="x86_64"; fi
+          if [ "$YARAX_ARCH" = "arm64" ]; then YARAX_ARCH="aarch64"; fi
+          if [ "$YARAX_OS" = "darwin" ]; then YARAX_TARGET="${YARAX_ARCH}-apple-darwin"; fi
+          if [ "$YARAX_OS" = "linux" ]; then YARAX_TARGET="${YARAX_ARCH}-unknown-linux-gnu"; fi
+          if [ "$YARAX_OS" = "windows" ]; then YARAX_TARGET="${YARAX_ARCH}-pc-windows-msvc"; fi
+          curl -sL "https://github.com/VirusTotal/yara-x/releases/download/${YARAX_VERSION}/yr-${YARAX_VERSION}-${YARAX_TARGET}.tar.gz" | \
+            tar -xz -C dist/yara-x/ 2>/dev/null || \
+            echo "Warning: YARA-X not available for ${YARAX_TARGET}"
+        shell: bash
+
       - name: Package cradar (lightweight)
         run: |
           mkdir -p dist/cradar-pkg
@@ -82,7 +109,7 @@ jobs:
           fi
         shell: bash
 
-      - name: Package cradar-full (with OpenGrep)
+      - name: Package cradar-full (with OpenGrep + Joern + YARA-X)
         run: |
           mkdir -p dist/cradar-full-pkg
           EXT=""
@@ -90,6 +117,12 @@ jobs:
           cp dist/cradar${EXT} dist/cradar-full-pkg/
           if [ -f dist/opengrep/opengrep ]; then
             cp dist/opengrep/opengrep dist/cradar-full-pkg/
+          fi
+          if [ -d dist/joern ] && ls dist/joern/* 1>/dev/null 2>&1; then
+            cp -r dist/joern/* dist/cradar-full-pkg/
+          fi
+          if [ -d dist/yara-x ] && ls dist/yara-x/* 1>/dev/null 2>&1; then
+            cp dist/yara-x/yr* dist/cradar-full-pkg/ 2>/dev/null || true
           fi
           cd dist/cradar-full-pkg
           if [ "${{ matrix.goos }}" = "windows" ]; then

@@ -37,6 +37,13 @@ When a decision changes, the original ADR is kept and marked **Superseded**, and
 | [ADR-015](decisions/ADR-015-frontend-architecture.md) | Frontend Architecture — React 19, TanStack, Theme System | Accepted | 2026-03-19 | `docs/12-phase2-implementation-plan.md` |
 | [ADR-024](decisions/ADR-024-cli-binary-rename.md) | CLI Binary Rename — cbom → cradar | Accepted | 2026-03-20 | `CLAUDE.md`, `README.md`, `deploy/`, `docs/08-roadmap.md` |
 | [ADR-025](decisions/ADR-025-cli-portal-push.md) | CLI-to-Portal Push Model — `--push` flag + `.cradar.yml` config | Accepted | 2026-03-20 | `docs/13-phase3-implementation-plan.md`, `deploy/` |
+| [ADR-026](decisions/ADR-026-binary-scanning-architecture.md) | Binary Scanning Architecture — Hybrid (Go byte-patterns + YARA-X) | Accepted | 2026-03-22 | `docs/03-detection-engine.md`, `docs/07-tech-stack.md`, ADR-010 |
+| [ADR-027](decisions/ADR-027-llm-provider-abstraction.md) | LLM Provider Abstraction — Multi-provider with Anthropic default | Accepted | 2026-03-22 | `docs/07-tech-stack.md`, `docs/02-architecture.md` |
+| [ADR-028](decisions/ADR-028-opentelemetry-runtime-enrichment.md) | OpenTelemetry Runtime Enrichment — Collector Exporter Plugin | Accepted | 2026-03-22 | `docs/02-architecture.md`, `docs/07-tech-stack.md` |
+| [ADR-029](decisions/ADR-029-vscode-extension-architecture.md) | VS Code Extension — Direct Diagnostic Provider | Accepted | 2026-03-22 | `docs/08-roadmap.md`, `docs/07-tech-stack.md` |
+| [ADR-030](decisions/ADR-030-intellij-plugin-architecture.md) | IntelliJ Plugin — External Annotator | Accepted | 2026-03-22 | `docs/08-roadmap.md`, `docs/07-tech-stack.md` |
+| [ADR-031](decisions/ADR-031-cryptographic-agility-score.md) | Cryptographic Agility Score — 5-Factor Model | Accepted | 2026-03-22 | `docs/02-architecture.md`, `docs/06-compliance.md` |
+| [ADR-032](decisions/ADR-032-hndl-risk-model.md) | HNDL Risk Model — Mosca Inequality + Multiplicative Score | Accepted | 2026-03-22 | `docs/06-compliance.md`, `docs/03-detection-engine.md` |
 
 ---
 
@@ -168,6 +175,35 @@ A `--push` flag on `cradar scan` enables combined scan + upload in a single comm
 | `deploy/github-action/release.yml` | Artifact names → `cradar`/`cradar-full` |
 | `deploy/github-action/example-workflow.yml` | Workflow example → `cradar` |
 | `deploy/gitlab-ci/` | File renamed `cbom-scan.gitlab-ci.yml` → `cradar-scan.gitlab-ci.yml`; all references → `cradar` |
+
+---
+
+### 2026-03-22 — Phase 4 Architecture Decisions
+
+Seven ADRs accepted covering Phase 4 capabilities:
+
+**ADR-026: Binary Scanning Architecture — Hybrid (Go byte-patterns + YARA-X)**
+Two-tier binary scanning aligned with the CLI distribution model (ADR-010). The lightweight `cradar` binary uses pure Go byte-pattern matching with YAML-defined rules (~70% accuracy). The full `cradar-full` binary bundles YARA-X with the findcrypt-yara ruleset (~90%+ accuracy). Graceful degradation when YARA-X is unavailable. JAR files are decompiled via CFR subprocess; Python wheels are extracted and scanned with existing language scanners. `cradar-full` archive now bundles OpenGrep + Joern + YARA-X (~300 MB total).
+
+**ADR-027: LLM Provider Abstraction — Multi-provider with Anthropic default**
+Backend Python `LLMProvider` abstract class with three implementations: `AnthropicProvider` (default), `OpenAIProvider`, and `OllamaProvider` (air-gapped/self-hosted). Provider selected via `CRADAR_LLM_PROVIDER` config. Remediation cached by finding fingerprint. Code snippets sent only with explicit org-level opt-in consent flag.
+
+**ADR-028: OpenTelemetry Runtime Enrichment — Collector Exporter Plugin**
+Go-based OTel Collector exporter plugin that filters spans for TLS/crypto attributes (`tls.protocol.version`, `tls.cipher_suite`, `net.sock.peer.cert`) and POSTs enrichment data to `POST /api/v1/runtime/enrich`. Backend links runtime observations to static CBOM findings by service + algorithm.
+
+**ADR-029: VS Code Extension — Direct Diagnostic Provider**
+TypeScript extension using VS Code Diagnostic API directly (not LSP). Invokes `cradar scan --format sarif --file <path>` on file save. HoverProvider shows quantum status. CodeActionProvider offers LLM-assisted remediation via backend API. TreeView sidebar and StatusBar with finding count.
+
+**ADR-030: IntelliJ Plugin — External Annotator**
+Kotlin External Annotator following IntelliJ's threading model. `collectInformation()` on EDT, `doAnnotate()` on background thread with SARIF caching, `apply()` on EDT with gutter icons and tooltips. Quick-fix intentions link to LLM remediation. Plugin calls `cradar` CLI as subprocess.
+
+**ADR-031: Cryptographic Agility Score — 5-Factor Model**
+0–100 composite score per project: Call Site Concentration (20%), Abstraction Level (25%), Algorithm Diversity (15%), Key Management Centralisation (20%), Migration Readiness (20%). Tracked per-scan in TimescaleDB for time-series trending.
+
+**ADR-032: HNDL Risk Model — Mosca Inequality + Multiplicative Score**
+`HNDL_risk = data_sensitivity × quantum_vulnerability × time_factor` (continuous 0–1 score). Multiplicative model ensures quantum-safe findings correctly score 0.0. Mosca inequality urgency flag: `shelf_life + migration_time > quantum_timeline - current_year` triggers URGENT status. All parameters configurable (quantum deadline defaults to 2035).
+
+**ADR-010 updated:** `cradar-full` archive now bundles 3 tools (OpenGrep, Joern, YARA-X); size target updated from ~80–100 MB to ~300 MB.
 
 ---
 

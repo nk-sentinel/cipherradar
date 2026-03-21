@@ -31,9 +31,9 @@ Two binary variants published to GitHub Releases on every release:
 | Variant | Contents | Size | Use Case |
 |---|---|---|---|
 | **`cbom`** | CLI binary only | ~15 MB | Developers with internet access; CI/CD with direct download |
-| **`cbom-full`** | CLI + OpenGrep + Joern pre-bundled | ~80–100 MB | Air-gapped environments; behind-firewall enterprise; fully self-contained |
+| **`cbom-full`** | CLI + OpenGrep + Joern + YARA-X pre-bundled | ~300 MB | Air-gapped environments; behind-firewall enterprise; fully self-contained |
 
-For users of the lightweight `cbom` binary who have internet access, a `cbom install-tools` subcommand downloads OpenGrep and Joern from their official GitHub Releases, verifies checksums, and caches them to `~/.cbom/tools/` (or `$CBOM_TOOLS_DIR`).
+For users of the lightweight `cbom` binary who have internet access, a `cbom install-tools` subcommand downloads OpenGrep, Joern, and YARA-X from their official GitHub Releases, verifies checksums, and caches them to `~/.cbom/tools/` (or `$CBOM_TOOLS_DIR`).
 
 Pass behaviour when tools are not available:
 - Pass 1 (tree-sitter) — always runs, no external tools required
@@ -79,7 +79,7 @@ Loading assets from the filesystem at runtime creates deployment complexity (whe
 - **Positive:** Lightweight `cbom` binary remains fast to download and install
 - **Positive:** CLI and backend always ship with matching data — no version drift
 - **Positive:** No runtime file dependency — embedded assets always available
-- **Negative:** `cbom-full` binary is large (~80–100 MB) — acceptable for enterprise use case
+- **Negative:** `cbom-full` archive is large (~300 MB with OpenGrep + Joern + YARA-X) — acceptable for enterprise use case
 - **Negative:** Updating the quantum table or library models requires a new release — cannot hot-patch
 
 ---

@@ -4,6 +4,7 @@ package tools
 
 import (
 	"archive/tar"
+	"archive/zip"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -20,6 +21,18 @@ const (
 
 	// OpenGrepBaseURL is the GitHub Releases base URL for OpenGrep.
 	OpenGrepBaseURL = "https://github.com/opengrep/opengrep/releases/download"
+
+	// JoernVersion is the pinned Joern release to install.
+	JoernVersion = "v4.0.0"
+
+	// JoernBaseURL is the GitHub Releases base URL for Joern.
+	JoernBaseURL = "https://github.com/joernio/joern/releases/download"
+
+	// YARAXVersion is the pinned YARA-X release to install.
+	YARAXVersion = "v0.12.0"
+
+	// YARAXBaseURL is the GitHub Releases base URL for YARA-X.
+	YARAXBaseURL = "https://github.com/VirusTotal/yara-x/releases/download"
 )
 
 // DefaultToolsDir returns the default directory where cradar installs tools
@@ -92,6 +105,205 @@ func InstallOpenGrep(toolsDir string) error {
 
 	fmt.Printf("OpenGrep %s installed to %s\n", OpenGrepVersion, destPath)
 	return nil
+}
+
+// IsJoernInstalled returns true if a joern-cli directory or joern binary exists
+// in toolsDir.
+func IsJoernInstalled(toolsDir string) bool {
+	// Joern ships as a directory with a joern script inside.
+	path := filepath.Join(toolsDir, "joern")
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+// InstallJoern downloads the Joern CLI distribution to the specified directory.
+func InstallJoern(toolsDir string) error {
+	if err := os.MkdirAll(toolsDir, 0755); err != nil {
+		return fmt.Errorf("creating tools directory: %w", err)
+	}
+
+	filename := "joern-cli.zip"
+	url := fmt.Sprintf("%s/%s/%s", JoernBaseURL, JoernVersion, filename)
+
+	fmt.Printf("Downloading Joern %s...\n", JoernVersion)
+	fmt.Printf("URL: %s\n", url)
+
+	resp, err := http.Get(url) //nolint:gosec // URL is constructed from constants, not user input
+	if err != nil {
+		return fmt.Errorf("downloading Joern: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download failed: HTTP %d -- check if Joern %s is available",
+			resp.StatusCode, JoernVersion)
+	}
+
+	tmpFile, err := os.CreateTemp(toolsDir, "joern-download-*.zip")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("saving download: %w", err)
+	}
+	tmpFile.Close()
+
+	if err := extractZip(tmpPath, toolsDir); err != nil {
+		return fmt.Errorf("extracting Joern: %w", err)
+	}
+
+	// Ensure the joern script is executable.
+	joernBin := filepath.Join(toolsDir, "joern")
+	if _, err := os.Stat(joernBin); err == nil {
+		if err := os.Chmod(joernBin, 0755); err != nil {
+			return fmt.Errorf("setting executable permission: %w", err)
+		}
+	}
+
+	fmt.Printf("Joern %s installed to %s\n", JoernVersion, toolsDir)
+	return nil
+}
+
+// IsYARAXInstalled returns true if a yr binary exists in toolsDir.
+func IsYARAXInstalled(toolsDir string) bool {
+	path := filepath.Join(toolsDir, "yr")
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+// InstallYARAX downloads the YARA-X binary to the specified directory.
+func InstallYARAX(toolsDir string) error {
+	goos := runtime.GOOS
+	goarch := runtime.GOARCH
+
+	arch := goarch
+	if arch == "amd64" {
+		arch = "x86_64"
+	}
+	if arch == "arm64" {
+		arch = "aarch64"
+	}
+
+	var target string
+	switch goos {
+	case "darwin":
+		target = arch + "-apple-darwin"
+	case "linux":
+		target = arch + "-unknown-linux-gnu"
+	case "windows":
+		target = arch + "-pc-windows-msvc"
+	default:
+		return fmt.Errorf("unsupported OS: %s", goos)
+	}
+
+	filename := fmt.Sprintf("yr-%s-%s.tar.gz", YARAXVersion, target)
+	url := fmt.Sprintf("%s/%s/%s", YARAXBaseURL, YARAXVersion, filename)
+
+	if err := os.MkdirAll(toolsDir, 0755); err != nil {
+		return fmt.Errorf("creating tools directory: %w", err)
+	}
+
+	destPath := filepath.Join(toolsDir, "yr")
+
+	fmt.Printf("Downloading YARA-X %s for %s/%s...\n", YARAXVersion, goos, arch)
+	fmt.Printf("URL: %s\n", url)
+
+	resp, err := http.Get(url) //nolint:gosec // URL is constructed from constants, not user input
+	if err != nil {
+		return fmt.Errorf("downloading YARA-X: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("download failed: HTTP %d -- check if YARA-X %s is available for %s",
+			resp.StatusCode, YARAXVersion, target)
+	}
+
+	tmpFile, err := os.CreateTemp(toolsDir, "yarax-download-*")
+	if err != nil {
+		return fmt.Errorf("creating temp file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+	defer os.Remove(tmpPath)
+
+	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
+		tmpFile.Close()
+		return fmt.Errorf("saving download: %w", err)
+	}
+	tmpFile.Close()
+
+	if err := extractBinaryFromTarGz(tmpPath, destPath, "yr"); err != nil {
+		return fmt.Errorf("extracting YARA-X: %w", err)
+	}
+
+	if err := os.Chmod(destPath, 0755); err != nil {
+		return fmt.Errorf("setting executable permission: %w", err)
+	}
+
+	fmt.Printf("YARA-X %s installed to %s\n", YARAXVersion, destPath)
+	return nil
+}
+
+// extractZip extracts all files from a zip archive to destDir.
+func extractZip(archivePath, destDir string) error {
+	r, err := zipOpen(archivePath)
+	if err != nil {
+		return fmt.Errorf("opening zip archive: %w", err)
+	}
+	defer r.Close()
+
+	for _, f := range r.File {
+		destPath := filepath.Join(destDir, f.Name) //nolint:gosec // paths are from trusted archive
+
+		// Ensure the path is within destDir (zip slip protection).
+		if !strings.HasPrefix(filepath.Clean(destPath), filepath.Clean(destDir)+string(os.PathSeparator)) {
+			return fmt.Errorf("illegal file path in archive: %s", f.Name)
+		}
+
+		if f.FileInfo().IsDir() {
+			if err := os.MkdirAll(destPath, 0755); err != nil {
+				return fmt.Errorf("creating directory: %w", err)
+			}
+			continue
+		}
+
+		if err := os.MkdirAll(filepath.Dir(destPath), 0755); err != nil {
+			return fmt.Errorf("creating parent directory: %w", err)
+		}
+
+		rc, err := f.Open()
+		if err != nil {
+			return fmt.Errorf("opening file in archive: %w", err)
+		}
+
+		out, err := os.Create(destPath)
+		if err != nil {
+			rc.Close()
+			return fmt.Errorf("creating output file: %w", err)
+		}
+
+		if _, err := io.Copy(out, rc); err != nil {
+			out.Close()
+			rc.Close()
+			return fmt.Errorf("writing file: %w", err)
+		}
+
+		out.Close()
+		rc.Close()
+	}
+
+	return nil
+}
+
+// zipOpen is a wrapper around zip.OpenReader for testability.
+var zipOpen = zipOpenReader
+
+func zipOpenReader(path string) (*zip.ReadCloser, error) {
+	return zip.OpenReader(path)
 }
 
 // extractBinaryFromTarGz extracts a single file whose base name matches
