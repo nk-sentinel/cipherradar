@@ -11,7 +11,8 @@ export function useComplianceDashboard() {
     queryKey: ['compliance', 'dashboard'],
     queryFn: async () => {
       try {
-        return await apiClient<ComplianceDashboardData>('/compliance/trends');
+        const data = await apiClient<ComplianceDashboardData>('/compliance/trends');
+        if (data) return data;
       } catch {
           const { getComplianceDashboard } = await import(
             '@/mocks/data/complianceDashboard.ts'

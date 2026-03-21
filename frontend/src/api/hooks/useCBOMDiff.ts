@@ -11,9 +11,10 @@ export function useCBOMDiff(baseScanId: string, targetScanId: string) {
     queryKey: ['cbom-diff', baseScanId, targetScanId],
     queryFn: async () => {
       try {
-        return await apiClient<CBOMDiffData>(
+        const data = await apiClient<CBOMDiffData>(
           `/cbom/diff?base=${baseScanId}&target=${targetScanId}`,
         );
+        if (data) return data;
       } catch {
           const { getCBOMDiff } = await import('@/mocks/data/cbomDiff.ts');
           return getCBOMDiff();
@@ -33,7 +34,8 @@ export function useScanSelectors() {
     queryKey: ['cbom-scans'],
     queryFn: async () => {
       try {
-        return await apiClient<ScanSelector[]>('/cbom/scans');
+        const data = await apiClient<ScanSelector[]>('/cbom/scans');
+        if (data) return data;
       } catch {
           const { getScanSelectors } = await import('@/mocks/data/cbomDiff.ts');
           return getScanSelectors();

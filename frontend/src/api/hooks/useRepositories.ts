@@ -11,7 +11,8 @@ export function useRepositories() {
     queryKey: ['repositories'],
     queryFn: async () => {
       try {
-        return await apiClient<Repository[]>('/projects');
+        const data = await apiClient<Repository[]>('/projects');
+        if (data) return data;
       } catch {
           const { MOCK_REPOSITORIES } = await import('@/mocks/data/repositories.ts');
           return MOCK_REPOSITORIES;
@@ -30,7 +31,8 @@ export function useRepository(id: string) {
     queryKey: ['repository', id],
     queryFn: async () => {
       try {
-        return await apiClient<RepositoryDetail>(`/projects/${id}`);
+        const data = await apiClient<RepositoryDetail>(`/projects/${id}`);
+        if (data) return data;
       } catch {
           const { MOCK_REPOSITORY_DETAILS } = await import(
             '@/mocks/data/repositories.ts'

@@ -14,7 +14,8 @@ export function useCompliance() {
     queryKey: ['compliance', 'portfolio'],
     queryFn: async () => {
       try {
-        return await apiClient<PortfolioComplianceData>('/compliance/portfolio');
+        const data = await apiClient<PortfolioComplianceData>('/compliance/portfolio');
+        if (data) return data;
       } catch {
           const { getPortfolioCompliance } = await import('@/mocks/data/compliance.ts');
           return getPortfolioCompliance();
@@ -33,7 +34,8 @@ export function useComplianceForRepo(repoId: string) {
     queryKey: ['compliance', 'repo', repoId],
     queryFn: async () => {
       try {
-        return await apiClient<RepoComplianceData>(`/repos/${repoId}/compliance`);
+        const data = await apiClient<RepoComplianceData>(`/repos/${repoId}/compliance`);
+        if (data) return data;
       } catch {
           const { getRepoCompliance } = await import('@/mocks/data/compliance.ts');
           const data = getRepoCompliance(repoId);

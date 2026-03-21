@@ -14,7 +14,8 @@ export function useQuantumRisk() {
     queryKey: ['quantum', 'portfolio'],
     queryFn: async () => {
       try {
-        return await apiClient<PortfolioQuantumData>('/quantum/portfolio');
+        const data = await apiClient<PortfolioQuantumData>('/quantum/portfolio');
+        if (data) return data;
       } catch {
           const { getPortfolioQuantum } = await import('@/mocks/data/quantum.ts');
           return getPortfolioQuantum();
@@ -33,7 +34,8 @@ export function useQuantumRiskForRepo(repoId: string) {
     queryKey: ['quantum', 'repo', repoId],
     queryFn: async () => {
       try {
-        return await apiClient<RepoQuantumData>(`/repos/${repoId}/quantum`);
+        const data = await apiClient<RepoQuantumData>(`/repos/${repoId}/quantum`);
+        if (data) return data;
       } catch {
           const { getRepoQuantum } = await import('@/mocks/data/quantum.ts');
           const data = getRepoQuantum(repoId);

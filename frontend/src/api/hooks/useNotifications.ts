@@ -14,7 +14,8 @@ export function useNotifications() {
     queryKey: ['notifications'],
     queryFn: async () => {
       try {
-        return await apiClient<Notification[]>('/notifications');
+        const data = await apiClient<Notification[]>('/notifications');
+        if (data) return data;
       } catch {
           const { getNotifications } = await import('@/mocks/data/notifications.ts');
           return getNotifications();
@@ -35,9 +36,10 @@ export function useMarkRead() {
   return useMutation({
     mutationFn: async (id: string) => {
       try {
-        return await apiClient<{ success: boolean }>(`/notifications/${id}/read`, {
+        const data = await apiClient<{ success: boolean }>(`/notifications/${id}/read`, {
           method: 'PATCH',
         });
+        if (data) return data;
       } catch {
         // Optimistic update only in dev
         return { success: true };
@@ -72,9 +74,10 @@ export function useMarkAllRead() {
   return useMutation({
     mutationFn: async () => {
       try {
-        return await apiClient<{ success: boolean }>('/notifications/read-all', {
+        const data = await apiClient<{ success: boolean }>('/notifications/read-all', {
           method: 'POST',
         });
+        if (data) return data;
       } catch {
         // Optimistic update only in dev
         return { success: true };
@@ -108,7 +111,8 @@ export function useNotificationPreferences() {
     queryKey: ['notification-preferences'],
     queryFn: async () => {
       try {
-        return await apiClient<NotificationPreferencesData>('/notifications/preferences');
+        const data = await apiClient<NotificationPreferencesData>('/notifications/preferences');
+        if (data) return data;
       } catch {
           const { getNotificationPreferences } = await import(
             '@/mocks/data/notifications.ts'
@@ -130,10 +134,11 @@ export function useUpdateNotificationPreferences() {
   return useMutation({
     mutationFn: async (prefs: NotificationPreferencesData) => {
       try {
-        return await apiClient<NotificationPreferencesData>(
+        const data = await apiClient<NotificationPreferencesData>(
           '/notifications/preferences',
           { method: 'PUT', body: prefs },
         );
+        if (data) return data;
       } catch {
         // Optimistic update in dev
         return prefs;

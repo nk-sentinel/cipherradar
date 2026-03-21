@@ -23,7 +23,8 @@ export function useAssets(filters: AssetFilters, page: number, pageSize = 15) {
     queryKey: ['assets', filters, page, pageSize],
     queryFn: async () => {
       try {
-        return await apiClient<AssetSearchResult>(`/assets?${params.toString()}`);
+        const data = await apiClient<AssetSearchResult>(`/assets?${params.toString()}`);
+        if (data) return data;
       } catch {
           const { searchAssets } = await import('@/mocks/data/assets.ts');
           return searchAssets(filters, page, pageSize);

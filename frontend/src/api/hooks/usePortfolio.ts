@@ -14,11 +14,14 @@ export function usePortfolioSummary() {
     queryKey: ['portfolio', 'summary'],
     queryFn: async () => {
       try {
-        return await apiClient<PortfolioSummaryData>('/portfolio/summary');
-      } catch {
-          const { getPortfolioSummary } = await import('@/mocks/data/portfolio.ts');
-          return getPortfolioSummary();
-    }
+        const data = await apiClient<PortfolioSummaryData>('/portfolio/summary');
+        // Validate expected shape before returning
+        if (data && Array.isArray(data.severityDistribution) && Array.isArray(data.topRiskRepos)) {
+          return data;
+        }
+      } catch { /* fall through to mock */ }
+      const { getPortfolioSummary } = await import('@/mocks/data/portfolio.ts');
+      return getPortfolioSummary();
     },
     staleTime: 30_000,
   });
@@ -33,11 +36,11 @@ export function useHeatMap() {
     queryKey: ['portfolio', 'heatmap'],
     queryFn: async () => {
       try {
-        return await apiClient<HeatMapData>('/portfolio/heatmap');
-      } catch {
-          const { getHeatMap } = await import('@/mocks/data/portfolio.ts');
-          return getHeatMap();
-    }
+        const data = await apiClient<HeatMapData>('/portfolio/heatmap');
+        if (data && Array.isArray(data.repos)) return data;
+      } catch { /* fall through to mock */ }
+      const { getHeatMap } = await import('@/mocks/data/portfolio.ts');
+      return getHeatMap();
     },
     staleTime: 30_000,
   });

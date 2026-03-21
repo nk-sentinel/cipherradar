@@ -9,13 +9,13 @@ import type { ScanSummary, ScanDetail } from '@/mocks/data/scans.ts';
 export function useScans(repoId: string) {
   return useQuery<ScanSummary[]>({
     queryKey: ['scans', repoId],
-    queryFn: async () => {
+    queryFn: async (): Promise<ScanSummary[]> => {
       try {
-        return await apiClient<ScanSummary[]>(`/repos/${repoId}/scans`);
-      } catch {
-          const { getScansForRepo } = await import('@/mocks/data/scans.ts');
-          return getScansForRepo(repoId);
-    }
+        const data = await apiClient<ScanSummary[]>(`/repos/${repoId}/scans`);
+        if (Array.isArray(data)) return data;
+      } catch { /* fall through */ }
+      const { getScansForRepo } = await import('@/mocks/data/scans.ts');
+      return getScansForRepo(repoId);
     },
     staleTime: 30_000,
     enabled: !!repoId,
@@ -29,13 +29,13 @@ export function useScans(repoId: string) {
 export function useScan(scanId: string) {
   return useQuery<ScanDetail | undefined>({
     queryKey: ['scan', scanId],
-    queryFn: async () => {
+    queryFn: async (): Promise<ScanDetail | undefined> => {
       try {
-        return await apiClient<ScanDetail>(`/scans/${scanId}`);
-      } catch {
-          const { getScanDetail } = await import('@/mocks/data/scans.ts');
-          return getScanDetail(scanId);
-    }
+        const data = await apiClient<ScanDetail>(`/scans/${scanId}`);
+        if (data) return data;
+      } catch { /* fall through */ }
+      const { getScanDetail } = await import('@/mocks/data/scans.ts');
+      return getScanDetail(scanId);
     },
     staleTime: 30_000,
     enabled: !!scanId,

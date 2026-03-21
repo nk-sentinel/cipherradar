@@ -11,7 +11,8 @@ export function useUserOrgs() {
     queryKey: ['user-orgs'],
     queryFn: async () => {
       try {
-        return await apiClient<Org[]>('/user/orgs');
+        const data = await apiClient<Org[]>('/user/orgs');
+        if (data) return data;
       } catch {
           const { getUserOrgs } = await import('@/mocks/data/admin.ts');
           return getUserOrgs();

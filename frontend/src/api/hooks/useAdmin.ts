@@ -16,7 +16,8 @@ export function useOrgSettings() {
     queryKey: ['admin', 'org-settings'],
     queryFn: async () => {
       try {
-        return await apiClient<OrgSettings>('/admin/settings');
+        const data = await apiClient<OrgSettings>('/admin/settings');
+        if (data) return data;
       } catch {
           const { getOrgSettings } = await import('@/mocks/data/admin.ts');
           return getOrgSettings();
@@ -35,7 +36,8 @@ export function useOrgUsers() {
     queryKey: ['admin', 'users'],
     queryFn: async () => {
       try {
-        return await apiClient<OrgUser[]>('/admin/users');
+        const data = await apiClient<OrgUser[]>('/admin/users');
+        if (data) return data;
       } catch {
           const { getOrgUsers } = await import('@/mocks/data/admin.ts');
           return getOrgUsers();
@@ -54,7 +56,8 @@ export function useIntegrations() {
     queryKey: ['admin', 'integrations'],
     queryFn: async () => {
       try {
-        return await apiClient<Integration[]>('/admin/integrations');
+        const data = await apiClient<Integration[]>('/admin/integrations');
+        if (data) return data;
       } catch {
           const { getIntegrations } = await import('@/mocks/data/admin.ts');
           return getIntegrations();
@@ -73,7 +76,8 @@ export function useAuditLog() {
     queryKey: ['admin', 'audit-log'],
     queryFn: async () => {
       try {
-        return await apiClient<AuditLogEntry[]>('/admin/audit-log');
+        const data = await apiClient<AuditLogEntry[]>('/admin/audit-log');
+        if (data) return data;
       } catch {
           const { getAuditLog } = await import('@/mocks/data/admin.ts');
           return getAuditLog();

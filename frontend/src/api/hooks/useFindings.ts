@@ -94,7 +94,8 @@ export function useFinding(findingId: string | null) {
     queryKey: ['finding', findingId],
     queryFn: async () => {
       try {
-        return await apiClient<Finding>(`/findings/${findingId!}`);
+        const data = await apiClient<Finding>(`/findings/${findingId!}`);
+        if (data) return data;
       } catch {
           const { getFindingById } = await import('@/mocks/data/findings');
           return getFindingById(findingId!);
