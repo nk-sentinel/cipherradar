@@ -1,7 +1,7 @@
 """Tests for assets API endpoints."""
 
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -81,11 +81,11 @@ class TestListAssets:
         mock_session = AsyncMock()
 
         # Mock count query result
-        mock_count_result = AsyncMock()
+        mock_count_result = MagicMock()
         mock_count_result.scalar.return_value = 2
 
         # Mock data query result
-        mock_data_result = AsyncMock()
+        mock_data_result = MagicMock()
         mock_data_result.fetchall.return_value = [
             (FAKE_FINDING_ID_1, "AES-256", "algorithm", "src/crypto.py", 42, "safe", {"compliance": "compliant"}, "payment-service"),
             (FAKE_FINDING_ID_2, "RSA-2048", "algorithm", "src/auth.go", 15, "vulnerable", {"compliance": "non_compliant"}, "auth-api"),
@@ -134,10 +134,10 @@ class TestListAssets:
         user = _make_user()
         mock_session = AsyncMock()
 
-        mock_count_result = AsyncMock()
+        mock_count_result = MagicMock()
         mock_count_result.scalar.return_value = 50
 
-        mock_data_result = AsyncMock()
+        mock_data_result = MagicMock()
         mock_data_result.fetchall.return_value = [
             (FAKE_FINDING_ID_1, "SHA-256", "algorithm", "lib/hash.js", 10, "safe", {}, "web-app"),
         ]
@@ -155,7 +155,7 @@ class TestListAssets:
             new_callable=AsyncMock,
             return_value=[FAKE_PROJECT_ID],
         ):
-            response = await client.get("/api/v1/assets?page=3&pageSize=10")
+            response = await client.get("/api/v1/assets?page=3&page_size=10")
 
         assert response.status_code == 200
         body = response.json()
@@ -170,10 +170,10 @@ class TestListAssets:
         user = _make_user()
         mock_session = AsyncMock()
 
-        mock_count_result = AsyncMock()
+        mock_count_result = MagicMock()
         mock_count_result.scalar.return_value = 1
 
-        mock_data_result = AsyncMock()
+        mock_data_result = MagicMock()
         mock_data_result.fetchall.return_value = [
             (FAKE_FINDING_ID_1, "AES-256-GCM", "algorithm", "src/encrypt.py", 5, "safe", {}, "crypto-lib"),
         ]

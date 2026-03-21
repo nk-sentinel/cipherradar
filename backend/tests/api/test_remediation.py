@@ -92,12 +92,21 @@ async def client(app):
 @pytest.mark.asyncio
 async def test_remediate_requires_consent(app, client: AsyncClient) -> None:
     """Should return 400 when consent is false."""
+    mock_session = AsyncMock()
+
+    async def _override():
+        yield mock_session
+
+    app.dependency_overrides[get_session] = _override
+
     response = await client.post(
         f"/api/v1/remediation/findings/{FAKE_FINDING_ID}/remediate",
         json={"consent": False},
     )
     assert response.status_code == 400
     assert "consent" in response.json()["detail"].lower()
+
+    app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
@@ -280,6 +289,13 @@ async def test_get_remediation_not_cached(app, client: AsyncClient) -> None:
 @pytest.mark.asyncio
 async def test_batch_remediate_requires_consent(app, client: AsyncClient) -> None:
     """Should return 400 when consent is false for batch."""
+    mock_session = AsyncMock()
+
+    async def _override():
+        yield mock_session
+
+    app.dependency_overrides[get_session] = _override
+
     response = await client.post(
         "/api/v1/remediation/batch",
         json={
@@ -289,6 +305,8 @@ async def test_batch_remediate_requires_consent(app, client: AsyncClient) -> Non
     )
     assert response.status_code == 400
     assert "consent" in response.json()["detail"].lower()
+
+    app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio

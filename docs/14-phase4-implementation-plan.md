@@ -1,8 +1,8 @@
 # Phase 4 -- Implementation Plan
 
-> **Document version:** v1
+> **Document version:** v2
 > **Last updated:** 2026-03-22
-> **Status:** Draft
+> **Status:** Complete
 
 ---
 
@@ -11,6 +11,7 @@
 | Version | Date | Change |
 |---|---|---|
 | v1 | 2026-03-22 | Initial plan -- 3 workstreams, 21 milestones, 14 new skills, 7 new ADRs |
+| v2 | 2026-03-22 | Phase 4 complete -- all milestones delivered, all stabilization items resolved, ADR-026 through ADR-032 accepted |
 
 ---
 
@@ -18,13 +19,13 @@
 
 | # | Issue | Priority | Effort | Status |
 |---|---|---|---|---|
-| 1 | **Binary scanning ADR** -- decide byte-pattern scanning architecture before A-M1 | BLOCKER | 1d | Pending |
-| 2 | **LLM provider abstraction** -- select provider model (OpenAI/Anthropic/self-hosted) before B-M2 | BLOCKER | 4h | Pending |
-| 3 | **VS Code extension packaging** -- verify `vsce` toolchain, establish extension repo structure under monorepo (`extensions/vscode/`) | HIGH | 4h | Pending |
-| 4 | **IntelliJ plugin Gradle setup** -- verify IntelliJ Platform Plugin SDK compatibility, establish `plugins/intellij/` project | HIGH | 4h | Pending |
-| 5 | **OpenTelemetry receiver spike** -- confirm OTel collector custom receiver approach vs. standalone gRPC service | HIGH | 1d | Pending |
-| 6 | **SonarQube plugin port** -- Phase 3 deferred D-M3 SonarQube full plugin; verify `plugins/sonarqube/` skeleton state | MEDIUM | 2h | Pending |
-| 7 | **Phase 3 regression suite** -- run full E2E + benchmark + scale test to confirm baseline before extending | HIGH | 2h | Pending |
+| 1 | **Binary scanning ADR** -- decide byte-pattern scanning architecture before A-M1 | BLOCKER | 1d | Complete |
+| 2 | **LLM provider abstraction** -- select provider model (OpenAI/Anthropic/self-hosted) before B-M2 | BLOCKER | 4h | Complete |
+| 3 | **VS Code extension packaging** -- verify `vsce` toolchain, establish extension repo structure under monorepo (`extensions/vscode/`) | HIGH | 4h | Complete |
+| 4 | **IntelliJ plugin Gradle setup** -- verify IntelliJ Platform Plugin SDK compatibility, establish `plugins/intellij/` project | HIGH | 4h | Complete |
+| 5 | **OpenTelemetry receiver spike** -- confirm OTel collector custom receiver approach vs. standalone gRPC service | HIGH | 1d | Complete |
+| 6 | **SonarQube plugin port** -- Phase 3 deferred D-M3 SonarQube full plugin; verify `plugins/sonarqube/` skeleton state | MEDIUM | 2h | Complete |
+| 7 | **Phase 3 regression suite** -- run full E2E + benchmark + scale test to confirm baseline before extending | HIGH | 2h | Complete |
 
 ## Feasibility Notes
 

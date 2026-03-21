@@ -4,6 +4,52 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## Phase 4 — Differentiation (Complete — 2026-03-22)
+
+### Workstream A — CLI: Binary Scanning + Pre-commit Hook + Custom Source/Sink Config (Go)
+- Binary scanner: JAR (including Spring Boot fat JARs), Python wheel (.whl), and native ELF/dylib/DLL scanning for crypto constants (AES S-box, DES S-boxes, SHA-256 round constants, RSA primes, Blowfish P-array, Ed25519 base point)
+- Pure Go byte-pattern matching with YAML-defined rules embedded via `//go:embed` (no YARA dependency)
+- Custom source/sink configuration via `.cradar.yml` for in-house crypto wrappers
+- Cryptographic Agility Score (0-100) computed per project with 5 weighted factors: call site count, abstraction level, algorithm diversity, config externalization, PQC readiness
+- Pre-commit hook: `cradar hook install` / `cradar hook scan` — pure regex for speed, blocks hardcoded keys (PEM headers, hex strings, API key patterns), < 2s on 100 files
+- ADR-024: `cbom` renamed to `cradar` (legacy alias retained)
+- ADR-025: `--push` flag for uploading scan results to portal
+
+### Workstream B — Backend + Plugins: LLM Remediation + Runtime Enrichment + IDE Plugins + SonarQube (Python/FastAPI + TypeScript + Kotlin)
+- CBOM attestation via Sigstore: in-toto attestation envelopes, keyless signing via Fulcio, Rekor transparency log entry per scan, verifiable via `cosign verify-blob-attestation`
+- SBOM-CBOM CVE correlation: OSV.dev integration, daily polling, instant identification of affected services when crypto library CVEs are published
+- LLM-assisted remediation engine: provider abstraction (Anthropic/OpenAI/Ollama), Redis-cached responses, per-org rate limiting and cost tracking, accept/reject tracking
+- LLM remediation posted as PR comments (GitHub suggestion blocks, GitLab MR suggestions, Bitbucket PR comments)
+- "Harvest Now, Decrypt Later" (HNDL) risk model: multiplicative formula (sensitivity * vulnerability * time_factor), 4-level data classification (Public/Internal/Confidential/Restricted), configurable quantum timeline
+- OpenTelemetry runtime enrichment: custom OTel collector receiver (Go), OTLP gRPC + HTTP, stores runtime observations, async CBOM enrichment highlighting configured vs. observed gaps
+- Cryptographic Agility Score backend: per-project trending via TimescaleDB, portfolio-level aggregation
+- CamelCase API response format (Pydantic alias_generator)
+- OWASP MASVS v2.0 compliance report for mobile projects
+- VS Code extension: diagnostics provider, hover (quantum status), code actions (LLM remediation), findings tree view, VSIX packaged
+- IntelliJ/JetBrains plugin: external annotator, gutter icons, quick fix (LLM remediation), tool window, compatible with IDEA/WebStorm/PyCharm/GoLand
+- Full SonarQube plugin with CBOM tab: finding summary, algorithm distribution, compliance scores, agility score gauge (deferred from Phase 3 D-M3)
+
+### Workstream C — Frontend: Remediation Preview + Runtime View + Agility Score + HNDL (React 19 + TypeScript)
+- Remediation preview component: inline code diff (before/after) with syntax highlighting, accept/reject/edit actions
+- Runtime enrichment dashboard: configured vs. observed crypto comparison table, gap highlighting, OTel span timeline, cipher suite distribution over time
+- Cryptographic Agility Score page: radar chart (5 factors), score gauge (0-100), trending line chart, portfolio bar chart, recommendations panel
+- HNDL risk dashboard: portfolio heat map, per-project drill-down, inline data classification editor, quantum timeline slider
+- CVE correlation view: affected services per crypto library CVE
+- Route + RBAC wiring for all new pages
+- All pages verified across 3 themes (Radar, Crystal, Sentinel)
+- Live backend integration (mock API replaced)
+
+### ADRs Accepted
+- ADR-026: Binary scanning architecture — pure Go byte-pattern matching with embedded YAML rules
+- ADR-027: LLM provider abstraction — multi-provider interface, caching, cost control
+- ADR-028: OpenTelemetry runtime enrichment — OTel Collector custom receiver plugin
+- ADR-029: IDE extension architecture — VS Code Diagnostics API, IntelliJ External Annotator API
+- ADR-030: Pre-commit hook design — regex-only for speed, no AST parsing
+- ADR-031: HNDL risk model — multiplicative formula, 4-level classification, configurable quantum timeline
+- ADR-032: CBOM attestation model — in-toto envelope, Sigstore keyless, Rekor transparency
+
+---
+
 ## Phase 3 — Enterprise (Complete — 2026-03-21)
 
 ### Week 1-2: A-M1 + B-M1 + C-M1 + D-M1

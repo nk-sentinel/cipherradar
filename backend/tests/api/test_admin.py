@@ -1,7 +1,7 @@
 """Tests for admin API endpoints."""
 
 import uuid
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -56,7 +56,7 @@ class TestGetSettings:
     async def test_get_settings_as_admin(self, app, client: AsyncClient) -> None:
         user = _make_admin_user()
         mock_session = AsyncMock()
-        mock_result = AsyncMock()
+        mock_result = MagicMock()
         mock_result.fetchone.return_value = (
             uuid.UUID(FAKE_ORG_ID),
             "nk-sentinel",
@@ -121,7 +121,7 @@ class TestUpdateSettings:
     async def test_update_settings_as_admin(self, app, client: AsyncClient) -> None:
         user = _make_admin_user()
         mock_session = AsyncMock()
-        mock_result = AsyncMock()
+        mock_result = MagicMock()
         mock_result.fetchone.return_value = (
             uuid.UUID(FAKE_ORG_ID),
             "nk-sentinel",
@@ -167,7 +167,7 @@ class TestUpdateSettings:
             scopes=["scan:read", "scan:write"],
         )
         mock_session = AsyncMock()
-        mock_result = AsyncMock()
+        mock_result = MagicMock()
         mock_result.fetchone.return_value = (
             uuid.UUID(FAKE_ORG_ID),
             "nk-sentinel",
@@ -207,7 +207,7 @@ class TestListUsers:
         mock_session = AsyncMock()
         user_id_1 = uuid.uuid4()
         user_id_2 = uuid.uuid4()
-        mock_result = AsyncMock()
+        mock_result = MagicMock()
         mock_result.fetchall.return_value = [
             (user_id_1, "alice@example.com", "org_admin", True, "2026-01-01T00:00:00Z"),
             (user_id_2, "bob@example.com", "developer", False, "2026-01-02T00:00:00Z"),

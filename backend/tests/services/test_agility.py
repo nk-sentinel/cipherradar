@@ -149,11 +149,11 @@ class TestKeyManagement:
 
     @pytest.mark.asyncio
     async def test_no_key_info_defaults(self, svc: AgilityService) -> None:
-        """No key management info should default to 50."""
+        """No key management info should score 100 (nothing to penalise)."""
         findings = [_finding("AES")]
         score = await svc.compute_score(uuid.uuid4(), findings)
         f4 = next(f for f in score.factors if f.name == "key_management")
-        assert f4.score == 50.0
+        assert f4.score == 100.0
 
 
 class TestMigrationReadiness:

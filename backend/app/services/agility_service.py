@@ -173,8 +173,8 @@ class AgilityService:
 
         key_total = kms_count + hardcoded_count + config_count
         if key_total == 0:
-            # No key management info available — assume config-based (50)
-            f4_score = 50.0
+            # No key management findings — nothing to penalise
+            f4_score = 100.0
         else:
             kms_pct = kms_count / key_total
             hardcoded_pct = hardcoded_count / key_total

@@ -1,7 +1,7 @@
 # Roadmap
 
-> **Document version:** v8
-> **Last updated:** 2026-03-21
+> **Document version:** v9
+> **Last updated:** 2026-03-22
 > **Status:** Active
 
 ---
@@ -18,6 +18,7 @@
 | v6 | 2026-03-20 | Phase 2 complete — 7 languages, backend API, React dashboard, Docker Compose full stack | Phase 2 close |
 | v7 | 2026-03-20 | Phase 3 A-M1 + B-M1 + C-M1 + D-M1 complete: 12 languages, multi-tenant RBAC, Helm/K8s | Phase 3 Week 1-2 |
 | v8 | 2026-03-21 | Phase 3 complete — all 19 milestones delivered, Docker deployment verified | Phase 3 close |
+| v9 | 2026-03-22 | Phase 4 complete — binary scanning, LLM remediation, IDE plugins, OTel enrichment, SonarQube plugin, HNDL risk model, agility score, pre-commit hook, CBOM attestation, ADR-026 through ADR-032 | Phase 4 close |
 
 ---
 
@@ -214,33 +215,33 @@ cradar report cbom.json [--output report.pdf] [--format pdf]
 ### Deliverables
 
 **Developer Tooling**
-- [ ] VS Code extension — inline findings; hover for quantum status and remediation
-- [ ] IntelliJ / JetBrains plugin — line-level annotations
-- [ ] Pre-commit hook — fast regex scan; blocks hardcoded keys before commit
+- [x] VS Code extension — inline findings; hover for quantum status and remediation
+- [x] IntelliJ / JetBrains plugin — line-level annotations
+- [x] Pre-commit hook — fast regex scan; blocks hardcoded keys before commit
 
 **Advanced Detection**
-- [ ] Binary / JAR / Python wheel scanning for crypto constants (when source unavailable)
-- [ ] "Harvest Now, Decrypt Later" risk model with data classification metadata integration
-- [ ] Cryptographic Agility Score per service
-- [ ] Custom source/sink configuration for in-house crypto wrappers
+- [x] Binary / JAR / Python wheel scanning for crypto constants (when source unavailable)
+- [x] "Harvest Now, Decrypt Later" risk model with data classification metadata integration
+- [x] Cryptographic Agility Score per service
+- [x] Custom source/sink configuration for in-house crypto wrappers
 
 **LLM-Assisted Remediation**
-- [ ] For each finding, generate a concrete code replacement in the correct language
-- [ ] Context-aware: suggests the idiomatic fix for the detected library/framework
-- [ ] Remediation previewed in dashboard and PR comments
+- [x] For each finding, generate a concrete code replacement in the correct language
+- [x] Context-aware: suggests the idiomatic fix for the detected library/framework
+- [x] Remediation previewed in dashboard and PR comments
 
 **Runtime Enrichment**
-- [ ] OpenTelemetry receiver — accepts runtime span data annotated with observed TLS versions and cipher suites
-- [ ] Enriches static CBOM with actually-negotiated protocol parameters
-- [ ] Highlights gaps between configured and observed crypto
+- [x] OpenTelemetry receiver — accepts runtime span data annotated with observed TLS versions and cipher suites
+- [x] Enriches static CBOM with actually-negotiated protocol parameters
+- [x] Highlights gaps between configured and observed crypto
 
 **Attestation and Supply Chain**
-- [ ] CBOM attestation via Sigstore — keyless signing; Rekor transparency log entry per scan
-- [ ] SBOM ↔ CBOM CVE correlation — when a CVE is published for a crypto library, instantly show affected services
-- [ ] OWASP MASVS compliance report (mobile security — aligned with CycloneDX mobile extensions)
+- [x] CBOM attestation via Sigstore — keyless signing; Rekor transparency log entry per scan
+- [x] SBOM ↔ CBOM CVE correlation — when a CVE is published for a crypto library, instantly show affected services
+- [x] OWASP MASVS compliance report (mobile security — aligned with CycloneDX mobile extensions)
 
 **Enterprise Integrations**
-- [ ] Full SonarQube plugin with CBOM tab + marketplace publishing (deferred from Phase 3 D-M3)
+- [x] Full SonarQube plugin with CBOM tab + marketplace publishing (deferred from Phase 3 D-M3)
 
 **Success Criteria**
 - IDE plugins published to VS Code Marketplace and JetBrains Marketplace

@@ -154,9 +154,9 @@ class HNDLService:
         years_until_quantum = max(0, quantum_deadline - current_year)
         mosca = (shelf_life + migration_time) > years_until_quantum
 
-        # Urgency: Mosca overrides to URGENT if the inequality holds
+        # Urgency: Mosca overrides to URGENT only when there is quantum exposure
         urgency = _urgency_label(risk_score)
-        if mosca and urgency != "URGENT":
+        if mosca and quantum_exposure > 0 and urgency != "URGENT":
             urgency = "URGENT"
 
         # Generate recommendations

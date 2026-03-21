@@ -1,7 +1,7 @@
 """Tests for user orgs API endpoints."""
 
 import uuid
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -46,7 +46,7 @@ class TestListUserOrgs:
         user = _make_user()
         mock_session = AsyncMock()
         org_uuid = uuid.UUID(FAKE_ORG_ID)
-        mock_result = AsyncMock()
+        mock_result = MagicMock()
         mock_result.fetchall.return_value = [
             (org_uuid, "nk-sentinel", "enterprise", "org_admin"),
         ]
@@ -76,7 +76,7 @@ class TestListUserOrgs:
         mock_session = AsyncMock()
         org_1 = uuid.uuid4()
         org_2 = uuid.uuid4()
-        mock_result = AsyncMock()
+        mock_result = MagicMock()
         mock_result.fetchall.return_value = [
             (org_1, "nk-sentinel", "enterprise", "org_admin"),
             (org_2, "Acme Corp", "team", "developer"),
@@ -104,7 +104,7 @@ class TestListUserOrgs:
     async def test_returns_empty_when_no_orgs(self, app, client: AsyncClient) -> None:
         user = _make_user()
         mock_session = AsyncMock()
-        mock_result = AsyncMock()
+        mock_result = MagicMock()
         mock_result.fetchall.return_value = []
         mock_session.execute = AsyncMock(return_value=mock_result)
 
