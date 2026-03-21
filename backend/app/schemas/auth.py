@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import uuid  # noqa: TC003 — Pydantic needs runtime access with deferred annotations
+from datetime import datetime  # noqa: TC003
 
 from pydantic import Field
 
 from app.schemas.base import CamelCaseModel
-
-if TYPE_CHECKING:
-    import uuid
-    from datetime import datetime
 
 # ---------------------------------------------------------------------------
 # Login

@@ -31,6 +31,7 @@ import { UserManagement } from './pages/admin/UserManagement.tsx';
 import { IntegrationManagement } from './pages/admin/IntegrationManagement.tsx';
 import { AuditLog } from './pages/admin/AuditLog.tsx';
 import { LazyDependencyGraph } from './pages/LazyDependencyGraph.tsx';
+import { PolicyRules } from './pages/PolicyRules.tsx';
 
 const rootRoute = createRootRoute({
   component: Outlet,
@@ -112,6 +113,12 @@ const migrationKanbanRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/migration',
   component: MigrationKanban,
+});
+
+const policyRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/policy',
+  component: PolicyRules,
 });
 
 const notificationPreferencesRoute = createRoute({
@@ -248,6 +255,7 @@ const routeTree = rootRoute.addChildren([
     graphRoute,
     certCalendarRoute,
     complianceDashboardRoute,
+    policyRoute,
     cbomDiffRoute,
     migrationKanbanRoute,
     notificationPreferencesRoute,

@@ -105,7 +105,7 @@ class SigningService:
 
         sig_record = await self._get_signature(scan_id)
         if sig_record is None:
-            return {"verified": False, "error": "No signature found for this CBOM"}
+            return {"verified": False, "error": "Signature not found for this CBOM"}
 
         # Load CBOM JSON
         if self._get_cbom_json is None:

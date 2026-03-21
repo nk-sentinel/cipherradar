@@ -8,8 +8,8 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
 import bcrypt as _bcrypt_lib
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.auth.jwt import JWTError, create_access_token, create_refresh_token, decode_token
 from app.auth.middleware import AuthenticatedUser, get_current_user, require_role

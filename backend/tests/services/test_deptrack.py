@@ -2,7 +2,7 @@
 
 import base64
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -66,12 +66,16 @@ PROJECT_UUID = "550e8400-e29b-41d4-a716-446655440000"
 
 
 def _mock_httpx_client(response_json, status_code=200):
-    """Helper to build a mocked httpx.AsyncClient context manager."""
-    mock_response = AsyncMock()
+    """Helper to build a mocked httpx.AsyncClient context manager.
+
+    Note: httpx response methods like ``json()`` and ``raise_for_status()``
+    are synchronous, so we use ``MagicMock`` for the response object
+    (not ``AsyncMock``) to avoid returning unwanted coroutines.
+    """
+    mock_response = MagicMock()
     mock_response.status_code = status_code
     mock_response.json.return_value = response_json
     mock_response.text = json.dumps(response_json)
-    mock_response.raise_for_status = AsyncMock()
 
     mock_client = AsyncMock()
     mock_client.put = AsyncMock(return_value=mock_response)
@@ -112,13 +116,13 @@ async def test_upload_cbom_sends_base64_encoded_bom(dt_svc: DepTrackService) -> 
 @pytest.mark.asyncio
 async def test_upload_cbom_returns_failure_on_http_error(dt_svc: DepTrackService) -> None:
     """upload_cbom_to_deptrack() should return success=False on HTTP errors."""
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.status_code = 403
     mock_response.text = "Forbidden"
 
     import httpx as _httpx
 
-    mock_response.raise_for_status = AsyncMock(
+    mock_response.raise_for_status = MagicMock(
         side_effect=_httpx.HTTPStatusError(
             "Forbidden",
             request=_httpx.Request("PUT", "https://dt.example.com/api/v1/bom"),

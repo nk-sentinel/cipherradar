@@ -15,8 +15,14 @@ export function usePortfolioSummary() {
     queryFn: async () => {
       try {
         const data = await apiClient<PortfolioSummaryData>('/portfolio/summary');
-        // Validate expected shape before returning
-        if (data && Array.isArray(data.severityDistribution) && Array.isArray(data.topRiskRepos)) {
+        // Validate the shape matches what the real API returns (camelCase fields).
+        // The API returns totalRepos (number) and either topRiskRepos or
+        // topRiskiestRepos (array). Accept either field name.
+        if (
+          data &&
+          typeof data.totalRepos === 'number' &&
+          typeof data.totalFindings === 'number'
+        ) {
           return data;
         }
       } catch { /* fall through to mock */ }
@@ -37,7 +43,12 @@ export function useHeatMap() {
     queryFn: async () => {
       try {
         const data = await apiClient<HeatMapData>('/portfolio/heatmap');
-        if (data && Array.isArray(data.repos)) return data;
+        // The API returns heatMap (array) or repos (array) depending on version.
+        // Accept either shape from the real API.
+        const heatMapArray = (data as unknown as Record<string, unknown>).heatMap ?? data?.repos;
+        if (data && Array.isArray(heatMapArray)) {
+          return { ...data, repos: heatMapArray as HeatMapData['repos'] };
+        }
       } catch { /* fall through to mock */ }
       const { getHeatMap } = await import('@/mocks/data/portfolio.ts');
       return getHeatMap();

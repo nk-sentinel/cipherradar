@@ -1,7 +1,7 @@
 """Tests for the Jira integration service — ticket creation, deduplication."""
 
 import uuid
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -62,10 +62,9 @@ FAKE_FINDING = {
 async def test_create_ticket_calls_jira_api(jira_svc: JiraService) -> None:
     """create_ticket() should POST to the Jira REST API."""
     with patch("app.services.jira_service.httpx.AsyncClient") as mock_client_cls:
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.status_code = 201
         mock_response.json.return_value = {"id": "10001", "key": "SEC-42"}
-        mock_response.raise_for_status = AsyncMock()
 
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)
@@ -85,9 +84,8 @@ async def test_create_ticket_calls_jira_api(jira_svc: JiraService) -> None:
 async def test_create_ticket_stores_ticket_record(jira_svc: JiraService) -> None:
     """create_ticket() should persist the ticket record via callback."""
     with patch("app.services.jira_service.httpx.AsyncClient") as mock_client_cls:
-        mock_response = AsyncMock()
+        mock_response = MagicMock()
         mock_response.json.return_value = {"id": "10001", "key": "SEC-42"}
-        mock_response.raise_for_status = AsyncMock()
 
         mock_client = AsyncMock()
         mock_client.post = AsyncMock(return_value=mock_response)

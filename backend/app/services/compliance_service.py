@@ -161,14 +161,14 @@ def _extract_algorithm_family(finding: Any) -> str:
         ("sha3-512", "sha3-512"),
         ("sha3-384", "sha3-384"),
         ("sha3-256", "sha3-256"),
-        ("sha-3", "sha3-256"),  # generic SHA-3 reference
-        ("sha3", "sha3-256"),
         ("sha-512", "sha512"),
         ("sha512", "sha512"),
         ("sha-384", "sha384"),
         ("sha384", "sha384"),
         ("sha-256", "sha256"),
         ("sha256", "sha256"),
+        ("sha-3", "sha3-256"),  # generic SHA-3 reference (after specific SHA variants)
+        ("sha3", "sha3-256"),
         ("sha-1", "sha1"),
         ("sha1", "sha1"),
         ("md5", "md5"),

@@ -6,8 +6,8 @@ import uuid
 from typing import TYPE_CHECKING
 from unittest.mock import AsyncMock
 
+import bcrypt as _bcrypt
 import pytest
-from passlib.hash import bcrypt
 
 from app.api.v1 import auth as auth_module
 from app.auth.jwt import create_access_token, create_refresh_token
@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 _TEST_USER_ID = str(uuid.uuid4())
 _TEST_PASSWORD = "s3cureP@ss!"
-_TEST_HASH = bcrypt.hash(_TEST_PASSWORD)
+_TEST_HASH = _bcrypt.hashpw(_TEST_PASSWORD.encode(), _bcrypt.gensalt()).decode()
 
 _MOCK_USER: dict = {
     "id": _TEST_USER_ID,
@@ -170,6 +170,7 @@ class TestApiKeys:
             user_id=_TEST_USER_ID,
             role=str(Role.ORG_ADMIN),
             scopes=[str(s) for s in Scope],
+            org_id=str(uuid.uuid4()),
         )
         resp = await client.post(
             "/api/v1/auth/api-keys",
