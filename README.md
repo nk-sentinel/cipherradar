@@ -91,29 +91,43 @@ Source Code / Containers / Config Files
 
 ## Quick Start
 
-> **Note:** The CLI binary was renamed from `cbom` to `cradar` in ADR-024 to reflect the full product capability. `cbom` is available as a legacy alias during Phase 3.
-
 ```bash
 # Build the CLI
 cd cli && go build -o cradar ./cmd/cradar
 
 # Scan a project
-./cradar scan /path/to/project --format text
+cradar scan /path/to/project --format text
 
 # Generate CycloneDX 1.7 CBOM
-./cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate
+cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate
 
 # Check against policy
-./cradar policy check cbom.json --policy policy.cradar.yml --fail-on high
+cradar policy check cbom.json --policy policy.cradar.yml --fail-on high
 
 # Compare two scans
-./cradar diff cbom-before.json cbom-after.json
+cradar diff cbom-before.json cbom-after.json
 
 # Generate PDF report
-./cradar scan /path/to/project --format pdf --output report.pdf
+cradar scan /path/to/project --format pdf --output report.pdf
 
 # Scan and push results to CipherRadar portal
-./cradar scan /path/to/project --push --project "my-service" --api-key $CRADAR_API_KEY
+cradar scan /path/to/project --push --project "my-service" --api-key $CRADAR_API_KEY
+
+# SonarQube generic issue export
+cradar scan /path/to/project --format sonarqube-generic --output issues.json
+
+# Scan a container image
+cradar scan --container alpine:latest --format cyclonedx-json --output cbom.json
+```
+
+## Docker Deployment
+
+```bash
+docker compose -f deploy/docker-compose.dev.yml up db redis api frontend -d
+
+# Login: admin@cipherradar.local / admin123
+# Frontend: http://localhost:3001
+# API: http://localhost:8001/api/v1/health
 ```
 
 ---

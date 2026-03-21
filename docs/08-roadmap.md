@@ -1,7 +1,7 @@
 # Roadmap
 
-> **Document version:** v7
-> **Last updated:** 2026-03-20
+> **Document version:** v8
+> **Last updated:** 2026-03-21
 > **Status:** Active
 
 ---
@@ -17,6 +17,7 @@
 | v5 | 2026-03-18 | Phase 1 complete — all checkboxes checked | Phase 1 close |
 | v6 | 2026-03-20 | Phase 2 complete — 7 languages, backend API, React dashboard, Docker Compose full stack | Phase 2 close |
 | v7 | 2026-03-20 | Phase 3 A-M1 + B-M1 + C-M1 + D-M1 complete: 12 languages, multi-tenant RBAC, Helm/K8s | Phase 3 Week 1-2 |
+| v8 | 2026-03-21 | Phase 3 complete — all 19 milestones delivered, Docker deployment verified | Phase 3 close |
 
 ---
 
@@ -168,35 +169,35 @@ cradar report cbom.json [--output report.pdf] [--format pdf]
 - [x] **Dart/Flutter** analyzer (`package:crypto`, `pointycastle`)
 
 **Detection Expansion**
-- [ ] Container image layer scanning (OCI image → extract + scan filesystem)
-- [ ] Config file expansion: nginx.conf, httpd.conf, openssl.cnf, java.security, k8s manifests, Dockerfiles
-- [ ] SBOM ingestion + CBOM ↔ SBOM component linking
+- [x] Container image layer scanning (OCI image → extract + scan filesystem)
+- [x] Config file expansion: nginx.conf, httpd.conf, openssl.cnf, java.security, k8s manifests, Dockerfiles
+- [x] SBOM ingestion + CBOM ↔ SBOM component linking
 
 **Full Compliance Engine**
-- [ ] PCI-DSS v4.0 compliance mapping
-- [ ] NSA CNSA 2.0 compliance mapping + timeline tracker
-- [ ] ISO 27001:2022 A.8.24 mapping
-- [ ] EU Cyber Resilience Act gap report
-- [ ] Compliance score (0–100 per framework per repository)
-- [ ] Compliance score trending over time
+- [x] PCI-DSS v4.0 compliance mapping
+- [x] NSA CNSA 2.0 compliance mapping + timeline tracker
+- [x] ISO 27001:2022 A.8.24 mapping
+- [x] EU Cyber Resilience Act gap report
+- [x] Compliance score (0–100 per framework per repository)
+- [x] Compliance score trending over time
 
 **Dashboard (Full)**
-- [ ] Portfolio dashboard — all repositories, heat map, quantum readiness %
-- [ ] Asset explorer — searchable, filterable crypto inventory
-- [ ] Algorithm distribution charts
-- [ ] Dependency graph — interactive force-directed graph
-- [ ] Certificate expiry calendar
-- [ ] Compliance dashboard — per-framework scores with drill-down
-- [ ] CBOM diff view — side-by-side snapshot comparison
-- [ ] Migration Kanban board
+- [x] Portfolio dashboard — all repositories, heat map, quantum readiness %
+- [x] Asset explorer — searchable, filterable crypto inventory
+- [x] Algorithm distribution charts
+- [x] Dependency graph — interactive force-directed graph
+- [x] Certificate expiry calendar
+- [x] Compliance dashboard — per-framework scores with drill-down
+- [x] CBOM diff view — side-by-side snapshot comparison
+- [x] Migration Kanban board
 
 **Enterprise Features**
 - [x] Multi-tenant support with RBAC
-- [ ] CBOM signing via Sigstore / cosign
-- [ ] Jira integration — auto-create tickets on policy violation
-- [ ] Slack / Teams notifications
-- [ ] Dependency-Track integration
-- [ ] SonarQube plugin (adds CBOM tab to SonarQube)
+- [x] CBOM signing via Sigstore / cosign
+- [x] Jira integration — auto-create tickets on policy violation
+- [x] Slack / Teams notifications
+- [x] Dependency-Track integration
+- [x] SonarQube generic issue export (`cradar scan --format sonarqube-generic`)
 - [x] Self-hosted Docker / Kubernetes deployment package
 
 **Success Criteria**

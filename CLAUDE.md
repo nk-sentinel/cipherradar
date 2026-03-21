@@ -49,13 +49,23 @@ Do not load shared assets from the filesystem at runtime.
 
 ## Implementation
 
-Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`docs/12-phase2-implementation-plan.md`). Phase 3 in progress (`docs/13-phase3-implementation-plan.md`) — Week 1-2 (A-M1 + B-M1 + C-M1 + D-M1) complete.
+Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`docs/12-phase2-implementation-plan.md`). Phase 3 complete (`docs/13-phase3-implementation-plan.md`) — all 19 milestones delivered, Docker deployment verified.
 
-**Phase 3 status:**
-- 12 language scanners (Java, Python, JS/TS, Go, Kotlin, C#, PHP, C/C++, Rust, Swift, Ruby, Dart) with 15 new OpenGrep taint rules
-- Multi-tenant RBAC: PostgreSQL RLS, 7-role enforcement, group hierarchy
-- Portfolio dashboard with heat map + asset explorer
-- Helm chart (15 templates) + Kustomize manifests (dev/staging/prod overlays)
+**Phase 3 deliverables:**
+- 12 language scanners + container scanning + config file scanning (nginx, httpd, openssl.cnf, java.security, k8s, Dockerfiles)
+- 6 compliance frameworks (NIST, FIPS, PCI-DSS, CNSA 2.0, ISO 27001, EU CRA)
+- Multi-tenant RBAC with PostgreSQL RLS, 7-role enforcement, group hierarchy
+- Notifications (email, Teams, WebSocket) + Jira integration
+- CBOM signing (Sigstore/cosign)
+- Portfolio API with Redis caching
+- Dependency-Track integration
+- SonarQube generic issue export
+- Prometheus metrics endpoint
+- Helm chart + Kustomize manifests (dev/staging/prod overlays)
+- CLI renamed to `cradar` with `--push` flag
+- 5 output formats (CycloneDX, SARIF, text, PDF, SonarQube Generic)
+- 30 Go packages, 310+ backend tests
+- 17 ADRs (ADR-001 through ADR-025, with gaps)
 
 **Skills available** (`~/.claude/commands/`) — 37 total:
 
@@ -108,7 +118,7 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 
 ## Key Architecture Decisions
 
-All ADRs are in `docs/decisions/`. Decisions that affect day-to-day coding:
+17 ADRs total (ADR-001 through ADR-025, with gaps) in `docs/decisions/`. Decisions that affect day-to-day coding:
 
 - **ADR-001** — Output is CycloneDX 1.7. Never invent a custom schema.
 - **ADR-002** — tree-sitter is the parsing backbone for all languages.
@@ -121,6 +131,14 @@ All ADRs are in `docs/decisions/`. Decisions that affect day-to-day coding:
 - **ADR-013** — Auth: JWT + scoped API keys. 7 RBAC roles: Org Admin, Security Manager, Security Engineer, **Team Manager**, Compliance Auditor, Developer, Guest/Viewer (`docs/09-rbac.md` v2).
 - **ADR-014** — Git provider abstraction: common interface for GitHub/GitLab/Bitbucket.
 - **ADR-015** — Frontend: React 19, TanStack Query/Router, shadcn/ui, 3 CSS themes, MSW mock API. UI mockup: `frontend/mockups/full-mockup-v2.html`.
+- **ADR-016** — Container image scanning: OCI layer extraction via go-containerregistry.
+- **ADR-017** — Multi-tenant data isolation: RLS with org_id, materialized path for group hierarchy.
+- **ADR-018** — SBOM ingestion and CBOM-SBOM linking via purl matching.
+- **ADR-019** — Notification architecture: transactional outbox pattern with Taskiq workers.
+- **ADR-020** — CBOM signing: Sigstore keyless (Fulcio + Rekor) for SaaS, org-managed keys for air-gapped.
+- **ADR-021** — SonarQube plugin: thin API client, no embedded scanner.
+- **ADR-022** — Kubernetes deployment: Helm primary, raw manifests + Kustomize as alternative.
+- **ADR-023** — Compliance framework extensibility: YAML-driven rules in `scanner/library-models/`.
 - **ADR-024** — CLI binary rename: `cbom` → `cradar`. `cbom` kept as legacy alias during Phase 3.
 - **ADR-025** — CLI-to-portal push: `cradar scan --push` uploads results to portal. `.cradar.yml` config file for defaults.
 

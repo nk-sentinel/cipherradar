@@ -1,3 +1,34 @@
+# CipherRadar Deployment & CI/CD
+
+## Docker Compose (Dev)
+
+Run the full CipherRadar stack locally with Docker Compose.
+
+### Prerequisites
+- Docker and Docker Compose v2+
+- Ports 3001 (frontend), 8001 (API), 5432 (PostgreSQL), 6379 (Redis) available
+
+### Start
+
+```bash
+docker compose -f deploy/docker-compose.dev.yml up db redis api frontend -d
+```
+
+### Default Credentials
+- **Email:** admin@cipherradar.local
+- **Password:** admin123
+
+### Service URLs
+| Service | URL |
+|---|---|
+| Frontend | http://localhost:3001 |
+| API | http://localhost:8001/api/v1/health |
+| API Docs (OpenAPI) | http://localhost:8001/docs |
+
+The dev stack includes auto-migrations and seed data. The default admin user is created on first startup.
+
+---
+
 # CipherRadar CI/CD Integration
 
 Run CipherRadar scans automatically in your CI/CD pipelines to detect cryptographic assets and enforce cryptographic policies on every commit.

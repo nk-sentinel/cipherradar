@@ -4,7 +4,7 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
-## Phase 3 — Enterprise (In Progress)
+## Phase 3 — Enterprise (Complete — 2026-03-21)
 
 ### Week 1-2: A-M1 + B-M1 + C-M1 + D-M1
 - 5 new language scanners: C/C++ (OpenSSL, libsodium, mbedTLS), Rust (ring, rustls), Swift (CryptoKit, CommonCrypto), Ruby (OpenSSL, BCrypt, Digest), Dart (package:crypto, pointycastle)
@@ -12,6 +12,47 @@ All notable changes to CipherRadar are documented in this file.
 - Multi-tenant RBAC: PostgreSQL RLS, 7-role enforcement, group hierarchy
 - Portfolio dashboard with heat map + asset explorer
 - Helm chart (15 templates) + Kustomize manifests (dev/staging/prod overlays)
+
+### Week 3-4: A-M2 + B-M2 + C-M2
+- CLI renamed from `cbom` to `cradar` (ADR-024) with `cbom` legacy alias
+- `cradar scan --push` flag for uploading results to portal (ADR-025)
+- Joern CPG deep analysis for C/C++ (inter-procedural OpenSSL/libsodium)
+- Config file expansion: nginx.conf, httpd.conf, openssl.cnf, java.security, k8s manifests, Dockerfiles
+- 4 new compliance frameworks: PCI-DSS v4.0, NSA CNSA 2.0 (with timeline tracker), ISO 27001:2022 A.8.24, EU Cyber Resilience Act
+- Compliance score trending over time (TimescaleDB hypertable with daily/weekly/monthly roll-ups)
+- SBOM ingestion + CBOM-SBOM component linking (CycloneDX and SPDX)
+- Scan upload endpoint (`POST /api/v1/scans/upload`) for CLI `--push`
+- D3.js force-directed dependency graph (Canvas rendering, 500+ nodes)
+- Certificate expiry calendar with color-coded urgency
+- Compliance dashboard with per-framework score cards and drill-down
+- CBOM diff view with side-by-side snapshot comparison
+
+### Week 5-7: A-M3 + B-M3 + C-M3 + D-M2
+- Container image layer scanning (OCI image → extract + scan filesystem via go-containerregistry)
+- Notification engine: in-app (WebSocket), email (SMTP + Jinja2), Microsoft Teams (Adaptive Cards)
+- Jira integration: OAuth 2.0, auto-create tickets on policy violations, deduplication
+- CBOM signing via Sigstore/cosign with Rekor transparency log
+- Migration Kanban board (drag-and-drop, quantum migration tasks)
+- Notification center UI (bell icon, preferences, real-time WebSocket push)
+- Frontend API integration for all Phase 3 pages (live backend replaces mock API)
+- Sigstore infrastructure in scanner-worker image (keyless signing, Fulcio + Rekor)
+
+### Week 8-12: B-M4 + C-M4 + D-M3 + D-M4
+- Portfolio API with Redis caching (`/api/v1/portfolio/summary`, `/portfolio/compliance`, `/portfolio/quantum`)
+- Backend performance validation (50-repo portfolio < 2s, notification dispatch < 100ms)
+- Multi-tenant frontend: role-based nav visibility, org switcher, admin settings, user management, audit log
+- Visual polish and theme verification across all 3 themes (Radar, Crystal, Sentinel)
+- SonarQube generic issue export (`cradar scan --format sonarqube-generic`)
+- Dependency-Track integration (CBOM export + auto-upload + vulnerability correlation)
+- Prometheus metrics endpoint
+- Scale validation: 50-repository portfolio scan within 30 minutes (parallel Taskiq workers)
+- SOC 2 Type II controls: audit logging, encryption at rest/transit, access controls, monitoring
+
+### Docker Deployment
+- Full stack Docker Compose with seed data, auto-migrations, default admin
+- Services: TimescaleDB, Redis, FastAPI API, React frontend (nginx)
+- Default credentials: admin@cipherradar.local / admin123
+- Frontend: http://localhost:3001, API: http://localhost:8001/api/v1/health
 
 ---
 
