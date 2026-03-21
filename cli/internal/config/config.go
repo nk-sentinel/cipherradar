@@ -23,6 +23,25 @@ type Config struct {
 	Format string `yaml:"default_format"`
 	// Passes is the default list of scan passes to run.
 	Passes []int `yaml:"passes"`
+	// CustomWrappers defines custom crypto wrapper functions to detect during scanning.
+	CustomWrappers []CustomWrapper `yaml:"custom_wrappers"`
+}
+
+// CustomWrapper defines a custom cryptographic wrapper function that the
+// scanner should treat as a crypto call. This allows organizations to map
+// their internal wrapper libraries to CBOM asset types.
+type CustomWrapper struct {
+	// Name is the fully qualified function name (e.g. "mycompany.crypto.encrypt").
+	Name string `yaml:"name"`
+	// Language is the source language this wrapper applies to (e.g. "python", "java").
+	Language string `yaml:"language"`
+	// Type is the CBOM asset type (e.g. "algorithm", "protocol").
+	Type string `yaml:"type"`
+	// Parameters maps parameter roles to argument positions.
+	// Common keys: "key", "algorithm", "mode", "iv".
+	Parameters map[string]int `yaml:"parameters"`
+	// Severity is the finding severity (e.g. "info", "low", "medium", "high", "critical").
+	Severity string `yaml:"severity"`
 }
 
 // LoadConfig reads and parses a .cradar.yml file from the given path.

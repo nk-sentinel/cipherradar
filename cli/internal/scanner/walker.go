@@ -50,14 +50,42 @@ type scanJobResult struct {
 	scanned  bool
 }
 
+// ScanOptions controls optional scanning behavior.
+type ScanOptions struct {
+	// Fast limits scanning to Pass 1 only and skips files >100KB.
+	Fast bool
+	// StagedOnly restricts scanning to files listed in FileList.
+	StagedOnly bool
+	// FileList is the explicit set of relative file paths to scan (used with StagedOnly).
+	FileList []string
+}
+
+// maxFastFileSize is the maximum file size (in bytes) scanned when --fast is set.
+const maxFastFileSize = 100 * 1024 // 100KB
+
 // ScanDir walks a directory tree, dispatches each file to the appropriate scanner
 // using a concurrent worker pool, and returns the aggregated scan result.
 // Output is deterministic: findings are sorted by file path then line number.
 func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, error) {
+	return ScanDirWithOptions(root, registry, passes, ScanOptions{})
+}
+
+// ScanDirWithOptions is like ScanDir but accepts additional scanning options
+// for fast mode and staged-only filtering.
+func ScanDirWithOptions(root string, registry *Registry, passes []int, opts ScanOptions) (*types.ScanResult, error) {
 	result := &types.ScanResult{
 		Target:    root,
 		StartTime: time.Now(),
 		PassesRun: passes,
+	}
+
+	// Build an allow-set for staged-only mode.
+	var allowSet map[string]bool
+	if opts.StagedOnly && len(opts.FileList) > 0 {
+		allowSet = make(map[string]bool, len(opts.FileList))
+		for _, f := range opts.FileList {
+			allowSet[f] = true
+		}
 	}
 
 	// Phase 1: Walk the directory tree and collect scan jobs.
@@ -85,6 +113,13 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 			return nil
 		}
 
+		relPath, _ := filepath.Rel(root, path)
+
+		// In staged-only mode, skip files not in the allow set.
+		if allowSet != nil && !allowSet[relPath] {
+			return nil
+		}
+
 		ext := DetectLanguage(path)
 
 		// Always skip binary and dedicated scanner output by extension.
@@ -100,6 +135,14 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 
 		if s == nil && len(universals) == 0 {
 			return nil // no scanner for this file type
+		}
+
+		// In fast mode, skip files larger than 100KB.
+		if opts.Fast {
+			info, statErr := d.Info()
+			if statErr == nil && info.Size() > maxFastFileSize {
+				return nil
+			}
 		}
 
 		content, err := os.ReadFile(path)
@@ -118,8 +161,6 @@ func ScanDir(root string, registry *Registry, passes []int) (*types.ScanResult, 
 				return nil
 			}
 		}
-
-		relPath, _ := filepath.Rel(root, path)
 
 		job := scanJob{
 			path:    path,

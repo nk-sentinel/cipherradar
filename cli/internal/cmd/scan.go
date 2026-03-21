@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -44,6 +45,11 @@ func init() {
 	scanCmd.Flags().String("queries-dir", "", "directory containing Joern .sc query scripts for Pass 3")
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (enables inter-procedural analysis)")
 
+	// Pre-commit hook support flags.
+	scanCmd.Flags().Bool("fast", false, "run Pass 1 only (no OpenGrep/Joern), skip files >100KB")
+	scanCmd.Flags().Bool("staged-only", false, "only scan files in git staging area (git diff --cached)")
+	scanCmd.Flags().String("fail-on", "", "exit non-zero if findings at or above this severity (critical, high, medium, low, info)")
+
 	// Container image scanning.
 	scanCmd.Flags().String("container", "", "scan a container image (reference or local .tar path)")
 
@@ -69,14 +75,27 @@ func runScan(cmd *cobra.Command, args []string) error {
 	}
 
 	// Parse passes flag. --deep is an alias for --passes 1,2,3.
+	// --fast overrides to pass 1 only.
+	fast, _ := cmd.Flags().GetBool("fast")
 	deep, _ := cmd.Flags().GetBool("deep")
 	passesStr, _ := cmd.Flags().GetString("passes")
-	if deep {
+	if fast {
+		passesStr = "1"
+	} else if deep {
 		passesStr = "1,2,3"
 	}
 	passes, err := parsePasses(passesStr)
 	if err != nil {
 		return fmt.Errorf("invalid --passes flag: %w", err)
+	}
+
+	// Determine scan options.
+	stagedOnly, _ := cmd.Flags().GetBool("staged-only")
+
+	// Build scan options.
+	scanOpts := scanner.ScanOptions{
+		Fast:       fast,
+		StagedOnly: stagedOnly,
 	}
 
 	// Create scanner registry with all built-in scanners.
@@ -94,8 +113,17 @@ func runScan(cmd *cobra.Command, args []string) error {
 		// Directory scanning mode.
 		targetPath := args[0]
 
+		// If --staged-only, resolve staged file list from git.
+		if scanOpts.StagedOnly {
+			stagedFiles, gitErr := getStagedFiles(targetPath)
+			if gitErr != nil {
+				return fmt.Errorf("--staged-only: %w", gitErr)
+			}
+			scanOpts.FileList = stagedFiles
+		}
+
 		// Run Pass 1 scan.
-		result, err = scanner.ScanDir(targetPath, registry, passes)
+		result, err = scanner.ScanDirWithOptions(targetPath, registry, passes, scanOpts)
 		if err != nil {
 			return fmt.Errorf("scan failed: %w", err)
 		}
@@ -189,6 +217,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if pushEnabled {
 		if err := runPush(cmd, result); err != nil {
 			return fmt.Errorf("push failed: %w", err)
+		}
+	}
+
+	// Check --fail-on severity gate.
+	failOn, _ := cmd.Flags().GetString("fail-on")
+	if failOn != "" {
+		if err := checkFailOn(result.Findings, failOn); err != nil {
+			return err
 		}
 	}
 
@@ -319,4 +355,53 @@ func runPass3(target string, queriesDir string) ([]types.Finding, error) {
 	}
 
 	return runner.Scan(target, queriesDir)
+}
+
+// getStagedFiles returns the list of staged file paths (relative to the repo
+// root) by running `git diff --cached --name-only`.
+func getStagedFiles(repoDir string) ([]string, error) {
+	cmd := exec.Command("git", "-C", repoDir, "diff", "--cached", "--name-only")
+	out, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("running git diff --cached: %w", err)
+	}
+
+	var files []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			files = append(files, line)
+		}
+	}
+	return files, nil
+}
+
+// scanSeverityRank maps severity strings to numeric ranks for fail-on comparison.
+var scanSeverityRank = map[types.Severity]int{
+	types.SeverityInfo:     0,
+	types.SeverityLow:      1,
+	types.SeverityMedium:   2,
+	types.SeverityHigh:     3,
+	types.SeverityCritical: 4,
+}
+
+// checkFailOn returns an error if any finding meets or exceeds the given
+// severity threshold.
+func checkFailOn(findings []types.Finding, failOn string) error {
+	threshold, ok := scanSeverityRank[types.Severity(strings.ToLower(failOn))]
+	if !ok {
+		return fmt.Errorf("invalid --fail-on severity: %q (valid: critical, high, medium, low, info)", failOn)
+	}
+
+	for _, f := range findings {
+		rank, ok := scanSeverityRank[f.Severity]
+		if !ok {
+			continue
+		}
+		if rank >= threshold {
+			return fmt.Errorf("scan failed: finding %q has severity %s (fail-on threshold: %s)",
+				f.Name, f.Severity, failOn)
+		}
+	}
+	return nil
 }

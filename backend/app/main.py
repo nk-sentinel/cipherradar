@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1 import (
     admin,
+    agility,
     assets,
     attestation,
     auth,
@@ -13,6 +14,7 @@ from app.api.v1 import (
     compliance,
     deptrack,
     health,
+    hndl,
     integrations,
     jira,
     metrics,
@@ -22,6 +24,7 @@ from app.api.v1 import (
     projects,
     remediation,
     reports,
+    runtime,
     sbom,
     scan_upload,
     scans,
@@ -121,6 +124,9 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(admin.router, prefix="/api/v1")
     app.include_router(assets.router, prefix="/api/v1")
     app.include_router(remediation.router, prefix="/api/v1")
+    app.include_router(runtime.router, prefix="/api/v1")
+    app.include_router(agility.router, prefix="/api/v1")
+    app.include_router(hndl.router, prefix="/api/v1")
     app.include_router(user.router, prefix="/api/v1")
 
     return app

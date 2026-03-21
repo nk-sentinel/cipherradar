@@ -4,6 +4,7 @@ from app.models.finding import Finding
 from app.models.notification import Notification, NotificationPreference
 from app.models.organisation import Organisation
 from app.models.project import Group, Project
+from app.models.runtime_observation import RuntimeObservation
 from app.models.sbom import SBOMDocument
 from app.models.scan import Scan
 from app.models.user import User
@@ -16,6 +17,7 @@ __all__ = [
     "NotificationPreference",
     "Organisation",
     "Project",
+    "RuntimeObservation",
     "SBOMDocument",
     "Scan",
     "User",
