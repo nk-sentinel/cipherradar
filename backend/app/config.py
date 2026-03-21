@@ -33,6 +33,15 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from_address: str = "noreply@cipherradar.io"
 
+    # LLM-assisted remediation (ADR-027)
+    llm_provider: str = "none"  # "anthropic", "openai", "ollama", "none"
+    llm_anthropic_api_key: str = ""
+    llm_anthropic_model: str = "claude-sonnet-4-20250514"
+    llm_openai_api_key: str = ""
+    llm_openai_model: str = "gpt-4o"
+    llm_ollama_url: str = "http://localhost:11434"
+    llm_ollama_model: str = "codellama"
+
     # Jira OAuth 2.0
     jira_client_id: str = ""
     jira_client_secret: str = ""

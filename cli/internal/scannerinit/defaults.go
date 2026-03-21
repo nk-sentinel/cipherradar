@@ -5,6 +5,7 @@ package scannerinit
 
 import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/binary"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/cpp"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/csharp"
@@ -41,6 +42,11 @@ func DefaultRegistry() *scanner.Registry {
 
 	// Config file scanner (dispatched by .env / .properties extensions)
 	r.Register(config.New())
+
+	// Binary scanners (compiled files and archives)
+	r.Register(binary.New())
+	r.Register(binary.NewJARScanner())
+	r.Register(binary.NewWheelScanner())
 
 	// Universal scanners (run on every file regardless of extension)
 	r.RegisterUniversal(regex.New())

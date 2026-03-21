@@ -7,6 +7,7 @@ and stream results back into the database.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -15,6 +16,7 @@ from sqlalchemy import select
 
 from app.db.session import get_session
 from app.models.scan import Scan, ScanStatus
+from app.services.attestation_service import _signing_enabled, attestation_service
 
 if TYPE_CHECKING:
     import uuid
@@ -126,8 +128,42 @@ async def run_scan(scan_id: uuid.UUID) -> None:
                 scan.status = ScanStatus.COMPLETED
                 scan.completed_at = datetime.now(UTC)
                 await session.commit()
+
+                # Auto-attest if signing is enabled
+                await _maybe_create_attestation(scan_id)
             except Exception:
                 scan.status = ScanStatus.FAILED
                 scan.error_message = "Scan execution failed"
                 await session.commit()
                 logger.exception("Scan %s failed", scan_id)
+
+
+async def _maybe_create_attestation(scan_id: uuid.UUID) -> None:
+    """Create a Sigstore attestation for a completed scan if signing is enabled.
+
+    Reads CRADAR_SIGNING_ENABLED env var. On failure, logs a warning
+    but does not fail the scan.
+    """
+    if not _signing_enabled():
+        return
+
+    try:
+        # In production the CBOM JSON would be loaded from the CBOMStore.
+        # For now, build a minimal CBOM placeholder so the attestation flow
+        # can still execute end-to-end.
+        cbom_placeholder = json.dumps(
+            {"specVersion": "1.7", "scanId": str(scan_id)},
+            indent=2,
+        ).encode()
+
+        result = await attestation_service.create_attestation(
+            scan_id,
+            cbom_placeholder,
+        )
+
+        if result.get("attested"):
+            logger.info("Attestation created for scan %s (rekor=%s)", scan_id, result.get("rekor_log_id", ""))
+        else:
+            logger.warning("Attestation failed for scan %s: %s", scan_id, result.get("error", "unknown"))
+    except Exception:
+        logger.exception("Unexpected error creating attestation for scan %s", scan_id)

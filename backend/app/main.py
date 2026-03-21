@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import (
     admin,
     assets,
+    attestation,
     auth,
     cbom,
     compliance,
@@ -19,6 +20,7 @@ from app.api.v1 import (
     policy,
     portfolio,
     projects,
+    remediation,
     reports,
     sbom,
     scan_upload,
@@ -108,6 +110,7 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(notifications.router, prefix="/api/v1")
     app.include_router(jira.router, prefix="/api/v1")
     app.include_router(signing.router, prefix="/api/v1")
+    app.include_router(attestation.router, prefix="/api/v1")
     app.include_router(ws.router, prefix="/api/v1")
     app.include_router(portfolio.router, prefix="/api/v1")
     app.include_router(deptrack.router, prefix="/api/v1")
@@ -117,6 +120,7 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(policy.router, prefix="/api/v1")
     app.include_router(admin.router, prefix="/api/v1")
     app.include_router(assets.router, prefix="/api/v1")
+    app.include_router(remediation.router, prefix="/api/v1")
     app.include_router(user.router, prefix="/api/v1")
 
     return app

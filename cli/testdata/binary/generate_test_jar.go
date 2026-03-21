@@ -1,0 +1,58 @@
+//go:build ignore
+
+// This program generates a test JAR file for the binary scanner tests.
+// Run with: go run generate_test_jar.go
+package main
+
+import (
+	"archive/zip"
+	"os"
+)
+
+func main() {
+	f, err := os.Create("test.jar")
+	if err != nil {
+		panic(err)
+	}
+	defer f.Close()
+
+	w := zip.NewWriter(f)
+
+	// Add MANIFEST
+	mf, _ := w.Create("META-INF/MANIFEST.MF")
+	mf.Write([]byte("Manifest-Version: 1.0\nCreated-By: CipherRadar Test\n"))
+
+	// Add a fake .class file with AES S-box and RSA OID embedded
+	classData := make([]byte, 1024)
+	// Java class magic number
+	classData[0] = 0xCA
+	classData[1] = 0xFE
+	classData[2] = 0xBA
+	classData[3] = 0xBE
+
+	// AES S-box at offset 256
+	aesSbox := []byte{
+		0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5,
+		0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+		0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0,
+		0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+		0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc,
+		0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+		0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a,
+		0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+	}
+	copy(classData[256:], aesSbox)
+
+	// RSA OID at offset 512
+	rsaOID := []byte{0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01}
+	copy(classData[512:], rsaOID)
+
+	cf, _ := w.Create("com/example/CryptoHelper.class")
+	cf.Write(classData)
+
+	// Add a properties file with a hardcoded secret
+	pf, _ := w.Create("application.properties")
+	pf.Write([]byte("db.password=secret123\ndb.url=jdbc:mysql://localhost/test\n"))
+
+	w.Close()
+}
