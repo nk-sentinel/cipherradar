@@ -143,9 +143,7 @@ export function ComplianceDashboard(): React.ReactElement {
         <div className="topbar-right">
           <button
             className="btn btn-outline"
-            disabled
-            title="Coming soon"
-            style={{ opacity: 0.5, cursor: 'not-allowed' }}
+            onClick={() => window.open('/api/v1/reports/compliance-gap?format=pdf', '_blank')}
           >
             Download Gap Report (PDF)
           </button>

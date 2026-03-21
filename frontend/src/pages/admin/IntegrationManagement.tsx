@@ -145,7 +145,16 @@ function IntegrationManagementContent(): React.ReactElement {
                   />
                   {statusLabel(integration.status)}
                 </span>
-                <button className="btn btn-outline">
+                <button
+                  className="btn btn-outline"
+                  onClick={() => {
+                    if (integration.status === 'connected') {
+                      alert(`Opening configuration for ${integration.label}.`);
+                    } else {
+                      alert(`OAuth flow for ${integration.label} will open in a new window. Configure callback URL first in Settings.`);
+                    }
+                  }}
+                >
                   {integration.status === 'connected' ? 'Configure' : 'Connect'}
                 </button>
               </div>
@@ -204,7 +213,16 @@ function IntegrationManagementContent(): React.ReactElement {
                   />
                   {statusLabel(integration.status)}
                 </span>
-                <button className="btn btn-outline">
+                <button
+                  className="btn btn-outline"
+                  onClick={() => {
+                    if (integration.status === 'connected') {
+                      alert(`Opening configuration for ${integration.label}.`);
+                    } else {
+                      alert(`OAuth flow for ${integration.label} will open in a new window. Configure callback URL first in Settings.`);
+                    }
+                  }}
+                >
                   {integration.status === 'connected' ? 'Configure' : 'Connect'}
                 </button>
               </div>

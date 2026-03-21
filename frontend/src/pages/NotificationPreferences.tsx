@@ -145,6 +145,14 @@ export function NotificationPreferences(): React.ReactElement {
               {prefs.jiraBaseUrl}
             </div>
           )}
+          <div style={{ marginTop: '10px' }}>
+            <button
+              className="btn btn-outline"
+              onClick={() => alert('Jira configuration requires admin access. Go to Settings > Integrations to manage your Jira connection.')}
+            >
+              Configure
+            </button>
+          </div>
         </div>
 
         {/* Teams webhook */}

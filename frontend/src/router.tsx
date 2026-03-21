@@ -263,7 +263,10 @@ const repoTabRoute = createRoute({
     return (
       <div className="card">
         <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>
-          This tab will be implemented in a future milestone.
+          Page not found. Select a tab from the navigation above.
+        </p>
+        <p style={{ marginTop: '8px' }}>
+          <a href="/" style={{ color: 'var(--accent)', fontSize: '13px' }}>Back to Dashboard</a>
         </p>
       </div>
     );

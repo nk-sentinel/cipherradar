@@ -59,8 +59,8 @@ export function RepoOverview(): React.ReactElement {
           <span className="repo-provider">{repo.provider}</span>
         </div>
         <div className="topbar-right">
-          <button className="btn btn-accent">Scan Now</button>
-          <button className="btn btn-outline">Settings</button>
+          <button className="btn btn-accent" onClick={() => alert('Scan triggered. This will be available when the backend scan API is integrated.')}>Scan Now</button>
+          <button className="btn btn-outline" onClick={() => void navigate({ to: '/admin/settings' })}>Settings</button>
         </div>
       </div>
 

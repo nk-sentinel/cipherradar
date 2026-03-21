@@ -78,7 +78,7 @@ export function Repositories(): React.ReactElement {
           />
           <button
             className="btn btn-accent"
-            onClick={() => alert('Connect repository via Settings > Integrations')}
+            onClick={() => void navigate({ to: '/admin/integrations' })}
           >
             + Connect Repo
           </button>

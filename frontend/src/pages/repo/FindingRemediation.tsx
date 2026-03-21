@@ -124,8 +124,7 @@ function RemediationContent({ remediation }: { remediation: Remediation }): Reac
         <button
           className="btn btn-accent"
           onClick={() => {
-            // Placeholder: would create PR in future
-            alert('Apply Fix will create a PR in a future release.');
+            alert('Automatic PR creation will be available in a future release. For now, copy the suggested fix above.');
           }}
         >
           Apply Fix

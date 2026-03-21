@@ -80,7 +80,7 @@ export function AvatarDropdown(): React.ReactElement {
         </div>
         <div
           className="avatar-dropdown-item"
-          onClick={() => { setIsOpen(false); alert('Keyboard shortcuts: Ctrl+K to search, Ctrl+/ for help'); }}
+          onClick={() => { setIsOpen(false); alert('Keyboard Shortcuts:\n\nCtrl+K / Cmd+K — Open search\nCtrl+/ / Cmd+/ — Show help\nCtrl+B / Cmd+B — Toggle sidebar\nEsc — Close modal / dropdown\n\nMore shortcuts coming soon.'); }}
           role="button"
           tabIndex={0}
         >

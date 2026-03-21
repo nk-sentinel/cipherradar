@@ -84,9 +84,7 @@ export function QuantumReadiness(): React.ReactElement {
         <div className="topbar-right">
           <button
             className="btn btn-outline"
-            disabled
-            title="Coming soon"
-            style={{ opacity: 0.5, cursor: 'not-allowed' }}
+            onClick={() => window.open('/api/v1/reports/pqc?format=pdf', '_blank')}
           >
             Export PQC Report
           </button>

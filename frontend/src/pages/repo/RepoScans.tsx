@@ -60,13 +60,13 @@ export function RepoScans({ scanId }: RepoScansProps): React.ReactElement {
           Scan #{scan.number} — {scan.branch} ({scan.commit})
         </h1>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button className="btn btn-outline" disabled title="Coming soon" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+          <button className="btn btn-outline" onClick={() => window.open('/api/v1/cbom/' + scanId + '/export?format=cyclonedx', '_blank')}>
             CBOM
           </button>
-          <button className="btn btn-outline" disabled title="Coming soon" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+          <button className="btn btn-outline" onClick={() => window.open('/api/v1/cbom/' + scanId + '/export?format=sarif', '_blank')}>
             SARIF
           </button>
-          <button className="btn btn-outline" disabled title="Coming soon" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+          <button className="btn btn-outline" onClick={() => window.open('/api/v1/cbom/' + scanId + '/export?format=pdf', '_blank')}>
             PDF
           </button>
         </div>

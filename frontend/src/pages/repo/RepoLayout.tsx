@@ -13,7 +13,7 @@ const SUB_TABS: SubTab[] = [
   { label: 'Overview', path: 'overview' },
   { label: 'Scans', path: 'scans' },
   { label: 'Findings', path: 'findings' },
-  { label: 'CBOM Diff', path: 'diff', externalPath: (repoId) => `/diff?repo=${repoId}` },
+  { label: 'CBOM Diff', path: 'diff' },
   { label: 'Quantum', path: 'quantum' },
   { label: 'Compliance', path: 'compliance' },
   { label: 'Runtime', path: 'runtime' },

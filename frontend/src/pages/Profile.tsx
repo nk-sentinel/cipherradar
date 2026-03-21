@@ -205,7 +205,7 @@ export function Profile(): React.ReactElement {
                 </div>
               </div>
               <div style={{ marginTop: '12px' }}>
-                <button className="btn btn-outline">Enable MFA</button>
+                <button className="btn btn-outline" onClick={() => alert('MFA setup requires backend integration. Coming in a future release.')}>Enable MFA</button>
               </div>
             </div>
           )}
@@ -235,7 +235,7 @@ export function Profile(): React.ReactElement {
                 </tbody>
               </table>
               <div style={{ marginTop: '10px' }}>
-                <button className="btn btn-outline">+ Create API Key</button>
+                <button className="btn btn-outline" onClick={() => alert('API key generation requires backend integration. Coming in a future release.')}>+ Create API Key</button>
               </div>
             </div>
           )}
