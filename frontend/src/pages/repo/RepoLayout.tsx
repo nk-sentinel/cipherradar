@@ -16,6 +16,10 @@ const SUB_TABS: SubTab[] = [
   { label: 'CBOM Diff', path: 'diff', externalPath: (repoId) => `/diff?repo=${repoId}` },
   { label: 'Quantum', path: 'quantum' },
   { label: 'Compliance', path: 'compliance' },
+  { label: 'Runtime', path: 'runtime' },
+  { label: 'Agility Score', path: 'agility' },
+  { label: 'HNDL Risk', path: 'hndl-risk' },
+  { label: 'CVE Correlation', path: 'cve-correlation' },
 ];
 
 export function RepoLayout(): React.ReactElement {

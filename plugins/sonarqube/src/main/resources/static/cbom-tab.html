@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CipherRadar — CBOM</title>
+    <link rel="stylesheet" href="cbom-tab.css">
+</head>
+<body>
+    <div id="cipherradar-cbom">
+        <div class="cbom-header">
+            <h1>Cryptography Bill of Materials</h1>
+            <p class="cbom-subtitle">Powered by CipherRadar</p>
+        </div>
+
+        <!-- Quantum Risk Score -->
+        <div class="cbom-section">
+            <h2>Quantum Risk Score</h2>
+            <div class="cbom-risk-gauge">
+                <div id="risk-score-value" class="cbom-risk-value">--</div>
+                <div id="risk-score-bar" class="cbom-risk-bar">
+                    <div class="cbom-risk-fill" style="width: 0%"></div>
+                </div>
+                <div class="cbom-risk-labels">
+                    <span>Low</span>
+                    <span>Medium</span>
+                    <span>High</span>
+                    <span>Critical</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Finding Summary -->
+        <div class="cbom-section">
+            <h2>Finding Summary</h2>
+            <div class="cbom-summary-grid">
+                <div class="cbom-summary-card cbom-severity-critical">
+                    <div class="cbom-card-count" id="count-critical">0</div>
+                    <div class="cbom-card-label">Critical</div>
+                </div>
+                <div class="cbom-summary-card cbom-severity-major">
+                    <div class="cbom-card-count" id="count-major">0</div>
+                    <div class="cbom-card-label">Major</div>
+                </div>
+                <div class="cbom-summary-card cbom-severity-minor">
+                    <div class="cbom-card-count" id="count-minor">0</div>
+                    <div class="cbom-card-label">Minor</div>
+                </div>
+                <div class="cbom-summary-card cbom-severity-info">
+                    <div class="cbom-card-count" id="count-info">0</div>
+                    <div class="cbom-card-label">Info</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Compliance Status -->
+        <div class="cbom-section">
+            <h2>Compliance Status</h2>
+            <table class="cbom-table" id="compliance-table">
+                <thead>
+                    <tr>
+                        <th>Framework</th>
+                        <th>Status</th>
+                        <th>Coverage</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>NIST SP 800-131A</td>
+                        <td id="nist-status">--</td>
+                        <td id="nist-coverage">--</td>
+                    </tr>
+                    <tr>
+                        <td>FIPS 140-3</td>
+                        <td id="fips-status">--</td>
+                        <td id="fips-coverage">--</td>
+                    </tr>
+                    <tr>
+                        <td>PCI DSS 4.0</td>
+                        <td id="pci-status">--</td>
+                        <td id="pci-coverage">--</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PQC Readiness -->
+        <div class="cbom-section">
+            <h2>Post-Quantum Readiness</h2>
+            <div class="cbom-pqc-summary">
+                <div class="cbom-pqc-gauge">
+                    <span id="pqc-readiness-value">--%</span>
+                    <span class="cbom-pqc-label">of crypto assets are quantum-safe</span>
+                </div>
+                <div class="cbom-pqc-breakdown">
+                    <div class="cbom-pqc-row">
+                        <span class="cbom-dot cbom-dot-safe"></span>
+                        <span>Quantum-safe: <strong id="pqc-safe-count">0</strong></span>
+                    </div>
+                    <div class="cbom-pqc-row">
+                        <span class="cbom-dot cbom-dot-vulnerable"></span>
+                        <span>Quantum-vulnerable: <strong id="pqc-vuln-count">0</strong></span>
+                    </div>
+                    <div class="cbom-pqc-row">
+                        <span class="cbom-dot cbom-dot-unknown"></span>
+                        <span>Unknown: <strong id="pqc-unknown-count">0</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="cbom-tab.js"></script>
+</body>
+</html>

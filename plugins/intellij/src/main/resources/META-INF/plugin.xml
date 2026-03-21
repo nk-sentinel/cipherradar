@@ -1,0 +1,57 @@
+<idea-plugin>
+    <id>com.cipherradar.intellij</id>
+    <name>CipherRadar</name>
+    <vendor email="support@cipherradar.io" url="https://github.com/nk-sentinel/cipherradar">
+        nk-sentinel
+    </vendor>
+
+    <description><![CDATA[
+        <h2>CipherRadar — Cryptography Bill of Materials for IntelliJ</h2>
+        <p>Scan your code for cryptographic assets, detect quantum-vulnerable algorithms,
+        and get one-click remediation — all within your IDE.</p>
+        <ul>
+            <li>Inline annotations with gutter icons for cryptographic findings</li>
+            <li>Quantum security status (safe / vulnerable / unknown) in tooltips</li>
+            <li>Quick-fix intentions: "Fix with CipherRadar" (LLM remediation) and "Suppress"</li>
+            <li>Dedicated tool window with findings grouped by severity</li>
+            <li>Scan-on-save with configurable severity threshold</li>
+        </ul>
+        <p>Requires the <code>cradar</code> CLI to be installed.</p>
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- External Annotator — runs cradar CLI in background, shows inline annotations -->
+        <externalAnnotator
+                language=""
+                implementationClass="com.cipherradar.intellij.CipherRadarAnnotator"/>
+
+        <!-- Line marker provider — gutter icons for findings -->
+        <codeInsight.lineMarkerProvider
+                language=""
+                implementationClass="com.cipherradar.intellij.CipherRadarLineMarker"/>
+
+        <!-- Tool window — findings panel -->
+        <toolWindow
+                id="CipherRadar"
+                anchor="bottom"
+                factoryClass="com.cipherradar.intellij.CipherRadarToolWindowFactory"
+                icon="AllIcons.General.Shield"/>
+
+        <!-- Settings panel -->
+        <applicationConfigurable
+                parentId="tools"
+                instance="com.cipherradar.intellij.CipherRadarConfigurable"
+                id="com.cipherradar.intellij.settings"
+                displayName="CipherRadar"/>
+
+        <!-- Persistent settings service -->
+        <applicationService
+                serviceImplementation="com.cipherradar.intellij.CipherRadarSettings"/>
+
+        <!-- Project startup activity -->
+        <postStartupActivity
+                implementation="com.cipherradar.intellij.CipherRadarStartup"/>
+    </extensions>
+</idea-plugin>

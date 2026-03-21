@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import type { Finding } from '@/mocks/data/findings';
 import { SeverityBadge } from './SeverityBadge';
 import { QuantumBadge } from './QuantumBadge';
+import { FindingRemediation } from '@/pages/repo/FindingRemediation.tsx';
 
 interface FindingDetailProps {
   finding: Finding;
@@ -22,6 +24,7 @@ function borderColorForSeverity(severity: Finding['severity']): string {
 
 export function FindingDetail({ finding, onClose }: FindingDetailProps): React.ReactElement {
   const { code } = finding;
+  const [showRemediation, setShowRemediation] = useState(false);
 
   return (
     <div
@@ -104,6 +107,21 @@ export function FindingDetail({ finding, onClose }: FindingDetailProps): React.R
       <div className="alert alert-warn" style={{ marginTop: '12px' }}>
         <strong>Remediation:</strong>&nbsp;{finding.remediation}
       </div>
+
+      {/* Get Fix button */}
+      <div style={{ marginTop: '12px' }}>
+        <button
+          className="btn btn-accent"
+          onClick={() => setShowRemediation((prev) => !prev)}
+        >
+          {showRemediation ? 'Hide Fix' : 'Get Fix'}
+        </button>
+      </div>
+
+      {/* Remediation diff panel */}
+      {showRemediation && (
+        <FindingRemediation findingId={finding.id} />
+      )}
     </div>
   );
 }

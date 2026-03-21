@@ -32,6 +32,10 @@ import { IntegrationManagement } from './pages/admin/IntegrationManagement.tsx';
 import { AuditLog } from './pages/admin/AuditLog.tsx';
 import { LazyDependencyGraph } from './pages/LazyDependencyGraph.tsx';
 import { PolicyRules } from './pages/PolicyRules.tsx';
+import { RuntimeView } from './pages/RuntimeView.tsx';
+import { AgilityScore } from './pages/AgilityScore.tsx';
+import { HNDLRisk } from './pages/HNDLRisk.tsx';
+import { CVECorrelation } from './pages/repo/CVECorrelation.tsx';
 import { createRouteGuard } from './lib/route-guard.ts';
 
 const rootRoute = createRootRoute({
@@ -228,6 +232,30 @@ const repoComplianceRoute = createRoute({
   component: RepoCompliance,
 });
 
+const repoRuntimeRoute = createRoute({
+  getParentRoute: () => repoLayoutRoute,
+  path: '/runtime',
+  component: RuntimeView,
+});
+
+const repoAgilityRoute = createRoute({
+  getParentRoute: () => repoLayoutRoute,
+  path: '/agility',
+  component: AgilityScore,
+});
+
+const repoHndlRiskRoute = createRoute({
+  getParentRoute: () => repoLayoutRoute,
+  path: '/hndl-risk',
+  component: HNDLRisk,
+});
+
+const repoCveCorrelationRoute = createRoute({
+  getParentRoute: () => repoLayoutRoute,
+  path: '/cve-correlation',
+  component: CVECorrelation,
+});
+
 const repoTabRoute = createRoute({
   getParentRoute: () => repoLayoutRoute,
   path: '/$tab',
@@ -291,6 +319,10 @@ const routeTree = rootRoute.addChildren([
       repoFindingsRoute,
       repoQuantumRoute,
       repoComplianceRoute,
+      repoRuntimeRoute,
+      repoAgilityRoute,
+      repoHndlRiskRoute,
+      repoCveCorrelationRoute,
       repoIndexRoute,
       repoTabRoute,
     ]),

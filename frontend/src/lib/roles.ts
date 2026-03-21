@@ -38,6 +38,10 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
     'admin-users',
     'admin-integrations',
     'admin-audit-log',
+    'runtime',
+    'agility-score',
+    'hndl-risk',
+    'cve-correlation',
   ],
   'security-manager': [
     'dashboard',
@@ -57,6 +61,10 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
     'admin-users',
     'admin-integrations',
     'admin-audit-log',
+    'runtime',
+    'agility-score',
+    'hndl-risk',
+    'cve-correlation',
   ],
   'security-engineer': [
     'dashboard',
@@ -72,6 +80,10 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
     'notification-preferences',
     'policy',
     'settings',
+    'runtime',
+    'agility-score',
+    'hndl-risk',
+    'cve-correlation',
   ],
   'team-manager': [
     'dashboard',
@@ -85,6 +97,10 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
     'diff',
     'migration',
     'notification-preferences',
+    'runtime',
+    'agility-score',
+    'hndl-risk',
+    'cve-correlation',
   ],
   'compliance-auditor': [
     'dashboard',
@@ -98,8 +114,11 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
     'diff',
     'migration',
     'notification-preferences',
+    'agility-score',
+    'hndl-risk',
+    'cve-correlation',
   ],
-  developer: ['dashboard', 'assets', 'repos', 'graph', 'diff', 'migration', 'notification-preferences'],
+  developer: ['dashboard', 'assets', 'repos', 'graph', 'diff', 'migration', 'notification-preferences', 'agility-score', 'cve-correlation'],
   guest: ['repos'],
 };
 

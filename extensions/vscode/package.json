@@ -1,0 +1,116 @@
+{
+  "name": "cipherradar",
+  "displayName": "CipherRadar",
+  "description": "Cryptography Bill of Materials scanner — find, classify, and fix crypto vulnerabilities",
+  "version": "0.1.0",
+  "publisher": "nk-sentinel",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nk-sentinel/cipherradar"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "keywords": [
+    "cryptography",
+    "cbom",
+    "security",
+    "quantum",
+    "post-quantum",
+    "compliance"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "cipherradar.scan",
+        "title": "CipherRadar: Scan Current File"
+      },
+      {
+        "command": "cipherradar.scanWorkspace",
+        "title": "CipherRadar: Scan Workspace"
+      },
+      {
+        "command": "cipherradar.clearDiagnostics",
+        "title": "CipherRadar: Clear Diagnostics"
+      }
+    ],
+    "configuration": {
+      "title": "CipherRadar",
+      "properties": {
+        "cipherradar.cradarPath": {
+          "type": "string",
+          "default": "cradar",
+          "description": "Path to the cradar CLI binary. Defaults to 'cradar' (resolved from $PATH)."
+        },
+        "cipherradar.autoScan": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically scan files on save."
+        },
+        "cipherradar.apiUrl": {
+          "type": "string",
+          "default": "",
+          "description": "CipherRadar backend API URL for LLM-assisted remediation (e.g. https://cradar.internal/api/v1)."
+        },
+        "cipherradar.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "API key for CipherRadar backend (used for LLM remediation)."
+        },
+        "cipherradar.severityMinLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warning",
+            "information",
+            "hint"
+          ],
+          "default": "information",
+          "description": "Minimum severity level to display."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "cipherradar",
+          "title": "CipherRadar",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "cipherradar": [
+        {
+          "id": "cipherradar.findings",
+          "name": "Findings"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.90.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.4.0",
+    "@vscode/test-electron": "^2.3.0"
+  }
+}
