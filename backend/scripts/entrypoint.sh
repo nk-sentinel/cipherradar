@@ -72,5 +72,9 @@ async def seed_admin():
 asyncio.run(seed_admin())
 "
 
+# Seed test data (idempotent — skips if data exists)
+echo "Seeding test data..."
+python scripts/seed.py
+
 echo "=== Starting uvicorn ==="
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000

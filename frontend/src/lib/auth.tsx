@@ -57,12 +57,54 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
       throw new Error('Login failed');
     }
 
-    const data = (await response.json()) as { token: string; user: User };
-    memoryToken = data.token;
-    setToken(data.token);
-    setUser(data.user);
-    sessionStorage.setItem('cipherradar-token', data.token);
-    sessionStorage.setItem('cipherradar-user', JSON.stringify(data.user));
+    const data = (await response.json()) as {
+      access_token?: string;
+      token?: string;
+      user?: User;
+    };
+
+    // Support both old { token, user } and new { access_token } response shapes
+    const accessToken = data.access_token ?? data.token ?? '';
+    if (!accessToken) {
+      throw new Error('No token in response');
+    }
+
+    // If backend provides user object use it, otherwise derive from email + token
+    let userInfo: User;
+    if (data.user) {
+      userInfo = data.user;
+    } else {
+      // Derive user info from the JWT claims or email
+      const namePart = email.split('@')[0] ?? 'User';
+      const name = namePart
+        .replace(/[-_.]/g, ' ')
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      const initials = name
+        .split(' ')
+        .map((w) => w[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2);
+
+      // Decode role from JWT payload (base64url-encoded middle segment)
+      let role: Role = 'developer';
+      try {
+        const payload = JSON.parse(atob(accessToken.split('.')[1] ?? ''));
+        const rawRole = (payload.role ?? 'developer') as string;
+        // Backend uses underscores (org_admin), frontend uses hyphens (org-admin)
+        role = rawRole.replace(/_/g, '-') as Role;
+      } catch {
+        // ignore decode errors
+      }
+
+      userInfo = { name, email, role, initials };
+    }
+
+    memoryToken = accessToken;
+    setToken(accessToken);
+    setUser(userInfo);
+    sessionStorage.setItem('cipherradar-token', accessToken);
+    sessionStorage.setItem('cipherradar-user', JSON.stringify(userInfo));
   }, []);
 
   const logout = useCallback((): void => {
