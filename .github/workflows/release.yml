@@ -44,7 +44,14 @@ jobs:
 
       - name: Run tests
         working-directory: cli
-        run: go test ./internal/scanner/... ./internal/output/... ./internal/types/...
+        run: |
+          go test \
+            ./internal/scanner/java/... \
+            ./internal/scanner/python/... \
+            ./internal/scanner/javascript/... \
+            ./internal/scanner/golang/... \
+            ./internal/output/... \
+            ./internal/types/...
 
       - name: Build cradar binary
         working-directory: cli
