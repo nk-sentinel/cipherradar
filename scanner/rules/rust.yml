@@ -75,3 +75,31 @@ rules:
       - pattern: Sha1::new()
       - pattern: |
           use sha1::Sha1;
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-rust-crypto-library-import
+    message: Cryptographic crate import detected in Rust.
+    severity: INFO
+    languages: [rust]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: use ring::$...;
+      - pattern: use rustls::$...;
+      - pattern: use openssl::$...;
+
+  - id: cbom-rust-password-hash-inventory
+    message: Password hashing detected in Rust.
+    severity: INFO
+    languages: [rust]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: bcrypt::hash($PASSWORD, $COST)

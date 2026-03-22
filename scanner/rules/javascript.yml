@@ -86,3 +86,78 @@ rules:
       confidence: low
       quantum-relevant: false
     pattern: Math.random()
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-js-crypto-library-import
+    message: >
+      Cryptographic library import/require detected.
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: const $X = require('crypto')
+      - pattern: const $X = require('node-forge')
+      - pattern: const $X = require('jsonwebtoken')
+      - pattern: const $X = require('bcrypt')
+      - pattern: const $X = require('argon2')
+      - pattern: import $X from 'crypto'
+
+  - id: cbom-js-deprecated-crypto-import
+    message: >
+      crypto-js library imported. Often misused for server-side crypto;
+      prefer Node.js built-in crypto module.
+    severity: WARNING
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: medium
+      quantum-relevant: false
+    pattern-either:
+      - pattern: const $X = require('crypto-js')
+      - pattern: import $X from 'crypto-js'
+
+  - id: cbom-js-kdf-to-cipher-chain
+    message: >
+      Key derivation chain: PBKDF2/scrypt output used as cipher key.
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: key-derivation-function
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $KEY = crypto.pbkdf2Sync($PASSWORD, $SALT, $ITER, $LEN, $HASH)
+          ...
+          crypto.createCipheriv($ALGO, $KEY, $IV)
+      - pattern: |
+          $KEY = crypto.scryptSync($PASSWORD, $SALT, $LEN)
+          ...
+          crypto.createCipheriv($ALGO, $KEY, $IV)
+
+  - id: cbom-js-config-driven-algorithm
+    message: >
+      Algorithm name from environment used in crypto operation.
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $ALGO = process.env.$KEY
+          ...
+          crypto.createCipheriv($ALGO, ...)
+      - pattern: |
+          $ALGO = process.env.$KEY
+          ...
+          crypto.createHash($ALGO)

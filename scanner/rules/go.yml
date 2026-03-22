@@ -58,3 +58,70 @@ rules:
         fix: Use crypto/rand.Read() instead of math/rand.
       - pattern: rand.Int(...)
       - pattern: rand.Intn(...)
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-go-crypto-library-import
+    message: >
+      Cryptographic library import detected in Go source.
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: import "crypto/$..."
+      - pattern: import "golang.org/x/crypto/$..."
+
+  - id: cbom-go-kdf-to-cipher-chain
+    message: >
+      Key derivation output used as cipher key in Go.
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: key-derivation-function
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $KEY, $ERR = scrypt.Key($PASSWORD, $SALT, $N, $R, $P, $LEN)
+          ...
+          $BLOCK, $ERR2 = aes.NewCipher($KEY)
+      - pattern: |
+          $KEY = argon2.IDKey($PASSWORD, $SALT, $TIME, $MEM, $THREADS, $LEN)
+          ...
+          $BLOCK, $ERR = aes.NewCipher($KEY)
+
+  - id: cbom-go-tls-version-enforcement
+    message: >
+      TLS version enforcement detected in Go tls.Config.
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      confidence: high
+      quantum-relevant: false
+    pattern: |
+      &tls.Config{
+        ...,
+        MinVersion: $MIN,
+        ...,
+      }
+
+  - id: cbom-go-password-hash-inventory
+    message: >
+      Password hashing function detected in Go.
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: bcrypt.GenerateFromPassword($PASSWORD, $COST)
+      - pattern: argon2.IDKey($PASSWORD, $SALT, $TIME, $MEM, $THREADS, $LEN)
