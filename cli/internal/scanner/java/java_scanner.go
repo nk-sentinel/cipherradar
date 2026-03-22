@@ -74,6 +74,10 @@ func (s *JavaScanner) ScanFile(path string, content []byte) ([]types.Finding, er
 	pbeFindings := s.detectPBEKeySpec(root, path, content, cp)
 	findings = append(findings, pbeFindings...)
 
+	// EC curve enrichment: detect ECGenParameterSpec("secp256r1") directly
+	ecFindings := s.detectECGenParameterSpec(root, path, content)
+	findings = append(findings, ecFindings...)
+
 	return findings, nil
 }
 
@@ -1345,6 +1349,78 @@ func (s *JavaScanner) detectPBEKeySpec(root *sitter.Node, path string, content [
 			},
 			Description: "PBKDF2 key derivation via new PBEKeySpec()",
 			RuleID:      "cbom-java-jca-pbekeyspec-pbkdf2",
+			Pass:        1,
+		})
+	}
+
+	return findings
+}
+
+// detectECGenParameterSpec finds `new ECGenParameterSpec("secp256r1")` and emits
+// EC curve findings with the specific curve name for CBOM enrichment.
+func (s *JavaScanner) detectECGenParameterSpec(root *sitter.Node, path string, content []byte) []types.Finding {
+	var findings []types.Finding
+
+	queryStr := `(object_creation_expression
+		type: (type_identifier) @cls
+		arguments: (argument_list) @args
+		(#eq? @cls "ECGenParameterSpec"))`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return nil
+	}
+
+	for _, match := range matches {
+		var clsNode, argsNode *sitter.Node
+		for _, capture := range match.Captures {
+			switch capture.Index {
+			case 0:
+				clsNode = capture.Node
+			case 1:
+				argsNode = capture.Node
+			}
+		}
+		if clsNode == nil || argsNode == nil {
+			continue
+		}
+
+		curveName, _ := resolveFirstArg(argsNode, content, nil)
+		if curveName == "" {
+			continue
+		}
+
+		callNode := getObjectCreationNode(clsNode)
+
+		// Map curve name to key size.
+		curveSizes := map[string]int{
+			"secp256r1": 256, "P-256": 256, "prime256v1": 256,
+			"secp384r1": 384, "P-384": 384,
+			"secp521r1": 521, "P-521": 521,
+			"secp256k1": 256,
+		}
+		keySize := curveSizes[curveName]
+
+		name := fmt.Sprintf("EC-%s", curveName)
+		qi := quantum.GetInfo("ec")
+
+		findings = append(findings, types.Finding{
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityInfo,
+			Confidence: types.ConfidenceHigh,
+			Properties: types.CryptoProperties{
+				Primitive:        "pke",
+				AlgorithmFamily:  "ec",
+				KeySize:          keySize,
+				QuantumStatus:    qi.Status,
+				NistQuantumLevel: qi.NistLevel,
+				CryptoFunctions:  []string{"generate"},
+			},
+			Description: fmt.Sprintf("EC key with curve %s via ECGenParameterSpec", curveName),
+			RuleID:      fmt.Sprintf("cbom-java-jca-ec-curve-%s", strings.ToLower(curveName)),
 			Pass:        1,
 		})
 	}

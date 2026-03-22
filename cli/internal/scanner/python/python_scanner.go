@@ -831,6 +831,34 @@ func (s *PythonScanner) detectEdDSAKeyGen(root *sitter.Node, path string, conten
 			RuleID:      fmt.Sprintf("cbom-python-cryptography-%s-generate", algoFamily),
 			Pass:        1,
 		})
+
+		// Emit internal hash dependency for CBOM completeness.
+		// Ed25519 uses SHA-512 internally; Ed448 uses SHAKE256.
+		internalHash := map[string]struct{ family, name string }{
+			"ed25519": {family: "sha-512", name: "SHA-512"},
+			"ed448":   {family: "shake256", name: "SHAKE-256"},
+		}
+		if ih, ok := internalHash[algoFamily]; ok {
+			ihqi := GetQuantumInfo(ih.family)
+			findings = append(findings, types.Finding{
+				ID:        nextFindingID(),
+				AssetType: types.AssetAlgorithm,
+				Name:      ih.name,
+				Location:  scanner.NodeLocation(callNode, path, content),
+				Severity:  types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        "hash",
+					AlgorithmFamily:  ih.family,
+					QuantumStatus:    ihqi.Status,
+					NistQuantumLevel: ihqi.NistLevel,
+					CryptoFunctions:  []string{"digest"},
+				},
+				Description: fmt.Sprintf("Hash %s (internal to %s)", ih.name, name),
+				RuleID:      fmt.Sprintf("cbom-python-internal-hash-%s", strings.ToLower(ih.name)),
+				Pass:        1,
+			})
+		}
 	}
 
 	return findings
