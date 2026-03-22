@@ -10,7 +10,6 @@ import (
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/container"
-	"github.com/nk-sentinel/cipherradar/cli/internal/joern"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
 	"github.com/nk-sentinel/cipherradar/cli/internal/push"
@@ -38,12 +37,11 @@ func init() {
 	scanCmd.Flags().StringP("output", "o", "", "output file path")
 	scanCmd.Flags().StringP("format", "f", "cyclonedx-json", "output format (cyclonedx-json, sarif, text, pdf)")
 	scanCmd.Flags().String("severity", "low", "minimum severity level to report")
-	scanCmd.Flags().String("passes", "1,2,3", "comma-separated list of scan passes to run")
+	scanCmd.Flags().String("passes", "1,2", "comma-separated list of scan passes to run (1=AST, 2=OpenGrep)")
 	scanCmd.Flags().String("branch", "", "git branch to scan (for git URLs)")
 	scanCmd.Flags().Bool("validate", false, "validate output against CycloneDX 1.7 schema")
 	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
-	scanCmd.Flags().String("queries-dir", "", "directory containing Joern .sc query scripts for Pass 3")
-	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (enables inter-procedural analysis)")
+	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2 (enables taint analysis)")
 
 	// Pre-commit hook support flags.
 	scanCmd.Flags().Bool("fast", false, "run Pass 1 only (no OpenGrep/Joern), skip files >100KB")
@@ -82,7 +80,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if fast {
 		passesStr = "1"
 	} else if deep {
-		passesStr = "1,2,3"
+		passesStr = "1,2"
 	}
 	passes, err := parsePasses(passesStr)
 	if err != nil {
@@ -146,23 +144,8 @@ func runScan(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Run Pass 3 (Joern inter-procedural analysis) if requested.
-		if containsPass(passes, 3) {
-			queriesDir, _ := cmd.Flags().GetString("queries-dir")
-			if queriesDir == "" {
-				queriesDir = os.Getenv("CRADAR_QUERIES_DIR")
-			}
-
-			pass3Findings, pass3Err := runPass3(targetPath, queriesDir)
-			if pass3Err != nil {
-				result.Errors = append(result.Errors, types.ScanError{
-					File:    "",
-					Message: fmt.Sprintf("Pass 3 error: %v", pass3Err),
-				})
-			} else if pass3Findings != nil {
-				result.Findings = joern.DeduplicateFindings(result.Findings, pass3Findings)
-			}
-		}
+		// Pass 3 (Joern) removed per ADR-033. All patterns now covered by
+		// OpenGrep taint rules (Pass 2) with 19x better performance.
 	}
 
 	// Get the output format.
@@ -300,8 +283,8 @@ func parsePasses(s string) ([]int, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid pass number %q: %w", p, err)
 		}
-		if n < 1 || n > 3 {
-			return nil, fmt.Errorf("pass number must be 1-3, got %d", n)
+		if n < 1 || n > 2 {
+			return nil, fmt.Errorf("pass number must be 1-2, got %d (Pass 3/Joern removed per ADR-033)", n)
 		}
 		passes = append(passes, n)
 	}
@@ -342,19 +325,6 @@ func runPass2(target string, rulesDir string) ([]types.Finding, error) {
 	}
 
 	return runner.Scan(target, rulesDir)
-}
-
-// runPass3 runs Joern Pass 3 inter-procedural analysis if the binary is available.
-// Returns nil findings (not an error) if Joern is not installed.
-// If no queries directory is specified, uses embedded query scripts extracted to a temp dir.
-func runPass3(target string, queriesDir string) ([]types.Finding, error) {
-	runner := joern.NewRunner()
-	if runner == nil || !runner.Available() {
-		fmt.Fprintln(os.Stderr, "Pass 3 skipped — joern not found. Run 'cradar install-tools' or use cradar-full.")
-		return nil, nil
-	}
-
-	return runner.Scan(target, queriesDir)
 }
 
 // getStagedFiles returns the list of staged file paths (relative to the repo

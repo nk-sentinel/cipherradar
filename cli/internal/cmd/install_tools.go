@@ -17,7 +17,6 @@ var installToolsCmd = &cobra.Command{
 
 Installs:
   - OpenGrep (taint analysis engine for Pass 2)
-  - Joern    (CPG analysis engine for Pass 3)
   - YARA-X   (binary scanning engine for compiled artifact analysis)
 
 Tools are installed to ~/.cradar/tools/ by default.
@@ -46,16 +45,6 @@ Use --force to reinstall even if already present.`,
 			}
 		} else {
 			fmt.Printf("OpenGrep already installed at %s/opengrep\n", toolsDir)
-		}
-
-		// Install Joern.
-		if force || !tools.IsJoernInstalled(toolsDir) {
-			if err := tools.InstallJoern(toolsDir); err != nil {
-				fmt.Fprintf(os.Stderr, "Error installing Joern: %v\n", err)
-				hadError = true
-			}
-		} else {
-			fmt.Printf("Joern already installed at %s/joern\n", toolsDir)
 		}
 
 		// Install YARA-X.

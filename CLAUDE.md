@@ -33,9 +33,9 @@ Note: The Go module path is unchanged by the binary rename (ADR-024). The module
 
 Two GoReleaser artifacts per release (renamed from `cbom`/`cbom-full` per ADR-024):
 - `cradar` — lightweight binary (~15 MB), no tools bundled
-- `cradar-full` — includes OpenGrep + Joern pre-bundled (~80–100 MB), for air-gapped environments
+- `cradar-full` — includes OpenGrep + YARA-X pre-bundled (~50 MB), for air-gapped environments
 
-`cradar install-tools` downloads OpenGrep + Joern to `~/.cradar/tools/` for lightweight binary users.
+`cradar install-tools` downloads OpenGrep + YARA-X to `~/.cradar/tools/` for lightweight binary users. Joern was removed per ADR-033 — all Joern patterns are now covered by OpenGrep taint rules.
 
 `cbom` is retained as a legacy alias (symlink) during Phase 3 for backward compatibility. The alias prints a deprecation warning and will be removed in a future release.
 
@@ -65,7 +65,7 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 - CLI renamed to `cradar` with `--push` flag
 - 5 output formats (CycloneDX, SARIF, text, PDF, SonarQube Generic)
 - 30 Go packages, 310+ backend tests
-- 17 ADRs (ADR-001 through ADR-025, with gaps)
+- 25 ADRs (ADR-001 through ADR-033, with gaps)
 
 **Skills available** (`~/.claude/commands/`) — 37 total:
 
@@ -123,10 +123,10 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 - **ADR-001** — Output is CycloneDX 1.7. Never invent a custom schema.
 - **ADR-002** — tree-sitter is the parsing backbone for all languages.
 - **ADR-003** — No build required. Scanner must work on source-only codebases.
-- **ADR-004** — Detection is 3-pass: tree-sitter (Pass 1) → OpenGrep (Pass 2) → Joern (Pass 3). No custom taint engine.
+- **ADR-004** — Detection is 2-pass: tree-sitter (Pass 1) → OpenGrep (Pass 2). Joern Pass 3 removed per ADR-033 — all patterns covered by OpenGrep taint rules with 19x better performance. 79 OpenGrep rules (41 security + 38 CBOM inventory).
 - **ADR-005** — CLI in Go, backend in Python/FastAPI.
 - **ADR-008** — Monorepo. `scanner/` is shared between CLI and backend.
-- **ADR-011** — Joern Pass 3 via subprocess (same pattern as OpenGrep). Binary discovery: same dir → `$CRADAR_TOOLS_DIR` → `~/.cradar/tools/` → `$PATH`.
+- **ADR-011** — ~~Joern Pass 3 via subprocess~~ — superseded by ADR-033. Joern removed; all patterns covered by OpenGrep rules.
 - **ADR-012** — DB schema: CBOMStore abstraction, TimescaleDB hypertables, JSONB+GIN, GAL.
 - **ADR-013** — Auth: JWT + scoped API keys. 7 RBAC roles: Org Admin, Security Manager, Security Engineer, **Team Manager**, Compliance Auditor, Developer, Guest/Viewer (`docs/09-rbac.md` v2).
 - **ADR-014** — Git provider abstraction: common interface for GitHub/GitLab/Bitbucket.

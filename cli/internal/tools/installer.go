@@ -17,16 +17,10 @@ import (
 
 const (
 	// OpenGrepVersion is the pinned OpenGrep release to install.
-	OpenGrepVersion = "v1.102.0"
+	OpenGrepVersion = "v1.16.5"
 
 	// OpenGrepBaseURL is the GitHub Releases base URL for OpenGrep.
 	OpenGrepBaseURL = "https://github.com/opengrep/opengrep/releases/download"
-
-	// JoernVersion is the pinned Joern release to install.
-	JoernVersion = "v4.0.0"
-
-	// JoernBaseURL is the GitHub Releases base URL for Joern.
-	JoernBaseURL = "https://github.com/joernio/joern/releases/download"
 
 	// YARAXVersion is the pinned YARA-X release to install.
 	YARAXVersion = "v0.12.0"
@@ -54,12 +48,20 @@ func InstallOpenGrep(toolsDir string) error {
 	goos := runtime.GOOS
 	goarch := runtime.GOARCH
 
+	// Map Go platform names to OpenGrep release naming convention.
+	osName := goos
+	if osName == "darwin" {
+		osName = "osx"
+	}
 	arch := goarch
 	if arch == "amd64" {
 		arch = "x86_64"
 	}
+	if arch == "arm64" {
+		arch = "aarch64"
+	}
 
-	filename := fmt.Sprintf("opengrep-%s-%s-%s.tar.gz", OpenGrepVersion, goos, arch)
+	filename := fmt.Sprintf("opengrep-core_%s_%s.tar.gz", osName, arch)
 	url := fmt.Sprintf("%s/%s/%s", OpenGrepBaseURL, OpenGrepVersion, filename)
 
 	if err := os.MkdirAll(toolsDir, 0755); err != nil {
@@ -95,7 +97,7 @@ func InstallOpenGrep(toolsDir string) error {
 	}
 	tmpFile.Close()
 
-	if err := extractBinaryFromTarGz(tmpPath, destPath, "opengrep"); err != nil {
+	if err := extractBinaryFromTarGz(tmpPath, destPath, "opengrep-core"); err != nil {
 		return fmt.Errorf("extracting OpenGrep: %w", err)
 	}
 
@@ -107,66 +109,8 @@ func InstallOpenGrep(toolsDir string) error {
 	return nil
 }
 
-// IsJoernInstalled returns true if a joern-cli directory or joern binary exists
-// in toolsDir.
-func IsJoernInstalled(toolsDir string) bool {
-	// Joern ships as a directory with a joern script inside.
-	path := filepath.Join(toolsDir, "joern")
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
-}
-
-// InstallJoern downloads the Joern CLI distribution to the specified directory.
-func InstallJoern(toolsDir string) error {
-	if err := os.MkdirAll(toolsDir, 0755); err != nil {
-		return fmt.Errorf("creating tools directory: %w", err)
-	}
-
-	filename := "joern-cli.zip"
-	url := fmt.Sprintf("%s/%s/%s", JoernBaseURL, JoernVersion, filename)
-
-	fmt.Printf("Downloading Joern %s...\n", JoernVersion)
-	fmt.Printf("URL: %s\n", url)
-
-	resp, err := http.Get(url) //nolint:gosec // URL is constructed from constants, not user input
-	if err != nil {
-		return fmt.Errorf("downloading Joern: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download failed: HTTP %d -- check if Joern %s is available",
-			resp.StatusCode, JoernVersion)
-	}
-
-	tmpFile, err := os.CreateTemp(toolsDir, "joern-download-*.zip")
-	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
-	}
-	tmpPath := tmpFile.Name()
-	defer os.Remove(tmpPath)
-
-	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("saving download: %w", err)
-	}
-	tmpFile.Close()
-
-	if err := extractZip(tmpPath, toolsDir); err != nil {
-		return fmt.Errorf("extracting Joern: %w", err)
-	}
-
-	// Ensure the joern script is executable.
-	joernBin := filepath.Join(toolsDir, "joern")
-	if _, err := os.Stat(joernBin); err == nil {
-		if err := os.Chmod(joernBin, 0755); err != nil {
-			return fmt.Errorf("setting executable permission: %w", err)
-		}
-	}
-
-	fmt.Printf("Joern %s installed to %s\n", JoernVersion, toolsDir)
-	return nil
-}
+// Joern (Pass 3) was removed in ADR-033. All Joern query patterns are now
+// covered by OpenGrep taint rules (Pass 2) with 19x better performance.
 
 // IsYARAXInstalled returns true if a yr binary exists in toolsDir.
 func IsYARAXInstalled(toolsDir string) bool {
