@@ -28,7 +28,28 @@ jobs:
 
       - name: Run tests
         working-directory: cli
-        run: go test -race -count=1 ./internal/scanner/... ./internal/output/... ./internal/types/... ./internal/validation/... ./internal/tools/...
+        run: |
+          go test -race -count=1 \
+            ./internal/scanner/java/... \
+            ./internal/scanner/python/... \
+            ./internal/scanner/javascript/... \
+            ./internal/scanner/golang/... \
+            ./internal/scanner/kotlin/... \
+            ./internal/scanner/csharp/... \
+            ./internal/scanner/php/... \
+            ./internal/scanner/ruby/... \
+            ./internal/scanner/rust/... \
+            ./internal/scanner/swift/... \
+            ./internal/scanner/dart/... \
+            ./internal/scanner/cpp/... \
+            ./internal/scanner/kdf/... \
+            ./internal/scanner/binary/... \
+            ./internal/scanner/configfile/... \
+            ./internal/scanner/custom/... \
+            ./internal/output/... \
+            ./internal/types/... \
+            ./internal/validation/... \
+            ./internal/tools/...
 
       - name: Build cradar
         working-directory: cli
@@ -55,9 +76,10 @@ jobs:
 
       - name: Check no duplicate rule IDs
         run: |
-          DUPES=$(grep "^  - id:" scanner/rules/*.yml | awk -F': ' '{print $2}' | sort | uniq -d)
+          DUPES=$(grep -h "^  - id:" scanner/rules/*.yml | sed 's/^  - id: //' | sort | uniq -d)
           if [ -n "$DUPES" ]; then
-            echo "Duplicate rule IDs found: $DUPES"
+            echo "Duplicate rule IDs found:"
+            echo "$DUPES"
             exit 1
           fi
           echo "No duplicate rule IDs"
