@@ -104,12 +104,32 @@ var algorithmFamilyMap = map[string]cyclonedx17.AlgorithmFamily{
 	"blake2b":  cyclonedx17.AlgorithmFamilyBLAKE2,
 	"blake2s":  cyclonedx17.AlgorithmFamilyBLAKE2,
 	"jwt":      cyclonedx17.AlgorithmFamilyHMAC, // JWT typically uses HMAC-based signing
+
+	// New scanner families added during CBOMkit benchmark FN fixes.
+	"fernet":         cyclonedx17.AlgorithmFamilyAES,    // Fernet wraps AES-128-CBC + HMAC-SHA256
+	"concatkdf":      cyclonedx17.AlgorithmFamilyHKDF,   // ConcatKDF is a KDF like HKDF
+	"concatkdf-hmac": cyclonedx17.AlgorithmFamilyHKDF,   // ConcatKDF-HMAC variant
+	"x963kdf":        cyclonedx17.AlgorithmFamilyHKDF,   // ANSI X9.63 KDF
+	"xsalsa20":       cyclonedx17.AlgorithmFamilySalsa20, // XSalsa20 is a Salsa20 variant
+	"nacl":           cyclonedx17.AlgorithmFamilyChaCha20, // NaCl typically uses XSalsa20/ChaCha
+	"aes-cmac":       cyclonedx17.AlgorithmFamilyCMACFamily,
+	"3des-cmac":      cyclonedx17.AlgorithmFamilyCMACFamily,
+	"ripemd160":      cyclonedx17.AlgorithmFamilyRIPEMD,
+	"shake256":       cyclonedx17.AlgorithmFamilySHA3, // SHAKE is part of SHA-3 family
+	"shake128":       cyclonedx17.AlgorithmFamilySHA3,
+	"sha-224":        cyclonedx17.AlgorithmFamilySHA2,
+	// Lowercase variants from some scanners.
+	"sha256 ":  cyclonedx17.AlgorithmFamilySHA2, // trailing space from some parsers
+	"sha384 ":  cyclonedx17.AlgorithmFamilySHA2,
+	"sha1 ":    cyclonedx17.AlgorithmFamilySHA1,
+	"md5 ":     cyclonedx17.AlgorithmFamilyMD5,
 }
 
 // normalizeAlgorithmFamily converts an internal algorithm family string to the
 // official CycloneDX 1.7 schema value.
 func normalizeAlgorithmFamily(internal string) cyclonedx17.AlgorithmFamily {
-	if af, ok := algorithmFamilyMap[strings.ToLower(internal)]; ok {
+	key := strings.ToLower(strings.TrimSpace(internal))
+	if af, ok := algorithmFamilyMap[key]; ok {
 		return af
 	}
 	// Return as-is if no mapping exists (will fail schema validation, but
@@ -131,15 +151,21 @@ var cryptoFunctionMap = map[string]cyclonedx17.CryptoFunction{
 	"verify":      cyclonedx17.CryptoFunctionVerify,
 	"encapsulate": cyclonedx17.CryptoFunctionEncapsulate,
 	"decapsulate": cyclonedx17.CryptoFunctionDecapsulate,
-	"mac":         cyclonedx17.CryptoFunctionTag, // MAC computation maps to "tag"
-	"other":       cyclonedx17.CryptoFunctionOther,
-	"unknown":     cyclonedx17.CryptoFunctionUnknown,
+	"mac":           cyclonedx17.CryptoFunctionTag,       // MAC computation maps to "tag"
+	"cipher-suite":  cyclonedx17.CryptoFunctionEncrypt,  // cipher suite maps to encrypt
+	"key-agreement": cyclonedx17.CryptoFunctionKeygen,   // key agreement maps to keygen
+	"hash":          cyclonedx17.CryptoFunctionDigest,    // hash maps to digest
+	"passwordhash":  cyclonedx17.CryptoFunctionKeyderive, // password hash is key derivation
+	"keydrive":      cyclonedx17.CryptoFunctionKeyderive, // typo fix
+	"other":         cyclonedx17.CryptoFunctionOther,
+	"unknown":       cyclonedx17.CryptoFunctionUnknown,
 }
 
 // normalizeCryptoFunction converts an internal crypto function string to the
 // official CycloneDX 1.7 schema value.
 func normalizeCryptoFunction(internal string) cyclonedx17.CryptoFunction {
-	if cf, ok := cryptoFunctionMap[strings.ToLower(internal)]; ok {
+	key := strings.ToLower(strings.TrimSpace(internal))
+	if cf, ok := cryptoFunctionMap[key]; ok {
 		return cf
 	}
 	return cyclonedx17.CryptoFunction(internal)
@@ -178,19 +204,87 @@ var paddingMap = map[string]cyclonedx17.Padding{
 	"raw":          cyclonedx17.PaddingRaw,
 	"nopadding":    cyclonedx17.PaddingRaw,    // no padding = raw
 	"none":         cyclonedx17.PaddingRaw,    // no padding = raw
-	"pkcs5padding": cyclonedx17.PaddingPKCS5,  // Java-style name
-	"pkcs7padding": cyclonedx17.PaddingPKCS7,  // Java-style name
-	"other":        cyclonedx17.PaddingOther,
-	"unknown":      cyclonedx17.PaddingUnknown,
+	"pkcs5padding":                    cyclonedx17.PaddingPKCS5,    // Java-style name
+	"pkcs7padding":                    cyclonedx17.PaddingPKCS7,    // Java-style name
+	"pkcs1padding":                    cyclonedx17.PaddingPKCS1v15, // Java RSA default
+	"oaepwithsha-256andmgf1padding":   cyclonedx17.PaddingOAEP,    // Java OAEP full name
+	"oaepwithsha-1andmgf1padding":     cyclonedx17.PaddingOAEP,
+	"other":                           cyclonedx17.PaddingOther,
+	"unknown":                         cyclonedx17.PaddingUnknown,
 }
 
 // normalizePadding converts an internal padding string to the
 // official CycloneDX 1.7 schema value.
 func normalizePadding(internal string) cyclonedx17.Padding {
-	if p, ok := paddingMap[strings.ToLower(internal)]; ok {
+	key := strings.ToLower(strings.TrimSpace(internal))
+	if p, ok := paddingMap[key]; ok {
 		return p
 	}
 	return cyclonedx17.Padding(internal)
+}
+
+// modeMap normalizes internal cipher mode values to CycloneDX 1.7 schema values.
+var modeMap = map[string]cyclonedx17.Mode{
+	"cbc": cyclonedx17.ModeCBC,
+	"ecb": cyclonedx17.ModeECB,
+	"ccm": cyclonedx17.ModeCCM,
+	"gcm": cyclonedx17.ModeGCM,
+	"cfb": cyclonedx17.ModeCFB,
+	"ofb": cyclonedx17.ModeOFB,
+	"ctr": cyclonedx17.ModeCTR,
+	// Non-standard modes map to "other".
+	"eax": cyclonedx17.ModeOther,
+	"xts": cyclonedx17.ModeOther,
+	"siv": cyclonedx17.ModeOther,
+	"ocb": cyclonedx17.ModeOther,
+}
+
+// normalizeMode converts an internal mode string to the CycloneDX 1.7 schema value.
+func normalizeMode(internal string) cyclonedx17.Mode {
+	if internal == "" {
+		return ""
+	}
+	key := strings.ToLower(strings.TrimSpace(internal))
+	if m, ok := modeMap[key]; ok {
+		return m
+	}
+	return cyclonedx17.ModeOther
+}
+
+// primitiveMap normalizes internal primitive values to CycloneDX 1.7 schema values.
+var primitiveMap = map[string]cyclonedx17.Primitive{
+	"block-cipher":   cyclonedx17.PrimitiveBlockCipher,
+	"stream-cipher":  cyclonedx17.PrimitiveStreamCipher,
+	"hash":           cyclonedx17.PrimitiveHash,
+	"mac":            cyclonedx17.PrimitiveMAC,
+	"signature":      cyclonedx17.PrimitiveSignature,
+	"pke":            cyclonedx17.PrimitivePKE,
+	"kdf":            cyclonedx17.PrimitiveKDF,
+	"key-agree":      cyclonedx17.PrimitiveKeyAgree,
+	"key-exchange":   cyclonedx17.PrimitiveKeyAgree, // normalize to CycloneDX name
+	"kem":            cyclonedx17.PrimitiveKEM,
+	"ae":             cyclonedx17.PrimitiveAE,
+	"aead":           cyclonedx17.PrimitiveAE, // alias
+	"xof":            cyclonedx17.PrimitiveXOF,
+	"drbg":           cyclonedx17.PrimitiveDRBG,
+	"combiner":       cyclonedx17.PrimitiveCombiner,
+	"key-wrap":       cyclonedx17.PrimitiveKeyWrap,
+	"other":          cyclonedx17.PrimitiveOther,
+	"unknown":        cyclonedx17.PrimitiveUnknown,
+	// Common aliases.
+	"protocol":       cyclonedx17.PrimitiveOther,
+}
+
+// normalizePrimitive converts an internal primitive string to the CycloneDX 1.7 schema value.
+func normalizePrimitive(internal string) cyclonedx17.Primitive {
+	if internal == "" {
+		return ""
+	}
+	key := strings.ToLower(strings.TrimSpace(internal))
+	if p, ok := primitiveMap[key]; ok {
+		return p
+	}
+	return cyclonedx17.PrimitiveOther
 }
 
 // normalizeRelatedCryptoMaterialType converts an internal material type to the
@@ -339,9 +433,9 @@ func convertCryptoProperties(f *types.Finding) *cyclonedx17.CryptoProperties {
 // convertAlgorithmProperties maps types.CryptoProperties to CycloneDX AlgorithmProperties.
 func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.AlgorithmProperties {
 	ap := &cyclonedx17.AlgorithmProperties{
-		Primitive:                cyclonedx17.Primitive(p.Primitive),
+		Primitive:                normalizePrimitive(p.Primitive),
 		AlgorithmFamily:          normalizeAlgorithmFamily(p.AlgorithmFamily),
-		Mode:                     cyclonedx17.Mode(p.Mode),
+		Mode:                     normalizeMode(p.Mode),
 		Padding:                  normalizePadding(p.Padding),
 		ClassicalSecurityLevel:   p.ClassicalSecurity,
 		NistQuantumSecurityLevel: p.NistQuantumLevel,
