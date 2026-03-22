@@ -11,6 +11,7 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           # Native builds only — CGO (tree-sitter) prevents cross-compilation
@@ -22,7 +23,7 @@ jobs:
             goos: darwin
             goarch: arm64
             opengrep_asset: opengrep-core_osx_aarch64.tar.gz
-          - os: macos-13
+          - os: macos-14
             goos: darwin
             goarch: amd64
             opengrep_asset: opengrep-core_osx_x86_64.tar.gz
