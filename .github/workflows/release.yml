@@ -13,14 +13,11 @@ jobs:
     strategy:
       matrix:
         include:
+          # Native builds only — CGO (tree-sitter) prevents cross-compilation
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
             opengrep_asset: opengrep-core_linux_x86_64.tar.gz
-          - os: ubuntu-latest
-            goos: linux
-            goarch: arm64
-            opengrep_asset: opengrep-core_linux_aarch64.tar.gz
           - os: macos-latest
             goos: darwin
             goarch: arm64
@@ -33,6 +30,9 @@ jobs:
             goos: windows
             goarch: amd64
             opengrep_asset: ""  # OpenGrep may not have Windows builds
+          # NOTE: linux/arm64 requires a self-hosted ARM runner or
+          # ubuntu-24.04-arm64 (GitHub-hosted ARM, if available).
+          # Skipped for v1.0 — add when ARM runner is available.
     runs-on: ${{ matrix.os }}
 
     steps:
