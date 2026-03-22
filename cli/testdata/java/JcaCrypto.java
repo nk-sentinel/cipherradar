@@ -5,6 +5,7 @@ import javax.crypto.spec.IvParameterSpec;
 import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
 import java.security.Signature;
+import java.security.spec.ECGenParameterSpec;
 import javax.crypto.Mac;
 
 public class JcaCrypto {
@@ -64,5 +65,16 @@ public class JcaCrypto {
     public void constPropTest() throws Exception {
         String algo = "AES/CBC/PKCS5Padding";
         Cipher cipher = Cipher.getInstance(algo);
+    }
+
+    // EC with ECGenParameterSpec — cross-statement pattern (F13)
+    public void generateECWithCurve() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
+        kpg.initialize(new ECGenParameterSpec("secp256r1"));
+    }
+
+    public void generateECWithP384() throws Exception {
+        KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
+        kpg.initialize(new ECGenParameterSpec("secp384r1"));
     }
 }

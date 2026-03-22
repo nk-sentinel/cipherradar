@@ -79,6 +79,14 @@ func (s *PythonScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 	pkcs1Findings := s.detectPKCS1v15(root, path, content)
 	findings = append(findings, pkcs1Findings...)
 
+	// F10: Detect Fernet/MultiFernet usage
+	fernetFindings := s.detectFernet(root, path, content)
+	findings = append(findings, fernetFindings...)
+
+	// F11: Detect CMAC and Poly1305 MAC usage
+	cryptoMACFindings := s.detectCryptoMACs(root, path, content)
+	findings = append(findings, cryptoMACFindings...)
+
 	return findings, nil
 }
 
@@ -710,6 +718,34 @@ func (s *PythonScanner) detectAsymmetricKeyGen(root *sitter.Node, path string, c
 				RuleID:      "cbom-python-cryptography-dh-generate",
 				Pass:        1,
 			})
+
+		case objName == "dsa" && methodName == "generate_private_key":
+			keySize := resolveNthArgInt(argsNode, 0, content, cp)
+			qi := GetQuantumInfo("dsa")
+			name := "DSA"
+			if keySize > 0 {
+				name = fmt.Sprintf("DSA-%d", keySize)
+			}
+			sev := types.SeverityMedium
+			findings = append(findings, types.Finding{
+				ID:        nextFindingID(),
+				AssetType: types.AssetAlgorithm,
+				Name:      name,
+				Location:  scanner.NodeLocation(callNode, path, content),
+				Severity:  sev,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        "signature",
+					AlgorithmFamily:  "dsa",
+					KeySize:          keySize,
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{"generate"},
+				},
+				Description: fmt.Sprintf("DSA key generation (key_size=%d) via cryptography library", keySize),
+				RuleID:      "cbom-python-cryptography-dsa-generate",
+				Pass:        1,
+			})
 		}
 	}
 
@@ -734,6 +770,14 @@ func (s *PythonScanner) detectEdDSAKeyGen(root *sitter.Node, path string, conten
 	eddsaMap := map[string]string{
 		"Ed25519PrivateKey": "ed25519",
 		"Ed448PrivateKey":   "ed448",
+		"X25519PrivateKey":  "x25519",
+		"X448PrivateKey":    "x448",
+	}
+
+	// Key exchange algorithms use a different primitive than signatures.
+	keyExchangeSet := map[string]bool{
+		"x25519": true,
+		"x448":   true,
 	}
 
 	for _, match := range matches {
@@ -764,6 +808,11 @@ func (s *PythonScanner) detectEdDSAKeyGen(root *sitter.Node, path string, conten
 		qi := GetQuantumInfo(algoFamily)
 		name := strings.ToUpper(algoFamily)
 
+		primitive := "signature"
+		if keyExchangeSet[algoFamily] {
+			primitive = "key-exchange"
+		}
+
 		findings = append(findings, types.Finding{
 			ID:        nextFindingID(),
 			AssetType: types.AssetAlgorithm,
@@ -772,7 +821,7 @@ func (s *PythonScanner) detectEdDSAKeyGen(root *sitter.Node, path string, conten
 			Severity:  types.SeverityInfo,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
-				Primitive:        "signature",
+				Primitive:        primitive,
 				AlgorithmFamily:  algoFamily,
 				QuantumStatus:    qi.Status,
 				NistQuantumLevel: qi.NistLevel,
@@ -792,10 +841,13 @@ var kdfMap = map[string]struct {
 	family string
 	name   string
 }{
-	"PBKDF2HMAC": {family: "pbkdf2", name: "PBKDF2-HMAC"},
-	"HKDF":       {family: "hkdf", name: "HKDF"},
-	"HKDFExpand": {family: "hkdf", name: "HKDF-Expand"},
-	"Scrypt":     {family: "scrypt", name: "Scrypt"},
+	"PBKDF2HMAC":    {family: "pbkdf2", name: "PBKDF2-HMAC"},
+	"HKDF":          {family: "hkdf", name: "HKDF"},
+	"HKDFExpand":    {family: "hkdf", name: "HKDF-Expand"},
+	"Scrypt":        {family: "scrypt", name: "Scrypt"},
+	"ConcatKDFHash": {family: "concatkdf", name: "ConcatKDF"},
+	"ConcatKDFHMAC": {family: "concatkdf-hmac", name: "ConcatKDF-HMAC"},
+	"X963KDF":       {family: "x963kdf", name: "X963KDF"},
 }
 
 func (s *PythonScanner) detectKDFs(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
@@ -1715,6 +1767,219 @@ func (s *PythonScanner) detectPKCS1v15(root *sitter.Node, path string, content [
 			RuleID:      "cbom-python-cryptography-pkcs1v15",
 			Pass:        1,
 		})
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// F10: Fernet / MultiFernet detection
+// ---------------------------------------------------------------------------
+
+func (s *PythonScanner) detectFernet(root *sitter.Node, path string, content []byte) []types.Finding {
+	var findings []types.Finding
+
+	// Match: Fernet(key) or MultiFernet(...)
+	for _, fnName := range []string{"Fernet", "MultiFernet"} {
+		queryStr := fmt.Sprintf(`(call
+			function: (identifier) @fn
+			(#eq? @fn "%s"))`, fnName)
+
+		matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+		if err != nil {
+			continue
+		}
+
+		for _, match := range matches {
+			var fnNode *sitter.Node
+			for _, capture := range match.Captures {
+				if capture.Index == 0 {
+					fnNode = capture.Node
+				}
+			}
+			if fnNode == nil {
+				continue
+			}
+
+			callNode := fnNode.Parent()
+			if callNode == nil {
+				callNode = fnNode
+			}
+
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       fnName,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:       "block-cipher",
+					AlgorithmFamily: "fernet",
+					CryptoFunctions: []string{"encrypt", "decrypt"},
+				},
+				Description: fmt.Sprintf("%s symmetric encryption via cryptography library", fnName),
+				RuleID:      fmt.Sprintf("cbom-python-cryptography-%s", strings.ToLower(fnName)),
+				Pass:        1,
+			})
+		}
+	}
+
+	// Match: Fernet.generate_key()
+	queryStr := `(call
+		function: (attribute
+			object: (identifier) @obj
+			attribute: (identifier) @method)
+		(#eq? @obj "Fernet")
+		(#eq? @method "generate_key"))`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err == nil {
+		for _, match := range matches {
+			var methodNode *sitter.Node
+			for _, capture := range match.Captures {
+				if capture.Index == 1 {
+					methodNode = capture.Node
+				}
+			}
+			if methodNode == nil {
+				continue
+			}
+
+			callNode := methodNode.Parent()
+			if callNode != nil {
+				callNode = callNode.Parent()
+			}
+			if callNode == nil {
+				callNode = methodNode
+			}
+
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "Fernet",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:       "block-cipher",
+					AlgorithmFamily: "fernet",
+					CryptoFunctions: []string{"generate"},
+				},
+				Description: "Fernet key generation via cryptography library",
+				RuleID:      "cbom-python-cryptography-fernet-generate-key",
+				Pass:        1,
+			})
+		}
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// F11: CMAC and Poly1305 detection
+// ---------------------------------------------------------------------------
+
+func (s *PythonScanner) detectCryptoMACs(root *sitter.Node, path string, content []byte) []types.Finding {
+	var findings []types.Finding
+
+	// Match CMAC(...) calls
+	cmacQuery := `(call
+		function: (identifier) @fn
+		arguments: (argument_list) @args
+		(#eq? @fn "CMAC"))`
+
+	cmacMatches, err := scanner.QueryMatches(root, cmacQuery, s.lang, content)
+	if err == nil {
+		for _, match := range cmacMatches {
+			var fnNode, argsNode *sitter.Node
+			for _, capture := range match.Captures {
+				switch capture.Index {
+				case 0:
+					fnNode = capture.Node
+				case 1:
+					argsNode = capture.Node
+				}
+			}
+			if fnNode == nil {
+				continue
+			}
+
+			callNode := fnNode.Parent()
+			if callNode == nil {
+				callNode = fnNode
+			}
+
+			// Extract inner algorithm from arguments
+			algoName := "CMAC"
+			if argsNode != nil {
+				argsText := scanner.NodeText(argsNode, content)
+				if strings.Contains(argsText, "algorithms.AES") {
+					algoName = "AES-CMAC"
+				} else if strings.Contains(argsText, "algorithms.TripleDES") {
+					algoName = "3DES-CMAC"
+				}
+			}
+
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       algoName,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:       "mac",
+					AlgorithmFamily: strings.ToLower(algoName),
+					CryptoFunctions: []string{"mac"},
+				},
+				Description: fmt.Sprintf("%s message authentication code via cryptography library", algoName),
+				RuleID:      "cbom-python-cryptography-cmac",
+				Pass:        1,
+			})
+		}
+	}
+
+	// Match Poly1305(...) calls
+	polyQuery := `(call
+		function: (identifier) @fn
+		(#eq? @fn "Poly1305"))`
+
+	polyMatches, err := scanner.QueryMatches(root, polyQuery, s.lang, content)
+	if err == nil {
+		for _, match := range polyMatches {
+			var fnNode *sitter.Node
+			for _, capture := range match.Captures {
+				if capture.Index == 0 {
+					fnNode = capture.Node
+				}
+			}
+			if fnNode == nil {
+				continue
+			}
+
+			callNode := fnNode.Parent()
+			if callNode == nil {
+				callNode = fnNode
+			}
+
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "Poly1305",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:       "mac",
+					AlgorithmFamily: "poly1305",
+					CryptoFunctions: []string{"mac"},
+				},
+				Description: "Poly1305 message authentication code via cryptography library",
+				RuleID:      "cbom-python-cryptography-poly1305",
+				Pass:        1,
+			})
+		}
 	}
 
 	return findings

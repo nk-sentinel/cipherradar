@@ -1,0 +1,18 @@
+{
+  "java": {
+    "cr": 138,
+    "cb": 182,
+    "both": 63,
+    "cr_only": 75,
+    "fn_real": 55,
+    "fn_lifecycle": 64
+  },
+  "python": {
+    "cr": 180,
+    "cb": 100,
+    "both": 57,
+    "cr_only": 123,
+    "fn_real": 26,
+    "fn_lifecycle": 17
+  }
+}

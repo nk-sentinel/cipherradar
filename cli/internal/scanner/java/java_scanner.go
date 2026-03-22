@@ -2,6 +2,7 @@ package java
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -137,6 +138,7 @@ var jcaClassInfo = map[string]struct {
 	"Signature":       {primitive: "signature", ruleTag: "signature"},
 	"SecretKeySpec":   {primitive: "block-cipher", ruleTag: "secretkeyspec"},
 	"SSLContext":      {primitive: "", ruleTag: "sslcontext"},
+	"KeyAgreement":   {primitive: "key-exchange", ruleTag: "keyagreement"},
 }
 
 // algorithmFamilyMap maps JCA algorithm names (uppercased) to quantum family names.
@@ -151,6 +153,8 @@ var algorithmFamilyMap = map[string]string{
 	"DSA":       "dsa",
 	"EC":        "ec",
 	"ECDSA":     "ecdsa",
+	"DH":        "dh",
+	"ECDH":      "ecdh",
 	"MD5":       "md5",
 	"SHA-1":     "sha1",
 	"SHA1":      "sha1",
@@ -241,14 +245,28 @@ func (s *JavaScanner) detectJCA(root *sitter.Node, path string, content []byte, 
 			finding := s.handleMacGetInstance(callNode, argsNode, path, content, cp)
 			if finding != nil {
 				findings = append(findings, *finding)
+				// F2-J: Extract inner hash from HMAC name (e.g., HmacSHA256 → SHA-256).
+				macAlgo, _ := resolveFirstArg(argsNode, content, cp)
+				if hashFindings := decomposeHMACHash(finding, macAlgo); len(hashFindings) > 0 {
+					findings = append(findings, hashFindings...)
+				}
 			}
 		case "Signature":
 			finding := s.handleSignatureGetInstance(callNode, argsNode, path, content, cp)
 			if finding != nil {
 				findings = append(findings, *finding)
+				// F1: Decompose hash from composite signature name (e.g., SHA256withRSA → SHA-256).
+				if hashFindings := decomposeSignatureHash(finding, path); len(hashFindings) > 0 {
+					findings = append(findings, hashFindings...)
+				}
 			}
 		case "SSLContext":
 			finding := s.handleSSLContextGetInstance(callNode, argsNode, path, content, cp)
+			if finding != nil {
+				findings = append(findings, *finding)
+			}
+		case "KeyAgreement":
+			finding := s.handleKeyAgreementGetInstance(callNode, argsNode, path, content, cp)
 			if finding != nil {
 				findings = append(findings, *finding)
 			}
@@ -486,6 +504,157 @@ func (s *JavaScanner) handleSignatureGetInstance(callNode, argsNode *sitter.Node
 		RuleID:      fmt.Sprintf("cbom-java-jca-signature-%s", strings.ToLower(strings.ReplaceAll(algoStr, "/", "-"))),
 		Pass:        1,
 	}
+}
+
+// handleKeyAgreementGetInstance detects KeyAgreement.getInstance("DH") / "ECDH".
+func (s *JavaScanner) handleKeyAgreementGetInstance(callNode, argsNode *sitter.Node, path string, content []byte, cp *ConstPropagator) *types.Finding {
+	algoStr, confidence := resolveFirstArg(argsNode, content, cp)
+	if algoStr == "" {
+		return nil
+	}
+
+	algoFamily := lookupAlgoFamily(algoStr)
+	if algoFamily == "" {
+		algoFamily = strings.ToLower(algoStr)
+	}
+	qi := quantum.GetInfo(algoFamily)
+
+	return &types.Finding{
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       strings.ToUpper(algoStr),
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   types.SeverityInfo,
+		Confidence: confidence,
+		Properties: types.CryptoProperties{
+			Primitive:        "key-exchange",
+			AlgorithmFamily:  algoFamily,
+			QuantumStatus:    qi.Status,
+			NistQuantumLevel: qi.NistLevel,
+			CryptoFunctions:  []string{"key-agreement"},
+		},
+		Description: fmt.Sprintf("Key agreement %s via KeyAgreement.getInstance()", algoStr),
+		RuleID:      fmt.Sprintf("cbom-java-jca-keyagreement-%s", strings.ToLower(algoStr)),
+		Pass:        1,
+	}
+}
+
+// ---------------------------------------------------------------------------
+// F1/F2-J/F3-J/F4: Composite algorithm decomposition helpers
+// ---------------------------------------------------------------------------
+
+// reHmacHash extracts the hash from HMAC algorithm names (e.g., HmacSHA256 → SHA256).
+var reHmacHash = regexp.MustCompile(`(?i)^Hmac(SHA\d+|MD5|SHA3[-_]\d+)$`)
+
+// rePBKDF2Hash extracts the hash from PBKDF2 algorithm names.
+var rePBKDF2Hash = regexp.MustCompile(`(?i)^PBKDF2With(?:Hmac)?(SHA\d+|SHA3[-_]\d+|MD5)$`)
+
+// reOAEPHash extracts the hash and MGF from OAEP padding names.
+var reOAEPHash = regexp.MustCompile(`(?i)^OAEPWith([A-Za-z0-9-]+)And(MGF\d+)`)
+
+// decomposeSignatureHash emits a hash finding from a composite signature algorithm
+// (e.g., SHA256withRSA → emits SHA-256 hash finding).
+func decomposeSignatureHash(sigFinding *types.Finding, path string) []types.Finding {
+	// Parse the original algorithm string from the rule ID.
+	name := sigFinding.Name
+	hashPart, _ := ParseSignatureAlgorithm(name)
+	if hashPart == "" {
+		// Try from description (which contains the original algoStr).
+		return nil
+	}
+
+	hashFamily := lookupAlgoFamily(hashPart)
+	if hashFamily == "" {
+		hashFamily = strings.ToLower(hashPart)
+	}
+	qi := quantum.GetInfo(hashFamily)
+
+	return []types.Finding{{
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       strings.ToUpper(hashPart),
+		Location:   sigFinding.Location,
+		Severity:   hashSeverity(hashFamily),
+		Confidence: sigFinding.Confidence,
+		Properties: types.CryptoProperties{
+			Primitive:        "hash",
+			AlgorithmFamily:  hashFamily,
+			QuantumStatus:    qi.Status,
+			NistQuantumLevel: qi.NistLevel,
+			CryptoFunctions:  []string{"digest"},
+		},
+		Description: fmt.Sprintf("Hash %s (extracted from signature %s)", strings.ToUpper(hashPart), name),
+		RuleID:      fmt.Sprintf("cbom-java-jca-hash-%s", strings.ToLower(hashPart)),
+		Pass:        1,
+	}}
+}
+
+// decomposeHMACHash emits a hash finding from an HMAC algorithm name
+// (e.g., HmacSHA256 → emits SHA-256 hash finding).
+func decomposeHMACHash(macFinding *types.Finding, algoStr string) []types.Finding {
+	m := reHmacHash.FindStringSubmatch(algoStr)
+	if len(m) < 2 {
+		return nil
+	}
+	hashName := m[1]
+	hashFamily := lookupAlgoFamily(hashName)
+	if hashFamily == "" {
+		hashFamily = strings.ToLower(hashName)
+	}
+	qi := quantum.GetInfo(hashFamily)
+
+	return []types.Finding{{
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       strings.ToUpper(hashName),
+		Location:   macFinding.Location,
+		Severity:   hashSeverity(hashFamily),
+		Confidence: macFinding.Confidence,
+		Properties: types.CryptoProperties{
+			Primitive:        "hash",
+			AlgorithmFamily:  hashFamily,
+			QuantumStatus:    qi.Status,
+			NistQuantumLevel: qi.NistLevel,
+			CryptoFunctions:  []string{"digest"},
+		},
+		Description: fmt.Sprintf("Hash %s (extracted from HMAC %s)", strings.ToUpper(hashName), algoStr),
+		RuleID:      fmt.Sprintf("cbom-java-jca-hash-%s", strings.ToLower(hashName)),
+		Pass:        1,
+	}}
+}
+
+// decomposePBKDF2Hash emits a hash finding from a PBKDF2 algorithm name
+// (e.g., PBKDF2WithHmacSHA256 → emits SHA-256 hash finding).
+func decomposePBKDF2Hash(kdfFinding *types.Finding, algoStr string) []types.Finding {
+	m := rePBKDF2Hash.FindStringSubmatch(algoStr)
+	if len(m) < 2 {
+		return nil
+	}
+	hashName := m[1]
+	hashFamily := lookupAlgoFamily(hashName)
+	if hashFamily == "" {
+		hashFamily = strings.ToLower(hashName)
+	}
+	qi := quantum.GetInfo(hashFamily)
+
+	return []types.Finding{{
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       strings.ToUpper(hashName),
+		Location:   kdfFinding.Location,
+		Severity:   hashSeverity(hashFamily),
+		Confidence: kdfFinding.Confidence,
+		Properties: types.CryptoProperties{
+			Primitive:        "hash",
+			AlgorithmFamily:  hashFamily,
+			QuantumStatus:    qi.Status,
+			NistQuantumLevel: qi.NistLevel,
+			CryptoFunctions:  []string{"digest"},
+		},
+		Description: fmt.Sprintf("Hash %s (extracted from KDF %s)", strings.ToUpper(hashName), algoStr),
+		RuleID:      fmt.Sprintf("cbom-java-jca-hash-%s", strings.ToLower(hashName)),
+		Pass:        1,
+	}}
 }
 
 func (s *JavaScanner) detectSecretKeySpec(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
@@ -931,6 +1100,10 @@ func cipherSeverity(algoFamily, mode string) types.Severity {
 
 // buildCipherName creates a human-readable cipher name like "AES-ECB".
 func buildCipherName(algoClass, mode string) string {
+	// Normalize DESede to 3DES for standard naming.
+	if strings.EqualFold(algoClass, "DESEDE") {
+		algoClass = "3DES"
+	}
 	name := algoClass
 	if mode != "" {
 		name = fmt.Sprintf("%s-%s", algoClass, strings.ToUpper(mode))

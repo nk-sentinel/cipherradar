@@ -1,0 +1,31 @@
+CipherRadar Scan Results
+========================
+Target:  /Users/cyberdevil/codeWorkspace/CipherRadarTestProj
+Files:   70 scanned
+Time:    0.16s
+Passes:  1
+
+Findings: 547
+  CRITICAL: 5
+  HIGH:     121
+  MEDIUM:   44
+  LOW:      0
+  INFO:     377
+
+Quantum Status:
+  Vulnerable: 87
+  Safe:       202
+  Unknown:    147
+  Broken:     111
+
+Top Findings:
+  CRITICAL  python/ssl_stdlib.py:31:23 Certificate Validation Disabled — Certificate validation disabled with ssl.CERT_NONE — vulnerable to MITM attacks
+  CRITICAL  backend/auth_middleware.js:11:12 none (unsigned) — JWT verify with algorithm none (unsigned) via jsonwebtoken
+  CRITICAL  javascript/jwt_patterns.js:27:12 none (unsigned) — JWT verify with algorithm none (unsigned) via jsonwebtoken
+  CRITICAL  network/tls_config.py:22:23 Certificate Validation Disabled — Certificate validation disabled with ssl.CERT_NONE — vulnerable to MITM attacks
+  CRITICAL  python/insecure_patterns.py:43:23 Certificate Validation Disabled — Certificate validation disabled with ssl.CERT_NONE — vulnerable to MITM attacks
+  HIGH      crypto/encryption.py:52:12 RSA-1024 — RSA key generation (key_size=1024) via cryptography library
+  HIGH      backend/crypto_utils.js:19:20 DES-ECB — Cipher DES-ECB via crypto.createCipheriv()
+  HIGH      go/crypto_stdlib.go:73:14 3DES — 3DES block cipher via des.NewTripleDESCipher() — deprecated
+  HIGH      go/crypto_stdlib.go:79:10 RC4 — RC4 stream cipher via rc4.NewCipher() — broken, do not use
+  HIGH      go/crypto_stdlib.go:85:7  MD5 — MD5 hash via md5.New() — broken, do not use

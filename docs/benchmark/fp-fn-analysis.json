@@ -1,0 +1,26 @@
+{
+  "cradar": {
+    "java_total": 127,
+    "java_fp": 0,
+    "java_real": 127,
+    "python_total": 169,
+    "python_fp": 0,
+    "python_real": 169,
+    "fp_rate": 0.0
+  },
+  "cbomkit": {
+    "java_total": 182,
+    "java_lifecycle": 64,
+    "java_real": 118,
+    "python_total": 100,
+    "python_lifecycle": 17,
+    "python_real": 83,
+    "fp_rate_lifecycle": 28.7
+  },
+  "false_negatives": {
+    "cradar_missed_java_real": 38,
+    "cradar_missed_python_real": 31,
+    "cbomkit_missed_java": 47,
+    "cbomkit_missed_python": 117
+  }
+}

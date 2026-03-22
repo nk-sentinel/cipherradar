@@ -1,0 +1,100 @@
+{
+  "scan_date": "2026-03-23",
+  "cradar_version": "dev",
+  "cbomkit_version": "1.4.5",
+  "sonarqube_version": "25.1.0.102122",
+  "tiers": {
+    "pass1": {
+      "components": 540,
+      "occurrences": 536,
+      "time_ms": 254,
+      "by_language": {
+        "Python": 169,
+        "Java": 117,
+        "Config": 63,
+        "C#": 18,
+        "JavaScript": 50,
+        "Go": 37,
+        "TypeScript": 9,
+        "Kotlin": 17,
+        "PHP": 19,
+        "TAG": 2,
+        "Ruby": 26,
+        "pem": 10,
+        "sh": 2,
+        "key": 1
+      },
+      "by_asset_type": {
+        "algorithm": 440,
+        "related-crypto-material": 44,
+        "protocol": 50,
+        "certificate": 6
+      }
+    },
+    "pass12": {
+      "components": 556,
+      "occurrences": 552,
+      "time_ms": 759,
+      "by_language": {
+        "Java": 127,
+        "JavaScript": 54,
+        "Kotlin": 19,
+        "Python": 169,
+        "Config": 63,
+        "C#": 18,
+        "Go": 37,
+        "TypeScript": 9,
+        "PHP": 19,
+        "TAG": 2,
+        "Ruby": 26,
+        "pem": 10,
+        "sh": 2,
+        "key": 1
+      },
+      "by_asset_type": {
+        "algorithm": 450,
+        "related-crypto-material": 48,
+        "certificate": 8,
+        "protocol": 50
+      }
+    },
+    "cbomkit": {
+      "components": 163,
+      "occurrences": 282,
+      "time_ms": 17157,
+      "by_language": {
+        "Java": 182,
+        "Python": 100
+      },
+      "by_asset_type": {
+        "algorithm": 77,
+        "related-crypto-material": 81,
+        "protocol": 5
+      }
+    }
+  },
+  "pass2_delta": {
+    "new_findings": 16,
+    "time_overhead_ms": 505,
+    "by_name": {
+      "ecb-mode-usage": 7,
+      "hardcoded-jwt-secret": 3,
+      "trust-all-certificates": 2,
+      "kotlin-ecb-mode": 2,
+      "hardcoded-hmac-key": 1,
+      "weak-prng-security": 1
+    }
+  },
+  "head_to_head": {
+    "java": {
+      "cradar_p1": 117,
+      "cradar_p12": 127,
+      "cbomkit": 182
+    },
+    "python": {
+      "cradar_p1": 169,
+      "cradar_p12": 169,
+      "cbomkit": 100
+    }
+  }
+}
