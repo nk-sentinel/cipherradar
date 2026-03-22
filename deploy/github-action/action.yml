@@ -18,9 +18,9 @@ inputs:
     required: false
     default: 'cbom.json'
   passes:
-    description: 'Scan passes to run (1,2,3)'
+    description: 'Scan passes to run (1=AST, 2=OpenGrep taint analysis)'
     required: false
-    default: '1'
+    default: '1,2'
   policy:
     description: 'Path to policy file for enforcement'
     required: false

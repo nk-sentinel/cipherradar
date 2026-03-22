@@ -64,9 +64,10 @@ archives:
       - goos: windows
         format: zip
 
-  # Full archive — cradar binary + OpenGrep + Joern + YARA-X binaries
+  # Full archive — cradar binary + OpenGrep + YARA-X binaries
   # NOTE: Tool binaries must be placed in dist/<tool>-<os>-<arch>/
   # before running goreleaser, via CI pre-build steps.
+  # Joern removed per ADR-033 — all patterns covered by OpenGrep rules.
   - id: cradar-full-archive
     builds:
       - cradar-full
@@ -74,9 +75,6 @@ archives:
     format: tar.gz
     files:
       - src: "dist/opengrep-{{ .Os }}-{{ .Arch }}/*"
-        dst: .
-        strip_parent: true
-      - src: "dist/joern-{{ .Os }}-{{ .Arch }}/*"
         dst: .
         strip_parent: true
       - src: "dist/yara-x-{{ .Os }}-{{ .Arch }}/*"
@@ -102,4 +100,4 @@ release:
     owner: nk-sentinel
     name: cipherradar
   name_template: "v{{.Version}}"
-  draft: true
+  draft: false

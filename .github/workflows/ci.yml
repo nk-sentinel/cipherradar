@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  lint-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Go vet
+        working-directory: cli
+        run: go vet ./...
+
+      - name: Run tests
+        working-directory: cli
+        run: go test -race -count=1 ./internal/scanner/... ./internal/output/... ./internal/types/... ./internal/validation/... ./internal/tools/...
+
+      - name: Build cradar
+        working-directory: cli
+        run: |
+          go build -o cradar ./cmd/cradar
+          ./cradar version
+
+      - name: Smoke test scan
+        working-directory: cli
+        run: |
+          ./cradar scan ../scanner/rules/ --format text --passes 1 | head -20
+
+  validate-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate OpenGrep YAML rules
+        run: |
+          pip install pyyaml
+          for f in scanner/rules/*.yml; do
+            python3 -c "import yaml; yaml.safe_load(open('$f'))" && echo "OK: $f" || exit 1
+          done
+
+      - name: Check no duplicate rule IDs
+        run: |
+          DUPES=$(grep "^  - id:" scanner/rules/*.yml | awk -F': ' '{print $2}' | sort | uniq -d)
+          if [ -n "$DUPES" ]; then
+            echo "Duplicate rule IDs found: $DUPES"
+            exit 1
+          fi
+          echo "No duplicate rule IDs"
