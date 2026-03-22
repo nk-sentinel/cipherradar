@@ -1,0 +1,23 @@
+{
+  "date": "2026-03-23",
+  "cr_ms": 1014,
+  "cb_ms": 19687,
+  "cr_components": 650,
+  "cb_components": 167,
+  "java": {
+    "cr": 166,
+    "cb": 126,
+    "both": 111,
+    "cr_only": 55,
+    "cb_only": 15
+  },
+  "python": {
+    "cr": 205,
+    "cb": 88,
+    "both": 67,
+    "cr_only": 138,
+    "cb_only": 21
+  },
+  "cr_exclusive_langs": 249,
+  "cr_fps": 5
+}
