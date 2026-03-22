@@ -896,10 +896,76 @@ func (s *PythonScanner) detectKDFs(root *sitter.Node, path string, content []byt
 				RuleID:      fmt.Sprintf("cbom-python-cryptography-kdf-%s", strings.ToLower(className)),
 				Pass:        1,
 			})
+
+			// F3-P: Extract hash from algorithm= keyword arg (e.g., algorithm=hashes.SHA256()).
+			if callNode != nil {
+				argsNode := callNode.ChildByFieldName("arguments")
+				if argsNode != nil {
+					if hashFamily, hashName := extractKDFHashArg(argsNode, content); hashFamily != "" {
+						qi := GetQuantumInfo(hashFamily)
+						findings = append(findings, types.Finding{
+							ID:         nextFindingID(),
+							AssetType:  types.AssetAlgorithm,
+							Name:       hashName,
+							Location:   scanner.NodeLocation(callNode, path, content),
+							Severity:   hashSeverity(hashFamily),
+							Confidence: types.ConfidenceHigh,
+							Properties: types.CryptoProperties{
+								Primitive:        "hash",
+								AlgorithmFamily:  hashFamily,
+								QuantumStatus:    qi.Status,
+								NistQuantumLevel: qi.NistLevel,
+								CryptoFunctions:  []string{"digest"},
+							},
+							Description: fmt.Sprintf("Hash %s (extracted from KDF %s)", hashName, info.name),
+							RuleID:      "cbom-python-kdf-inner-hash",
+							Pass:        1,
+						})
+					}
+				}
+			}
 		}
 	}
 
 	return findings
+}
+
+// extractKDFHashArg looks for algorithm=hashes.XXX() in a KDF constructor's argument list.
+func extractKDFHashArg(argsNode *sitter.Node, content []byte) (string, string) {
+	if argsNode == nil {
+		return "", ""
+	}
+	// Walk children looking for keyword_argument with name "algorithm"
+	for i := 0; i < int(argsNode.ChildCount()); i++ {
+		child := argsNode.Child(i)
+		if child == nil || child.Type() != "keyword_argument" {
+			continue
+		}
+		nameNode := child.ChildByFieldName("name")
+		valueNode := child.ChildByFieldName("value")
+		if nameNode == nil || valueNode == nil {
+			continue
+		}
+		if scanner.NodeText(nameNode, content) != "algorithm" {
+			continue
+		}
+		// valueNode should be a call like hashes.SHA256()
+		valText := scanner.NodeText(valueNode, content)
+		hashClasses := map[string]struct{ family, name string }{
+			"SHA256": {"sha-256", "SHA-256"}, "SHA384": {"sha-384", "SHA-384"},
+			"SHA512": {"sha-512", "SHA-512"}, "SHA1": {"sha1", "SHA-1"},
+			"MD5": {"md5", "MD5"}, "SHA224": {"sha-224", "SHA-224"},
+			"SHA3_256": {"sha3-256", "SHA3-256"}, "SHA3_384": {"sha3-384", "SHA3-384"},
+			"SHA3_512": {"sha3-512", "SHA3-512"},
+			"BLAKE2b": {"blake2b", "BLAKE2b"}, "BLAKE2s": {"blake2s", "BLAKE2s"},
+		}
+		for cls, info := range hashClasses {
+			if strings.Contains(valText, "hashes."+cls) || strings.Contains(valText, cls+"()") {
+				return info.family, info.name
+			}
+		}
+	}
+	return "", ""
 }
 
 // ---------------------------------------------------------------------------
@@ -1418,9 +1484,50 @@ func (s *PythonScanner) detectHMAC(root *sitter.Node, path string, content []byt
 			RuleID:      "cbom-python-hmac-new",
 			Pass:        1,
 		})
+
+		// F2-P: Emit additional finding for the inner hash algorithm.
+		if hashAlgo != "unknown" {
+			innerHashFamily := lookupHashFamily(hashAlgo)
+			qi := GetQuantumInfo(innerHashFamily)
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       strings.ToUpper(hashAlgo),
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   hashSeverity(innerHashFamily),
+				Confidence: confidence,
+				Properties: types.CryptoProperties{
+					Primitive:        "hash",
+					AlgorithmFamily:  innerHashFamily,
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{"digest"},
+				},
+				Description: fmt.Sprintf("Hash %s (extracted from HMAC)", strings.ToUpper(hashAlgo)),
+				RuleID:      "cbom-python-hmac-inner-hash",
+				Pass:        1,
+			})
+		}
 	}
 
 	return findings
+}
+
+// lookupHashFamily normalizes a hash algorithm name to its family key.
+func lookupHashFamily(hashAlgo string) string {
+	families := map[string]string{
+		"sha256": "sha-256", "sha-256": "sha-256",
+		"sha384": "sha-384", "sha-384": "sha-384",
+		"sha512": "sha-512", "sha-512": "sha-512",
+		"sha1": "sha1", "sha-1": "sha1",
+		"md5": "md5",
+		"sha3-256": "sha3-256", "sha3-384": "sha3-384", "sha3-512": "sha3-512",
+		"blake2b": "blake2b", "blake2s": "blake2s",
+	}
+	if f, ok := families[strings.ToLower(hashAlgo)]; ok {
+		return f
+	}
+	return strings.ToLower(hashAlgo)
 }
 
 // ---------------------------------------------------------------------------

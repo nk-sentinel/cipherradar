@@ -137,8 +137,9 @@ var jcaClassInfo = map[string]struct {
 	"Mac":             {primitive: "mac", ruleTag: "mac"},
 	"Signature":       {primitive: "signature", ruleTag: "signature"},
 	"SecretKeySpec":   {primitive: "block-cipher", ruleTag: "secretkeyspec"},
-	"SSLContext":      {primitive: "", ruleTag: "sslcontext"},
-	"KeyAgreement":   {primitive: "key-exchange", ruleTag: "keyagreement"},
+	"SSLContext":        {primitive: "", ruleTag: "sslcontext"},
+	"KeyAgreement":     {primitive: "key-exchange", ruleTag: "keyagreement"},
+	"SecretKeyFactory": {primitive: "kdf", ruleTag: "secretkeyfactory"},
 }
 
 // algorithmFamilyMap maps JCA algorithm names (uppercased) to quantum family names.
@@ -298,6 +299,33 @@ func (s *JavaScanner) detectJCA(root *sitter.Node, path string, content []byte, 
 			finding := s.handleKeyAgreementGetInstance(callNode, argsNode, path, content, cp)
 			if finding != nil {
 				findings = append(findings, *finding)
+			}
+		case "SecretKeyFactory":
+			// F3-J: Detect SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256")
+			// and extract the inner hash algorithm.
+			algoStr, confidence := resolveFirstArg(argsNode, content, cp)
+			if algoStr != "" && strings.HasPrefix(strings.ToUpper(algoStr), "PBKDF2") {
+				finding := &types.Finding{
+					ID:         nextFindingID(),
+					AssetType:  types.AssetAlgorithm,
+					Name:       "PBKDF2",
+					Location:   scanner.NodeLocation(callNode, path, content),
+					Severity:   types.SeverityInfo,
+					Confidence: confidence,
+					Properties: types.CryptoProperties{
+						Primitive:       "kdf",
+						AlgorithmFamily: "pbkdf2",
+						CryptoFunctions: []string{"derive"},
+					},
+					Description: fmt.Sprintf("PBKDF2 via SecretKeyFactory.getInstance(%q)", algoStr),
+					RuleID:      "cbom-java-jca-secretkeyfactory-pbkdf2",
+					Pass:        1,
+				}
+				findings = append(findings, *finding)
+				// Decompose inner hash (e.g., PBKDF2WithHmacSHA256 → SHA256)
+				if hashFindings := decomposePBKDF2Hash(finding, algoStr); len(hashFindings) > 0 {
+					findings = append(findings, hashFindings...)
+				}
 			}
 		}
 	}
