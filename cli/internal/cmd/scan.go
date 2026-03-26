@@ -11,6 +11,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/container"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
 	"github.com/nk-sentinel/cipherradar/cli/internal/push"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
@@ -146,6 +147,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 		// Pass 3 (Joern) removed per ADR-033. All patterns now covered by
 		// OpenGrep taint rules (Pass 2) with 19x better performance.
+	}
+
+	// Compute stable identity fingerprints for all findings (ADR-034).
+	// This runs after all passes and deduplication so each finding gets
+	// a deterministic fingerprint based on rule_id + file + normalized code.
+	for i := range result.Findings {
+		lang := fingerprint.LanguageFromPath(result.Findings[i].Location.File)
+		fingerprint.ComputeFingerprint(&result.Findings[i], lang)
 	}
 
 	// Get the output format.

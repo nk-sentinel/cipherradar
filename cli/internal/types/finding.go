@@ -22,4 +22,10 @@ type Finding struct {
 	RuleID string `json:"rule_id"`
 	// Pass indicates which scanner pass found this (1, 2, or 3).
 	Pass int `json:"pass"`
+	// Fingerprint is a stable identity hash for deduplication across scans (ADR-034).
+	// Computed as SHA-256(rule_id + ":" + file_path + ":" + normalized_code_signature).
+	Fingerprint string `json:"fingerprint,omitempty"`
+	// NormalizedSignature is the whitespace/comment/literal-normalized code snippet
+	// used to compute the fingerprint. Stored for debugging and drift detection.
+	NormalizedSignature string `json:"normalizedSignature,omitempty"`
 }
