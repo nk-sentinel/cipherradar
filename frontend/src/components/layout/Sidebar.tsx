@@ -3,6 +3,7 @@ import { useAuth } from '@/lib/auth';
 import { canAccessPage } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { OrgSwitcher } from './OrgSwitcher.tsx';
+import { useRequests } from '@/api/hooks/useRequests';
 
 interface NavItem {
   label: string;
@@ -49,6 +50,7 @@ const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Manage',
     items: [
+      { label: 'Pending Requests', icon: '\u2709', to: '/requests', page: 'requests' },
       { label: 'Policy Rules', icon: '\u2699', to: '/policy', page: 'policy' },
     ],
   },
@@ -59,6 +61,9 @@ export function Sidebar(): React.ReactElement {
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const role = user?.role ?? 'guest';
+  const canSeeRequests = canAccessPage(role, 'requests');
+  const { data: requestsData } = useRequests(1, 1);
+  const pendingCount = canSeeRequests ? (requestsData?.total ?? 0) : 0;
 
   return (
     <nav className="sidebar">
@@ -113,6 +118,15 @@ export function Sidebar(): React.ReactElement {
                 >
                   <span className="nav-icon">{item.icon}</span>
                   {item.label}
+                  {item.page === 'requests' && pendingCount > 0 && (
+                    <span
+                      className="badge b-crit"
+                      style={{ marginLeft: '6px', fontSize: '9px', padding: '1px 5px' }}
+                      data-testid="requests-count-badge"
+                    >
+                      {pendingCount}
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>

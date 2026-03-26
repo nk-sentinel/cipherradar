@@ -15,6 +15,7 @@ const PAGE_TO_ROUTE: Record<string, string> = {
   diff: '/diff',
   migration: '/migration',
   'notification-preferences': '/notifications/preferences',
+  requests: '/requests',
   policy: '/policy',
   'admin-settings': '/admin/settings',
   'admin-users': '/admin/users',

@@ -36,6 +36,7 @@ import { RuntimeView } from './pages/RuntimeView.tsx';
 import { AgilityScore } from './pages/AgilityScore.tsx';
 import { HNDLRisk } from './pages/HNDLRisk.tsx';
 import { CVECorrelation } from './pages/repo/CVECorrelation.tsx';
+import { RequestQueue } from './pages/RequestQueue.tsx';
 import { createRouteGuard } from './lib/route-guard.ts';
 
 const rootRoute = createRootRoute({
@@ -142,6 +143,13 @@ const notificationPreferencesRoute = createRoute({
   path: '/notifications/preferences',
   beforeLoad: createRouteGuard('notification-preferences'),
   component: NotificationPreferences,
+});
+
+const requestsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/requests',
+  beforeLoad: createRouteGuard('requests'),
+  component: RequestQueue,
 });
 
 const profileRoute = createRoute({
@@ -309,6 +317,7 @@ const routeTree = rootRoute.addChildren([
     cbomDiffRoute,
     migrationKanbanRoute,
     notificationPreferencesRoute,
+    requestsRoute,
     profileRoute,
     downloadsRoute,
     adminSettingsRoute,
