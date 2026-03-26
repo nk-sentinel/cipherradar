@@ -294,6 +294,34 @@ export function PortfolioDashboard(): React.ReactElement {
         </div>
       )}
 
+      {/* My Assigned Findings — for DEV and TM roles */}
+      {(user?.role === 'developer' || user?.role === 'team-manager') && (
+        <div className="card" data-testid="my-assigned-findings">
+          <div className="card-title">My Assigned Findings</div>
+          <p style={{ color: 'var(--text-3)', fontSize: '12px', marginBottom: '8px' }}>
+            Findings assigned to you across all projects.
+          </p>
+          <table>
+            <thead>
+              <tr>
+                <th>Severity</th>
+                <th>Project</th>
+                <th>Finding</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {/* Placeholder — will be populated by useMyAssignedFindings hook when backend is ready */}
+              <tr>
+                <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-3)' }}>
+                  No findings assigned to you.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {/* Top 10 riskiest repos */}
       <div className="card">
         <div className="card-title">Top Riskiest Repositories</div>
