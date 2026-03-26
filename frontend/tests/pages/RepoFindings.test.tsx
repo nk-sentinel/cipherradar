@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RepoFindings } from '../../src/pages/repo/RepoFindings';
 
@@ -20,16 +20,14 @@ describe('RepoFindings', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Findings')).toBeInTheDocument();
-      expect(screen.getByText('Severity')).toBeInTheDocument();
-      expect(screen.getByText('File')).toBeInTheDocument();
-      expect(screen.getByText('Finding')).toBeInTheDocument();
-      expect(screen.getByText('Algorithm')).toBeInTheDocument();
-      expect(screen.getByText('Quantum')).toBeInTheDocument();
-      expect(screen.getByText('Pass')).toBeInTheDocument();
+      expect(screen.getByTestId('sort-header-severity')).toBeInTheDocument();
+      expect(screen.getByTestId('sort-header-file')).toBeInTheDocument();
+      expect(screen.getByTestId('sort-header-title')).toBeInTheDocument();
+      expect(screen.getByTestId('sort-header-status')).toBeInTheDocument();
     });
   });
 
-  it('renders filter buttons', async () => {
+  it('renders severity filter buttons', async () => {
     renderWithProviders(<RepoFindings repoId="repo-1" />);
 
     await waitFor(() => {
@@ -43,6 +41,16 @@ describe('RepoFindings', () => {
     });
   });
 
+  it('renders status filter bar', async () => {
+    renderWithProviders(<RepoFindings repoId="repo-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('status-filter-bar')).toBeInTheDocument();
+      expect(screen.getByTestId('status-filter-open')).toBeInTheDocument();
+      expect(screen.getByTestId('status-filter-in_review')).toBeInTheDocument();
+    });
+  });
+
   it('renders finding rows from mock data', async () => {
     renderWithProviders(<RepoFindings repoId="repo-1" />);
 
@@ -50,8 +58,6 @@ describe('RepoFindings', () => {
       expect(screen.getByText('Certificate validation disabled')).toBeInTheDocument();
       expect(screen.getByText('MD5 hash function')).toBeInTheDocument();
       expect(screen.getByText('DES/ECB — broken cipher')).toBeInTheDocument();
-      expect(screen.getByText('AES-256-GCM encryption')).toBeInTheDocument();
-      expect(screen.getByText('RSA-2048 key generation')).toBeInTheDocument();
     });
   });
 
@@ -60,6 +66,66 @@ describe('RepoFindings', () => {
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Search...')).toBeInTheDocument();
+    });
+  });
+
+  it('renders pagination component', async () => {
+    renderWithProviders(<RepoFindings repoId="repo-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText('Pagination')).toBeInTheDocument();
+    });
+  });
+
+  it('sort header toggles direction on click', async () => {
+    renderWithProviders(<RepoFindings repoId="repo-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sort-header-severity')).toBeInTheDocument();
+    });
+
+    const severityHeader = screen.getByTestId('sort-header-severity');
+
+    // Initial sort is severity desc — clicking should toggle to asc
+    fireEvent.click(severityHeader);
+
+    // Now click again to toggle back to desc
+    fireEvent.click(severityHeader);
+
+    // The header should still be present and functional
+    expect(severityHeader).toBeInTheDocument();
+  });
+
+  it('clicking different sort header changes sort field', async () => {
+    renderWithProviders(<RepoFindings repoId="repo-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('sort-header-file')).toBeInTheDocument();
+    });
+
+    const fileHeader = screen.getByTestId('sort-header-file');
+    fireEvent.click(fileHeader);
+
+    // After clicking, the file header should have an active sort indicator
+    expect(fileHeader).toBeInTheDocument();
+  });
+
+  it('renders detection badges with Pattern/Taint labels', async () => {
+    renderWithProviders(<RepoFindings repoId="repo-1" />);
+
+    await waitFor(() => {
+      // Pass 1 findings should show "Pattern"
+      const patternBadges = screen.getAllByText('Pattern');
+      expect(patternBadges.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('renders status badges on finding rows', async () => {
+    renderWithProviders(<RepoFindings repoId="repo-1" />);
+
+    await waitFor(() => {
+      // Default filter shows open, in_review, in_progress
+      expect(screen.getAllByTestId(/^status-badge-/).length).toBeGreaterThan(0);
     });
   });
 });

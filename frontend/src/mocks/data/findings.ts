@@ -1,6 +1,7 @@
 export type Severity = 'critical' | 'high' | 'medium' | 'low' | 'info';
 export type QuantumStatus = 'vulnerable' | 'safe' | 'broken' | 'unknown';
 export type DetectionPass = 1 | 2 | 3;
+export type FindingStatus = 'open' | 'in_review' | 'in_progress' | 'resolved' | 'risk_accepted' | 'false_positive';
 
 export interface CodeSnippet {
   startLine: number;
@@ -23,6 +24,9 @@ export interface Finding {
   assetType: string;
   code: CodeSnippet;
   remediation: string;
+  status: FindingStatus;
+  assignee?: string | null;
+  firstSeen: string;
 }
 
 export const MOCK_FINDINGS: Finding[] = [
@@ -53,6 +57,9 @@ export const MOCK_FINDINGS: Finding[] = [
     },
     remediation:
       'Remove custom TrustManager. Use system default or configure a truststore with your CA certificates.',
+    status: 'open',
+    assignee: null,
+    firstSeen: '2026-03-15T10:00:00Z',
   },
   {
     id: 'f-002',
@@ -79,6 +86,9 @@ export const MOCK_FINDINGS: Finding[] = [
     },
     remediation:
       'Replace MD5 with SHA-256 or SHA-3. MD5 is cryptographically broken and unsuitable for security purposes.',
+    status: 'in_review',
+    assignee: 'alice@example.com',
+    firstSeen: '2026-03-14T09:30:00Z',
   },
   {
     id: 'f-003',
@@ -105,6 +115,9 @@ export const MOCK_FINDINGS: Finding[] = [
     },
     remediation:
       'Replace DES with AES-256-GCM. DES has a 56-bit key and is broken. ECB mode leaks patterns.',
+    status: 'in_progress',
+    assignee: 'bob@example.com',
+    firstSeen: '2026-03-13T14:00:00Z',
   },
   {
     id: 'f-004',
@@ -131,6 +144,9 @@ export const MOCK_FINDINGS: Finding[] = [
     },
     remediation:
       'Migrate from SHA-1 to SHA-256 or SHA-3. SHA-1 is deprecated for digital signatures per NIST SP 800-131A.',
+    status: 'open',
+    assignee: null,
+    firstSeen: '2026-03-12T08:00:00Z',
   },
   {
     id: 'f-005',
@@ -157,6 +173,9 @@ export const MOCK_FINDINGS: Finding[] = [
     },
     remediation:
       'Move encryption keys to a secrets manager (AWS Secrets Manager, Vault). Never hardcode key material in source.',
+    status: 'risk_accepted',
+    assignee: 'charlie@example.com',
+    firstSeen: '2026-03-10T11:00:00Z',
   },
   {
     id: 'f-006',
@@ -183,6 +202,9 @@ export const MOCK_FINDINGS: Finding[] = [
     },
     remediation:
       'Consider migrating to ML-KEM (Kyber) for key encapsulation or increase RSA key size to 4096 as an interim measure.',
+    status: 'open',
+    assignee: null,
+    firstSeen: '2026-03-11T16:00:00Z',
   },
   {
     id: 'f-007',
@@ -209,6 +231,9 @@ export const MOCK_FINDINGS: Finding[] = [
     },
     remediation:
       'Remove CERT_NONE. Use ssl.CERT_REQUIRED with proper CA bundle to validate server certificates.',
+    status: 'false_positive',
+    assignee: null,
+    firstSeen: '2026-03-09T12:00:00Z',
   },
   {
     id: 'f-008',
@@ -235,6 +260,9 @@ export const MOCK_FINDINGS: Finding[] = [
     },
     remediation:
       'No action required. AES-256-GCM is a strong authenticated encryption algorithm considered quantum-safe for symmetric use.',
+    status: 'resolved',
+    assignee: 'dave@example.com',
+    firstSeen: '2026-03-08T07:00:00Z',
   },
 ];
 
