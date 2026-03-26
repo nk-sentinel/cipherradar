@@ -33,6 +33,10 @@ class Group(Base):
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
 
+    # Phase 4.5 columns
+    schedule_cron: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    schedule_timezone: Mapped[str] = mapped_column(String(50), server_default="UTC")
+
     # Relationships
     organisation: Mapped[Organisation] = relationship("Organisation", back_populates="groups")
     parent_group: Mapped[Group | None] = relationship("Group", remote_side="Group.id", back_populates="children")
@@ -61,6 +65,12 @@ class Project(Base):
     git_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
     settings: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+
+    # Phase 4.5 columns
+    type: Mapped[str] = mapped_column(String(20), server_default="repository")
+    linked_sources: Mapped[dict | None] = mapped_column(JSONB, server_default="[]")
+    schedule_cron: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    schedule_timezone: Mapped[str] = mapped_column(String(50), server_default="UTC")
 
     # Relationships
     group: Mapped[Group] = relationship("Group", back_populates="projects")

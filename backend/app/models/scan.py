@@ -49,11 +49,25 @@ class Scan(Base):
         default=ScanStatus.QUEUED,
     )
     branch: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    commit_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    commit_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     findings_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Phase 4.5 columns (D21 provenance)
+    tag: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    image_ref: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    image_digest: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    artifact_filename: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    artifact_checksum: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    environment: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    promoted_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Relationships
     project: Mapped[Project] = relationship("Project", back_populates="scans")

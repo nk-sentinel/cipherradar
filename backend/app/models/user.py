@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import uuid  # noqa: TCH003 — required at runtime for SQLAlchemy Mapped[uuid.UUID]
+from datetime import datetime  # noqa: TCH003 — required at runtime for Mapped[datetime]
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,6 +33,12 @@ class User(Base):
         nullable=False,
         index=True,
     )
+
+    # Phase 4.5 columns
+    auth_source: Mapped[str] = mapped_column(String(20), server_default="local", nullable=False)
+    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    disabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     organisation: Mapped[Organisation] = relationship("Organisation", back_populates="users")
