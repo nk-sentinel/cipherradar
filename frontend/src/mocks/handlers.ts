@@ -259,4 +259,271 @@ export const handlers = [
   http.get('/api/v1/admin/audit-log', () => {
     return HttpResponse.json(getAuditLog());
   }),
+
+  // ---------------------------------------------------------------------------
+  // D18 — Jira integration
+  // ---------------------------------------------------------------------------
+
+  // Create Jira issue for finding
+  http.post('/api/v1/findings/:findingId/jira', ({ params }) => {
+    const findingId = params['findingId'] as string;
+    return HttpResponse.json({
+      issueKey: 'SEC-' + findingId.slice(0, 4).toUpperCase(),
+      issueUrl: 'https://jira.example.com/browse/SEC-' + findingId.slice(0, 4).toUpperCase(),
+      summary: '[CipherRadar] CRITICAL: RSA-1024',
+    });
+  }),
+
+  // Group Jira config
+  http.get('/api/v1/groups/:groupId/jira-config', () => {
+    return HttpResponse.json({
+      id: 'jc-001',
+      jiraProjectKey: 'SEC',
+      defaultIssueType: 'Bug',
+      priorityMapping: { critical: 'Highest', high: 'High', medium: 'Medium', low: 'Low' },
+      customFields: {},
+      defaultAssignee: null,
+      labels: ['crypto', 'cipherradar'],
+      scope: 'group',
+    });
+  }),
+
+  http.put('/api/v1/groups/:groupId/jira-config', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: 'jc-001',
+      ...(body as object),
+      scope: 'group',
+    });
+  }),
+
+  // Project Jira config
+  http.get('/api/v1/projects/:projectId/jira-config', () => {
+    return HttpResponse.json({
+      id: 'jc-002',
+      jiraProjectKey: 'PROJ',
+      defaultIssueType: 'Task',
+      priorityMapping: {},
+      customFields: {},
+      defaultAssignee: 'dev@example.com',
+      labels: [],
+      scope: 'project',
+    });
+  }),
+
+  http.put('/api/v1/projects/:projectId/jira-config', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json({
+      id: 'jc-002',
+      ...(body as object),
+      scope: 'project',
+    });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // D16 — Rule effectiveness analytics
+  // ---------------------------------------------------------------------------
+
+  // Single rule analytics
+  http.get('/api/v1/admin/rules/:ruleId/analytics', ({ params, request }) => {
+    const ruleId = params['ruleId'] as string;
+    const url = new URL(request.url);
+    const timeWindow = url.searchParams.get('time_window') || '90d';
+    return HttpResponse.json({
+      ruleId,
+      totalFindings: 42,
+      activeFindings: 15,
+      fpRate: 12.5,
+      raRate: 5.0,
+      fixRate: 60.0,
+      mttrSeconds: 172800,
+      trend: [
+        { scanId: 'scan-001', count: 8, scannedAt: '2026-03-20T10:00:00Z' },
+        { scanId: 'scan-002', count: 6, scannedAt: '2026-03-22T10:00:00Z' },
+        { scanId: 'scan-003', count: 4, scannedAt: '2026-03-24T10:00:00Z' },
+      ],
+      timeWindow,
+    });
+  }),
+
+  // Rules summary table
+  http.get('/api/v1/admin/rules/summary', () => {
+    return HttpResponse.json([
+      { ruleId: 'cbom-python-md5-usage', totalFindings: 42, fpRate: 12.5, fixRate: 60.0, mttrSeconds: 172800, warning: false },
+      { ruleId: 'cbom-java-weak-rsa', totalFindings: 28, fpRate: 55.0, fixRate: 8.0, mttrSeconds: null, warning: true },
+      { ruleId: 'cbom-go-des-usage', totalFindings: 15, fpRate: 5.0, fixRate: 80.0, mttrSeconds: 86400, warning: false },
+    ]);
+  }),
+
+  // ---------------------------------------------------------------------------
+  // D13 — Finding status change
+  // ---------------------------------------------------------------------------
+
+  http.patch('/api/v1/findings/:findingId/status', async ({ request, params }) => {
+    const body = await request.json() as { status: string; reason?: string };
+    return HttpResponse.json({
+      id: params['findingId'],
+      status: body.status,
+      assignedTo: null,
+      updatedAt: new Date().toISOString(),
+    });
+  }),
+
+  // Finding status history
+  http.get('/api/v1/findings/:findingId/history', ({ params, request }) => {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page') || '1');
+    const perPage = Number(url.searchParams.get('perPage') || '25');
+    return HttpResponse.json({
+      items: [
+        {
+          id: 'hist-001',
+          oldStatus: 'open',
+          newStatus: 'in_review',
+          changedBy: 'user-001',
+          reason: null,
+          createdAt: '2026-03-25T10:00:00Z',
+        },
+      ],
+      total: 1,
+      page,
+      perPage,
+    });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // D15 — FP/RA requests
+  // ---------------------------------------------------------------------------
+
+  http.post('/api/v1/findings/:findingId/request', async ({ request, params }) => {
+    const body = await request.json() as {
+      requestType: string;
+      justification: string;
+    };
+    return HttpResponse.json({
+      id: 'req-' + Date.now().toString(),
+      findingId: params['findingId'],
+      requestedBy: 'user-001',
+      reviewedBy: null,
+      requestType: body.requestType,
+      status: 'pending',
+      justification: body.justification,
+      reviewNote: null,
+      expiresAt: null,
+      reviewedAt: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+  }),
+
+  http.get('/api/v1/requests', ({ request }) => {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page') || '1');
+    const perPage = Number(url.searchParams.get('perPage') || '25');
+    const items = [
+      {
+        id: 'req-001',
+        findingId: 'f-001',
+        findingSummary: 'Certificate validation disabled',
+        findingSeverity: 'critical',
+        requester: 'alice@example.com',
+        type: 'false_positive',
+        justification: 'This is a test environment configuration that is not used in production.',
+        status: 'pending',
+        createdAt: '2026-03-20T10:00:00Z',
+      },
+      {
+        id: 'req-002',
+        findingId: 'f-006',
+        findingSummary: 'RSA-2048 key generation',
+        findingSeverity: 'medium',
+        requester: 'bob@example.com',
+        type: 'risk_accepted',
+        justification: 'Migration to ML-KEM is planned for Q3. Compensating control: key rotation every 30 days.',
+        reasonCategory: 'migration_planned',
+        reviewDate: '2026-06-30',
+        status: 'pending',
+        createdAt: '2026-03-21T14:00:00Z',
+      },
+      {
+        id: 'req-003',
+        findingId: 'f-004',
+        findingSummary: 'SHA-1 signature verification',
+        findingSeverity: 'high',
+        requester: 'charlie@example.com',
+        type: 'false_positive',
+        justification: 'This SHA-1 usage is for non-security checksum validation only.',
+        status: 'pending',
+        createdAt: '2026-03-22T09:00:00Z',
+      },
+    ];
+    const total = items.length;
+    const start = (page - 1) * perPage;
+    const paginated = items.slice(start, start + perPage);
+    return HttpResponse.json({ items: paginated, total });
+  }),
+
+  http.post('/api/v1/requests/:requestId/approve', ({ params }) => {
+    return HttpResponse.json({
+      id: params['requestId'],
+      status: 'approved',
+      updatedAt: new Date().toISOString(),
+    });
+  }),
+
+  http.post('/api/v1/requests/:requestId/reject', async ({ request, params }) => {
+    const body = await request.json() as { reason: string };
+    return HttpResponse.json({
+      id: params['requestId'],
+      status: 'rejected',
+      rejectionReason: body.reason,
+      updatedAt: new Date().toISOString(),
+    });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // D17 — Finding assignment
+  // ---------------------------------------------------------------------------
+
+  http.patch('/api/v1/findings/:findingId/assign', async ({ request, params }) => {
+    const body = await request.json() as { assigneeId: string | null };
+    return HttpResponse.json({
+      id: params['findingId'],
+      status: 'in_review',
+      assignedTo: body.assigneeId,
+      updatedAt: new Date().toISOString(),
+    });
+  }),
+
+  http.get('/api/v1/projects/:projectId/members', () => {
+    return HttpResponse.json([
+      { email: 'alice@example.com', name: 'Alice Smith', role: 'security-engineer' },
+      { email: 'bob@example.com', name: 'Bob Jones', role: 'developer' },
+      { email: 'charlie@example.com', name: 'Charlie Brown', role: 'team-manager' },
+      { email: 'dave@example.com', name: 'Dave Wilson', role: 'security-manager' },
+    ]);
+  }),
+
+  // ---------------------------------------------------------------------------
+  // D19 — Bulk actions
+  // ---------------------------------------------------------------------------
+
+  http.post('/api/v1/findings/bulk', async ({ request }) => {
+    const body = await request.json() as {
+      findingIds: string[];
+      action: string;
+      params?: Record<string, unknown>;
+    };
+    const results = body.findingIds.map((id: string) => ({
+      findingId: id,
+      success: true,
+      error: null,
+    }));
+    return HttpResponse.json({
+      total: body.findingIds.length,
+      succeeded: body.findingIds.length,
+      failed: 0,
+      results,
+    });
+  }),
 ];

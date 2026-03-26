@@ -10,9 +10,12 @@ from app.api.v1 import (
     assets,
     attestation,
     auth,
+    bulk_actions,
     cbom,
     compliance,
     deptrack,
+    finding_requests,
+    finding_status,
     health,
     hndl,
     integrations,
@@ -24,6 +27,7 @@ from app.api.v1 import (
     projects,
     remediation,
     reports,
+    rule_analytics,
     runtime,
     sbom,
     scan_upload,
@@ -128,6 +132,10 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(agility.router, prefix="/api/v1")
     app.include_router(hndl.router, prefix="/api/v1")
     app.include_router(user.router, prefix="/api/v1")
+    app.include_router(finding_status.router, prefix="/api/v1")
+    app.include_router(finding_requests.router, prefix="/api/v1")
+    app.include_router(bulk_actions.router, prefix="/api/v1")
+    app.include_router(rule_analytics.router, prefix="/api/v1")
 
     return app
 
