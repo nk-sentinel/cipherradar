@@ -6,6 +6,7 @@ import { AuthProvider } from './lib/auth.tsx';
 import { OrgProvider } from './lib/org-context.tsx';
 import { getStoredTheme, applyTheme } from './lib/themes.ts';
 import { useUserOrgs } from './api/hooks/useOrgs.ts';
+import { Toaster } from './components/ui/Toast.tsx';
 import type { Org } from './mocks/data/admin.ts';
 
 const queryClient = new QueryClient({
@@ -37,6 +38,7 @@ export function App(): React.ReactElement {
           <RouterProvider router={router} />
         </OrgBootstrap>
       </AuthProvider>
+      <Toaster />
     </QueryClientProvider>
   );
 }
