@@ -2,7 +2,40 @@ import { useState } from 'react';
 import type { Finding } from '@/mocks/data/findings';
 import { SeverityBadge } from './SeverityBadge';
 import { QuantumBadge } from './QuantumBadge';
+import { FindingStatusBadge } from './FindingStatusBadge';
+import { DetectionBadge } from './DetectionBadge';
+import { CodeBlock } from '@/components/ui/CodeBlock';
 import { FindingRemediation } from '@/pages/repo/FindingRemediation.tsx';
+
+const EXT_TO_LANG: Record<string, string> = {
+  '.java': 'java',
+  '.py': 'python',
+  '.js': 'javascript',
+  '.ts': 'typescript',
+  '.tsx': 'tsx',
+  '.jsx': 'jsx',
+  '.go': 'go',
+  '.rs': 'rust',
+  '.rb': 'ruby',
+  '.c': 'c',
+  '.cpp': 'cpp',
+  '.cs': 'csharp',
+  '.php': 'php',
+  '.swift': 'swift',
+  '.kt': 'kotlin',
+  '.env': 'ini',
+  '.yml': 'yaml',
+  '.yaml': 'yaml',
+  '.json': 'json',
+  '.xml': 'xml',
+  '.conf': 'ini',
+  '.cnf': 'ini',
+};
+
+function detectLanguage(filename: string): string {
+  const ext = filename.slice(filename.lastIndexOf('.'));
+  return EXT_TO_LANG[ext] ?? 'text';
+}
 
 interface FindingDetailProps {
   finding: Finding;
@@ -60,7 +93,7 @@ export function FindingDetail({ finding, onClose }: FindingDetailProps): React.R
         </button>
       </div>
 
-      {/* 4-column grid */}
+      {/* Info grid */}
       <div
         className="g4"
         style={{ marginBottom: '12px' }}
@@ -85,23 +118,36 @@ export function FindingDetail({ finding, onClose }: FindingDetailProps): React.R
         </div>
       </div>
 
-      {/* Source code */}
-      <div className="field-label">Source Code</div>
-      <div className="code">
-        {code.lines.map((line, idx) => {
-          const lineNum = code.startLine + idx;
-          const isHighlighted = code.highlightLines.includes(lineNum);
-          return (
-            <div
-              key={lineNum}
-              className={`code-line${isHighlighted ? ' code-hl' : ''}`}
-            >
-              <span className="code-num">{lineNum}</span>
-              {' '}{line}
-            </div>
-          );
-        })}
+      <div
+        className="g4"
+        style={{ marginBottom: '12px' }}
+      >
+        <div>
+          <div className="field-label">Status</div>
+          <FindingStatusBadge status={finding.status} />
+        </div>
+        <div>
+          <div className="field-label">Detection</div>
+          <DetectionBadge pass={finding.pass} />
+        </div>
+        <div>
+          <div className="field-label">Assignee</div>
+          <span style={{ fontSize: '12px' }}>{finding.assignee ?? 'Unassigned'}</span>
+        </div>
+        <div>
+          <div className="field-label">First Seen</div>
+          <span style={{ fontSize: '12px' }}>
+            {new Date(finding.firstSeen).toLocaleDateString()}
+          </span>
+        </div>
       </div>
+
+      {/* Source code — with syntax highlighting */}
+      <div className="field-label">Source Code</div>
+      <CodeBlock
+        code={code.lines.join('\n')}
+        language={detectLanguage(finding.file)}
+      />
 
       {/* Remediation */}
       <div className="alert alert-warn" style={{ marginTop: '12px' }}>
