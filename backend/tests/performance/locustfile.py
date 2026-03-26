@@ -77,3 +77,40 @@ class CipherRadarUser(HttpUser):
     def health_check(self) -> None:
         """GET /api/v1/health — unauthenticated health probe."""
         self.client.get("/api/v1/health")
+
+    # ------------------------------------------------------------------
+    # Finding endpoints (Plan 2 — finding workflow)
+    # ------------------------------------------------------------------
+
+    @task(3)
+    def list_findings(self) -> None:
+        """GET /api/v1/projects/:id/findings — paginated findings with filters."""
+        self.client.get(
+            "/api/v1/projects/fake-project-id/findings"
+            "?page=1&per_page=25&status=open&sort=severity"
+        )
+
+    @task(1)
+    def change_finding_status(self) -> None:
+        """PATCH /api/v1/findings/:id/status — transition finding status."""
+        self.client.patch(
+            "/api/v1/findings/fake-finding-id/status",
+            json={"status": "in_review"},
+        )
+
+    @task(1)
+    def get_finding_history(self) -> None:
+        """GET /api/v1/findings/:id/history — finding audit trail."""
+        self.client.get("/api/v1/findings/fake-finding-id/history")
+
+    @task(1)
+    def list_requests(self) -> None:
+        """GET /api/v1/requests — FP review request queue."""
+        self.client.get("/api/v1/requests?page=1&per_page=25")
+
+    @task(1)
+    def get_rule_analytics(self) -> None:
+        """GET /api/v1/admin/rules/:id/analytics — rule-level analytics."""
+        self.client.get(
+            "/api/v1/admin/rules/cbom-java-weak-cipher/analytics?time_window=90d"
+        )
