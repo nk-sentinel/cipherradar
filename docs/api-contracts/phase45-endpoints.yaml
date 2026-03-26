@@ -1,0 +1,4452 @@
+openapi: "3.1.0"
+info:
+  title: CipherRadar Phase 4.5 API Contract
+  version: "4.5.0"
+  description: |
+    API contract for all Phase 4.5 endpoints (decisions D1–D32).
+    Covers finding lifecycle, FP/RA workflows, bulk actions, Jira integration,
+    scan management, user lifecycle, policy cascade, custom rules, audit log,
+    LLM configuration, integrations, artifact registries, org settings, search,
+    notifications fix, rule analytics, and finding comments.
+
+    Base path: `/api/v1`
+  contact:
+    name: CipherRadar Engineering
+  license:
+    name: Proprietary
+
+servers:
+  - url: /api/v1
+    description: API v1 base path
+
+# ---------------------------------------------------------------------------
+# Security Schemes
+# ---------------------------------------------------------------------------
+security:
+  - BearerJWT: []
+
+tags:
+  - name: findings
+    description: Finding status lifecycle, assignment, history, and comments (D14, D17)
+  - name: fp-ra-requests
+    description: False-positive and risk-acceptance request workflow (D15)
+  - name: bulk-actions
+    description: Bulk operations on findings (D19)
+  - name: jira
+    description: Jira integration — issue creation and per-group/project config (D18)
+  - name: scans
+    description: Scan queue, rerun, scheduling (D20)
+  - name: provenance
+    description: Scan provenance and environment promotion (D21)
+  - name: users
+    description: User lifecycle — role, disable, delete, invite, create (D9, D10, D11)
+  - name: auth
+    description: Password management, forgot/reset password (D6, D30)
+  - name: api-keys
+    description: API key self-service and admin management (D7)
+  - name: policy
+    description: Cascading policy — org, group, project (D26)
+  - name: custom-rules
+    description: Custom rule management and delta sync (D27)
+  - name: audit-log
+    description: Audit log viewing and export (D28)
+  - name: llm-config
+    description: AI remediation LLM configuration (D5)
+  - name: integrations
+    description: Git provider connect, repo import (D3)
+  - name: registries
+    description: Artifact registry management (D2)
+  - name: org-settings
+    description: Organisation-level settings (D4, D25)
+  - name: search
+    description: Global search (D22)
+  - name: notifications
+    description: Notification list fix (existing)
+  - name: rule-analytics
+    description: Per-rule effectiveness metrics (D16)
+
+# ============================================================================
+# PATHS
+# ============================================================================
+paths:
+
+  # --------------------------------------------------------------------------
+  # 1. Finding Status & Lifecycle (D14, D17)
+  # --------------------------------------------------------------------------
+
+  /findings/{finding_id}/status:
+    patch:
+      operationId: updateFindingStatus
+      summary: Change finding status
+      description: |
+        Transition a finding to a new status. Mandatory justification required
+        for Risk Accepted and False Positive transitions per D14.
+
+        **Role permissions by target status:**
+        - Open, In Review: OA, SM, SE, TM
+        - In Progress: OA, SM, SE, TM, DEV (DEV only on assigned findings)
+        - Resolved: OA, SM, SE (or auto by scan)
+        - Risk Accepted: SM, OA only (direct)
+        - False Positive: SM, OA only (direct)
+      tags: [findings]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/FindingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FindingStatusUpdate"
+            example:
+              status: risk_accepted
+              reason: "Compensating control in place — WAF blocks external access"
+              reason_category: compensating_control
+              review_date: "2026-06-30"
+      responses:
+        "200":
+          description: Status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FindingDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /findings/{finding_id}/history:
+    get:
+      operationId: getFindingHistory
+      summary: Get finding status transition history
+      description: |
+        Returns the full audit trail of status changes for a finding.
+        Roles: all except Guest.
+      tags: [findings]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/FindingId"
+      responses:
+        "200":
+          description: Status history retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FindingHistoryResponse"
+              example:
+                items:
+                  - id: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+                    finding_id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    from_status: open
+                    to_status: in_review
+                    changed_by:
+                      id: "11111111-1111-1111-1111-111111111111"
+                      name: "Jane Smith"
+                      role: security_engineer
+                    changed_at: "2026-03-20T14:30:00Z"
+                    reason: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /findings/{finding_id}/assign:
+    patch:
+      operationId: assignFinding
+      summary: Assign finding to a user
+      description: |
+        Assign a finding to a user. Auto-transitions to In Review if currently Open.
+
+        **Scope:**
+        - OA, SM: any project, any group
+        - SE, TM: projects within their group(s) only
+        - DEV: self-assign unassigned findings in own group only
+      tags: [findings]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/FindingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [assignee_id]
+              properties:
+                assignee_id:
+                  type: string
+                  format: uuid
+                  description: User ID to assign the finding to
+            example:
+              assignee_id: "22222222-2222-2222-2222-222222222222"
+      responses:
+        "200":
+          description: Finding assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FindingDetail"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # 20. Finding Comments (D14)
+  # --------------------------------------------------------------------------
+
+  /findings/{finding_id}/comments:
+    post:
+      operationId: addFindingComment
+      summary: Add comment to a finding
+      description: |
+        Add a text comment to a finding. Roles: all except Guest.
+      tags: [findings]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/FindingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 5000
+                  description: Comment text
+            example:
+              text: "Confirmed this is used only in test fixtures — raising FP request."
+      responses:
+        "201":
+          description: Comment added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FindingComment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    get:
+      operationId: listFindingComments
+      summary: List comments on a finding
+      description: |
+        Retrieve all comments for a finding, ordered chronologically.
+        Roles: all except Guest.
+      tags: [findings]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/FindingId"
+      responses:
+        "200":
+          description: Comments retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/FindingComment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # 2. FP/RA Requests (D15)
+  # --------------------------------------------------------------------------
+
+  /findings/{finding_id}/request:
+    post:
+      operationId: createFpRaRequest
+      summary: Raise FP or RA request for a finding
+      description: |
+        Create a false-positive or risk-acceptance request with mandatory justification.
+        Roles: SE, TM, DEV. Justification validated server-side (min 20 chars, no filler).
+      tags: [fp-ra-requests]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/FindingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FpRaRequestCreate"
+            example:
+              type: fp
+              justification: "This SHA-1 usage is in a test harness computing checksums for fixture data, not used in any cryptographic context."
+              reason_category: test_code
+      responses:
+        "201":
+          description: Request created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FpRaRequest"
+        "400":
+          description: Validation failed (justification too short, generic, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          description: Soft rate-limit warning (>10 pending requests)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /requests:
+    get:
+      operationId: listFpRaRequests
+      summary: List pending FP/RA requests
+      description: |
+        Paginated list of FP/RA requests.
+        - OA, SM: all org requests
+        - SE: all requests in their groups
+        - TM: requests from their group only
+      tags: [fp-ra-requests]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+          description: Filter by request status
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [fp, ra]
+          description: Filter by request type
+      responses:
+        "200":
+          description: Paginated request list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FpRaRequestListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /requests/{request_id}/approve:
+    post:
+      operationId: approveFpRaRequest
+      summary: Approve FP/RA request
+      description: |
+        Approve a pending request. Finding status changes accordingly.
+
+        **Approval permissions:**
+        - FP requests: OA, SM, SE (SE cannot approve own requests)
+        - RA requests: OA, SM only
+      tags: [fp-ra-requests]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expiry_date:
+                  type: string
+                  format: date
+                  nullable: true
+                  description: |
+                    When the suppression expires. Required for RA approvals.
+                    Set to null for "No expiry" (must be explicit).
+                comment:
+                  type: string
+                  description: Optional approver comment
+            example:
+              expiry_date: "2026-09-30"
+              comment: "Approved — compensating control verified in WAF config."
+      responses:
+        "200":
+          description: Request approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FpRaRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request already processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /requests/{request_id}/reject:
+    post:
+      operationId: rejectFpRaRequest
+      summary: Reject FP/RA request
+      description: |
+        Reject a pending request with a mandatory reason. Finding remains in current status.
+        Roles: same as approve.
+      tags: [fp-ra-requests]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason:
+                  type: string
+                  minLength: 10
+                  description: Reason for rejection, sent back to requester
+            example:
+              reason: "SHA-1 is used in HMAC construction which is still vulnerable in this context. Please remediate."
+      responses:
+        "200":
+          description: Request rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FpRaRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Request already processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # --------------------------------------------------------------------------
+  # 3. Bulk Actions (D19)
+  # --------------------------------------------------------------------------
+
+  /findings/bulk:
+    post:
+      operationId: bulkFindingAction
+      summary: Perform bulk action on findings
+      description: |
+        Apply an action to multiple findings at once.
+
+        **Actions and role permissions (D19 matrix):**
+        - `assign`: OA, SM, SE, TM
+        - `status_change`: OA, SM, SE, TM
+        - `mark_fp`: OA, SM only (direct)
+        - `mark_ra`: OA, SM only (direct)
+        - `raise_fp_request`: SE, TM, DEV
+        - `raise_ra_request`: SE, TM, DEV
+        - `create_jira`: OA, SM, SE, TM
+        - `export`: OA, SM, SE, TM, DEV
+      tags: [bulk-actions]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkActionRequest"
+            examples:
+              assign:
+                summary: Bulk assign findings
+                value:
+                  finding_ids:
+                    - "a1b2c3d4-0001-0000-0000-000000000000"
+                    - "a1b2c3d4-0002-0000-0000-000000000000"
+                  action: assign
+                  params:
+                    assignee_id: "22222222-2222-2222-2222-222222222222"
+              status_change:
+                summary: Bulk status change
+                value:
+                  finding_ids:
+                    - "a1b2c3d4-0001-0000-0000-000000000000"
+                  action: status_change
+                  params:
+                    status: in_review
+              raise_fp_request:
+                summary: Bulk FP request
+                value:
+                  finding_ids:
+                    - "a1b2c3d4-0001-0000-0000-000000000000"
+                    - "a1b2c3d4-0002-0000-0000-000000000000"
+                  action: raise_fp_request
+                  params:
+                    justification: "All findings in /test/ directory — test code, not production"
+                    reason_category: test_code
+      responses:
+        "200":
+          description: Bulk action result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkActionResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # 4. Jira Integration (D18)
+  # --------------------------------------------------------------------------
+
+  /findings/{finding_id}/jira:
+    post:
+      operationId: createJiraIssueFromFinding
+      summary: Create Jira issue from a finding
+      description: |
+        Creates a Jira issue using the finding's details. Uses project Jira config
+        if set, else group config. Roles: OA, SM, SE, TM.
+      tags: [jira]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/FindingId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                summary_override:
+                  type: string
+                  description: Override the auto-generated issue summary
+                description_override:
+                  type: string
+                  description: Override the auto-generated description
+                issue_type:
+                  type: string
+                  description: Override the default issue type from config
+                priority:
+                  type: string
+                  description: Override the mapped priority
+      responses:
+        "201":
+          description: Jira issue created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraIssueResult"
+        "400":
+          description: Jira not configured for this project/group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "502":
+          description: Jira API error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /groups/{group_id}/jira-config:
+    get:
+      operationId: getGroupJiraConfig
+      summary: Get group-level Jira configuration
+      description: Roles - OA, SM, SE, TM.
+      tags: [jira]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      responses:
+        "200":
+          description: Jira config for group
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: setGroupJiraConfig
+      summary: Set group-level Jira configuration
+      description: Roles - OA, SM, SE, TM.
+      tags: [jira]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JiraConfigUpdate"
+            example:
+              jira_project_key: "PAYMENTS"
+              default_issue_type: "Bug"
+              priority_mapping:
+                critical: Blocker
+                high: Critical
+                medium: Major
+                low: Minor
+                info: Trivial
+              custom_fields:
+                security_finding_id: "customfield_10100"
+              default_assignee: "john.doe"
+              labels: ["crypto", "cipherradar"]
+      responses:
+        "200":
+          description: Jira config updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /projects/{project_id}/jira-config:
+    get:
+      operationId: getProjectJiraConfig
+      summary: Get project-level Jira config override
+      description: Returns project-specific Jira config. If not set, returns null with inherited group config. Roles - OA, SM, SE, TM.
+      tags: [jira]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Jira config for project
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraConfigWithInheritance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: setProjectJiraConfig
+      summary: Set project-level Jira config override
+      description: Roles - OA, SM, SE, TM.
+      tags: [jira]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/JiraConfigUpdate"
+      responses:
+        "200":
+          description: Project Jira config updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JiraConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # 5. Scan Management (D20)
+  # --------------------------------------------------------------------------
+
+  /scans:
+    get:
+      operationId: listScans
+      summary: List scans (global scan queue)
+      description: |
+        Paginated scan queue, RBAC-scoped per D12.
+        All roles can access; results filtered by group visibility.
+      tags: [scans]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, cloning, scanning, generating, complete, failed]
+          description: Filter by scan status
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by project
+        - name: trigger_type
+          in: query
+          schema:
+            type: string
+            enum: [manual, scheduled, webhook, push]
+          description: Filter by trigger type
+      responses:
+        "200":
+          description: Paginated scan list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /scans/{scan_id}/rerun:
+    post:
+      operationId: rerunScan
+      summary: Rerun a scan with same config
+      description: |
+        Clone the scan configuration into a new scan. Roles: OA, SM, SE.
+      tags: [scans]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/ScanId"
+      responses:
+        "201":
+          description: New scan created from rerun
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /projects/{project_id}/schedule:
+    get:
+      operationId: getProjectSchedule
+      summary: Get project scan schedule
+      description: Returns project schedule or inherited group/org schedule. Roles - all.
+      tags: [scans]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Scan schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanSchedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: setProjectSchedule
+      summary: Set project scan schedule
+      description: |
+        Set a project-level schedule override. Requires org setting
+        `allow_project_schedule_override` to be true. Roles: OA, SM, SE.
+      tags: [scans]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanScheduleUpdate"
+            example:
+              cron: "0 2 * * 1"
+              timezone: "Europe/London"
+      responses:
+        "200":
+          description: Schedule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanSchedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /groups/{group_id}/schedule:
+    get:
+      operationId: getGroupSchedule
+      summary: Get group scan schedule
+      tags: [scans]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      responses:
+        "200":
+          description: Group scan schedule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanSchedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: setGroupSchedule
+      summary: Set group scan schedule
+      description: Roles - OA, SM.
+      tags: [scans]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanScheduleUpdate"
+      responses:
+        "200":
+          description: Group schedule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanSchedule"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # 6. Scan Provenance & Environment (D21)
+  # --------------------------------------------------------------------------
+
+  /scans/{scan_id}/provenance:
+    get:
+      operationId: getScanProvenance
+      summary: Get scan provenance details
+      description: |
+        Returns branch, commit SHA, image digest, environment tag, etc. Roles: all.
+      tags: [provenance]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/ScanId"
+      responses:
+        "200":
+          description: Provenance details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanProvenance"
+              example:
+                scan_id: "99999999-9999-9999-9999-999999999999"
+                scan_source_type: source
+                branch: "main"
+                commit_sha: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+                tag: "v1.4.2"
+                image_ref: null
+                image_digest: null
+                artifact_filename: null
+                artifact_checksum: null
+                environment: "production"
+                promoted_at: "2026-03-25T10:00:00Z"
+                promoted_by: "11111111-1111-1111-1111-111111111111"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /scans/promote:
+    post:
+      operationId: promoteScan
+      summary: Promote scan to environment
+      description: |
+        Promote a scan from one environment stage to another.
+        Roles: OA, SM, SE. Also available via API key with `scan:write` scope.
+      tags: [provenance]
+      security:
+        - BearerJWT: []
+        - ApiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScanPromoteRequest"
+            example:
+              scan_id: "99999999-9999-9999-9999-999999999999"
+              from_env: staging
+              to_env: production
+      responses:
+        "200":
+          description: Scan promoted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanProvenance"
+        "400":
+          description: Invalid promotion (wrong from_env, scan not in expected env)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/environments:
+    get:
+      operationId: listEnvironments
+      summary: List environment stages
+      description: Roles - OA, SM.
+      tags: [provenance]
+      security:
+        - BearerJWT: []
+      responses:
+        "200":
+          description: Environment stage list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stages]
+                properties:
+                  stages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EnvironmentStage"
+              example:
+                stages:
+                  - name: development
+                    display_order: 1
+                  - name: staging
+                    display_order: 2
+                  - name: production
+                    display_order: 3
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    put:
+      operationId: configureEnvironments
+      summary: Configure environment stages
+      description: Roles - OA only.
+      tags: [provenance]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stages]
+              properties:
+                stages:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/EnvironmentStage"
+                  minItems: 1
+            example:
+              stages:
+                - name: development
+                  display_order: 1
+                - name: uat
+                  display_order: 2
+                - name: staging
+                  display_order: 3
+                - name: production
+                  display_order: 4
+      responses:
+        "200":
+          description: Environment stages updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [stages]
+                properties:
+                  stages:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/EnvironmentStage"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # 7. User Lifecycle (D9, D10, D11)
+  # --------------------------------------------------------------------------
+
+  /admin/users/{user_id}/role:
+    put:
+      operationId: changeUserRole
+      summary: Change a user's role
+      description: |
+        Only OA can change roles. Cannot demote the last Org Admin.
+        Downgrade auto-revokes API keys whose scopes exceed the new role's cap.
+      tags: [users]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  $ref: "#/components/schemas/UserRole"
+            example:
+              role: security_engineer
+      responses:
+        "200":
+          description: Role updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetail"
+        "400":
+          description: Cannot demote last Org Admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/users/{user_id}/disable:
+    post:
+      operationId: disableUser
+      summary: Disable a user account
+      description: |
+        Immediately blocks login and suspends API keys (reversible).
+        Cannot disable the last Org Admin. Roles: OA.
+      tags: [users]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetail"
+        "400":
+          description: Cannot disable last Org Admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/users/{user_id}/enable:
+    post:
+      operationId: enableUser
+      summary: Re-enable a disabled user account
+      description: Restores login access and unsuspends API keys. Roles - OA.
+      tags: [users]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User re-enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetail"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/users/{user_id}:
+    delete:
+      operationId: deleteUser
+      summary: Delete a user (must be disabled first)
+      description: |
+        Soft-deletes the user with 30-day grace period. Hard purge runs
+        automatically after 30 days. User must be disabled before deletion.
+        Roles: OA.
+      tags: [users]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: User scheduled for deletion
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  hard_delete_at:
+                    type: string
+                    format: date-time
+                    description: When the user will be permanently deleted
+              example:
+                message: "User scheduled for deletion"
+                hard_delete_at: "2026-04-25T12:00:00Z"
+        "400":
+          description: User not disabled or is the last Org Admin
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/users/invite:
+    post:
+      operationId: inviteUser
+      summary: Invite user by email
+      description: |
+        Sends an invitation email. User sets own password via link.
+        Roles: OA (any role), SM (capped to SE and below).
+      tags: [users]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInvite"
+            example:
+              email: "jane.smith@acme.com"
+              role: security_engineer
+              group_id: "33333333-3333-3333-3333-333333333333"
+      responses:
+        "201":
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetail"
+        "400":
+          description: Email already exists or SMTP not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/users/direct:
+    post:
+      operationId: createUserDirect
+      summary: Create user directly (set temp password)
+      description: |
+        Creates user with a temporary password. Force-change on first login.
+        Roles: OA (any role), SM (capped to SE and below).
+      tags: [users]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserDirectCreate"
+            example:
+              email: "bob@acme.com"
+              name: "Bob Builder"
+              password: "TempP@ssw0rd!"
+              role: developer
+              group_id: "33333333-3333-3333-3333-333333333333"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserDetail"
+        "400":
+          description: Email already exists or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # 8. Password & Auth (D6, D30)
+  # --------------------------------------------------------------------------
+
+  /auth/password:
+    put:
+      operationId: changeOwnPassword
+      summary: Change own password (self-service)
+      description: |
+        Local-auth users change their own password. All roles when auth_source=local.
+      tags: [auth]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [current_password, new_password]
+              properties:
+                current_password:
+                  type: string
+                  format: password
+                new_password:
+                  type: string
+                  format: password
+                  minLength: 8
+                  description: Must meet password complexity policy
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "Password updated successfully"
+        "400":
+          description: Current password incorrect or new password does not meet policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Not a local-auth user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /admin/users/{user_id}/reset-password:
+    put:
+      operationId: adminResetPassword
+      summary: Admin force-reset a user's password
+      description: |
+        Generates temporary password or sends reset link. Logged in audit trail.
+        Roles: OA only.
+      tags: [auth]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/UserId"
+      responses:
+        "200":
+          description: Password reset initiated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  temporary_password:
+                    type: string
+                    nullable: true
+                    description: Set if SMTP is not configured; null if reset link sent
+              example:
+                message: "Password reset. User must change on next login."
+                temporary_password: "Tmp-xK9m!2qR"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      summary: Request password reset email
+      description: |
+        Public endpoint. Sends reset link if email exists and SMTP is configured.
+        Always returns 200 to prevent email enumeration.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "200":
+          description: If the email exists, a reset link has been sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "If an account with that email exists, a reset link has been sent."
+
+  /auth/reset-password:
+    post:
+      operationId: resetPasswordWithToken
+      summary: Reset password using token from email
+      description: Public endpoint. Token is single-use and time-limited.
+      tags: [auth]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, new_password]
+              properties:
+                token:
+                  type: string
+                  description: Reset token from email link
+                new_password:
+                  type: string
+                  format: password
+                  minLength: 8
+      responses:
+        "200":
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "Password reset successful. Please log in."
+        "400":
+          description: Token expired, already used, or password does not meet policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  # --------------------------------------------------------------------------
+  # 9. API Keys (D7)
+  # --------------------------------------------------------------------------
+
+  /auth/api-keys:
+    post:
+      operationId: createApiKey
+      summary: Create a personal API key
+      description: |
+        Returns raw key once at creation. Roles: all except Guest.
+        Scopes capped by user's role permissions.
+      tags: [api-keys]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyCreate"
+            example:
+              name: "CI/CD pipeline"
+              scopes: ["scan:read", "scan:write", "cbom:read"]
+              expires_in_days: 90
+      responses:
+        "201":
+          description: API key created (raw key returned once)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreateResponse"
+              example:
+                id: "44444444-4444-4444-4444-444444444444"
+                name: "CI/CD pipeline"
+                key: "cr_sk_a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8"
+                scopes: ["scan:read", "scan:write", "cbom:read"]
+                expires_at: "2026-06-24T00:00:00Z"
+                created_at: "2026-03-26T12:00:00Z"
+        "400":
+          description: Invalid scopes for role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    get:
+      operationId: listOwnApiKeys
+      summary: List own API keys (masked)
+      description: Roles - all except Guest. Key values are masked (prefix only).
+      tags: [api-keys]
+      security:
+        - BearerJWT: []
+      responses:
+        "200":
+          description: User's API keys
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ApiKeyInfo"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/api-keys/{key_id}:
+    delete:
+      operationId: revokeOwnApiKey
+      summary: Revoke own API key
+      description: Roles - all except Guest. Can only revoke keys you created.
+      tags: [api-keys]
+      security:
+        - BearerJWT: []
+      parameters:
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Key revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+              example:
+                message: "API key revoked"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          description: Not the key owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/api-keys:
+    get:
+      operationId: listAllOrgApiKeys
+      summary: List all org API keys
+      description: |
+        OA: full visibility, can revoke any key.
+        SM: read-only view.
+      tags: [api-keys]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: owner_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by key owner
+        - name: scope
+          in: query
+          schema:
+            type: string
+          description: Filter by scope (e.g. scan:write)
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, revoked, expired, suspended]
+          description: Filter by key status
+      responses:
+        "200":
+          description: All org API keys
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminApiKeyListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/api-keys/{key_id}:
+    delete:
+      operationId: adminRevokeApiKey
+      summary: Revoke any org API key
+      description: Roles - OA only.
+      tags: [api-keys]
+      security:
+        - BearerJWT: []
+      parameters:
+        - name: key_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Key revoked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # 10. Policy Cascade (D26)
+  # --------------------------------------------------------------------------
+
+  /policy:
+    get:
+      operationId: getOrgPolicy
+      summary: Get org-level policy (effective rules with overrides)
+      description: Roles - all (read).
+      tags: [policy]
+      security:
+        - BearerJWT: []
+      responses:
+        "200":
+          description: Org policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    put:
+      operationId: setOrgPolicy
+      summary: Set org-level policy
+      description: Roles - OA only.
+      tags: [policy]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyConfigUpdate"
+            example:
+              rules:
+                - rule_id: "no-broken-algorithms"
+                  enabled: true
+                  severity_override: critical
+                  locked: true
+                - rule_id: "quantum-vulnerable"
+                  enabled: true
+                  severity_override: high
+                  locked: false
+              ci_fail_threshold: high
+      responses:
+        "200":
+          description: Org policy updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /groups/{group_id}/policy:
+    get:
+      operationId: getGroupPolicy
+      summary: Get group policy (with inheritance indicator)
+      description: Returns group overrides and flags which rules are inherited vs overridden. Roles - all (read).
+      tags: [policy]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      responses:
+        "200":
+          description: Group policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyConfigWithInheritance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: setGroupPolicy
+      summary: Set group policy override
+      description: Cannot override locked rules. Roles - OA, SM.
+      tags: [policy]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/GroupId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyConfigUpdate"
+      responses:
+        "200":
+          description: Group policy updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyConfigWithInheritance"
+        "400":
+          description: Attempted to override a locked rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /projects/{project_id}/policy:
+    get:
+      operationId: getProjectPolicy
+      summary: Get project policy
+      description: Returns effective policy for the project with inheritance chain. Roles - all (read).
+      tags: [policy]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      responses:
+        "200":
+          description: Project policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyConfigWithInheritance"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    put:
+      operationId: setProjectPolicy
+      summary: Set project policy override
+      description: Cannot override locked rules. Roles - OA, SM.
+      tags: [policy]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/ProjectId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyConfigUpdate"
+      responses:
+        "200":
+          description: Project policy updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyConfigWithInheritance"
+        "400":
+          description: Attempted to override a locked rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # 11. Custom Rules (D27)
+  # --------------------------------------------------------------------------
+
+  /admin/rules:
+    post:
+      operationId: createCustomRule
+      summary: Upload a custom rule
+      description: |
+        Upload a custom OpenGrep YAML rule. Validated against OpenGrep schema
+        before storage. Roles: OA.
+      tags: [custom-rules]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomRuleCreate"
+            example:
+              name: "Detect custom crypto wrapper"
+              language: "java"
+              content: |
+                rules:
+                  - id: cbom-java-custom-acme-crypto
+                    pattern: AcmeCrypto.$METHOD(...)
+                    message: Usage of Acme custom crypto wrapper
+                    severity: INFO
+              parent_rule_id: null
+      responses:
+        "201":
+          description: Rule created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomRule"
+        "400":
+          description: Rule validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    get:
+      operationId: listRules
+      summary: List all rules (built-in + custom)
+      description: Filterable. Roles - OA, SM, SE (view-only for SE).
+      tags: [custom-rules]
+      security:
+        - BearerJWT: []
+      parameters:
+        - name: language
+          in: query
+          schema:
+            type: string
+          description: Filter by target language
+        - name: source
+          in: query
+          schema:
+            type: string
+            enum: [built_in, custom]
+          description: Filter by rule source
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [critical, high, medium, low, info]
+          description: Filter by severity
+        - name: enabled
+          in: query
+          schema:
+            type: boolean
+          description: Filter by enabled status
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Free-text search in rule name, ID, description
+      responses:
+        "200":
+          description: Rule list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/rules/{rule_id}:
+    put:
+      operationId: updateCustomRule
+      summary: Update a custom rule
+      description: Only custom rules can be updated. Roles - OA.
+      tags: [custom-rules]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/RuleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomRuleUpdate"
+      responses:
+        "200":
+          description: Rule updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomRule"
+        "400":
+          description: Cannot update built-in rule or validation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteCustomRule
+      summary: Delete a custom rule
+      description: Only custom rules can be deleted. Roles - OA.
+      tags: [custom-rules]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/RuleId"
+      responses:
+        "200":
+          description: Rule deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "400":
+          description: Cannot delete built-in rule
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/rules/{rule_id}/test:
+    post:
+      operationId: testCustomRule
+      summary: Dry-run a rule against a project
+      description: |
+        Execute a rule against a project's codebase without persisting results.
+        Returns sample findings. Roles: OA.
+      tags: [custom-rules]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/RuleId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [project_id]
+              properties:
+                project_id:
+                  type: string
+                  format: uuid
+      responses:
+        "200":
+          description: Dry-run results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [findings_count, sample_findings]
+                properties:
+                  findings_count:
+                    type: integer
+                  sample_findings:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        file:
+                          type: string
+                        line:
+                          type: integer
+                        match:
+                          type: string
+                        severity:
+                          type: string
+                    maxItems: 50
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /rules/delta:
+    get:
+      operationId: getRulesDelta
+      summary: CLI delta sync for custom rules
+      description: |
+        Returns rules added/updated/deleted since the given timestamp.
+        Auth: API key with scan:read scope.
+      tags: [custom-rules]
+      security:
+        - ApiKey: []
+      parameters:
+        - name: since
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date-time
+          description: ISO 8601 timestamp for delta calculation
+      responses:
+        "200":
+          description: Delta of rules since timestamp
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleDeltaResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # --------------------------------------------------------------------------
+  # 12. Audit Log (D28)
+  # --------------------------------------------------------------------------
+
+  /admin/audit-log:
+    get:
+      operationId: listAuditLog
+      summary: List audit log entries
+      description: |
+        Paginated, filtered audit log.
+        - OA, SM, CA: full access, all groups
+        - SE: scoped to their group's events
+      tags: [audit-log]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Start of date range
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: End of date range
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter by actor
+        - name: action_type
+          in: query
+          schema:
+            type: string
+            enum:
+              - login
+              - scan
+              - finding_change
+              - user_management
+              - policy_change
+              - api_key
+              - promotion
+              - jira
+              - integration
+              - rule_change
+          description: Filter by action type
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Scope to project
+        - name: group_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Scope to group
+      responses:
+        "200":
+          description: Paginated audit log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/audit-log/export:
+    get:
+      operationId: exportAuditLog
+      summary: Export audit log as CSV
+      description: |
+        Downloads CSV with current filters applied.
+        Roles: OA, SM, CA (full), SE (group-scoped).
+      tags: [audit-log]
+      security:
+        - BearerJWT: []
+      parameters:
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action_type
+          in: query
+          schema:
+            type: string
+        - name: project_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: CSV file download
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+              description: 'attachment; filename="audit-log-export.csv"'
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # 13. LLM Config (D5)
+  # --------------------------------------------------------------------------
+
+  /admin/llm-config:
+    get:
+      operationId: getLlmConfig
+      summary: Get AI remediation LLM configuration
+      description: Roles - OA.
+      tags: [llm-config]
+      security:
+        - BearerJWT: []
+      responses:
+        "200":
+          description: LLM config
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LlmConfig"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    put:
+      operationId: updateLlmConfig
+      summary: Update AI remediation LLM configuration
+      description: Roles - OA.
+      tags: [llm-config]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LlmConfigUpdate"
+            example:
+              provider: anthropic
+              api_url: null
+              model: "claude-sonnet-4-20250514"
+              temperature: 0.2
+              max_tokens: 4096
+              custom_instructions: "Always use our internal crypto wrapper com.acme.crypto"
+              privacy:
+                require_consent: true
+                strip_comments: false
+                anonymize_variables: false
+                cache_ttl_days: 7
+      responses:
+        "200":
+          description: Config updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LlmConfig"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/llm-config/test:
+    post:
+      operationId: testLlmConnection
+      summary: Test LLM provider connection
+      description: |
+        Sends a test request to the configured LLM provider. Roles: OA.
+      tags: [llm-config]
+      security:
+        - BearerJWT: []
+      responses:
+        "200":
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                  response_time_ms:
+                    type: integer
+                  model:
+                    type: string
+                  error:
+                    type: string
+                    nullable: true
+              example:
+                success: true
+                response_time_ms: 342
+                model: "claude-sonnet-4-20250514"
+                error: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # 14. Integrations (D3)
+  # --------------------------------------------------------------------------
+
+  /admin/integrations/{provider}/connect:
+    post:
+      operationId: connectIntegration
+      summary: Connect a git/tool provider via PAT/token
+      description: |
+        Connect a provider using manual PAT/token auth.
+        Supported providers: github, gitlab, bitbucket, jira, teams.
+        Roles: OA, SM.
+      tags: [integrations]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/Provider"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationConnect"
+            example:
+              base_url: "https://github.example.com"
+              token: "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+              scopes: ["repo", "read:org"]
+      responses:
+        "200":
+          description: Provider connected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationStatus"
+        "400":
+          description: Connection failed (invalid token, unreachable URL)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/integrations/{provider}:
+    delete:
+      operationId: disconnectIntegration
+      summary: Disconnect a provider
+      description: Roles - OA, SM.
+      tags: [integrations]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/Provider"
+      responses:
+        "200":
+          description: Provider disconnected
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/integrations/{provider}/test:
+    post:
+      operationId: testIntegrationConnection
+      summary: Test provider connection
+      description: Roles - OA, SM.
+      tags: [integrations]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/Provider"
+      responses:
+        "200":
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                  provider:
+                    type: string
+                  message:
+                    type: string
+                  token_age_days:
+                    type: integer
+                    nullable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/integrations/{provider}/repos:
+    get:
+      operationId: listProviderRepos
+      summary: List available repos from provider
+      description: |
+        Fetches repos from the connected provider. Already-imported repos
+        marked accordingly. Roles: OA, SM.
+      tags: [integrations]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/Provider"
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Search/filter repos by name
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PerPage"
+      responses:
+        "200":
+          description: Available repos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProviderRepoListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/integrations/import:
+    post:
+      operationId: importReposAsProjects
+      summary: Import repos as projects
+      description: |
+        Import selected repos from a connected provider as CipherRadar projects.
+        Roles: OA, SM.
+      tags: [integrations]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [repos]
+              properties:
+                repos:
+                  type: array
+                  items:
+                    type: object
+                    required: [url, group_id]
+                    properties:
+                      url:
+                        type: string
+                        format: uri
+                        description: Git clone URL
+                      group_id:
+                        type: string
+                        format: uuid
+                        description: Target group
+                      auto_scan:
+                        type: boolean
+                        default: false
+                        description: Trigger initial scan on import
+                  minItems: 1
+            example:
+              repos:
+                - url: "https://github.com/acme/auth-service.git"
+                  group_id: "33333333-3333-3333-3333-333333333333"
+                  auto_scan: true
+                - url: "https://github.com/acme/user-api.git"
+                  group_id: "33333333-3333-3333-3333-333333333333"
+                  auto_scan: false
+      responses:
+        "201":
+          description: Projects created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [imported, errors]
+                properties:
+                  imported:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        project_id:
+                          type: string
+                          format: uuid
+                        name:
+                          type: string
+                        url:
+                          type: string
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        url:
+                          type: string
+                        error:
+                          type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # 15. Artifact Registries (D2)
+  # --------------------------------------------------------------------------
+
+  /admin/registries:
+    get:
+      operationId: listRegistries
+      summary: List configured artifact registries
+      description: Roles - OA, SM.
+      tags: [registries]
+      security:
+        - BearerJWT: []
+      responses:
+        "200":
+          description: Registry list
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ArtifactRegistry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+    post:
+      operationId: createRegistry
+      summary: Add an artifact registry
+      description: Roles - OA.
+      tags: [registries]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArtifactRegistryCreate"
+            example:
+              name: "Production ECR"
+              registry_type: ecr
+              url: "123456789012.dkr.ecr.us-east-1.amazonaws.com"
+              auth_method: iam_role
+              auth_config:
+                role_arn: "arn:aws:iam::123456789012:role/CipherRadarECR"
+              include_filters: ["prod-*"]
+              exclude_filters: ["*-test"]
+      responses:
+        "201":
+          description: Registry added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactRegistry"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /admin/registries/{registry_id}:
+    put:
+      operationId: updateRegistry
+      summary: Update an artifact registry
+      description: Roles - OA.
+      tags: [registries]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArtifactRegistryUpdate"
+      responses:
+        "200":
+          description: Registry updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtifactRegistry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      operationId: deleteRegistry
+      summary: Delete an artifact registry
+      description: Roles - OA.
+      tags: [registries]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+      responses:
+        "200":
+          description: Registry deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /admin/registries/{registry_id}/test:
+    post:
+      operationId: testRegistryConnection
+      summary: Test registry connection
+      description: Roles - OA.
+      tags: [registries]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/RegistryId"
+      responses:
+        "200":
+          description: Connection test result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success]
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  last_tested_at:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # --------------------------------------------------------------------------
+  # 16. Org Settings (D4, D25)
+  # --------------------------------------------------------------------------
+
+  /admin/settings:
+    put:
+      operationId: updateOrgSettings
+      summary: Update organisation settings
+      description: |
+        Update org-wide settings including labels, scan thresholds, risk acceptance
+        toggle, deletion policy, audit retention, and more. Roles: OA.
+      tags: [org-settings]
+      security:
+        - BearerJWT: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OrgSettingsUpdate"
+            example:
+              labels:
+                group: "Department"
+                project: "Service"
+              stale_scan_threshold_days: 30
+              allow_project_schedule_override: true
+              risk_acceptance_enabled: true
+              external_grc_url: null
+              deletion_policy: retain_name
+              audit_retention_days: 730
+              audit_webhook_url: "https://splunk.acme.com/collector"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrgSettings"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # --------------------------------------------------------------------------
+  # 17. Search (D22)
+  # --------------------------------------------------------------------------
+
+  /search:
+    get:
+      operationId: globalSearch
+      summary: Global search across projects, findings, and users
+      description: |
+        Command palette backend. Results RBAC-scoped per D12.
+        Roles: all (results filtered by access).
+      tags: [search]
+      security:
+        - BearerJWT: []
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+          description: Search query
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [project, finding, user]
+          description: Restrict search to a specific entity type
+      responses:
+        "200":
+          description: Search results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # --------------------------------------------------------------------------
+  # 18. Notifications Fix (existing)
+  # --------------------------------------------------------------------------
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      summary: List notifications (fix 422)
+      description: |
+        Existing endpoint with query params made optional with defaults.
+        Resolves 422 error when params are omitted.
+      tags: [notifications]
+      security:
+        - BearerJWT: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+      responses:
+        "200":
+          description: Paginated notification list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NotificationListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # --------------------------------------------------------------------------
+  # 19. Rule Analytics (D16)
+  # --------------------------------------------------------------------------
+
+  /admin/rules/{rule_id}/analytics:
+    get:
+      operationId: getRuleAnalytics
+      summary: Get per-rule effectiveness metrics
+      description: |
+        Returns FP rate, fix rate, MTTR, and trend data for a specific rule.
+        Roles: OA, SM, SE.
+      tags: [rule-analytics]
+      security:
+        - BearerJWT: []
+      parameters:
+        - $ref: "#/components/parameters/RuleId"
+        - name: time_window
+          in: query
+          schema:
+            type: string
+            enum: ["30d", "90d", "180d", "1y", "all"]
+            default: "90d"
+          description: Time window for metrics calculation
+      responses:
+        "200":
+          description: Rule analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleAnalytics"
+              example:
+                rule_id: "no-broken-algorithms"
+                time_window: "90d"
+                total_findings: 340
+                active_findings: 147
+                fp_count: 42
+                fp_rate: 12.35
+                ra_count: 18
+                ra_rate: 5.29
+                resolved_count: 133
+                fix_rate: 39.12
+                mttr_hours: 168.5
+                trend:
+                  - scan_date: "2026-01-15"
+                    finding_count: 45
+                  - scan_date: "2026-02-15"
+                    finding_count: 38
+                  - scan_date: "2026-03-15"
+                    finding_count: 34
+                warning: null
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+# ============================================================================
+# COMPONENTS
+# ============================================================================
+components:
+
+  # --------------------------------------------------------------------------
+  # Security Schemes
+  # --------------------------------------------------------------------------
+  securitySchemes:
+    BearerJWT:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token from POST /auth/login
+    ApiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Scoped API key (cr_sk_... prefix)
+
+  # --------------------------------------------------------------------------
+  # Reusable Parameters
+  # --------------------------------------------------------------------------
+  parameters:
+    FindingId:
+      name: finding_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RequestId:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ScanId:
+      name: scan_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ProjectId:
+      name: project_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    GroupId:
+      name: group_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    RuleId:
+      name: rule_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Rule ID (e.g. "no-broken-algorithms" or custom rule UUID)
+    RegistryId:
+      name: registry_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Provider:
+      name: provider
+      in: path
+      required: true
+      schema:
+        type: string
+        enum: [github, gitlab, bitbucket, jira, teams]
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+      description: Page number
+    PerPage:
+      name: per_page
+      in: query
+      schema:
+        type: integer
+        default: 25
+        minimum: 1
+        maximum: 100
+      description: Items per page
+
+  # --------------------------------------------------------------------------
+  # Reusable Responses
+  # --------------------------------------------------------------------------
+  responses:
+    BadRequest:
+      description: Invalid request body or parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthorized:
+      description: Missing or invalid authentication
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: unauthorized
+            message: "Invalid or expired token"
+    Forbidden:
+      description: Insufficient role or scope
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: forbidden
+            message: "Requires org_admin role"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: not_found
+            message: "Resource not found"
+
+  # --------------------------------------------------------------------------
+  # Schemas
+  # --------------------------------------------------------------------------
+  schemas:
+
+    # -- Enums ---------------------------------------------------------------
+
+    FindingStatus:
+      type: string
+      enum:
+        - open
+        - in_review
+        - in_progress
+        - resolved
+        - risk_accepted
+        - false_positive
+      description: |
+        Finding status lifecycle (D14):
+        - open: new, not yet triaged
+        - in_review: being investigated
+        - in_progress: fix underway
+        - resolved: confirmed fixed
+        - risk_accepted: org accepts the risk (SM/OA only)
+        - false_positive: detection was wrong (SM/OA only)
+
+    UserRole:
+      type: string
+      enum:
+        - org_admin
+        - security_manager
+        - security_engineer
+        - team_manager
+        - compliance_auditor
+        - developer
+        - guest
+      description: 7-role RBAC model (ADR-013, docs/09-rbac.md)
+
+    ReasonCategory:
+      type: string
+      enum:
+        - false_positive
+        - risk_accepted
+        - not_applicable
+        - test_code
+        - compensating_control
+        - low_impact
+        - migration_planned
+        - business_exception
+
+    # -- Common --------------------------------------------------------------
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          description: Machine-readable error code
+        message:
+          type: string
+          description: Human-readable error message
+        details:
+          type: object
+          additionalProperties: true
+          description: Additional error context (validation errors, etc.)
+
+    PaginatedResponse:
+      type: object
+      required: [items, total, page, per_page]
+      properties:
+        items:
+          type: array
+          items: {}
+        total:
+          type: integer
+          description: Total matching items across all pages
+        page:
+          type: integer
+        per_page:
+          type: integer
+
+    UserRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+
+    # -- Findings ------------------------------------------------------------
+
+    FindingStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          $ref: "#/components/schemas/FindingStatus"
+        reason:
+          type: string
+          description: Required for risk_accepted and false_positive transitions
+        reason_category:
+          $ref: "#/components/schemas/ReasonCategory"
+        review_date:
+          type: string
+          format: date
+          description: Required for risk_accepted — when to re-evaluate
+
+    FindingDetail:
+      type: object
+      required: [id, project_id, status, severity, file, line, title]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        scan_id:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/FindingStatus"
+        severity:
+          type: string
+          enum: [critical, high, medium, low, info]
+        file:
+          type: string
+        line:
+          type: integer
+        title:
+          type: string
+        algorithm:
+          type: string
+          nullable: true
+        quantum_status:
+          type: string
+          nullable: true
+        asset_type:
+          type: string
+          nullable: true
+        rule_id:
+          type: string
+        detection_method:
+          type: string
+          enum: [pattern, taint]
+        confidence:
+          type: string
+          nullable: true
+        assignee:
+          $ref: "#/components/schemas/UserRef"
+        jira_issue_url:
+          type: string
+          nullable: true
+        reopen_count:
+          type: integer
+          default: 0
+        first_seen:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    FindingHistoryResponse:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/FindingHistoryEntry"
+
+    FindingHistoryEntry:
+      type: object
+      required: [id, finding_id, from_status, to_status, changed_by, changed_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        finding_id:
+          type: string
+          format: uuid
+        from_status:
+          $ref: "#/components/schemas/FindingStatus"
+        to_status:
+          $ref: "#/components/schemas/FindingStatus"
+        changed_by:
+          $ref: "#/components/schemas/UserRef"
+        changed_at:
+          type: string
+          format: date-time
+        reason:
+          type: string
+          nullable: true
+        reason_category:
+          $ref: "#/components/schemas/ReasonCategory"
+
+    FindingComment:
+      type: object
+      required: [id, finding_id, author, text, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        finding_id:
+          type: string
+          format: uuid
+        author:
+          $ref: "#/components/schemas/UserRef"
+        text:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    # -- FP/RA Requests ------------------------------------------------------
+
+    FpRaRequestCreate:
+      type: object
+      required: [type, justification]
+      properties:
+        type:
+          type: string
+          enum: [fp, ra]
+        justification:
+          type: string
+          minLength: 20
+          description: |
+            Mandatory justification. Validated server-side:
+            - Min 20 characters
+            - No generic filler (e.g. "fix later", "NA", "not an issue")
+            - Must relate to selected reason_category
+        reason_category:
+          $ref: "#/components/schemas/ReasonCategory"
+        review_date:
+          type: string
+          format: date
+          description: When to re-evaluate (for RA requests)
+
+    FpRaRequest:
+      type: object
+      required: [id, finding_id, type, status, requester, justification, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        finding_id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          enum: [fp, ra]
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        requester:
+          $ref: "#/components/schemas/UserRef"
+        justification:
+          type: string
+        reason_category:
+          $ref: "#/components/schemas/ReasonCategory"
+        review_date:
+          type: string
+          format: date
+          nullable: true
+        reviewer:
+          $ref: "#/components/schemas/UserRef"
+        reviewer_comment:
+          type: string
+          nullable: true
+        expiry_date:
+          type: string
+          format: date
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    FpRaRequestListResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/FpRaRequest"
+
+    # -- Bulk Actions --------------------------------------------------------
+
+    BulkActionRequest:
+      type: object
+      required: [finding_ids, action]
+      properties:
+        finding_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          minItems: 1
+          maxItems: 500
+        action:
+          type: string
+          enum:
+            - assign
+            - status_change
+            - mark_fp
+            - mark_ra
+            - raise_fp_request
+            - raise_ra_request
+            - create_jira
+            - export
+        params:
+          type: object
+          additionalProperties: true
+          description: |
+            Action-specific parameters:
+            - assign: {assignee_id: uuid}
+            - status_change: {status: FindingStatus}
+            - mark_fp: {reason: string}
+            - mark_ra: {reason: string, reason_category: string, review_date: date}
+            - raise_fp_request: {justification: string, reason_category?: string}
+            - raise_ra_request: {justification: string, reason_category?: string, review_date?: date}
+            - create_jira: {summary_override?: string}
+            - export: {format: "csv"|"json"}
+
+    BulkActionResponse:
+      type: object
+      required: [total, succeeded, failed]
+      properties:
+        total:
+          type: integer
+          description: Total findings in request
+        succeeded:
+          type: integer
+          description: Successfully processed count
+        failed:
+          type: integer
+          description: Failed count
+        errors:
+          type: array
+          items:
+            type: object
+            properties:
+              finding_id:
+                type: string
+                format: uuid
+              error:
+                type: string
+        jira_issue_url:
+          type: string
+          nullable: true
+          description: Jira issue URL when action is create_jira
+        export_url:
+          type: string
+          nullable: true
+          description: Download URL when action is export
+
+    # -- Jira ----------------------------------------------------------------
+
+    JiraConfig:
+      type: object
+      required: [jira_project_key]
+      properties:
+        jira_project_key:
+          type: string
+          description: Jira project key (e.g. "PAYMENTS")
+        default_issue_type:
+          type: string
+          default: Bug
+          description: Default issue type (Bug / Task / Story)
+        priority_mapping:
+          type: object
+          additionalProperties:
+            type: string
+          description: CipherRadar severity to Jira priority map
+        custom_fields:
+          type: object
+          additionalProperties:
+            type: string
+          description: Optional custom field mappings
+        default_assignee:
+          type: string
+          nullable: true
+        labels:
+          type: array
+          items:
+            type: string
+        updated_at:
+          type: string
+          format: date-time
+
+    JiraConfigUpdate:
+      type: object
+      required: [jira_project_key]
+      properties:
+        jira_project_key:
+          type: string
+        default_issue_type:
+          type: string
+          default: Bug
+        priority_mapping:
+          type: object
+          additionalProperties:
+            type: string
+        custom_fields:
+          type: object
+          additionalProperties:
+            type: string
+        default_assignee:
+          type: string
+          nullable: true
+        labels:
+          type: array
+          items:
+            type: string
+
+    JiraConfigWithInheritance:
+      type: object
+      properties:
+        project_config:
+          $ref: "#/components/schemas/JiraConfig"
+        group_config:
+          $ref: "#/components/schemas/JiraConfig"
+        effective_source:
+          type: string
+          enum: [project, group, none]
+          description: Which config level is in effect
+
+    JiraIssueResult:
+      type: object
+      required: [issue_key, issue_url]
+      properties:
+        issue_key:
+          type: string
+          description: "e.g. PAYMENTS-1234"
+        issue_url:
+          type: string
+          format: uri
+        summary:
+          type: string
+        status:
+          type: string
+
+    # -- Scans ---------------------------------------------------------------
+
+    ScanResponse:
+      type: object
+      required: [id, project_id, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [queued, cloning, scanning, generating, complete, failed]
+        trigger_type:
+          type: string
+          enum: [manual, scheduled, webhook, push]
+        triggered_by:
+          $ref: "#/components/schemas/UserRef"
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+        duration_seconds:
+          type: integer
+          nullable: true
+        finding_count:
+          type: integer
+          nullable: true
+        environment:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ScanListResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ScanResponse"
+
+    ScanSchedule:
+      type: object
+      properties:
+        cron:
+          type: string
+          nullable: true
+          description: Cron expression (null if no schedule)
+        timezone:
+          type: string
+          nullable: true
+        source:
+          type: string
+          enum: [project, group, org, none]
+          description: Where the effective schedule comes from
+        next_run_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ScanScheduleUpdate:
+      type: object
+      required: [cron, timezone]
+      properties:
+        cron:
+          type: string
+          description: Cron expression (e.g. "0 2 * * 1" for weekly Monday 2am)
+        timezone:
+          type: string
+          description: IANA timezone (e.g. "Europe/London")
+
+    # -- Provenance ----------------------------------------------------------
+
+    ScanProvenance:
+      type: object
+      required: [scan_id, scan_source_type]
+      properties:
+        scan_id:
+          type: string
+          format: uuid
+        scan_source_type:
+          type: string
+          enum: [source, container, artifact]
+        branch:
+          type: string
+          nullable: true
+        commit_sha:
+          type: string
+          nullable: true
+        tag:
+          type: string
+          nullable: true
+        image_ref:
+          type: string
+          nullable: true
+        image_digest:
+          type: string
+          nullable: true
+        artifact_filename:
+          type: string
+          nullable: true
+        artifact_checksum:
+          type: string
+          nullable: true
+        artifact_version:
+          type: string
+          nullable: true
+        environment:
+          type: string
+          nullable: true
+        promoted_at:
+          type: string
+          format: date-time
+          nullable: true
+        promoted_by:
+          type: string
+          format: uuid
+          nullable: true
+
+    ScanPromoteRequest:
+      type: object
+      required: [scan_id, from_env, to_env]
+      properties:
+        scan_id:
+          type: string
+          format: uuid
+        from_env:
+          type: string
+          description: Current environment (e.g. "staging")
+        to_env:
+          type: string
+          description: Target environment (e.g. "production")
+
+    EnvironmentStage:
+      type: object
+      required: [name, display_order]
+      properties:
+        name:
+          type: string
+        display_order:
+          type: integer
+
+    # -- Users ---------------------------------------------------------------
+
+    UserDetail:
+      type: object
+      required: [id, email, name, role, is_active, auth_source, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/UserRole"
+        is_active:
+          type: boolean
+        auth_source:
+          type: string
+          enum: [local, saml, oidc, scim]
+        last_active_at:
+          type: string
+          format: date-time
+          nullable: true
+        group_memberships:
+          type: array
+          items:
+            type: object
+            properties:
+              group_id:
+                type: string
+                format: uuid
+              group_name:
+                type: string
+              group_role:
+                $ref: "#/components/schemas/UserRole"
+        api_key_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    UserInvite:
+      type: object
+      required: [email, role, group_id]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/UserRole"
+        group_id:
+          type: string
+          format: uuid
+
+    UserDirectCreate:
+      type: object
+      required: [email, name, password, role, group_id]
+      properties:
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        password:
+          type: string
+          format: password
+          minLength: 8
+        role:
+          $ref: "#/components/schemas/UserRole"
+        group_id:
+          type: string
+          format: uuid
+
+    # -- API Keys ------------------------------------------------------------
+
+    ApiKeyCreate:
+      type: object
+      required: [name, scopes, expires_in_days]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        scopes:
+          type: array
+          items:
+            type: string
+            enum:
+              - "scan:read"
+              - "scan:write"
+              - "cbom:read"
+              - "cbom:write"
+              - "cbom:export"
+              - "project:read"
+              - "project:write"
+              - "finding:write"
+              - "findings:read"
+              - "findings:suppress:request"
+              - "report:read"
+              - "report:export"
+              - "policy:read"
+          minItems: 1
+        expires_in_days:
+          type: integer
+          enum: [30, 60, 90, 180, 365, 0]
+          description: "0 = no expiry (must be explicit)"
+
+    ApiKeyCreateResponse:
+      type: object
+      required: [id, name, key, scopes, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key:
+          type: string
+          description: Raw API key value (shown once, never again)
+        scopes:
+          type: array
+          items:
+            type: string
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ApiKeyInfo:
+      type: object
+      required: [id, name, key_prefix, scopes, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        key_prefix:
+          type: string
+          description: "Masked key prefix (e.g. cr_sk_a1b2...****)"
+        scopes:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, revoked, expired, suspended]
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    AdminApiKeyInfo:
+      allOf:
+        - $ref: "#/components/schemas/ApiKeyInfo"
+        - type: object
+          properties:
+            owner:
+              $ref: "#/components/schemas/UserRef"
+
+    AdminApiKeyListResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/AdminApiKeyInfo"
+
+    # -- Policy Cascade ------------------------------------------------------
+
+    PolicyRule:
+      type: object
+      required: [rule_id]
+      properties:
+        rule_id:
+          type: string
+        enabled:
+          type: boolean
+          default: true
+        severity_override:
+          type: string
+          enum: [critical, high, medium, low, info]
+          nullable: true
+        locked:
+          type: boolean
+          default: false
+          description: When true, group/project cannot override this rule
+
+    PolicyConfig:
+      type: object
+      required: [rules]
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyRule"
+        ci_fail_threshold:
+          type: string
+          enum: [critical, high, medium, low, info]
+          nullable: true
+          description: CI pipeline fails if findings at this severity or above
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          $ref: "#/components/schemas/UserRef"
+
+    PolicyConfigUpdate:
+      type: object
+      properties:
+        rules:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyRule"
+        ci_fail_threshold:
+          type: string
+          enum: [critical, high, medium, low, info]
+          nullable: true
+
+    PolicyConfigWithInheritance:
+      allOf:
+        - $ref: "#/components/schemas/PolicyConfig"
+        - type: object
+          properties:
+            inheritance:
+              type: array
+              items:
+                type: object
+                properties:
+                  rule_id:
+                    type: string
+                  source:
+                    type: string
+                    enum: [org, group, project]
+                    description: Where this rule setting originates
+                  locked:
+                    type: boolean
+                    description: Whether org has locked this rule from override
+
+    # -- Custom Rules --------------------------------------------------------
+
+    CustomRuleCreate:
+      type: object
+      required: [name, language, content]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        language:
+          type: string
+          description: Target language (e.g. "java", "python", "go")
+        content:
+          type: string
+          description: OpenGrep YAML rule content
+        parent_rule_id:
+          type: string
+          nullable: true
+          description: If forked from a built-in rule, the parent rule ID
+
+    CustomRuleUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        language:
+          type: string
+        content:
+          type: string
+
+    CustomRule:
+      type: object
+      required: [id, name, language, source, enabled, created_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        language:
+          type: string
+        source:
+          type: string
+          enum: [built_in, custom]
+        content:
+          type: string
+          description: OpenGrep YAML content (only for custom rules)
+        parent_rule_id:
+          type: string
+          nullable: true
+        severity:
+          type: string
+          enum: [critical, high, medium, low, info]
+        enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    RuleListResponse:
+      type: object
+      required: [items, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomRule"
+        total:
+          type: integer
+
+    RuleDeltaResponse:
+      type: object
+      required: [added, updated, deleted, server_time]
+      properties:
+        added:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomRule"
+        updated:
+          type: array
+          items:
+            $ref: "#/components/schemas/CustomRule"
+        deleted:
+          type: array
+          items:
+            type: string
+            description: Rule IDs that were deleted
+        server_time:
+          type: string
+          format: date-time
+          description: Server timestamp for next delta request
+
+    # -- Rule Analytics ------------------------------------------------------
+
+    RuleAnalytics:
+      type: object
+      required:
+        - rule_id
+        - time_window
+        - total_findings
+        - active_findings
+        - fp_count
+        - fp_rate
+        - ra_count
+        - ra_rate
+        - resolved_count
+        - fix_rate
+        - mttr_hours
+      properties:
+        rule_id:
+          type: string
+        time_window:
+          type: string
+        total_findings:
+          type: integer
+        active_findings:
+          type: integer
+        fp_count:
+          type: integer
+        fp_rate:
+          type: number
+          format: float
+          description: (FP / total) * 100
+        ra_count:
+          type: integer
+        ra_rate:
+          type: number
+          format: float
+        resolved_count:
+          type: integer
+        fix_rate:
+          type: number
+          format: float
+        mttr_hours:
+          type: number
+          format: float
+          description: Average hours from Open to Resolved
+        trend:
+          type: array
+          items:
+            type: object
+            properties:
+              scan_date:
+                type: string
+                format: date
+              finding_count:
+                type: integer
+        warning:
+          type: string
+          nullable: true
+          description: "e.g. 'FP rate exceeds 50%' or null"
+
+    # -- Audit Log -----------------------------------------------------------
+
+    AuditLogEntry:
+      type: object
+      required: [id, action_type, actor, timestamp]
+      properties:
+        id:
+          type: string
+          format: uuid
+        action_type:
+          type: string
+          enum:
+            - login
+            - scan
+            - finding_change
+            - user_management
+            - policy_change
+            - api_key
+            - promotion
+            - jira
+            - integration
+            - rule_change
+        actor:
+          $ref: "#/components/schemas/UserRef"
+        timestamp:
+          type: string
+          format: date-time
+        description:
+          type: string
+          description: Human-readable summary of the action
+        target_type:
+          type: string
+          nullable: true
+          description: "e.g. finding, user, scan, policy, api_key"
+        target_id:
+          type: string
+          nullable: true
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+        group_id:
+          type: string
+          format: uuid
+          nullable: true
+        metadata:
+          type: object
+          additionalProperties: true
+          description: Action-specific details (old/new values, etc.)
+
+    AuditLogListResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/AuditLogEntry"
+
+    # -- LLM Config ----------------------------------------------------------
+
+    LlmConfig:
+      type: object
+      required: [provider]
+      properties:
+        provider:
+          type: string
+          enum: [anthropic, openai, ollama, custom, disabled]
+        api_url:
+          type: string
+          nullable: true
+          description: Override API URL (for Ollama, custom providers)
+        model:
+          type: string
+          nullable: true
+        temperature:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 2
+        max_tokens:
+          type: integer
+          minimum: 100
+          maximum: 32000
+        custom_instructions:
+          type: string
+          nullable: true
+          description: Org-level custom instructions appended to system prompt
+        privacy:
+          $ref: "#/components/schemas/LlmPrivacySettings"
+        updated_at:
+          type: string
+          format: date-time
+
+    LlmConfigUpdate:
+      type: object
+      required: [provider]
+      properties:
+        provider:
+          type: string
+          enum: [anthropic, openai, ollama, custom, disabled]
+        api_url:
+          type: string
+          nullable: true
+        model:
+          type: string
+          nullable: true
+        api_key:
+          type: string
+          format: password
+          nullable: true
+          writeOnly: true
+          description: Provider API key (write-only, never returned in GET)
+        temperature:
+          type: number
+          format: float
+        max_tokens:
+          type: integer
+        custom_instructions:
+          type: string
+          nullable: true
+        privacy:
+          $ref: "#/components/schemas/LlmPrivacySettings"
+
+    LlmPrivacySettings:
+      type: object
+      properties:
+        require_consent:
+          type: boolean
+          default: true
+          description: Cannot be turned off
+        strip_comments:
+          type: boolean
+          default: false
+        anonymize_variables:
+          type: boolean
+          default: false
+        cache_ttl_days:
+          type: integer
+          default: 7
+
+    # -- Integrations --------------------------------------------------------
+
+    IntegrationConnect:
+      type: object
+      required: [token]
+      properties:
+        base_url:
+          type: string
+          nullable: true
+          description: Enterprise URL (e.g. GitHub Enterprise, GitLab self-hosted)
+        token:
+          type: string
+          format: password
+          description: PAT / token
+        scopes:
+          type: array
+          items:
+            type: string
+          nullable: true
+          description: Requested token scopes (informational)
+
+    IntegrationStatus:
+      type: object
+      required: [provider, connected]
+      properties:
+        provider:
+          type: string
+        connected:
+          type: boolean
+        base_url:
+          type: string
+          nullable: true
+        account_name:
+          type: string
+          nullable: true
+        token_age_days:
+          type: integer
+          nullable: true
+        last_tested_at:
+          type: string
+          format: date-time
+          nullable: true
+        synced_repo_count:
+          type: integer
+          nullable: true
+        available_repo_count:
+          type: integer
+          nullable: true
+        last_synced_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ProviderRepo:
+      type: object
+      required: [url, name]
+      properties:
+        url:
+          type: string
+          format: uri
+        name:
+          type: string
+        full_name:
+          type: string
+          description: "e.g. acme/auth-service"
+        language:
+          type: string
+          nullable: true
+        last_activity_at:
+          type: string
+          format: date-time
+          nullable: true
+        imported:
+          type: boolean
+          description: Whether already imported as a CipherRadar project
+        project_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: CipherRadar project ID if imported
+
+    ProviderRepoListResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/ProviderRepo"
+
+    # -- Artifact Registries -------------------------------------------------
+
+    ArtifactRegistry:
+      type: object
+      required: [id, name, registry_type, url, auth_method]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        registry_type:
+          type: string
+          enum: [ecr, gcr, acr, docker_hub, harbor, gitlab, jfrog, custom]
+        url:
+          type: string
+        auth_method:
+          type: string
+          enum: [token, username_password, iam_role, service_account_json]
+        include_filters:
+          type: array
+          items:
+            type: string
+          nullable: true
+        exclude_filters:
+          type: array
+          items:
+            type: string
+          nullable: true
+        connection_status:
+          type: string
+          enum: [connected, failed, untested]
+        last_tested_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    ArtifactRegistryCreate:
+      type: object
+      required: [name, registry_type, url, auth_method, auth_config]
+      properties:
+        name:
+          type: string
+        registry_type:
+          type: string
+          enum: [ecr, gcr, acr, docker_hub, harbor, gitlab, jfrog, custom]
+        url:
+          type: string
+        auth_method:
+          type: string
+          enum: [token, username_password, iam_role, service_account_json]
+        auth_config:
+          type: object
+          additionalProperties: true
+          description: Auth-method-specific configuration (token, credentials, role ARN, etc.)
+        include_filters:
+          type: array
+          items:
+            type: string
+          nullable: true
+        exclude_filters:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    ArtifactRegistryUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        registry_type:
+          type: string
+          enum: [ecr, gcr, acr, docker_hub, harbor, gitlab, jfrog, custom]
+        url:
+          type: string
+        auth_method:
+          type: string
+          enum: [token, username_password, iam_role, service_account_json]
+        auth_config:
+          type: object
+          additionalProperties: true
+        include_filters:
+          type: array
+          items:
+            type: string
+          nullable: true
+        exclude_filters:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    # -- Org Settings --------------------------------------------------------
+
+    OrgSettings:
+      type: object
+      properties:
+        labels:
+          type: object
+          properties:
+            group:
+              type: string
+              default: Group
+            project:
+              type: string
+              default: Project
+        stale_scan_threshold_days:
+          type: integer
+          default: 30
+        allow_project_schedule_override:
+          type: boolean
+          default: true
+        risk_acceptance_enabled:
+          type: boolean
+          default: true
+        external_grc_url:
+          type: string
+          nullable: true
+          description: External GRC portal URL shown when RA is disabled
+        deletion_policy:
+          type: string
+          enum: [retain_name, anonymize]
+          default: retain_name
+        audit_retention_days:
+          type: integer
+          default: 730
+          description: Audit log retention period (default 2 years)
+        audit_webhook_url:
+          type: string
+          nullable: true
+          description: URL for real-time audit event push (Splunk, Sentinel, etc.)
+
+    OrgSettingsUpdate:
+      type: object
+      properties:
+        labels:
+          type: object
+          properties:
+            group:
+              type: string
+            project:
+              type: string
+        stale_scan_threshold_days:
+          type: integer
+          minimum: 1
+        allow_project_schedule_override:
+          type: boolean
+        risk_acceptance_enabled:
+          type: boolean
+        external_grc_url:
+          type: string
+          nullable: true
+        deletion_policy:
+          type: string
+          enum: [retain_name, anonymize]
+        audit_retention_days:
+          type: integer
+          minimum: 30
+        audit_webhook_url:
+          type: string
+          nullable: true
+
+    # -- Search --------------------------------------------------------------
+
+    SearchResponse:
+      type: object
+      required: [results]
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            required: [type, id, title]
+            properties:
+              type:
+                type: string
+                enum: [project, finding, user]
+              id:
+                type: string
+                format: uuid
+              title:
+                type: string
+                description: Display name or title
+              subtitle:
+                type: string
+                nullable: true
+                description: Additional context (group name, file path, etc.)
+              url:
+                type: string
+                description: Frontend route path to the result
+
+    # -- Notifications -------------------------------------------------------
+
+    NotificationListResponse:
+      allOf:
+        - $ref: "#/components/schemas/PaginatedResponse"
+        - type: object
+          properties:
+            items:
+              type: array
+              items:
+                type: object
+                properties:
+                  id:
+                    type: string
+                    format: uuid
+                  type:
+                    type: string
+                  title:
+                    type: string
+                  body:
+                    type: string
+                  read:
+                    type: boolean
+                  created_at:
+                    type: string
+                    format: date-time
