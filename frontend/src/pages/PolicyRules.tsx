@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   useRulesSummary,
   formatMTTR,
@@ -6,17 +6,54 @@ import {
   type RuleSummary,
 } from '@/api/hooks/useRuleAnalytics';
 import { RuleAnalyticsDetail } from '@/components/rules/RuleAnalyticsDetail';
+import { CustomRulesPanel } from '@/components/rules/CustomRulesPanel';
+import {
+  usePolicy,
+  useSavePolicy,
+  type PolicyRuleConfig,
+  type PolicyScope,
+  type PolicySeverity,
+} from '@/api/hooks/usePolicy';
+import { useToast } from '@/lib/use-toast';
+import { useAuth } from '@/lib/auth';
+
+// ---------------------------------------------------------------------------
+// Exported constants (tested)
+// ---------------------------------------------------------------------------
+
+export const SEVERITY_OPTIONS: { value: PolicySeverity; label: string }[] = [
+  { value: 'critical', label: 'Critical' },
+  { value: 'high', label: 'High' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'low', label: 'Low' },
+  { value: 'info', label: 'Info' },
+];
+
+export const SCOPE_OPTIONS: { value: PolicyScope; label: string }[] = [
+  { value: 'org', label: 'Organization' },
+  { value: 'group', label: 'Group' },
+  { value: 'project', label: 'Project' },
+];
+
+// ---------------------------------------------------------------------------
+// Local types
+// ---------------------------------------------------------------------------
 
 interface PolicyRule {
   id: string;
   name: string;
   description: string;
-  severity: 'critical' | 'high' | 'medium';
+  severity: PolicySeverity;
   enabled: boolean;
   category: string;
+  // Policy cascade fields (D26)
+  locked: boolean;
+  scope: PolicyScope;
+  inheritedFrom: string | null;
+  overridden: boolean;
 }
 
-const POLICY_RULES: PolicyRule[] = [
+const BASE_RULES: Omit<PolicyRule, 'locked' | 'scope' | 'inheritedFrom' | 'overridden'>[] = [
   {
     id: 'no-broken-algorithms',
     name: 'No Broken Algorithms',
@@ -81,10 +118,16 @@ const TIME_WINDOWS: { value: TimeWindow; label: string }[] = [
   { value: 'all', label: 'All time' },
 ];
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
 function severityBadge(severity: string): string {
   if (severity === 'critical') return 'b-crit';
   if (severity === 'high') return 'b-high';
-  return 'b-med';
+  if (severity === 'medium') return 'b-med';
+  if (severity === 'low') return 'b-low';
+  return 'b-info';
 }
 
 function getMetrics(ruleId: string, summaryData: RuleSummary[] | undefined): RuleSummary | null {
@@ -92,21 +135,114 @@ function getMetrics(ruleId: string, summaryData: RuleSummary[] | undefined): Rul
   return summaryData.find((s) => s.ruleId === ruleId) ?? null;
 }
 
+function mergeRulesWithPolicy(
+  policyRules: PolicyRuleConfig[] | undefined,
+): PolicyRule[] {
+  return BASE_RULES.map((base) => {
+    const policyConfig = policyRules?.find((p) => p.id === base.id);
+    const defaultSeverity = base.severity;
+    const overridden = policyConfig
+      ? policyConfig.severity !== defaultSeverity
+      : false;
+    return {
+      ...base,
+      severity: policyConfig?.severity ?? base.severity,
+      enabled: policyConfig?.enabled ?? base.enabled,
+      locked: policyConfig?.locked ?? false,
+      scope: policyConfig?.scope ?? 'org',
+      inheritedFrom: policyConfig?.inheritedFrom ?? null,
+      overridden,
+    };
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------------
+
 export function PolicyRules(): React.ReactElement {
-  const [rules, setRules] = useState<PolicyRule[]>(POLICY_RULES);
+  const { data: policyData } = usePolicy();
+  const savePolicy = useSavePolicy();
+  const { toast } = useToast();
+  const auth = useAuth();
+  const isOrgAdmin = auth.user?.role === 'org-admin';
+
+  const [rules, setRules] = useState<PolicyRule[]>(() => mergeRulesWithPolicy(undefined));
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('90d');
   const [expandedRule, setExpandedRule] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
 
   const { data: summaryData } = useRulesSummary(timeWindow);
+
+  // Hydrate from API
+  useEffect(() => {
+    if (policyData?.rules) {
+      setRules(mergeRulesWithPolicy(policyData.rules));
+    }
+  }, [policyData]);
 
   const toggleRule = (id: string) => {
     setRules((prev) =>
       prev.map((r) => (r.id === id ? { ...r, enabled: !r.enabled } : r)),
     );
+    setDirty(true);
   };
 
   const toggleExpand = (id: string) => {
     setExpandedRule((prev) => (prev === id ? null : id));
+  };
+
+  const changeSeverity = (id: string, severity: PolicySeverity) => {
+    setRules((prev) =>
+      prev.map((r) => {
+        if (r.id !== id) return r;
+        const base = BASE_RULES.find((b) => b.id === id);
+        return {
+          ...r,
+          severity,
+          overridden: base ? severity !== base.severity : false,
+        };
+      }),
+    );
+    setDirty(true);
+  };
+
+  const changeScope = (id: string, scope: PolicyScope) => {
+    setRules((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, scope } : r)),
+    );
+    setDirty(true);
+  };
+
+  const toggleLock = (id: string) => {
+    if (!isOrgAdmin) return;
+    setRules((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, locked: !r.locked } : r)),
+    );
+    setDirty(true);
+  };
+
+  const handleSave = () => {
+    const payload = rules.map((r) => ({
+      id: r.id,
+      severity: r.severity,
+      enabled: r.enabled,
+      locked: r.locked,
+      scope: r.scope,
+      inheritedFrom: r.inheritedFrom,
+    }));
+    savePolicy.mutate(
+      { rules: payload },
+      {
+        onSuccess: () => {
+          toast({ title: 'Policy saved', variant: 'success' });
+          setDirty(false);
+        },
+        onError: () => {
+          toast({ title: 'Failed to save policy', variant: 'error' });
+        },
+      },
+    );
   };
 
   const enabledCount = rules.filter((r) => r.enabled).length;
@@ -149,6 +285,17 @@ export function PolicyRules(): React.ReactElement {
               </option>
             ))}
           </select>
+          {dirty && (
+            <button
+              className="btn btn-accent"
+              style={{ fontSize: '11px', padding: '4px 12px' }}
+              disabled={savePolicy.isPending}
+              onClick={handleSave}
+              data-testid="save-policy-btn"
+            >
+              {savePolicy.isPending ? 'Saving...' : 'Save Policy'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -159,6 +306,7 @@ export function PolicyRules(): React.ReactElement {
               <th>Rule</th>
               <th>Category</th>
               <th>Severity</th>
+              <th>Scope</th>
               <th data-testid="col-findings">Findings</th>
               <th data-testid="col-fp-rate">FP Rate</th>
               <th data-testid="col-fix-rate">Fix Rate</th>
@@ -180,13 +328,22 @@ export function PolicyRules(): React.ReactElement {
                   isExpanded={isExpanded}
                   showWarning={showWarning}
                   timeWindow={timeWindow}
+                  isOrgAdmin={isOrgAdmin}
                   onToggleRule={toggleRule}
                   onToggleExpand={toggleExpand}
+                  onChangeSeverity={changeSeverity}
+                  onChangeScope={changeScope}
+                  onToggleLock={toggleLock}
                 />
               );
             })}
           </tbody>
         </table>
+      </div>
+
+      {/* Custom Rules Panel (D27) */}
+      <div className="card" style={{ marginTop: '16px' }}>
+        <CustomRulesPanel />
       </div>
     </div>
   );
@@ -202,8 +359,12 @@ interface RuleRowProps {
   isExpanded: boolean;
   showWarning: boolean;
   timeWindow: TimeWindow;
+  isOrgAdmin: boolean;
   onToggleRule: (id: string) => void;
   onToggleExpand: (id: string) => void;
+  onChangeSeverity: (id: string, severity: PolicySeverity) => void;
+  onChangeScope: (id: string, scope: PolicyScope) => void;
+  onToggleLock: (id: string) => void;
 }
 
 function RuleRow({
@@ -212,8 +373,12 @@ function RuleRow({
   isExpanded,
   showWarning,
   timeWindow,
+  isOrgAdmin,
   onToggleRule,
   onToggleExpand,
+  onChangeSeverity,
+  onChangeScope,
+  onToggleLock,
 }: RuleRowProps): React.ReactElement {
   return (
     <>
@@ -224,18 +389,62 @@ function RuleRow({
       >
         <td>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {/* Lock icon (D26) — OA only */}
+            <button
+              data-testid={`lock-${rule.id}`}
+              title={
+                rule.locked
+                  ? isOrgAdmin
+                    ? 'Click to unlock'
+                    : 'Locked by Org Admin'
+                  : isOrgAdmin
+                    ? 'Click to lock'
+                    : 'Unlocked'
+              }
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: isOrgAdmin ? 'pointer' : 'default',
+                fontSize: '12px',
+                padding: '0 2px',
+                color: rule.locked ? 'var(--orange)' : 'var(--text-4)',
+                opacity: isOrgAdmin ? 1 : 0.5,
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleLock(rule.id);
+              }}
+            >
+              {rule.locked ? '\uD83D\uDD12' : '\uD83D\uDD13'}
+            </button>
+
             <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>
               {isExpanded ? '\u25BC' : '\u25B6'}
             </span>
             <div>
-              <div style={{ fontWeight: 600, fontSize: '12px' }}>
+              <div style={{ fontWeight: 600, fontSize: '12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 {rule.name}
+                {/* Override badge (D26) */}
+                {rule.overridden && (
+                  <span
+                    data-testid={`override-badge-${rule.id}`}
+                    style={{
+                      fontSize: '9px',
+                      padding: '1px 4px',
+                      borderRadius: 'var(--radius)',
+                      background: 'var(--purple)',
+                      color: '#fff',
+                      fontWeight: 600,
+                    }}
+                  >
+                    Override
+                  </span>
+                )}
                 {showWarning && (
                   <span
                     data-testid={`warning-${rule.id}`}
                     title="High FP rate or low fix rate"
                     style={{
-                      marginLeft: '6px',
                       color: 'var(--orange, #f59e0b)',
                       fontSize: '14px',
                     }}
@@ -247,6 +456,15 @@ function RuleRow({
               <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
                 {rule.description}
               </div>
+              {/* Inherited-from indicator (D26) */}
+              {rule.inheritedFrom && (
+                <div
+                  data-testid={`inherited-from-${rule.id}`}
+                  style={{ fontSize: '10px', color: 'var(--text-4)', marginTop: '2px' }}
+                >
+                  Inherited from: {rule.inheritedFrom}
+                </div>
+              )}
             </div>
           </div>
         </td>
@@ -263,10 +481,49 @@ function RuleRow({
             {rule.category}
           </span>
         </td>
+        {/* Severity override dropdown (D26) */}
         <td>
-          <span className={`badge ${severityBadge(rule.severity)}`}>
-            {rule.severity}
-          </span>
+          <select
+            className="input"
+            style={{ fontSize: '10px', padding: '2px 4px', width: 'auto' }}
+            value={rule.severity}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              onChangeSeverity(rule.id, e.target.value as PolicySeverity);
+            }}
+            disabled={rule.locked && !isOrgAdmin}
+            data-testid={`severity-select-${rule.id}`}
+            aria-label={`Severity for ${rule.name}`}
+          >
+            {SEVERITY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </td>
+        {/* Scope selector (D26) */}
+        <td>
+          <select
+            className="input"
+            style={{ fontSize: '10px', padding: '2px 4px', width: 'auto' }}
+            value={rule.scope}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              e.stopPropagation();
+              onChangeScope(rule.id, e.target.value as PolicyScope);
+            }}
+            disabled={rule.locked && !isOrgAdmin}
+            data-testid={`scope-select-${rule.id}`}
+            aria-label={`Scope for ${rule.name}`}
+          >
+            {SCOPE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
         </td>
         <td style={{ fontSize: '12px', textAlign: 'center' }} data-testid={`findings-count-${rule.id}`}>
           {metrics ? metrics.totalFindings : '\u2014'}
@@ -287,6 +544,7 @@ function RuleRow({
               e.stopPropagation();
               onToggleRule(rule.id);
             }}
+            disabled={rule.locked && !isOrgAdmin}
             style={{ fontSize: '11px', padding: '4px 10px' }}
           >
             {rule.enabled ? 'Enabled' : 'Disabled'}
@@ -295,7 +553,7 @@ function RuleRow({
       </tr>
       {isExpanded && (
         <tr data-testid={`rule-expanded-${rule.id}`}>
-          <td colSpan={8} style={{ padding: 0 }}>
+          <td colSpan={9} style={{ padding: 0 }}>
             <RuleAnalyticsDetail ruleId={rule.id} timeWindow={timeWindow} />
           </td>
         </tr>
