@@ -1325,6 +1325,49 @@ export const handlers = [
   }),
 
   // ---------------------------------------------------------------------------
+  // Plan 6 — Global search (D22 #43)
+  // ---------------------------------------------------------------------------
+
+  http.get('/api/v1/search', ({ request }) => {
+    const url = new URL(request.url);
+    const q = (url.searchParams.get('q') || '').toLowerCase();
+    const type = url.searchParams.get('type');
+
+    const results: Array<Record<string, unknown>> = [];
+
+    if (!type || type === 'project') {
+      const repos = [
+        { type: 'project', id: 'repo-1', name: 'payment-service', group: 'nk-sentinel', provider: 'GitHub' },
+        { type: 'project', id: 'repo-2', name: 'auth-api', group: 'nk-sentinel', provider: 'GitHub' },
+        { type: 'project', id: 'repo-3', name: 'data-pipeline', group: 'nk-sentinel', provider: 'GitLab' },
+        { type: 'project', id: 'repo-4', name: 'mobile-backend', group: 'nk-sentinel', provider: 'Bitbucket' },
+      ];
+      for (const r of repos) {
+        if (r.name.includes(q) || r.group.includes(q)) results.push(r);
+      }
+    }
+
+    if (!type || type === 'finding') {
+      const findings = [
+        { type: 'finding', id: 'f-001', repoId: 'repo-1', algorithm: null, file: 'SSLConfig.java', severity: 'critical', title: 'Certificate validation disabled' },
+        { type: 'finding', id: 'f-002', repoId: 'repo-1', algorithm: 'MD5', file: 'hash.py', severity: 'high', title: 'MD5 hash function' },
+        { type: 'finding', id: 'f-003', repoId: 'repo-1', algorithm: 'DES', file: 'CryptoUtil.java', severity: 'high', title: 'DES/ECB broken cipher' },
+      ];
+      for (const f of findings) {
+        if (
+          f.title.toLowerCase().includes(q) ||
+          f.file.toLowerCase().includes(q) ||
+          (f.algorithm?.toLowerCase().includes(q) ?? false)
+        ) {
+          results.push(f);
+        }
+      }
+    }
+
+    return HttpResponse.json({ results, total: results.length });
+  }),
+
+  // ---------------------------------------------------------------------------
   // Plan 5 — Remediation consent flow (D5)
   // ---------------------------------------------------------------------------
 

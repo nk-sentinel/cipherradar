@@ -1,6 +1,7 @@
 import { Outlet } from '@tanstack/react-router';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
+import { CommandPalette } from './CommandPalette';
 
 export function AppLayout(): React.ReactElement {
   return (
@@ -10,6 +11,7 @@ export function AppLayout(): React.ReactElement {
         <TopBar />
         <Outlet />
       </main>
+      <CommandPalette />
     </div>
   );
 }
