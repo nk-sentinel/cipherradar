@@ -250,9 +250,31 @@ export const handlers = [
     return HttpResponse.json({ success: true, ...body as object });
   }),
 
-  // Admin: user list
-  http.get('/api/v1/admin/users', () => {
-    return HttpResponse.json(getOrgUsers());
+  // Admin: user list (paginated)
+  http.get('/api/v1/admin/users', ({ request }) => {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page') || '1');
+    const perPage = Number(url.searchParams.get('perPage') || '25');
+    const search = url.searchParams.get('search') || '';
+    const allUsers = getOrgUsers();
+    const enriched = allUsers.map((u) => ({
+      ...u,
+      authSource: 'local',
+      groups: [],
+      apiKeyCount: 0,
+      createdAt: '2026-01-15',
+    }));
+    const filtered = search
+      ? enriched.filter(
+          (u) =>
+            u.name.toLowerCase().includes(search.toLowerCase()) ||
+            u.email.toLowerCase().includes(search.toLowerCase()),
+        )
+      : enriched;
+    const total = filtered.length;
+    const start = (page - 1) * perPage;
+    const items = filtered.slice(start, start + perPage);
+    return HttpResponse.json({ items, total, page, perPage });
   }),
 
   // Admin: integrations
@@ -799,6 +821,194 @@ export const handlers = [
       success: true,
       message: 'Successfully connected to registry',
       latencyMs: 42,
+    });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Plan 4 — Password management (D6, D30)
+  // ---------------------------------------------------------------------------
+
+  http.put('/api/v1/auth/password', async ({ request }) => {
+    const body = await request.json() as { currentPassword: string; newPassword: string };
+    if (body.currentPassword === 'wrong') {
+      return new HttpResponse(
+        JSON.stringify({ detail: 'Current password is incorrect' }),
+        { status: 400 },
+      );
+    }
+    return HttpResponse.json({ message: 'Password changed successfully' });
+  }),
+
+  http.put('/api/v1/admin/users/:userId/reset-password', ({ params }) => {
+    return HttpResponse.json({
+      tempPassword: 'temp_' + Date.now().toString(),
+      message: 'Temporary password generated',
+    });
+  }),
+
+  http.post('/api/v1/auth/forgot-password', async () => {
+    return HttpResponse.json({
+      message: 'If the email is registered, a reset link has been sent',
+    });
+  }),
+
+  http.post('/api/v1/auth/reset-password', async ({ request }) => {
+    const body = await request.json() as { token: string; newPassword: string };
+    if (body.token === 'expired') {
+      return new HttpResponse(
+        JSON.stringify({ detail: 'Invalid or expired reset token' }),
+        { status: 400 },
+      );
+    }
+    return HttpResponse.json({ message: 'Password has been reset successfully' });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Plan 4 — API key management (D7)
+  // ---------------------------------------------------------------------------
+
+  http.get('/api/v1/auth/api-keys', () => {
+    return HttpResponse.json({
+      items: [
+        {
+          id: 'key-001',
+          name: 'CI Pipeline',
+          keyPrefix: 'cbom_sk_xxxx',
+          scopes: ['scan:read', 'scan:write'],
+          createdAt: '2026-03-15T10:00:00Z',
+          expiresAt: null,
+          lastUsedAt: '2026-03-27T08:00:00Z',
+          revokedAt: null,
+        },
+        {
+          id: 'key-002',
+          name: 'Read-only',
+          keyPrefix: 'cbom_sk_yyyy',
+          scopes: ['scan:read'],
+          createdAt: '2026-03-20T14:00:00Z',
+          expiresAt: '2026-06-20T14:00:00Z',
+          lastUsedAt: null,
+          revokedAt: null,
+        },
+      ],
+      total: 2,
+    });
+  }),
+
+  http.post('/api/v1/auth/api-keys', async ({ request }) => {
+    const body = await request.json() as { name: string; scopes: string[] };
+    return HttpResponse.json(
+      {
+        id: 'key-' + Date.now().toString(),
+        name: body.name,
+        key: 'cbom_sk_' + Date.now().toString() + '_full_key_shown_once',
+        keyPrefix: 'cbom_sk_' + Date.now().toString().slice(0, 4),
+        scopes: body.scopes,
+        createdAt: new Date().toISOString(),
+        expiresAt: null,
+      },
+      { status: 201 },
+    );
+  }),
+
+  http.delete('/api/v1/auth/api-keys/:keyId', () => {
+    return HttpResponse.json({ message: 'API key revoked successfully' });
+  }),
+
+  http.get('/api/v1/admin/api-keys', () => {
+    return HttpResponse.json({
+      items: [
+        {
+          id: 'key-001',
+          name: 'CI Pipeline',
+          keyPrefix: 'cbom_sk_xxxx',
+          scopes: ['scan:read', 'scan:write'],
+          createdAt: '2026-03-15T10:00:00Z',
+          expiresAt: null,
+          lastUsedAt: '2026-03-27T08:00:00Z',
+          revokedAt: null,
+        },
+      ],
+      total: 1,
+    });
+  }),
+
+  http.delete('/api/v1/admin/api-keys/:keyId', () => {
+    return HttpResponse.json({ message: 'API key revoked successfully' });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Plan 4 — User lifecycle (D9)
+  // ---------------------------------------------------------------------------
+
+  http.put('/api/v1/admin/users/:userId/role', async ({ request, params }) => {
+    const body = await request.json() as { role: string };
+    return HttpResponse.json({
+      userId: params['userId'],
+      oldRole: 'developer',
+      newRole: body.role,
+      revokedKeys: 0,
+    });
+  }),
+
+  http.patch('/api/v1/admin/users/:userId/role', async ({ request, params }) => {
+    const body = await request.json() as { role: string };
+    return HttpResponse.json({
+      userId: params['userId'],
+      oldRole: 'developer',
+      newRole: body.role,
+      revokedKeys: 0,
+    });
+  }),
+
+  // Direct user add
+  http.post('/api/v1/admin/users', async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>;
+    return HttpResponse.json({
+      id: 'u-' + Date.now().toString(),
+      ...body,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+    }, { status: 201 });
+  }),
+
+  http.post('/api/v1/admin/users/:userId/disable', ({ params }) => {
+    return HttpResponse.json({
+      userId: params['userId'],
+      status: 'disabled',
+      message: 'User has been disabled',
+    });
+  }),
+
+  http.post('/api/v1/admin/users/:userId/enable', ({ params }) => {
+    return HttpResponse.json({
+      userId: params['userId'],
+      status: 'active',
+      message: 'User has been re-enabled',
+    });
+  }),
+
+  http.delete('/api/v1/admin/users/:userId', ({ params }) => {
+    return HttpResponse.json({
+      userId: params['userId'],
+      message: 'User scheduled for deletion (30-day grace period)',
+    });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Plan 4 — Recovery (D9)
+  // ---------------------------------------------------------------------------
+
+  http.post('/api/v1/auth/recover', async ({ request }) => {
+    const body = await request.json() as { recoveryKey: string };
+    if (body.recoveryKey !== 'valid-recovery-key') {
+      return new HttpResponse(
+        JSON.stringify({ detail: 'Invalid recovery key' }),
+        { status: 401 },
+      );
+    }
+    return HttpResponse.json({
+      message: 'Password reset successfully. Change it immediately.',
     });
   }),
 ];
