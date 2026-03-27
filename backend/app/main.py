@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import (
     admin,
     agility,
+    api_keys,
     artifact_registries,
     assets,
     attestation,
@@ -23,6 +24,7 @@ from app.api.v1 import (
     jira,
     metrics,
     notifications,
+    password,
     policy,
     portfolio,
     projects,
@@ -142,6 +144,8 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(scan_schedule.router, prefix="/api/v1")
     app.include_router(scan_provenance.router, prefix="/api/v1")
     app.include_router(artifact_registries.router, prefix="/api/v1")
+    app.include_router(password.router, prefix="/api/v1")
+    app.include_router(api_keys.router, prefix="/api/v1")
 
     return app
 

@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.middleware import AuthenticatedUser, require_role
+from app.auth.middleware import AuthenticatedUser, get_current_user, require_role
 from app.auth.roles import Role
 from app.db.session import get_session
 from app.schemas.admin import (
@@ -24,6 +24,13 @@ from app.schemas.admin import (
     OrgUser,
     OrgUserList,
 )
+from app.schemas.user_lifecycle import (
+    ChangeRoleRequest,
+    ChangeRoleResponse,
+    DeleteUserResponse,
+    UserStatusResponse,
+)
+from app.services.user_lifecycle_service import user_lifecycle_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -370,3 +377,124 @@ async def get_audit_log(
         for entry in _MOCK_AUDIT_LOG
     ]
     return AuditLogResponse(items=items, total=len(items))
+
+
+# ---------------------------------------------------------------------------
+# PUT /api/v1/admin/users/{id}/role — change user role (D9)
+# ---------------------------------------------------------------------------
+
+_oa_dep = require_role(Role.ORG_ADMIN)
+
+
+@router.put(
+    "/users/{user_id}/role",
+    response_model=ChangeRoleResponse,
+    dependencies=[Depends(_oa_dep)],
+)
+async def change_user_role(
+    user_id: uuid.UUID,
+    body: ChangeRoleRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ChangeRoleResponse:
+    """Change a user's role. OA only. Downgrades revoke over-scoped API keys."""
+    old_role, revoked_keys = await user_lifecycle_service.change_role(
+        target_user_id=str(user_id),
+        new_role=body.role,
+        actor_id=user.user_id,
+        actor_org_id=user.org_id,
+        session=session,
+    )
+    await session.commit()
+    return ChangeRoleResponse(
+        user_id=str(user_id),
+        old_role=old_role,
+        new_role=body.role,
+        revoked_keys=revoked_keys,
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/admin/users/{id}/disable — disable user (D9)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/users/{user_id}/disable",
+    response_model=UserStatusResponse,
+    dependencies=[Depends(_oa_dep)],
+)
+async def disable_user(
+    user_id: uuid.UUID,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> UserStatusResponse:
+    """Disable a user (soft-lock). Suspends their API keys. OA only."""
+    await user_lifecycle_service.disable(
+        target_user_id=str(user_id),
+        actor_id=user.user_id,
+        actor_org_id=user.org_id,
+        session=session,
+    )
+    await session.commit()
+    return UserStatusResponse(
+        user_id=str(user_id),
+        status="disabled",
+        message="User has been disabled",
+    )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/admin/users/{id}/enable — re-enable user (D9)
+# ---------------------------------------------------------------------------
+
+
+@router.post(
+    "/users/{user_id}/enable",
+    response_model=UserStatusResponse,
+    dependencies=[Depends(_oa_dep)],
+)
+async def enable_user(
+    user_id: uuid.UUID,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> UserStatusResponse:
+    """Re-enable a disabled user. Unsuspends their API keys. OA only."""
+    await user_lifecycle_service.enable(
+        target_user_id=str(user_id),
+        actor_id=user.user_id,
+        actor_org_id=user.org_id,
+        session=session,
+    )
+    await session.commit()
+    return UserStatusResponse(
+        user_id=str(user_id),
+        status="active",
+        message="User has been re-enabled",
+    )
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/v1/admin/users/{id} — soft-delete user (D9)
+# ---------------------------------------------------------------------------
+
+
+@router.delete(
+    "/users/{user_id}",
+    response_model=DeleteUserResponse,
+    dependencies=[Depends(_oa_dep)],
+)
+async def delete_user(
+    user_id: uuid.UUID,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> DeleteUserResponse:
+    """Soft-delete a user. Must be disabled first. 30-day grace period. OA only."""
+    await user_lifecycle_service.delete(
+        target_user_id=str(user_id),
+        actor_id=user.user_id,
+        actor_org_id=user.org_id,
+        session=session,
+    )
+    await session.commit()
+    return DeleteUserResponse(user_id=str(user_id))
