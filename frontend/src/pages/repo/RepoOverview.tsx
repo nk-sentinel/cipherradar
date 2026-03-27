@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate, useParams } from '@tanstack/react-router';
 import {
   BarChart,
@@ -10,6 +11,10 @@ import {
 } from 'recharts';
 import { useRepository } from '@/api/hooks/useRepositories.ts';
 import { cn } from '@/lib/utils.ts';
+import { ScanProgressBar } from '@/components/scan/ScanProgressBar';
+import { ScanModal } from '@/components/scan/ScanModal';
+import { StaleScanBanner } from '@/components/scan/StaleScanBanner';
+import { useScanProgress } from '@/lib/use-scan-progress';
 
 const CHART_COLORS = [
   'var(--blue)',
@@ -32,6 +37,9 @@ export function RepoOverview(): React.ReactElement {
   const { repoId } = useParams({ strict: false }) as { repoId: string };
   const navigate = useNavigate();
   const { data: repo, isLoading, error } = useRepository(repoId);
+  const [activeScanId, setActiveScanId] = useState<string | null>(null);
+  const [showScanModal, setShowScanModal] = useState(false);
+  const scanProgress = useScanProgress(activeScanId);
 
   if (isLoading) {
     return (
@@ -59,10 +67,39 @@ export function RepoOverview(): React.ReactElement {
           <span className="repo-provider">{repo.provider}</span>
         </div>
         <div className="topbar-right">
-          <button className="btn btn-accent" onClick={() => alert('Scan triggered. This will be available when the backend scan API is integrated.')}>Scan Now</button>
+          <button className="btn btn-accent" onClick={() => setShowScanModal(true)}>Scan Now</button>
           <button className="btn btn-outline" onClick={() => void navigate({ to: '/admin/settings' })}>Settings</button>
         </div>
       </div>
+
+      {/* Scan progress */}
+      {activeScanId && !scanProgress.isComplete && (
+        <div className="card" style={{ marginBottom: '16px' }}>
+          <ScanProgressBar
+            status={scanProgress.status}
+            progressPct={scanProgress.progressPct}
+            detail={scanProgress.detail}
+            isComplete={scanProgress.isComplete}
+            isError={scanProgress.isError}
+          />
+        </div>
+      )}
+
+      {/* Stale scan warning */}
+      <StaleScanBanner
+        lastScanDate={repo.recentScans[0]?.time}
+        staleDays={14}
+        onAction={() => setShowScanModal(true)}
+      />
+
+      {/* Scan modal */}
+      {showScanModal && (
+        <ScanModal
+          context="project-overview"
+          projectId={repoId}
+          onClose={() => setShowScanModal(false)}
+        />
+      )}
 
       {/* Stat cards */}
       <div className="g4">
