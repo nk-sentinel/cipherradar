@@ -14,6 +14,7 @@ from app.api.v1 import (
     auth,
     bulk_actions,
     cbom,
+    certificate_tracker,
     compliance,
     custom_rules,
     deptrack,
@@ -28,6 +29,7 @@ from app.api.v1 import (
     password,
     policy,
     portfolio,
+    pqc_migration,
     projects,
     remediation,
     reports,
@@ -147,6 +149,8 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(artifact_registries.router, prefix="/api/v1")
     app.include_router(password.router, prefix="/api/v1")
     app.include_router(api_keys.router, prefix="/api/v1")
+    app.include_router(certificate_tracker.router, prefix="/api/v1")
+    app.include_router(pqc_migration.router, prefix="/api/v1")
     app.include_router(custom_rules.router, prefix="/api/v1")
 
     return app
