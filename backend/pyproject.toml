@@ -33,6 +33,8 @@ dev = [
     "mypy>=1.13.0",
     "bandit>=1.8.0",
     "pip-audit>=2.7.0",
+    "factory-boy>=3.3.0",
+    "locust>=2.0",
 ]
 
 [build-system]

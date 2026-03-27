@@ -1,6 +1,6 @@
 # Roadmap
 
-> **Document version:** v9
+> **Document version:** v10
 > **Last updated:** 2026-03-22
 > **Status:** Active
 
@@ -19,12 +19,13 @@
 | v7 | 2026-03-20 | Phase 3 A-M1 + B-M1 + C-M1 + D-M1 complete: 12 languages, multi-tenant RBAC, Helm/K8s | Phase 3 Week 1-2 |
 | v8 | 2026-03-21 | Phase 3 complete — all 19 milestones delivered, Docker deployment verified | Phase 3 close |
 | v9 | 2026-03-22 | Phase 4 complete — binary scanning, LLM remediation, IDE plugins, OTel enrichment, SonarQube plugin, HNDL risk model, agility score, pre-commit hook, CBOM attestation, ADR-026 through ADR-032 | Phase 4 close |
+| v10 | 2026-03-22 | Added Phase 4.5 (UI stabilization & UX polish) and Phase 6 (enterprise identity & SSO) | UX audit session |
 
 ---
 
 ## Overview
 
-Four phases, sequenced to deliver usable value at the end of each phase.
+Six phases, sequenced to deliver usable value at the end of each phase.
 
 | Phase | Duration | Core Deliverable | Primary Users Enabled |
 |---|---|---|---|
@@ -32,7 +33,9 @@ Four phases, sequenced to deliver usable value at the end of each phase.
 | Phase 2 — Coverage + Risk | Months 4–6 | 7 languages, quantum scoring, compliance reports, REST API | Security architects, AppSec teams |
 | Phase 3 — Enterprise | Months 7–9 | 12 languages, full compliance engine, dashboard, portfolio view | CISO, GRC teams, DevSecOps |
 | Phase 4 — Differentiation | Months 10–12 | IDE plugins, binary scanning, LLM remediation, runtime enrichment | Full enterprise deployment |
+| Phase 4.5 — UI Stabilization & UX Polish | Months 12–13 | New Scan modal, artifact registries, integration connect, auth foundation | All dashboard users |
 | Phase 5 — Ecosystem & Intelligence | Months 13–18 | IaC scanning, git archaeology, AI triage, anomaly detection, CBOM federation | Enterprise portfolio, GRC, supply chain |
+| Phase 6 — Enterprise Identity & SSO | Months 18–20 | SAML/OIDC SSO, SCIM provisioning, MFA, group-to-role mapping | Enterprise IT, identity teams |
 
 ---
 
@@ -250,6 +253,27 @@ cradar report cbom.json [--output report.pdf] [--format pdf]
 
 ---
 
+## Phase 4.5 — UI Stabilization & UX Polish (Months 12–13)
+
+**Status:** In Planning
+
+**Goal:** Stabilize the dashboard UX, unify scan workflows, add artifact registry support, and lay the auth foundation for enterprise identity.
+
+> Design decisions: see `docs/PHASE-4.5-DECISIONS.md`
+
+### Deliverables
+
+- [ ] New Scan modal (3 scan source types, project-level linked sources)
+- [ ] Artifact Registry admin page
+- [ ] Integration Connect (PAT/token auth, repo sync)
+- [ ] AI Remediation UI wiring + LLM admin configuration
+- [ ] Password management + auth_source foundation
+- [ ] Project model evolution (type, linked_sources columns)
+- [ ] Scan authorization (group-scoped access control)
+- [ ] Remaining UX audit fixes (in progress — 93 items under review)
+
+---
+
 ## Phase 5 — Ecosystem & Intelligence (Months 13–18)
 
 **Goal:** Extend beyond static source scanning into infrastructure, history, team intelligence, and ecosystem participation.
@@ -289,6 +313,25 @@ cradar report cbom.json [--output report.pdf] [--format pdf]
 - Git archaeology completes on a 5-year, 10k commit repo in < 10 minutes
 - Crypto ownership heatmap auto-assigns tickets with < 5% wrong-team rate
 - AI triage reduces false positive noise by > 30% vs. unfiltered output
+
+---
+
+## Phase 6 — Enterprise Identity & SSO (Months 18–20)
+
+**Status:** Planning
+
+**Goal:** Enterprise identity integration: SSO authentication, automated provisioning, and MFA.
+
+> Full plan: see `docs/16-phase6-identity-sso.md`
+
+### Deliverables
+
+- [ ] SAML 2.0 SSO (Okta, Azure AD, ADFS)
+- [ ] OIDC SSO (Azure AD, Okta, Google Workspace, Keycloak)
+- [ ] SCIM 2.0 automated user provisioning
+- [ ] AD/IdP group-to-role mapping
+- [ ] MFA (TOTP) for local auth users
+- [ ] Dynamic login page (SSO buttons, forgot password)
 
 ---
 

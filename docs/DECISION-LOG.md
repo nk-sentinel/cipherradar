@@ -44,6 +44,8 @@ When a decision changes, the original ADR is kept and marked **Superseded**, and
 | [ADR-030](decisions/ADR-030-intellij-plugin-architecture.md) | IntelliJ Plugin — External Annotator | Accepted | 2026-03-22 | `docs/08-roadmap.md`, `docs/07-tech-stack.md` |
 | [ADR-031](decisions/ADR-031-cryptographic-agility-score.md) | Cryptographic Agility Score — 5-Factor Model | Accepted | 2026-03-22 | `docs/02-architecture.md`, `docs/06-compliance.md` |
 | [ADR-032](decisions/ADR-032-hndl-risk-model.md) | HNDL Risk Model — Mosca Inequality + Multiplicative Score | Accepted | 2026-03-22 | `docs/06-compliance.md`, `docs/03-detection-engine.md` |
+| [ADR-033](decisions/ADR-033-remove-joern-pass3.md) | Remove Joern (Pass 3) — All patterns covered by OpenGrep taint rules | Accepted | 2026-03-23 | `docs/03-detection-engine.md`, ADR-004, ADR-011 |
+| [ADR-034](decisions/ADR-034-finding-identity-matching.md) | Finding Identity & Cross-Scan Matching — Normalized code fingerprint | Accepted | 2026-03-26 | D14, D15, D16, D21, D28, `cli/internal/scanner/`, `backend/app/services/` |
 
 ---
 
