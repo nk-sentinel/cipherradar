@@ -343,3 +343,36 @@ def require_project_access(project_id_param: str = "project_id"):
         )
 
     return _check
+
+
+# ---------------------------------------------------------------------------
+# Group-aware role resolution (D12)
+# ---------------------------------------------------------------------------
+
+
+async def resolve_role_for_group(
+    user: AuthenticatedUser,
+    group_id: str,
+    session: "AsyncSession",
+) -> str:
+    """Resolve the effective role for the user in the context of a group.
+
+    Combines the user's global role with any per-group override from the
+    user_groups table, returning whichever is higher.
+
+    Args:
+        user: The authenticated user.
+        group_id: UUID string of the target group.
+        session: SQLAlchemy async session.
+
+    Returns:
+        The effective role string for this group context.
+    """
+    from app.services.role_resolution_service import resolve_role_for_group as _resolve
+
+    return await _resolve(
+        user_id=user.user_id,
+        user_role=user.role,
+        group_id=group_id,
+        session=session,
+    )
