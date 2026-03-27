@@ -114,3 +114,32 @@ class CipherRadarUser(HttpUser):
         self.client.get(
             "/api/v1/admin/rules/cbom-java-weak-cipher/analytics?time_window=90d"
         )
+
+    # ------------------------------------------------------------------
+    # Scan lifecycle endpoints (Plan 3 — scan queue & management)
+    # ------------------------------------------------------------------
+
+    @task(2)
+    def scan_queue(self) -> None:
+        """GET /api/v1/scans — paginated scan queue with status filter."""
+        self.client.get("/api/v1/scans?page=1&per_page=25&status=running")
+
+    @task(1)
+    def project_schedule(self) -> None:
+        """GET /api/v1/projects/:id/schedule — project scan schedule."""
+        self.client.get("/api/v1/projects/fake-project-id/schedule")
+
+    @task(1)
+    def scan_provenance(self) -> None:
+        """GET /api/v1/scans/:id/provenance — scan provenance metadata."""
+        self.client.get("/api/v1/scans/fake-scan-id/provenance")
+
+    @task(1)
+    def list_registries(self) -> None:
+        """GET /api/v1/admin/registries — artifact registry list."""
+        self.client.get("/api/v1/admin/registries")
+
+    @task(1)
+    def list_environments(self) -> None:
+        """GET /api/v1/admin/environments — environment list."""
+        self.client.get("/api/v1/admin/environments")
