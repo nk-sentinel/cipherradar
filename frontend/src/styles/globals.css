@@ -827,8 +827,8 @@ tr.clickable {
 .kanban-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .download-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 
-/* Responsive */
-@media (max-width: 1100px) {
+/* Responsive — large tablets / narrow desktop */
+@media (max-width: 1100px) and (min-width: 1025px) {
   .sidebar {
     width: 200px;
   }
@@ -1090,4 +1090,196 @@ tr.clickable {
   .pagination-controls {
     flex-wrap: wrap;
   }
+}
+
+/* ======================================
+   Screen reader only (A11y)
+   ====================================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* ======================================
+   Type Scale (D29)
+   ====================================== */
+:root {
+  --text-xs: 12px;
+  --text-sm: 14px;
+  --text-base: 16px;
+  --text-lg: 20px;
+  --text-xl: 24px;
+}
+
+/* ======================================
+   Badge Standardization (D29)
+   ====================================== */
+.badge-info {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+}
+
+.badge-blue {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--blue);
+  border: 1px solid var(--blue);
+}
+
+.badge-amber {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--orange);
+  border: 1px solid var(--orange);
+}
+
+.badge-purple {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: rgba(167, 139, 250, 0.1);
+  color: var(--purple);
+  border: 1px solid var(--purple);
+}
+
+.badge-green {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: var(--badge-safe-bg);
+  color: var(--badge-safe-fg);
+  border: 1px solid var(--badge-safe-bd);
+}
+
+.badge-gray {
+  display: inline-block;
+  padding: 2px 7px;
+  border-radius: var(--radius);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  background: var(--bg-3);
+  color: var(--text-3);
+  border: 1px solid var(--border);
+}
+
+/* ======================================
+   Focus-visible (D32 / A11y)
+   ====================================== */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[role="button"]:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ======================================
+   Responsive Breakpoints (D29)
+   ====================================== */
+
+/* Sidebar collapses at 1024px */
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 60px;
+    overflow: hidden;
+  }
+  .sidebar .nav-item span:not(.nav-icon) {
+    display: none;
+  }
+  .sidebar .nav-section {
+    display: none;
+  }
+  .sidebar .logo-text,
+  .sidebar .logo-sub {
+    display: none;
+  }
+  .sidebar .sidebar-footer {
+    display: none;
+  }
+  .content-area {
+    margin-left: 60px;
+  }
+}
+
+/* Tables get horizontal scroll */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 1024px) {
+  .card > table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Theme thumbnail preview */
+.theme-preview {
+  width: 48px;
+  height: 32px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: stretch;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.theme-preview-sidebar {
+  width: 12px;
+}
+
+.theme-preview-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 3px;
+  gap: 2px;
+}
+
+.theme-preview-line {
+  height: 3px;
+  border-radius: 1px;
 }
