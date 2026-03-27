@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, Link } from '@tanstack/react-router';
 import { useAuth } from '@/lib/auth';
 
 export function Login(): React.ReactElement {
@@ -19,7 +19,7 @@ export function Login(): React.ReactElement {
       await login(email, password);
       void navigate({ to: '/' });
     } catch {
-      setError('Invalid email or password');
+      setError('Invalid credentials');
     } finally {
       setLoading(false);
     }
@@ -79,29 +79,26 @@ export function Login(): React.ReactElement {
           />
         </div>
 
+        <div style={{ textAlign: 'right', marginBottom: '8px' }}>
+          <Link
+            to="/forgot-password"
+            style={{
+              color: 'var(--accent)',
+              fontSize: '11px',
+              textDecoration: 'none',
+            }}
+            data-testid="forgot-password-link"
+          >
+            Forgot Password?
+          </Link>
+        </div>
+
         <button
           type="submit"
           className="login-btn"
           disabled={loading}
         >
           {loading ? 'Signing in...' : 'Sign In'}
-        </button>
-
-        <div className="login-divider">or</div>
-
-        <button
-          type="button"
-          className="login-sso"
-          onClick={() => setError('GitHub SSO not configured yet')}
-        >
-          Sign in with GitHub SSO
-        </button>
-        <button
-          type="button"
-          className="login-sso"
-          onClick={() => setError('SAML / OIDC not configured yet')}
-        >
-          Sign in with SAML / OIDC
         </button>
       </form>
     </div>

@@ -39,6 +39,8 @@ import { CVECorrelation } from './pages/repo/CVECorrelation.tsx';
 import { RequestQueue } from './pages/RequestQueue.tsx';
 import { ScanQueue } from './pages/ScanQueue.tsx';
 import { ArtifactRegistries } from './pages/admin/ArtifactRegistries.tsx';
+import { ForgotPassword } from './pages/ForgotPassword.tsx';
+import { ResetPassword } from './pages/ResetPassword.tsx';
 import { createRouteGuard } from './lib/route-guard.ts';
 
 const rootRoute = createRootRoute({
@@ -49,6 +51,21 @@ const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/login',
   component: Login,
+});
+
+const forgotPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/forgot-password',
+  component: ForgotPassword,
+});
+
+const resetPasswordRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  component: ResetPassword,
+  validateSearch: (search: Record<string, unknown>) => ({
+    token: (search.token as string) ?? '',
+  }),
 });
 
 const authenticatedRoute = createRoute({
@@ -320,6 +337,8 @@ const indexRedirectRoute = createRoute({
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
+  forgotPasswordRoute,
+  resetPasswordRoute,
   authenticatedRoute.addChildren([
     dashboardRoute,
     assetsRoute,
