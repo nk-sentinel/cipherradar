@@ -1,7 +1,18 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { RequireRole } from '@/components/guards/RequireRole.tsx';
-import { useOrgUsers, useInviteUser } from '@/api/hooks/useAdmin.ts';
+import { useAuth } from '@/lib/auth.tsx';
 import { ROLE_LABELS, type Role } from '@/lib/roles.ts';
+import { Pagination } from '@/components/ui/Pagination.tsx';
+import { UserCreateModal } from '@/components/admin/UserCreateModal.tsx';
+import { UserDetailDrawer } from '@/components/admin/UserDetailDrawer.tsx';
+import {
+  useUsers,
+  useChangeRole,
+  useDisableUser,
+  useEnableUser,
+  useDeleteUser,
+  type ManagedUser,
+} from '@/api/hooks/useUserManagement.ts';
 
 export function UserManagement(): React.ReactElement {
   return (
@@ -11,13 +22,68 @@ export function UserManagement(): React.ReactElement {
   );
 }
 
+/**
+ * Roles that the current user can assign via the inline dropdown (D10).
+ */
+const ASSIGNABLE_ROLES: Record<Role, Role[]> = {
+  'org-admin': [
+    'org-admin',
+    'security-manager',
+    'security-engineer',
+    'team-manager',
+    'compliance-auditor',
+    'developer',
+    'guest',
+  ],
+  'security-manager': [
+    'security-engineer',
+    'team-manager',
+    'compliance-auditor',
+    'developer',
+    'guest',
+  ],
+  'security-engineer': [],
+  'team-manager': [],
+  'compliance-auditor': [],
+  developer: [],
+  guest: [],
+};
+
+/**
+ * Get stale indicator color based on last active string.
+ * Orange >30d, red >90d.
+ */
+function getStaleColor(lastActive: string): string | undefined {
+  const daysMatch = lastActive.match(/(\d+)\s*days?\s*ago/i);
+  if (daysMatch) {
+    const days = parseInt(daysMatch[1] ?? '0', 10);
+    if (days > 90) return 'var(--red)';
+    if (days > 30) return 'var(--yellow)';
+  }
+  if (lastActive === 'Never') return 'var(--red)';
+  return undefined;
+}
+
 function UserManagementContent(): React.ReactElement {
-  const { data, isLoading, error } = useOrgUsers();
-  const inviteUser = useInviteUser();
-  const [showInvite, setShowInvite] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<Role>('developer');
-  const [inviteMessage, setInviteMessage] = useState<string | null>(null);
+  const { user: currentUser } = useAuth();
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(25);
+  const [search, setSearch] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
+
+  const { data, isLoading, error } = useUsers(page, perPage, search);
+  const changeRole = useChangeRole();
+  const disableUser = useDisableUser();
+  const enableUser = useEnableUser();
+  const deleteUser = useDeleteUser();
+
+  const allowedRoles = useMemo(
+    () => (currentUser ? ASSIGNABLE_ROLES[currentUser.role] ?? [] : []),
+    [currentUser],
+  );
+
+  const canEditRole = currentUser?.role === 'org-admin';
 
   if (isLoading) {
     return (
@@ -36,6 +102,9 @@ function UserManagementContent(): React.ReactElement {
       </div>
     );
   }
+
+  const users = data.items;
+  const total = data.total;
 
   return (
     <div>
@@ -57,73 +126,42 @@ function UserManagementContent(): React.ReactElement {
         >
           User Management
         </h1>
-        <button className="btn btn-accent" onClick={() => setShowInvite(!showInvite)}>
-          + Invite User
+        <button
+          className="btn btn-accent"
+          onClick={() => setShowCreate(true)}
+          data-testid="add-user-btn"
+        >
+          + Add User
         </button>
       </div>
 
-      {/* Invite form */}
-      {showInvite && (
-        <div className="card" style={{ marginBottom: '16px' }}>
-          <div className="card-title">Invite New User</div>
-          <div className="g2" style={{ marginBottom: '8px' }}>
-            <div className="field">
-              <label className="field-label">Email Address</label>
-              <input
-                className="input"
-                type="email"
-                placeholder="user@company.com"
-                value={inviteEmail}
-                onChange={(e) => setInviteEmail(e.target.value)}
-              />
-            </div>
-            <div className="field">
-              <label className="field-label">Role</label>
-              <select
-                className="input"
-                value={inviteRole}
-                onChange={(e) => setInviteRole(e.target.value as Role)}
-              >
-                {(Object.entries(ROLE_LABELS) as [Role, string][]).map(([key, label]) => (
-                  <option key={key} value={key}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          {inviteMessage && (
-            <span style={{ fontSize: '12px', color: 'var(--green)', marginBottom: '8px', display: 'block' }}>
-              {inviteMessage}
-            </span>
-          )}
-          <button
-            className="btn btn-accent"
-            disabled={inviteUser.isPending || !inviteEmail.trim()}
-            onClick={() => {
-              setInviteMessage(null);
-              inviteUser.mutate(
-                { email: inviteEmail, role: inviteRole },
-                {
-                  onSuccess: () => {
-                    setInviteMessage(`Invite sent to ${inviteEmail}.`);
-                    setInviteEmail('');
-                    setInviteRole('developer');
-                  },
-                  onError: () => setInviteMessage('Failed to send invite.'),
-                },
-              );
-            }}
-          >
-            {inviteUser.isPending ? 'Sending...' : 'Send Invite'}
-          </button>
+      {/* Search */}
+      <div style={{ marginBottom: '16px' }}>
+        <input
+          className="input"
+          type="text"
+          placeholder="Search by name or email..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          data-testid="user-search"
+          style={{ maxWidth: '320px' }}
+        />
+      </div>
+
+      {/* Create modal */}
+      {showCreate && (
+        <div style={{ marginBottom: '16px' }}>
+          <UserCreateModal onClose={() => setShowCreate(false)} />
         </div>
       )}
 
       {/* User table */}
       <div className="card">
         <div className="card-title">
-          Users ({data.length})
+          Users ({total})
         </div>
         <table>
           <thead>
@@ -133,31 +171,87 @@ function UserManagementContent(): React.ReactElement {
               <th>Role</th>
               <th>Last Active</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {data.map((user) => (
-              <tr key={user.id}>
+            {users.map((u) => (
+              <tr
+                key={u.id}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setSelectedUser(u)}
+                data-testid={`user-row-${u.id}`}
+              >
                 <td>
-                  <strong>{user.name}</strong>
+                  <strong>{u.name}</strong>
                 </td>
-                <td style={{ color: 'var(--text-2)' }}>{user.email}</td>
+                <td style={{ color: 'var(--text-2)' }}>{u.email}</td>
                 <td>
-                  <span
-                    style={{
-                      padding: '2px 8px',
-                      borderRadius: 'var(--radius)',
-                      fontSize: '10px',
-                      fontWeight: 600,
-                      background: 'var(--accent-dim)',
-                      color: 'var(--accent)',
-                      border: '1px solid var(--border)',
-                    }}
-                  >
-                    {ROLE_LABELS[user.role]}
-                  </span>
+                  {canEditRole ? (
+                    <select
+                      className="input"
+                      value={u.role}
+                      onClick={(e) => e.stopPropagation()}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        changeRole.mutate({
+                          userId: u.id,
+                          role: e.target.value as Role,
+                        });
+                      }}
+                      data-testid={`role-select-${u.id}`}
+                      style={{
+                        fontSize: '10px',
+                        padding: '2px 6px',
+                        width: 'auto',
+                        minWidth: '120px',
+                      }}
+                    >
+                      {allowedRoles.map((r) => (
+                        <option key={r} value={r}>
+                          {ROLE_LABELS[r]}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span
+                      style={{
+                        padding: '2px 8px',
+                        borderRadius: 'var(--radius)',
+                        fontSize: '10px',
+                        fontWeight: 600,
+                        background: 'var(--accent-dim)',
+                        color: 'var(--accent)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
+                      {ROLE_LABELS[u.role]}
+                    </span>
+                  )}
                 </td>
-                <td style={{ color: 'var(--text-3)', fontSize: '11px' }}>{user.lastActive}</td>
+                <td
+                  style={{
+                    color: getStaleColor(u.lastActive) ?? 'var(--text-3)',
+                    fontSize: '11px',
+                    fontWeight: getStaleColor(u.lastActive) ? 600 : 400,
+                  }}
+                  data-testid={`last-active-${u.id}`}
+                >
+                  {getStaleColor(u.lastActive) && (
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: getStaleColor(u.lastActive),
+                        marginRight: '4px',
+                      }}
+                      data-testid={`stale-indicator-${u.id}`}
+                    />
+                  )}
+                  {u.lastActive}
+                </td>
                 <td>
                   <span
                     style={{
@@ -173,21 +267,83 @@ function UserManagementContent(): React.ReactElement {
                         height: '6px',
                         borderRadius: '50%',
                         background:
-                          user.status === 'active'
+                          u.status === 'active'
                             ? 'var(--green)'
-                            : user.status === 'invited'
+                            : u.status === 'invited'
                               ? 'var(--yellow)'
                               : 'var(--red)',
                       }}
                     />
-                    {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                    {u.status.charAt(0).toUpperCase() + u.status.slice(1)}
                   </span>
+                </td>
+                <td>
+                  <div
+                    style={{ display: 'flex', gap: '4px' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {u.status === 'active' && (
+                      <button
+                        className="btn btn-outline"
+                        style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--yellow)' }}
+                        data-testid={`disable-btn-${u.id}`}
+                        disabled={disableUser.isPending}
+                        onClick={() => disableUser.mutate(u.id)}
+                      >
+                        Disable
+                      </button>
+                    )}
+                    {u.status === 'disabled' && (
+                      <>
+                        <button
+                          className="btn btn-outline"
+                          style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--green)' }}
+                          data-testid={`enable-btn-${u.id}`}
+                          disabled={enableUser.isPending}
+                          onClick={() => enableUser.mutate(u.id)}
+                        >
+                          Enable
+                        </button>
+                        <button
+                          className="btn btn-outline"
+                          style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)' }}
+                          data-testid={`delete-btn-${u.id}`}
+                          disabled={deleteUser.isPending}
+                          onClick={() => deleteUser.mutate(u.id)}
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+
+        {/* Pagination */}
+        <div style={{ marginTop: '12px' }}>
+          <Pagination
+            page={page}
+            perPage={perPage}
+            total={total}
+            onPageChange={setPage}
+            onPerPageChange={(newPerPage) => {
+              setPerPage(newPerPage);
+              setPage(1);
+            }}
+          />
+        </div>
       </div>
+
+      {/* Detail drawer */}
+      {selectedUser && (
+        <UserDetailDrawer
+          user={selectedUser}
+          onClose={() => setSelectedUser(null)}
+        />
+      )}
     </div>
   );
 }
