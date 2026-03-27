@@ -1,10 +1,20 @@
-from fastapi import APIRouter, Depends, HTTPException
+import uuid
+
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.middleware import AuthenticatedUser, get_current_user, require_role
+from app.auth.roles import Role
 from app.db.session import get_session
 from app.models.finding import Finding
 from app.schemas.policy import PolicyRule, PolicyRuleListResponse, PolicyRuleToggle
+from app.schemas.policy_cascade import (
+    PolicyCascadeResponse,
+    PolicyOverrideRequest,
+    PolicyOverrideResponse,
+)
+from app.services.policy_service import policy_service
 
 router = APIRouter(prefix="/policy", tags=["policy"])
 
@@ -133,3 +143,147 @@ async def toggle_policy_rule(
         enabled=body.enabled,
         violation_count=violation_count,
     )
+
+
+# ---------------------------------------------------------------------------
+# Policy Cascade endpoints (D26)
+# ---------------------------------------------------------------------------
+
+_oa_dep = require_role(Role.ORG_ADMIN)
+_sm_dep = require_role(Role.ORG_ADMIN, Role.SECURITY_MANAGER)
+
+
+@router.get(
+    "/effective",
+    response_model=PolicyCascadeResponse,
+    dependencies=[Depends(_sm_dep)],
+)
+async def get_effective_policy(
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PolicyCascadeResponse:
+    """Get effective org-level policy. Roles: OA, SM."""
+    result = await policy_service.resolve_policy(user.org_id, session)
+    return PolicyCascadeResponse(**result)
+
+
+@router.put(
+    "/effective",
+    response_model=PolicyOverrideResponse,
+    dependencies=[Depends(_oa_dep)],
+)
+async def set_org_policy(
+    body: PolicyOverrideRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PolicyOverrideResponse:
+    """Set org-level policy override. OA only."""
+    try:
+        result = await policy_service.save_policy(
+            org_id=user.org_id,
+            rule_id=body.rule_id,
+            action=body.action,
+            actor=user,
+            session=session,
+            reason=body.reason,
+        )
+        await session.commit()
+        return PolicyOverrideResponse(**result)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get(
+    "/groups/{group_id}/effective",
+    response_model=PolicyCascadeResponse,
+    dependencies=[Depends(_sm_dep)],
+)
+async def get_group_policy(
+    group_id: uuid.UUID,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PolicyCascadeResponse:
+    """Get effective group-level policy (org + group cascade). Roles: OA, SM."""
+    result = await policy_service.resolve_policy(
+        user.org_id, session, group_id=str(group_id),
+    )
+    return PolicyCascadeResponse(**result)
+
+
+@router.put(
+    "/groups/{group_id}/effective",
+    response_model=PolicyOverrideResponse,
+    dependencies=[Depends(_sm_dep)],
+)
+async def set_group_policy(
+    group_id: uuid.UUID,
+    body: PolicyOverrideRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PolicyOverrideResponse:
+    """Set group-level policy override. Roles: OA, SM."""
+    try:
+        result = await policy_service.save_policy(
+            org_id=user.org_id,
+            rule_id=body.rule_id,
+            action=body.action,
+            actor=user,
+            session=session,
+            group_id=str(group_id),
+            reason=body.reason,
+        )
+        await session.commit()
+        return PolicyOverrideResponse(**result)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.get(
+    "/projects/{project_id}/effective",
+    response_model=PolicyCascadeResponse,
+    dependencies=[Depends(_sm_dep)],
+)
+async def get_project_policy(
+    project_id: uuid.UUID,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PolicyCascadeResponse:
+    """Get effective project-level policy (org + group + project cascade). Roles: OA, SM."""
+    result = await policy_service.resolve_policy(
+        user.org_id, session, project_id=str(project_id),
+    )
+    return PolicyCascadeResponse(**result)
+
+
+@router.put(
+    "/projects/{project_id}/effective",
+    response_model=PolicyOverrideResponse,
+    dependencies=[Depends(_sm_dep)],
+)
+async def set_project_policy(
+    project_id: uuid.UUID,
+    body: PolicyOverrideRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> PolicyOverrideResponse:
+    """Set project-level policy override. Roles: OA, SM."""
+    try:
+        result = await policy_service.save_policy(
+            org_id=user.org_id,
+            rule_id=body.rule_id,
+            action=body.action,
+            actor=user,
+            session=session,
+            project_id=str(project_id),
+            reason=body.reason,
+        )
+        await session.commit()
+        return PolicyOverrideResponse(**result)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
