@@ -1,4 +1,8 @@
-"""Remediation API — LLM-assisted code fix suggestions (ADR-027)."""
+"""Remediation API — LLM-assisted code fix suggestions (ADR-027).
+
+Wired to use the DB-backed LLM config via remediation_service (D5).
+Falls back to env-var-based factory when no DB config exists.
+"""
 
 import uuid
 
@@ -6,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.middleware import AuthenticatedUser, get_current_user
 from app.db.session import get_session
 from app.models.finding import Finding
 from app.schemas.remediation import (
@@ -17,6 +22,7 @@ from app.schemas.remediation import (
 from app.services.llm.base import CodeContext
 from app.services.llm.cache import get_cached_remediation, set_cached_remediation
 from app.services.llm.factory import create_llm_provider
+from app.services.remediation_service import remediation_service
 
 router = APIRouter(prefix="/remediation", tags=["remediation"])
 
@@ -123,11 +129,12 @@ async def generate_remediation(
     finding_id: uuid.UUID,
     body: RemediationRequest,
     session: AsyncSession = Depends(get_session),
+    user: AuthenticatedUser | None = Depends(get_current_user),
 ) -> RemediationResponse:
     """Generate an LLM-assisted remediation for a single finding.
 
     Requires ``consent: true`` — code snippets will be sent to the configured
-    LLM provider.
+    LLM provider. Uses DB-backed config when available, falls back to env vars.
     """
     if not body.consent:
         raise HTTPException(
@@ -136,6 +143,28 @@ async def generate_remediation(
         )
 
     finding = await _get_finding(session, finding_id)
+
+    # Try DB-backed LLM config first (D5 wiring)
+    if user is not None:
+        try:
+            result = await remediation_service.generate_fix(
+                finding=finding,
+                actor=user,
+                session=session,
+            )
+            return RemediationResponse(
+                finding_id=finding.id,
+                original_code=result["original_code"],
+                fixed_code=result["fixed_code"],
+                explanation=result["explanation"],
+                confidence=result["confidence"],
+                provider=result["provider"],
+                cached=result["cached"],
+            )
+        except ValueError:
+            pass  # No DB config, fall back to env-var factory
+
+    # Fallback to env-var-based factory
     return await _remediate_finding(finding)
 
 
