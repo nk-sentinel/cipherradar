@@ -37,6 +37,8 @@ import { AgilityScore } from './pages/AgilityScore.tsx';
 import { HNDLRisk } from './pages/HNDLRisk.tsx';
 import { CVECorrelation } from './pages/repo/CVECorrelation.tsx';
 import { RequestQueue } from './pages/RequestQueue.tsx';
+import { ScanQueue } from './pages/ScanQueue.tsx';
+import { ArtifactRegistries } from './pages/admin/ArtifactRegistries.tsx';
 import { createRouteGuard } from './lib/route-guard.ts';
 
 const rootRoute = createRootRoute({
@@ -150,6 +152,20 @@ const requestsRoute = createRoute({
   path: '/requests',
   beforeLoad: createRouteGuard('requests'),
   component: RequestQueue,
+});
+
+const scansRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/scans',
+  beforeLoad: createRouteGuard('repos'),
+  component: ScanQueue,
+});
+
+const adminRegistriesRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/admin/registries',
+  beforeLoad: createRouteGuard('admin-settings'),
+  component: ArtifactRegistries,
 });
 
 const profileRoute = createRoute({
@@ -318,12 +334,14 @@ const routeTree = rootRoute.addChildren([
     migrationKanbanRoute,
     notificationPreferencesRoute,
     requestsRoute,
+    scansRoute,
     profileRoute,
     downloadsRoute,
     adminSettingsRoute,
     adminUsersRoute,
     adminIntegrationsRoute,
     adminAuditLogRoute,
+    adminRegistriesRoute,
     repoScanDetailRoute,
     repoLayoutRoute.addChildren([
       repoOverviewRoute,

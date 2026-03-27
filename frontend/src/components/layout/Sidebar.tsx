@@ -4,6 +4,7 @@ import { canAccessPage } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { OrgSwitcher } from './OrgSwitcher.tsx';
 import { useRequests } from '@/api/hooks/useRequests';
+import { useScanQueue } from '@/api/hooks/useScanQueue';
 
 interface NavItem {
   label: string;
@@ -24,6 +25,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Dashboard', icon: '\u25A0', to: '/', page: 'dashboard' },
       { label: 'Asset Explorer', icon: '\u26B1', to: '/assets', page: 'assets' },
       { label: 'Repositories', icon: '\u2630', to: '/repos', page: 'repos' },
+      { label: 'Scans', icon: '\u25B6', to: '/scans', page: 'repos' },
     ],
   },
   {
@@ -45,6 +47,7 @@ const NAV_SECTIONS: NavSection[] = [
       { label: 'Users', icon: '\u263A', to: '/admin/users', page: 'admin-users' },
       { label: 'Integrations', icon: '\u26A1', to: '/admin/integrations', page: 'admin-integrations' },
       { label: 'Audit Log', icon: '\u2637', to: '/admin/audit-log', page: 'admin-audit-log' },
+      { label: 'Registries', icon: '\u2B22', to: '/admin/registries', page: 'admin-settings' },
     ],
   },
   {
@@ -64,6 +67,8 @@ export function Sidebar(): React.ReactElement {
   const canSeeRequests = canAccessPage(role, 'requests');
   const { data: requestsData } = useRequests(1, 1);
   const pendingCount = canSeeRequests ? (requestsData?.total ?? 0) : 0;
+  const { data: scanQueueData } = useScanQueue({ status: 'running', perPage: 1 });
+  const runningScanCount = scanQueueData?.total ?? 0;
 
   return (
     <nav className="sidebar">
@@ -106,7 +111,7 @@ export function Sidebar(): React.ReactElement {
               <div className="nav-section">{section.title}</div>
               {visibleItems.map((item) => (
                 <Link
-                  key={item.page}
+                  key={item.to}
                   to={item.to}
                   className={cn(
                     'nav-item',
@@ -125,6 +130,15 @@ export function Sidebar(): React.ReactElement {
                       data-testid="requests-count-badge"
                     >
                       {pendingCount}
+                    </span>
+                  )}
+                  {item.label === 'Scans' && runningScanCount > 0 && (
+                    <span
+                      className="badge b-blue"
+                      style={{ marginLeft: '6px', fontSize: '9px', padding: '1px 5px' }}
+                      data-testid="scans-running-badge"
+                    >
+                      {runningScanCount}
                     </span>
                   )}
                 </Link>
