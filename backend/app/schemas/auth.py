@@ -75,3 +75,22 @@ class UserInfo(CamelCaseModel):
     role: str
     scopes: list[str]
     auth_method: str
+
+
+# ---------------------------------------------------------------------------
+# Recovery (break-glass)
+# ---------------------------------------------------------------------------
+
+
+class RecoverRequest(CamelCaseModel):
+    """Break-glass recovery request."""
+
+    recovery_key: str = Field(min_length=1)
+    email: str = Field(min_length=1, max_length=320)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
+class RecoverResponse(CamelCaseModel):
+    """Break-glass recovery response."""
+
+    message: str = "Password reset successfully. Change it immediately."

@@ -19,6 +19,8 @@ from app.schemas.auth import (
     ApiKeyCreate,
     ApiKeyResponse,
     LoginRequest,
+    RecoverRequest,
+    RecoverResponse,
     RefreshRequest,
     TokenResponse,
     UserInfo,
@@ -183,3 +185,76 @@ async def me(user: AuthenticatedUser = Depends(get_current_user)) -> UserInfo:
         scopes=user.scopes,
         auth_method=user.auth_method,
     )
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/auth/recover — break-glass recovery (D9)
+# ---------------------------------------------------------------------------
+
+# Recovery key — in production, this would be stored securely (e.g. HSM, vault).
+# It is set during initial deployment and rotated after each use.
+_recovery_key = None  # str | None
+
+
+def set_recovery_key(key: str | None) -> None:  # noqa: ANN001
+    """Set the break-glass recovery key. Called during deployment or testing."""
+    global _recovery_key  # noqa: PLW0603
+    _recovery_key = key
+
+
+@router.post("/recover", response_model=RecoverResponse)
+async def recover(body: RecoverRequest) -> RecoverResponse:
+    """Break-glass recovery: reset an Org Admin's password using a recovery key.
+
+    This endpoint is for emergency use when the last OA is locked out.
+    The recovery key is invalidated after use.
+    """
+    global _recovery_key  # noqa: PLW0603
+    import hmac
+
+    if _recovery_key is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Recovery is not configured",
+        )
+
+    if not hmac.compare_digest(body.recovery_key, _recovery_key):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid recovery key",
+        )
+
+    if _user_by_email is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Auth backend not configured",
+        )
+
+    user = await _user_by_email(body.email)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    # Hash new password and update (via the pluggable backend)
+    new_hash = _bcrypt_lib.hashpw(body.new_password.encode(), _bcrypt_lib.gensalt()).decode()
+
+    # Store the new hash — this uses a separate callback for recovery
+    if _store_recovery_password is not None:
+        await _store_recovery_password(body.email, new_hash)
+
+    # Invalidate recovery key after use
+    _recovery_key = None
+
+    return RecoverResponse()
+
+
+# Pluggable callback for recovery password storage
+_store_recovery_password = None  # async (email: str, hashed_password: str) -> None
+
+
+def set_recovery_password_store(fn) -> None:  # noqa: ANN001, ANN201
+    """Register async callback for storing a recovery password reset."""
+    global _store_recovery_password  # noqa: PLW0603
+    _store_recovery_password = fn
