@@ -3,9 +3,11 @@ import { useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS } from '@/lib/roles';
 import { cn } from '@/lib/utils';
+import { ShortcutsModal } from './ShortcutsModal';
 
 export function AvatarDropdown(): React.ReactElement {
   const [isOpen, setIsOpen] = useState(false);
+  const [showShortcuts, setShowShortcuts] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -32,6 +34,22 @@ export function AvatarDropdown(): React.ReactElement {
   const email = user?.email ?? '';
   const roleLabel = user ? ROLE_LABELS[user.role] : '';
 
+  // Global "?" key to open shortcuts modal
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === '?' &&
+        !(e.target instanceof HTMLInputElement) &&
+        !(e.target instanceof HTMLTextAreaElement) &&
+        !(e.target instanceof HTMLSelectElement)
+      ) {
+        setShowShortcuts(true);
+      }
+    };
+    document.addEventListener('keydown', handleGlobalKeyDown);
+    return () => document.removeEventListener('keydown', handleGlobalKeyDown);
+  }, []);
+
   return (
     <div ref={ref} className="avatar-area">
       <div
@@ -39,6 +57,8 @@ export function AvatarDropdown(): React.ReactElement {
         onClick={() => setIsOpen((prev) => !prev)}
         role="button"
         tabIndex={0}
+        aria-label="User menu"
+        aria-expanded={isOpen}
       >
         <div className="avatar-circle">{initials}</div>
         <div className="avatar-info">
@@ -80,9 +100,10 @@ export function AvatarDropdown(): React.ReactElement {
         </div>
         <div
           className="avatar-dropdown-item"
-          onClick={() => { setIsOpen(false); alert('Keyboard Shortcuts:\n\nCtrl+K / Cmd+K — Open search\nCtrl+/ / Cmd+/ — Show help\nCtrl+B / Cmd+B — Toggle sidebar\nEsc — Close modal / dropdown\n\nMore shortcuts coming soon.'); }}
+          onClick={() => { setIsOpen(false); setShowShortcuts(true); }}
           role="button"
           tabIndex={0}
+          data-testid="shortcuts-menu-item"
         >
           <span className="dd-icon">&#9881;</span> Keyboard Shortcuts
         </div>
@@ -104,6 +125,11 @@ export function AvatarDropdown(): React.ReactElement {
           <span className="dd-icon">&#8617;</span> Sign Out
         </div>
       </div>
+
+      <ShortcutsModal
+        isOpen={showShortcuts}
+        onClose={() => setShowShortcuts(false)}
+      />
     </div>
   );
 }

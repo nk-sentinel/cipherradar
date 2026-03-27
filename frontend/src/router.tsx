@@ -20,7 +20,7 @@ import { ScanHistoryPage } from './pages/repo/ScanHistoryPage.tsx';
 import { ScanDetailPage } from './pages/repo/ScanDetailPage.tsx';
 import { RepoFindingsPage } from './pages/repo/RepoFindingsPage.tsx';
 import { RepoQuantum } from './pages/repo/RepoQuantum.tsx';
-import { RepoCompliance } from './pages/repo/RepoCompliance.tsx';
+
 import { RepoComplianceUnified } from './pages/repo/RepoComplianceUnified.tsx';
 import { RepoDependencies } from './pages/repo/RepoDependencies.tsx';
 import { RepoSettings } from './pages/repo/RepoSettings.tsx';

@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useRepositories } from '@/api/hooks/useRepositories.ts';
 import { useTriggerScan } from '@/api/hooks/useTriggerScan.ts';
+import { EmptyState } from '@/components/ui/EmptyState.tsx';
 import { cn } from '@/lib/utils.ts';
 
 function getComplianceColor(percent: number): string {
@@ -88,14 +89,14 @@ export function Repositories(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Repository</th>
-              <th>Provider</th>
-              <th>Languages</th>
-              <th>Findings</th>
-              <th>Compliance</th>
-              <th>Quantum</th>
-              <th>Last Scan</th>
-              <th></th>
+              <th scope="col">Repository</th>
+              <th scope="col">Provider</th>
+              <th scope="col">Languages</th>
+              <th scope="col">Findings</th>
+              <th scope="col">Compliance</th>
+              <th scope="col">Quantum</th>
+              <th scope="col">Last Scan</th>
+              <th scope="col"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody>
@@ -150,6 +151,7 @@ export function Repositories(): React.ReactElement {
                   <button
                     className="btn btn-outline"
                     disabled={triggerScan.isPending}
+                    aria-label={`Scan ${repo.name}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       triggerScan.mutate(repo.id);
@@ -162,10 +164,21 @@ export function Repositories(): React.ReactElement {
             ))}
           </tbody>
         </table>
-        {filtered.length === 0 && (
-          <p style={{ color: 'var(--text-3)', padding: '24px', textAlign: 'center' }}>
-            No repositories match your search.
-          </p>
+        {filtered.length === 0 && repos && repos.length === 0 && (
+          <EmptyState
+            icon={'\u2630'}
+            title="No projects yet"
+            description="Connect a Git provider to start importing repositories for cryptographic scanning."
+            actionLabel="Connect a Git Provider"
+            onAction={() => void navigate({ to: '/admin/integrations' })}
+          />
+        )}
+        {filtered.length === 0 && repos && repos.length > 0 && (
+          <EmptyState
+            icon={'\u{1F50D}'}
+            title="No repositories match your search"
+            description="Try adjusting your search terms or clear the filter."
+          />
         )}
       </div>
     </div>

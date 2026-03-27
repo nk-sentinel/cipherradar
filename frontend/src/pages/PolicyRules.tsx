@@ -122,13 +122,6 @@ const TIME_WINDOWS: { value: TimeWindow; label: string }[] = [
 // Helpers
 // ---------------------------------------------------------------------------
 
-function severityBadge(severity: string): string {
-  if (severity === 'critical') return 'b-crit';
-  if (severity === 'high') return 'b-high';
-  if (severity === 'medium') return 'b-med';
-  if (severity === 'low') return 'b-low';
-  return 'b-info';
-}
 
 function getMetrics(ruleId: string, summaryData: RuleSummary[] | undefined): RuleSummary | null {
   if (!summaryData) return null;
@@ -303,15 +296,15 @@ export function PolicyRules(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Rule</th>
-              <th>Category</th>
-              <th>Severity</th>
-              <th>Scope</th>
-              <th data-testid="col-findings">Findings</th>
-              <th data-testid="col-fp-rate">FP Rate</th>
-              <th data-testid="col-fix-rate">Fix Rate</th>
-              <th data-testid="col-mttr">MTTR</th>
-              <th>Status</th>
+              <th scope="col">Rule</th>
+              <th scope="col">Category</th>
+              <th scope="col">Severity</th>
+              <th scope="col">Scope</th>
+              <th scope="col" data-testid="col-findings">Findings</th>
+              <th scope="col" data-testid="col-fp-rate">FP Rate</th>
+              <th scope="col" data-testid="col-fix-rate">Fix Rate</th>
+              <th scope="col" data-testid="col-mttr">MTTR</th>
+              <th scope="col">Status</th>
             </tr>
           </thead>
           <tbody>

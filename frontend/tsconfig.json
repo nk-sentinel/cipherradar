@@ -22,5 +22,6 @@
       "@/*": ["src/*"]
     }
   },
-  "include": ["src", "tests"]
+  "include": ["src", "tests"],
+  "exclude": ["src/__tests__", "tests", "e2e"]
 }

@@ -241,13 +241,13 @@ export function AssetExplorer(): React.ReactElement {
           <table>
             <thead>
               <tr>
-                <th>Asset Name</th>
-                <th>Type</th>
-                <th>Language</th>
-                <th>Repository</th>
-                <th>File:Line</th>
-                <th>Quantum Status</th>
-                <th>Compliance</th>
+                <th scope="col">Asset Name</th>
+                <th scope="col">Type</th>
+                <th scope="col">Language</th>
+                <th scope="col">Repository</th>
+                <th scope="col">File:Line</th>
+                <th scope="col">Quantum Status</th>
+                <th scope="col">Compliance</th>
               </tr>
             </thead>
             <tbody>

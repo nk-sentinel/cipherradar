@@ -215,12 +215,12 @@ export function ArtifactRegistries(): React.ReactElement {
           <table data-testid="registries-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Type</th>
-                <th>URL</th>
-                <th>Status</th>
-                <th>Last Updated</th>
-                <th>Actions</th>
+                <th scope="col">Name</th>
+                <th scope="col">Type</th>
+                <th scope="col">URL</th>
+                <th scope="col">Status</th>
+                <th scope="col">Last Updated</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>

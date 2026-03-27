@@ -112,7 +112,7 @@ export function ScanHistory({ repoId }: ScanHistoryProps): React.ReactElement {
                 </td>
                 <td>{scan.duration}</td>
                 <td>
-                  <EnvironmentBadge environment={(scan as Record<string, unknown>).environment as string ?? 'dev'} />
+                  <EnvironmentBadge environment={(scan as unknown as Record<string, unknown>).environment as string ?? 'dev'} />
                 </td>
                 <td style={{ color: 'var(--text-3)' }}>{formatRelativeTime(scan.createdAt)}</td>
                 <td>
@@ -121,7 +121,7 @@ export function ScanHistory({ repoId }: ScanHistoryProps): React.ReactElement {
                       className="btn btn-outline"
                       style={{ fontSize: '10px', padding: '2px 8px' }}
                       data-testid={`promote-btn-${scan.id}`}
-                      onClick={() => setPromoteModal({ scanId: scan.id, env: (scan as Record<string, unknown>).environment as string ?? 'dev' })}
+                      onClick={() => setPromoteModal({ scanId: scan.id, env: (scan as unknown as Record<string, unknown>).environment as string ?? 'dev' })}
                       type="button"
                     >
                       Promote

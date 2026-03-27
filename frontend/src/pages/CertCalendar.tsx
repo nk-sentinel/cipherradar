@@ -363,13 +363,13 @@ export function CertCalendar(): React.ReactElement {
           <table>
             <thead>
               <tr>
-                <th>Common Name</th>
-                <th>Issuer</th>
-                <th>Algorithm</th>
-                <th>Key Size</th>
-                <th>Repository</th>
-                <th>Expiry Date</th>
-                <th>Status</th>
+                <th scope="col">Common Name</th>
+                <th scope="col">Issuer</th>
+                <th scope="col">Algorithm</th>
+                <th scope="col">Key Size</th>
+                <th scope="col">Repository</th>
+                <th scope="col">Expiry Date</th>
+                <th scope="col">Status</th>
               </tr>
             </thead>
             <tbody>

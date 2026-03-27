@@ -129,11 +129,11 @@ export function RepoCompliance(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Status</th>
-              <th>Algorithm</th>
-              <th>Classification</th>
-              <th>Count</th>
-              <th>Action</th>
+              <th scope="col">Status</th>
+              <th scope="col">Algorithm</th>
+              <th scope="col">Classification</th>
+              <th scope="col">Count</th>
+              <th scope="col">Action</th>
             </tr>
           </thead>
           <tbody>

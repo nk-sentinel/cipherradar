@@ -240,9 +240,9 @@ export function PortfolioDashboard(): React.ReactElement {
             <table>
               <thead>
                 <tr>
-                  <th>Repository</th>
+                  <th scope="col">Repository</th>
                   {(['critical', 'high', 'medium', 'low', 'info'] as SeverityLevel[]).map((s) => (
-                    <th key={s} style={{ textAlign: 'center' }}>{SEVERITY_LABELS[s]}</th>
+                    <th scope="col" key={s} style={{ textAlign: 'center' }}>{SEVERITY_LABELS[s]}</th>
                   ))}
                 </tr>
               </thead>
@@ -304,10 +304,10 @@ export function PortfolioDashboard(): React.ReactElement {
           <table>
             <thead>
               <tr>
-                <th>Severity</th>
-                <th>Project</th>
-                <th>Finding</th>
-                <th>Status</th>
+                <th scope="col">Severity</th>
+                <th scope="col">Project</th>
+                <th scope="col">Finding</th>
+                <th scope="col">Status</th>
               </tr>
             </thead>
             <tbody>
@@ -328,13 +328,13 @@ export function PortfolioDashboard(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Repository</th>
-              <th>Provider</th>
-              <th>Findings</th>
-              <th>Critical</th>
-              <th>Quantum Risk</th>
-              <th>Compliance</th>
-              <th>Last Scan</th>
+              <th scope="col">Repository</th>
+              <th scope="col">Provider</th>
+              <th scope="col">Findings</th>
+              <th scope="col">Critical</th>
+              <th scope="col">Quantum Risk</th>
+              <th scope="col">Compliance</th>
+              <th scope="col">Last Scan</th>
             </tr>
           </thead>
           <tbody>

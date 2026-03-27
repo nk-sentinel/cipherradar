@@ -200,10 +200,10 @@ export function AgilityScore(): React.ReactElement {
           <table>
             <thead>
               <tr>
-                <th>Repository</th>
-                <th>Score</th>
-                <th>Algo Diversity</th>
-                <th>Migration Ready</th>
+                <th scope="col">Repository</th>
+                <th scope="col">Score</th>
+                <th scope="col">Algo Diversity</th>
+                <th scope="col">Migration Ready</th>
               </tr>
             </thead>
             <tbody>

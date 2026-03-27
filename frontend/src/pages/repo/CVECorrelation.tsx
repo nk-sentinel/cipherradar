@@ -172,13 +172,13 @@ export function CVECorrelation(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Library</th>
-              <th>CVE ID</th>
-              <th>Severity</th>
-              <th>Crypto Finding</th>
-              <th>Affected Versions</th>
-              <th>Fix Version</th>
-              <th>Status</th>
+              <th scope="col">Library</th>
+              <th scope="col">CVE ID</th>
+              <th scope="col">Severity</th>
+              <th scope="col">Crypto Finding</th>
+              <th scope="col">Affected Versions</th>
+              <th scope="col">Fix Version</th>
+              <th scope="col">Status</th>
             </tr>
           </thead>
           <tbody>

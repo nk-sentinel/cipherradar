@@ -70,13 +70,13 @@ export function ProjectTree(): React.ReactElement {
 
     for (const repo of repos) {
       const parts = repo.orgPath.split('/');
-      const groupName = parts.length > 1 ? parts[0] : 'Default';
+      const groupName = parts.length > 1 ? (parts[0] ?? 'Default') : 'Default';
 
       if (!groupMap.has(groupName)) {
         groupMap.set(groupName, { name: groupName, repos: [] });
       }
 
-      groupMap.get(groupName)!.repos.push({
+      groupMap.get(groupName)?.repos.push({
         id: repo.id,
         name: repo.name,
         provider: repo.provider,
@@ -88,7 +88,7 @@ export function ProjectTree(): React.ReactElement {
 
   const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
     // Auto-expand the first group
-    if (groups.length > 0) {
+    if (groups.length > 0 && groups[0]) {
       return new Set([groups[0].name]);
     }
     return new Set();
@@ -182,7 +182,7 @@ export function ProjectTree(): React.ReactElement {
                 return (
                   <Link
                     key={repo.id}
-                    to={`/repos/${repo.id}/overview`}
+                    to={`/repos/${repo.id}/overview` as any}
                     className={cn('nav-item', isActive && 'active')}
                     style={{
                       paddingLeft: '36px',

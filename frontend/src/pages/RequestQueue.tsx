@@ -119,13 +119,13 @@ export function RequestQueue(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Finding</th>
-              <th>Severity</th>
-              <th>Requester</th>
-              <th>Type</th>
-              <th>Justification</th>
-              <th>Date</th>
-              <th>Actions</th>
+              <th scope="col">Finding</th>
+              <th scope="col">Severity</th>
+              <th scope="col">Requester</th>
+              <th scope="col">Type</th>
+              <th scope="col">Justification</th>
+              <th scope="col">Date</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>

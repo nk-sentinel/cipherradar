@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { cn } from '@/lib/utils.ts';
 
 export interface OnboardingWizardProps {
   onComplete: () => void;

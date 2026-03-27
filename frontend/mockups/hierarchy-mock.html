@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CipherRadar — Org Hierarchy Mock</title>
+<style>
+  :root {
+    --bg-0: #0a0e17;
+    --bg-1: #111827;
+    --bg-2: #1a2235;
+    --bg-3: #243049;
+    --border: #2a3a52;
+    --text-0: #f1f5f9;
+    --text-1: #cbd5e1;
+    --text-2: #8494a7;
+    --accent: #6366f1;
+    --accent-dim: #4f46e520;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --purple: #a855f7;
+    --cyan: #06b6d4;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg-0);
+    color: var(--text-0);
+    display: flex;
+    min-height: 100vh;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 260px;
+    background: var(--bg-1);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+  }
+
+  .sidebar-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .sidebar-header .logo {
+    width: 28px;
+    height: 28px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .sidebar-header .org-name {
+    font-weight: 600;
+    font-size: 14px;
+  }
+
+  .sidebar-header .org-label {
+    font-size: 11px;
+    color: var(--text-2);
+  }
+
+  .sidebar-nav {
+    padding: 12px 0;
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  .nav-section {
+    padding: 0 12px;
+    margin-bottom: 8px;
+  }
+
+  .nav-section-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-2);
+    padding: 8px 8px 4px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--text-1);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .nav-item:hover { background: var(--bg-2); }
+  .nav-item.active { background: var(--accent-dim); color: var(--accent); }
+
+  .nav-item .icon {
+    width: 18px;
+    text-align: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  .nav-item .badge {
+    margin-left: auto;
+    font-size: 11px;
+    background: var(--bg-3);
+    padding: 1px 6px;
+    border-radius: 10px;
+    color: var(--text-2);
+  }
+
+  /* ── Main ── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .topbar {
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 12px;
+    background: var(--bg-1);
+  }
+
+  .breadcrumb {
+    font-size: 13px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .breadcrumb a {
+    color: var(--text-2);
+    text-decoration: none;
+  }
+
+  .breadcrumb a:hover { color: var(--text-0); }
+  .breadcrumb .current { color: var(--text-0); font-weight: 500; }
+  .breadcrumb .sep { color: var(--text-2); opacity: 0.4; }
+
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 28px 32px;
+  }
+
+  .page-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .page-subtitle {
+    font-size: 13px;
+    color: var(--text-2);
+    margin-bottom: 24px;
+  }
+
+  /* ── Hierarchy Tree ── */
+  .tree {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tree-node {
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .tree-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    transition: background 0.15s;
+    border-radius: 8px;
+  }
+
+  .tree-row:hover { background: var(--bg-2); }
+
+  .tree-chevron {
+    width: 16px;
+    font-size: 11px;
+    color: var(--text-2);
+    flex-shrink: 0;
+    transition: transform 0.2s;
+    user-select: none;
+  }
+
+  .tree-chevron.open { transform: rotate(90deg); }
+
+  .tree-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  .tree-icon.group { background: #3b82f620; color: var(--blue); }
+  .tree-icon.repo { background: #22c55e20; color: var(--green); }
+  .tree-icon.vendor { background: #f59e0b20; color: var(--amber); }
+  .tree-icon.container { background: #06b6d420; color: var(--cyan); }
+  .tree-icon.standalone { background: #a855f720; color: var(--purple); }
+
+  .tree-info { flex: 1; min-width: 0; }
+
+  .tree-name {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .tree-meta {
+    font-size: 11px;
+    color: var(--text-2);
+    display: flex;
+    gap: 10px;
+    margin-top: 1px;
+  }
+
+  .tree-type {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 2px 6px;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .tree-type.group-type { background: #3b82f620; color: var(--blue); }
+  .tree-type.repo-type { background: #22c55e20; color: var(--green); }
+  .tree-type.vendor-type { background: #f59e0b20; color: var(--amber); }
+  .tree-type.standalone-type { background: #a855f720; color: var(--purple); }
+
+  .tree-stats {
+    display: flex;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--text-2);
+    flex-shrink: 0;
+  }
+
+  .tree-stats .stat { display: flex; align-items: center; gap: 4px; }
+  .tree-stats .crit { color: var(--red); }
+  .tree-stats .high { color: var(--amber); }
+
+  .tree-children {
+    padding-left: 24px;
+    border-left: 1px solid var(--border);
+    margin-left: 21px;
+  }
+
+  /* ── Scan Sources (nested under project) ── */
+  .scan-sources {
+    padding: 8px 14px 8px 60px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .source-chip {
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: var(--bg-3);
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .source-chip .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .source-chip .dot.active { background: var(--green); }
+  .source-chip .dot.configured { background: var(--blue); }
+
+  /* ── Legend ── */
+  .legend {
+    margin-top: 32px;
+    padding: 16px 20px;
+    background: var(--bg-2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .legend-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    color: var(--text-2);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .legend-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 8px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--text-1);
+  }
+
+  .legend-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  /* ── Annotations ── */
+  .annotation {
+    position: relative;
+    margin: 20px 0;
+    padding: 12px 16px;
+    background: var(--accent-dim);
+    border: 1px solid #6366f140;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--text-1);
+    line-height: 1.5;
+  }
+
+  .annotation-label {
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    margin-bottom: 4px;
+  }
+
+  .annotation code {
+    background: var(--bg-3);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 11px;
+  }
+
+  /* ── Question Callouts ── */
+  .question-callout {
+    margin: 16px 0;
+    padding: 12px 16px;
+    background: #f59e0b10;
+    border: 1px solid #f59e0b30;
+    border-radius: 8px;
+    font-size: 12px;
+    color: var(--amber);
+    line-height: 1.5;
+  }
+
+  .question-callout strong {
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* ── Alt layouts ── */
+  .layout-switcher {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+    background: var(--bg-2);
+    padding: 3px;
+    border-radius: 8px;
+    width: fit-content;
+  }
+
+  .layout-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-2);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .layout-btn.active {
+    background: var(--bg-3);
+    color: var(--text-0);
+  }
+
+  /* ── Views ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Flat card grid (alt view) ── */
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+  }
+
+  .project-card {
+    background: var(--bg-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+
+  .project-card:hover { border-color: var(--accent); }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .card-header .tree-icon { width: 28px; height: 28px; font-size: 13px; }
+
+  .card-name {
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  .card-group {
+    font-size: 11px;
+    color: var(--text-2);
+    margin-left: auto;
+  }
+
+  .card-stats-row {
+    display: flex;
+    gap: 12px;
+    font-size: 11px;
+    color: var(--text-2);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .card-stats-row .crit { color: var(--red); }
+  .card-stats-row .high { color: var(--amber); }
+
+  .card-sources {
+    display: flex;
+    gap: 4px;
+    margin-top: 6px;
+  }
+
+  /* ── Sidebar section: Groups → Projects ── */
+  .sidebar-tree {
+    padding: 0 8px;
+  }
+
+  .sidebar-group {
+    margin-bottom: 2px;
+  }
+
+  .sidebar-group-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    border-radius: 4px;
+  }
+
+  .sidebar-group-header:hover { background: var(--bg-2); color: var(--text-1); }
+
+  .sidebar-group-header .chev {
+    font-size: 9px;
+    transition: transform 0.15s;
+  }
+
+  .sidebar-group-header .chev.open { transform: rotate(90deg); }
+
+  .sidebar-project-list {
+    padding-left: 16px;
+  }
+
+  .sidebar-project {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    color: var(--text-1);
+    border-radius: 4px;
+    cursor: pointer;
+  }
+
+  .sidebar-project:hover { background: var(--bg-2); }
+  .sidebar-project.active { background: var(--accent-dim); color: var(--accent); }
+
+  .sidebar-project .pip {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .sidebar-project .pip.repo { background: var(--green); }
+  .sidebar-project .pip.vendor { background: var(--amber); }
+  .sidebar-project .pip.standalone { background: var(--purple); }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════ -->
+<!-- SIDEBAR                                  -->
+<!-- ════════════════════════════════════════ -->
+<div class="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">C</div>
+    <div>
+      <div class="org-name">Acme Corp</div>
+      <div class="org-label">Organization</div>
+    </div>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-section">
+      <div class="nav-item active">
+        <span class="icon">◎</span> Dashboard
+      </div>
+      <div class="nav-item">
+        <span class="icon">⊞</span> Projects
+        <span class="badge">14</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">⚡</span> Scans
+        <span class="badge">3</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">⚑</span> Findings
+        <span class="badge">147</span>
+      </div>
+      <div class="nav-item">
+        <span class="icon">◈</span> Compliance
+      </div>
+      <div class="nav-item">
+        <span class="icon">↗</span> Pending Requests
+        <span class="badge">5</span>
+      </div>
+    </div>
+
+    <!-- Groups → Projects in sidebar -->
+    <div class="nav-section">
+      <div class="nav-section-label">Groups</div>
+      <div class="sidebar-tree">
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-header">
+            <span class="chev open">▶</span>
+            <span>Payment Services</span>
+          </div>
+          <div class="sidebar-project-list">
+            <div class="sidebar-project active">
+              <span class="pip repo"></span> payment-api
+            </div>
+            <div class="sidebar-project">
+              <span class="pip repo"></span> payment-gateway
+            </div>
+            <div class="sidebar-project">
+              <span class="pip vendor"></span> HSM Firmware v3.2
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-header">
+            <span class="chev open">▶</span>
+            <span>Identity Platform</span>
+          </div>
+          <div class="sidebar-project-list">
+            <div class="sidebar-project">
+              <span class="pip repo"></span> auth-service
+            </div>
+            <div class="sidebar-project">
+              <span class="pip repo"></span> token-manager
+            </div>
+            <div class="sidebar-project">
+              <span class="pip standalone"></span> SAML Certificates
+            </div>
+          </div>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-header">
+            <span class="chev">▶</span>
+            <span>Core Infrastructure</span>
+          </div>
+        </div>
+
+        <div class="sidebar-group">
+          <div class="sidebar-group-header">
+            <span class="chev">▶</span>
+            <span>Mobile Apps</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="nav-section" style="margin-top: auto; padding-top: 12px; border-top: 1px solid var(--border);">
+      <div class="nav-item">
+        <span class="icon">⚙</span> Admin
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════ -->
+<!-- MAIN CONTENT                             -->
+<!-- ════════════════════════════════════════ -->
+<div class="main">
+  <div class="topbar">
+    <div class="breadcrumb">
+      <a href="#">Acme Corp</a>
+      <span class="sep">/</span>
+      <span class="current">Projects</span>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-title">Projects</div>
+    <div class="page-subtitle">14 projects across 4 groups</div>
+
+    <div class="layout-switcher">
+      <button class="layout-btn active" onclick="switchView('tree')">Tree</button>
+      <button class="layout-btn" onclick="switchView('cards')">Cards</button>
+    </div>
+
+    <!-- ── ANNOTATION: Current model ── -->
+    <div class="annotation">
+      <div class="annotation-label">Current Data Model (D1, D4)</div>
+      <strong style="color: var(--text-0); font-size: 13px;">Org → Group → Project (with type + linked scan sources)</strong><br>
+      <code>Group</code> is the organizational unit (team, department, service area).<br>
+      <code>Project</code> has a type: <code>repository</code>, <code>vendor-app</code>, or <code>standalone</code>.<br>
+      Each project can have multiple <code>linked_sources</code> (git repo, container image, artifact registry).<br>
+      D4 deferred deeper hierarchy (multi-org, departments-within-groups) to a separate session.
+    </div>
+
+    <!-- ════ TREE VIEW ════ -->
+    <div class="view active" id="view-tree">
+      <div class="tree">
+
+        <!-- ── Group: Payment Services ── -->
+        <div class="tree-node">
+          <div class="tree-row">
+            <span class="tree-chevron open">▶</span>
+            <div class="tree-icon group">⊞</div>
+            <div class="tree-info">
+              <div class="tree-name">Payment Services</div>
+              <div class="tree-meta">
+                <span>3 projects</span>
+                <span>·</span>
+                <span>SM: Sarah Chen</span>
+              </div>
+            </div>
+            <span class="tree-type group-type">Group</span>
+            <div class="tree-stats">
+              <span class="stat crit">● 12 critical</span>
+              <span class="stat high">● 28 high</span>
+            </div>
+          </div>
+
+          <div class="tree-children">
+            <!-- Project: payment-api (repository) -->
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron open">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">payment-api</div>
+                  <div class="tree-meta">
+                    <span>Go</span>
+                    <span>·</span>
+                    <span>Last scan: 2h ago</span>
+                  </div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+                <div class="tree-stats">
+                  <span class="stat crit">● 5</span>
+                  <span class="stat high">● 12</span>
+                </div>
+              </div>
+              <div class="scan-sources">
+                <span class="source-chip"><span class="dot active"></span> github.com/acme/payment-api</span>
+                <span class="source-chip"><span class="dot configured"></span> ECR: acme/payment-api</span>
+              </div>
+            </div>
+
+            <!-- Project: payment-gateway (repository) -->
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">payment-gateway</div>
+                  <div class="tree-meta">
+                    <span>Java</span>
+                    <span>·</span>
+                    <span>Last scan: 1d ago</span>
+                  </div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+                <div class="tree-stats">
+                  <span class="stat crit">● 3</span>
+                  <span class="stat high">● 8</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Project: HSM Firmware (vendor-app) -->
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron open">▶</span>
+                <div class="tree-icon vendor">☰</div>
+                <div class="tree-info">
+                  <div class="tree-name">HSM Firmware v3.2</div>
+                  <div class="tree-meta">
+                    <span>Thales</span>
+                    <span>·</span>
+                    <span>Last scan: 7d ago</span>
+                  </div>
+                </div>
+                <span class="tree-type vendor-type">Vendor App</span>
+                <div class="tree-stats">
+                  <span class="stat crit">● 4</span>
+                  <span class="stat high">● 8</span>
+                </div>
+              </div>
+              <div class="scan-sources">
+                <span class="source-chip"><span class="dot active"></span> JFrog: thales/hsm-firmware:3.2.1</span>
+                <span class="source-chip"><span class="dot configured"></span> Upload: hsm-firmware-3.2.1.bin</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Group: Identity Platform ── -->
+        <div class="tree-node">
+          <div class="tree-row">
+            <span class="tree-chevron open">▶</span>
+            <div class="tree-icon group">⊞</div>
+            <div class="tree-info">
+              <div class="tree-name">Identity Platform</div>
+              <div class="tree-meta">
+                <span>3 projects</span>
+                <span>·</span>
+                <span>SM: Marcus Lee</span>
+              </div>
+            </div>
+            <span class="tree-type group-type">Group</span>
+            <div class="tree-stats">
+              <span class="stat crit">● 2</span>
+              <span class="stat high">● 15</span>
+            </div>
+          </div>
+
+          <div class="tree-children">
+            <!-- Project: auth-service (repository) -->
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">auth-service</div>
+                  <div class="tree-meta">
+                    <span>Python</span>
+                    <span>·</span>
+                    <span>Last scan: 3h ago</span>
+                  </div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+                <div class="tree-stats">
+                  <span class="stat crit">● 1</span>
+                  <span class="stat high">● 9</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Project: token-manager (repository) -->
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">token-manager</div>
+                  <div class="tree-meta">
+                    <span>Go</span>
+                    <span>·</span>
+                    <span>Last scan: 12h ago</span>
+                  </div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+                <div class="tree-stats">
+                  <span class="stat high">● 4</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Project: SAML Certificates (standalone) -->
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon standalone">◇</div>
+                <div class="tree-info">
+                  <div class="tree-name">SAML Certificates</div>
+                  <div class="tree-meta">
+                    <span>Cert tracking</span>
+                    <span>·</span>
+                    <span>Last scan: 14d ago</span>
+                  </div>
+                </div>
+                <span class="tree-type standalone-type">Standalone</span>
+                <div class="tree-stats">
+                  <span class="stat high">● 2</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Group: Core Infrastructure ── -->
+        <div class="tree-node">
+          <div class="tree-row">
+            <span class="tree-chevron open">▶</span>
+            <div class="tree-icon group">⊞</div>
+            <div class="tree-info">
+              <div class="tree-name">Core Infrastructure</div>
+              <div class="tree-meta">
+                <span>5 projects</span>
+                <span>·</span>
+                <span>TM: Priya Patel</span>
+              </div>
+            </div>
+            <span class="tree-type group-type">Group</span>
+            <div class="tree-stats">
+              <span class="stat crit">● 8</span>
+              <span class="stat high">● 31</span>
+            </div>
+          </div>
+
+          <div class="tree-children">
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">api-gateway</div>
+                  <div class="tree-meta"><span>Go</span><span>·</span><span>Last scan: 6h ago</span></div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">secrets-engine</div>
+                  <div class="tree-meta"><span>Rust</span><span>·</span><span>Last scan: 2d ago</span></div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">tls-proxy</div>
+                  <div class="tree-meta"><span>C</span><span>·</span><span>Last scan: 1d ago</span></div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron open">▶</span>
+                <div class="tree-icon container">⬡</div>
+                <div class="tree-info">
+                  <div class="tree-name">nginx-base-image</div>
+                  <div class="tree-meta"><span>Container</span><span>·</span><span>Last scan: 3d ago</span></div>
+                </div>
+                <span class="tree-type vendor-type">Vendor App</span>
+              </div>
+              <div class="scan-sources">
+                <span class="source-chip"><span class="dot active"></span> ECR: acme/nginx-base:latest</span>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon vendor">☰</div>
+                <div class="tree-info">
+                  <div class="tree-name">Vault Enterprise</div>
+                  <div class="tree-meta"><span>HashiCorp</span><span>·</span><span>Last scan: 30d ago</span></div>
+                </div>
+                <span class="tree-type vendor-type">Vendor App</span>
+                <div style="font-size: 11px; color: var(--amber); display: flex; align-items: center; gap: 4px;">
+                  ⚠ Stale
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Group: Mobile Apps ── -->
+        <div class="tree-node">
+          <div class="tree-row">
+            <span class="tree-chevron open">▶</span>
+            <div class="tree-icon group">⊞</div>
+            <div class="tree-info">
+              <div class="tree-name">Mobile Apps</div>
+              <div class="tree-meta">
+                <span>3 projects</span>
+                <span>·</span>
+                <span>TM: Jake Torres</span>
+              </div>
+            </div>
+            <span class="tree-type group-type">Group</span>
+            <div class="tree-stats">
+              <span class="stat high">● 6</span>
+            </div>
+          </div>
+
+          <div class="tree-children">
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">mobile-ios</div>
+                  <div class="tree-meta"><span>Swift</span><span>·</span><span>Last scan: 1d ago</span></div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">mobile-android</div>
+                  <div class="tree-meta"><span>Kotlin</span><span>·</span><span>Last scan: 1d ago</span></div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+              </div>
+            </div>
+            <div class="tree-node">
+              <div class="tree-row">
+                <span class="tree-chevron">▶</span>
+                <div class="tree-icon repo">⟨⟩</div>
+                <div class="tree-info">
+                  <div class="tree-name">mobile-shared-crypto</div>
+                  <div class="tree-meta"><span>Kotlin Multiplatform</span><span>·</span><span>Last scan: 5d ago</span></div>
+                </div>
+                <span class="tree-type repo-type">Repository</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ════ CARD VIEW ════ -->
+    <div class="view" id="view-cards">
+      <div class="card-grid">
+        <div class="project-card">
+          <div class="card-header">
+            <div class="tree-icon repo" style="width:28px;height:28px;font-size:13px;">⟨⟩</div>
+            <div class="card-name">payment-api</div>
+            <div class="card-group">Payment Services</div>
+          </div>
+          <div class="card-sources">
+            <span class="source-chip"><span class="dot active"></span> Git</span>
+            <span class="source-chip"><span class="dot configured"></span> Container</span>
+          </div>
+          <div class="card-stats-row">
+            <span class="crit">● 5 critical</span>
+            <span class="high">● 12 high</span>
+            <span>Go · 2h ago</span>
+          </div>
+        </div>
+
+        <div class="project-card">
+          <div class="card-header">
+            <div class="tree-icon vendor" style="width:28px;height:28px;font-size:13px;">☰</div>
+            <div class="card-name">HSM Firmware v3.2</div>
+            <div class="card-group">Payment Services</div>
+          </div>
+          <div class="card-sources">
+            <span class="source-chip"><span class="dot active"></span> JFrog</span>
+            <span class="source-chip"><span class="dot configured"></span> Upload</span>
+          </div>
+          <div class="card-stats-row">
+            <span class="crit">● 4 critical</span>
+            <span class="high">● 8 high</span>
+            <span>Thales · 7d ago</span>
+          </div>
+        </div>
+
+        <div class="project-card">
+          <div class="card-header">
+            <div class="tree-icon repo" style="width:28px;height:28px;font-size:13px;">⟨⟩</div>
+            <div class="card-name">auth-service</div>
+            <div class="card-group">Identity Platform</div>
+          </div>
+          <div class="card-sources">
+            <span class="source-chip"><span class="dot active"></span> Git</span>
+          </div>
+          <div class="card-stats-row">
+            <span class="crit">● 1 critical</span>
+            <span class="high">● 9 high</span>
+            <span>Python · 3h ago</span>
+          </div>
+        </div>
+
+        <div class="project-card">
+          <div class="card-header">
+            <div class="tree-icon standalone" style="width:28px;height:28px;font-size:13px;">◇</div>
+            <div class="card-name">SAML Certificates</div>
+            <div class="card-group">Identity Platform</div>
+          </div>
+          <div class="card-sources">
+            <span class="source-chip"><span class="dot configured"></span> Upload</span>
+          </div>
+          <div class="card-stats-row">
+            <span class="high">● 2 high</span>
+            <span>Cert tracking · 14d ago</span>
+          </div>
+        </div>
+
+        <div class="project-card">
+          <div class="card-header">
+            <div class="tree-icon vendor" style="width:28px;height:28px;font-size:13px;">⬡</div>
+            <div class="card-name">nginx-base-image</div>
+            <div class="card-group">Core Infrastructure</div>
+          </div>
+          <div class="card-sources">
+            <span class="source-chip"><span class="dot active"></span> ECR</span>
+          </div>
+          <div class="card-stats-row">
+            <span class="crit">● 2 critical</span>
+            <span class="high">● 5 high</span>
+            <span>Container · 3d ago</span>
+          </div>
+        </div>
+
+        <div class="project-card" style="border-color: var(--amber);">
+          <div class="card-header">
+            <div class="tree-icon vendor" style="width:28px;height:28px;font-size:13px;">☰</div>
+            <div class="card-name">Vault Enterprise</div>
+            <div class="card-group" style="color: var(--amber);">⚠ Stale (30d)</div>
+          </div>
+          <div class="card-sources">
+            <span class="source-chip"><span class="dot configured"></span> JFrog</span>
+          </div>
+          <div class="card-stats-row">
+            <span class="crit">● 3 critical</span>
+            <span class="high">● 11 high</span>
+            <span>HashiCorp · 30d ago</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Legend ── -->
+    <div class="legend">
+      <div class="legend-title">Project Types</div>
+      <div class="legend-grid">
+        <div class="legend-item">
+          <div class="legend-icon" style="background: #22c55e20; color: var(--green);">⟨⟩</div>
+          <div>
+            <strong style="font-size: 12px;">Repository</strong>
+            <div style="font-size: 11px; color: var(--text-2);">Source code from Git provider</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon" style="background: #f59e0b20; color: var(--amber);">☰</div>
+          <div>
+            <strong style="font-size: 12px;">Vendor App</strong>
+            <div style="font-size: 11px; color: var(--text-2);">3rd-party binary / container (no source)</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon" style="background: #a855f720; color: var(--purple);">◇</div>
+          <div>
+            <strong style="font-size: 12px;">Standalone</strong>
+            <div style="font-size: 11px; color: var(--text-2);">Certs, configs, uploaded artifacts</div>
+          </div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-icon" style="background: #3b82f620; color: var(--blue);">⊞</div>
+          <div>
+            <strong style="font-size: 12px;">Group</strong>
+            <div style="font-size: 11px; color: var(--text-2);">Team / department / service area</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Open Questions ── -->
+    <div class="question-callout">
+      <strong>🔍 Open Questions for Discussion</strong>
+      1. Is Org → Group → Project flat enough? Or do we need nested groups (Group → Sub-group)?<br>
+      2. Should "Group" be renamed to something more enterprise-friendly? (Department? Team? Business Unit?)<br>
+      3. Where does the "Application" concept live? Is it the Group, the Project, or a missing layer?<br>
+      4. Can a project belong to multiple groups? (Currently: no — single parent group)
+    </div>
+
+  </div>
+</div>
+
+<script>
+function switchView(view) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.layout-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + view).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>

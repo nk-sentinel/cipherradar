@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phase 4.5 — Plan 1 Progress</title>
+<style>
+  :root {
+    --bg-0: #0a0e17;
+    --bg-1: #111827;
+    --bg-2: #1a2235;
+    --bg-3: #243049;
+    --border: #2a3a52;
+    --text-0: #f1f5f9;
+    --text-1: #cbd5e1;
+    --text-2: #8494a7;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --cyan: #06b6d4;
+    --purple: #a855f7;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    background: var(--bg-0);
+    color: var(--text-0);
+    padding: 24px;
+    min-height: 100vh;
+  }
+
+  .header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header h1 {
+    font-size: 18px;
+    font-weight: 600;
+  }
+
+  .header .phase-badge {
+    background: var(--accent);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .refresh-info {
+    font-size: 11px;
+    color: var(--text-2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .refresh-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  /* Overall progress */
+  .overall {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+  }
+
+  .overall-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+
+  .overall-title { font-size: 14px; font-weight: 600; }
+
+  .overall-stats {
+    display: flex;
+    gap: 16px;
+    font-size: 12px;
+    color: var(--text-2);
+  }
+
+  .overall-stats .stat { display: flex; align-items: center; gap: 4px; }
+  .overall-stats .done { color: var(--green); }
+  .overall-stats .running { color: var(--cyan); }
+  .overall-stats .blocked { color: var(--text-2); }
+
+  .progress-bar-outer {
+    height: 8px;
+    background: var(--bg-3);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 1s ease;
+    position: relative;
+  }
+
+  .progress-bar-fill.green { background: var(--green); }
+  .progress-bar-fill.cyan { background: var(--cyan); }
+  .progress-bar-fill.accent { background: var(--accent); }
+
+  .progress-bar-fill.animated::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    animation: shimmer 2s infinite;
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+
+  /* Waves */
+  .waves {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .wave {
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  .wave-header {
+    padding: 12px 16px;
+    background: var(--bg-2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .wave-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-weight: 500;
+  }
+
+  .wave-badge.active { background: #06b6d420; color: var(--cyan); }
+  .wave-badge.blocked { background: #8494a720; color: var(--text-2); }
+  .wave-badge.done { background: #22c55e20; color: var(--green); }
+
+  .agents {
+    padding: 12px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .agent {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .agent-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .agent-name {
+    font-size: 12px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .agent-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  .agent-icon.api { background: #6366f120; color: var(--accent); }
+  .agent-icon.fe { background: #06b6d420; color: var(--cyan); }
+  .agent-icon.cli { background: #22c55e20; color: var(--green); }
+  .agent-icon.e2e { background: #a855f720; color: var(--purple); }
+  .agent-icon.db { background: #f59e0b20; color: var(--amber); }
+  .agent-icon.perf { background: #ef444420; color: var(--red); }
+
+  .agent-tasks {
+    font-size: 11px;
+    color: var(--text-2);
+  }
+
+  .agent-status {
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .status-dot.running { background: var(--cyan); animation: pulse 1.5s infinite; }
+  .status-dot.done { background: var(--green); }
+  .status-dot.blocked { background: var(--text-2); opacity: 0.4; }
+  .status-dot.error { background: var(--red); }
+
+  .agent-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .agent-progress .progress-bar-outer {
+    flex: 1;
+    height: 6px;
+  }
+
+  .agent-progress .pct {
+    font-size: 11px;
+    color: var(--text-2);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  .agent-detail {
+    font-size: 10px;
+    color: var(--text-2);
+    padding-left: 32px;
+    font-style: italic;
+  }
+
+  .agent-steps {
+    padding-left: 32px;
+    display: flex;
+    gap: 4px;
+    margin-top: 2px;
+  }
+
+  .step-pip {
+    width: 18px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--bg-3);
+  }
+
+  .step-pip.done { background: var(--green); }
+  .step-pip.active { background: var(--cyan); animation: pulse 1.5s infinite; }
+
+  /* Dependency lines */
+  .dep-arrow {
+    text-align: center;
+    color: var(--text-2);
+    font-size: 12px;
+    padding: 4px 0;
+    opacity: 0.5;
+  }
+
+  /* Log */
+  .log {
+    margin-top: 24px;
+    background: var(--bg-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .log-title {
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: var(--text-2);
+  }
+
+  .log-entry {
+    font-size: 11px;
+    color: var(--text-1);
+    padding: 2px 0;
+    display: flex;
+    gap: 8px;
+  }
+
+  .log-time { color: var(--text-2); min-width: 60px; }
+  .log-agent { color: var(--cyan); min-width: 80px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div style="display:flex;align-items:center;gap:12px;">
+    <h1>Phase 4.5 — Plan 1: Foundation</h1>
+    <span class="phase-badge">IN PROGRESS</span>
+  </div>
+  <div class="refresh-info">
+    <span class="refresh-dot"></span>
+    <span id="refresh-text">Auto-refresh: 5s</span>
+  </div>
+</div>
+
+<!-- Overall Progress -->
+<div class="overall">
+  <div class="overall-header">
+    <div class="overall-title">Overall Progress</div>
+    <div class="overall-stats">
+      <span class="stat done" id="stat-done">0 done</span>
+      <span class="stat running" id="stat-running">4 in progress</span>
+      <span class="stat blocked" id="stat-blocked">6 blocked</span>
+    </div>
+  </div>
+  <div class="progress-bar-outer">
+    <div class="progress-bar-fill cyan animated" id="overall-bar" style="width: 20%"></div>
+  </div>
+</div>
+
+<!-- Waves -->
+<div class="waves">
+
+  <!-- Wave: Independent -->
+  <div class="wave">
+    <div class="wave-header">
+      Independent (no dependencies — started immediately)
+      <span class="wave-badge active">RUNNING</span>
+    </div>
+    <div class="agents">
+
+      <div class="agent" id="agent-api">
+        <div class="agent-header">
+          <div class="agent-name">
+            <div class="agent-icon api">A</div>
+            API Design Agent
+          </div>
+          <div class="agent-status">
+            <span class="status-dot running"></span>
+            <span>Task 1.1 — API Contract</span>
+          </div>
+        </div>
+        <div class="agent-progress">
+          <div class="progress-bar-outer">
+            <div class="progress-bar-fill cyan animated" style="width: 35%"></div>
+          </div>
+          <span class="pct">35%</span>
+        </div>
+        <div class="agent-steps">
+          <div class="step-pip done"></div>
+          <div class="step-pip active"></div>
+          <div class="step-pip"></div>
+        </div>
+        <div class="agent-detail">Reading existing routes + schemas to inform contract design...</div>
+      </div>
+
+      <div class="agent" id="agent-fe">
+        <div class="agent-header">
+          <div class="agent-name">
+            <div class="agent-icon fe">F</div>
+            Frontend Agent
+          </div>
+          <div class="agent-status">
+            <span class="status-dot running"></span>
+            <span>Tasks 1.6 + 1.7 — Toast + Pagination</span>
+          </div>
+        </div>
+        <div class="agent-progress">
+          <div class="progress-bar-outer">
+            <div class="progress-bar-fill cyan animated" style="width: 20%"></div>
+          </div>
+          <span class="pct">20%</span>
+        </div>
+        <div class="agent-steps">
+          <div class="step-pip done"></div>
+          <div class="step-pip active"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+        </div>
+        <div class="agent-detail">Exploring existing component patterns + test setup...</div>
+      </div>
+
+      <div class="agent" id="agent-cli">
+        <div class="agent-header">
+          <div class="agent-name">
+            <div class="agent-icon cli">C</div>
+            CLI Agent
+          </div>
+          <div class="agent-status">
+            <span class="status-dot running"></span>
+            <span>Task 1.5 (CLI) — Fingerprint</span>
+          </div>
+        </div>
+        <div class="agent-progress">
+          <div class="progress-bar-outer">
+            <div class="progress-bar-fill cyan animated" style="width: 25%"></div>
+          </div>
+          <span class="pct">25%</span>
+        </div>
+        <div class="agent-steps">
+          <div class="step-pip done"></div>
+          <div class="step-pip done"></div>
+          <div class="step-pip active"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+        </div>
+        <div class="agent-detail">Read Finding struct, scanning pipeline for wiring point...</div>
+      </div>
+
+      <div class="agent" id="agent-e2e">
+        <div class="agent-header">
+          <div class="agent-name">
+            <div class="agent-icon e2e">E</div>
+            E2E Agent
+          </div>
+          <div class="agent-status">
+            <span class="status-dot running"></span>
+            <span>Task 1.9 — Playwright Setup</span>
+          </div>
+        </div>
+        <div class="agent-progress">
+          <div class="progress-bar-outer">
+            <div class="progress-bar-fill cyan animated" style="width: 30%"></div>
+          </div>
+          <span class="pct">30%</span>
+        </div>
+        <div class="agent-steps">
+          <div class="step-pip done"></div>
+          <div class="step-pip active"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+        </div>
+        <div class="agent-detail">Reading Login.tsx + MSW handlers for selector patterns...</div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="dep-arrow">depends on Task 1.1 ▼</div>
+
+  <!-- Wave 2 -->
+  <div class="wave">
+    <div class="wave-header">
+      Wave 2 (needs API contract)
+      <span class="wave-badge blocked">BLOCKED</span>
+    </div>
+    <div class="agents">
+      <div class="agent" id="agent-db">
+        <div class="agent-header">
+          <div class="agent-name">
+            <div class="agent-icon db">D</div>
+            Backend DB Agent
+          </div>
+          <div class="agent-status">
+            <span class="status-dot blocked"></span>
+            <span>Task 1.2 — DB Migration</span>
+          </div>
+        </div>
+        <div class="agent-progress">
+          <div class="progress-bar-outer">
+            <div class="progress-bar-fill" style="width: 0%"></div>
+          </div>
+          <span class="pct">0%</span>
+        </div>
+        <div class="agent-detail">Waiting for API contract to finalize schema...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="dep-arrow">depends on Task 1.2 ▼</div>
+
+  <!-- Wave 3 -->
+  <div class="wave">
+    <div class="wave-header">
+      Wave 3 (needs DB schema)
+      <span class="wave-badge blocked">BLOCKED</span>
+    </div>
+    <div class="agents">
+
+      <div class="agent">
+        <div class="agent-header">
+          <div class="agent-name">
+            <div class="agent-icon db">S</div>
+            Backend Services Agent
+          </div>
+          <div class="agent-status">
+            <span class="status-dot blocked"></span>
+            <span>Tasks 1.3 + 1.4 + 1.5(BE) + 1.8</span>
+          </div>
+        </div>
+        <div class="agent-progress">
+          <div class="progress-bar-outer">
+            <div class="progress-bar-fill" style="width: 0%"></div>
+          </div>
+          <span class="pct">0%</span>
+        </div>
+        <div class="agent-steps">
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+          <div class="step-pip"></div>
+        </div>
+        <div class="agent-detail">Pagination FW · Audit Service · Finding Matcher (BE) · Factories</div>
+      </div>
+
+      <div class="agent">
+        <div class="agent-header">
+          <div class="agent-name">
+            <div class="agent-icon perf">P</div>
+            Performance Agent
+          </div>
+          <div class="agent-status">
+            <span class="status-dot blocked"></span>
+            <span>Task 1.10 — Baseline</span>
+          </div>
+        </div>
+        <div class="agent-progress">
+          <div class="progress-bar-outer">
+            <div class="progress-bar-fill" style="width: 0%"></div>
+          </div>
+          <span class="pct">0%</span>
+        </div>
+        <div class="agent-detail">Locust load test against existing endpoints...</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Activity Log -->
+<div class="log" id="log">
+  <div class="log-title">Activity Log</div>
+  <div class="log-entry"><span class="log-time">00:00</span><span class="log-agent">Orchestrator</span> Dispatched 4 agents (Wave 1 + Independent)</div>
+  <div class="log-entry"><span class="log-time">00:01</span><span class="log-agent">API Design</span> Reading existing routes in backend/app/api/v1/</div>
+  <div class="log-entry"><span class="log-time">00:01</span><span class="log-agent">CLI Agent</span> Read Finding struct from types/finding.go</div>
+  <div class="log-entry"><span class="log-time">00:02</span><span class="log-agent">E2E Agent</span> Reading Login.tsx + MSW handlers</div>
+  <div class="log-entry"><span class="log-time">00:02</span><span class="log-agent">Frontend</span> Exploring component and test patterns</div>
+  <div class="log-entry"><span class="log-time">00:03</span><span class="log-agent">API Design</span> Reading docs/ and existing schemas</div>
+  <div class="log-entry"><span class="log-time">00:03</span><span class="log-agent">CLI Agent</span> Scanning scanner directory for pipeline wiring</div>
+</div>
+
+<script>
+// Simulated progress — in reality this would poll agent output files
+// For now, it increments to simulate live updates
+
+const agents = {
+  api:  { el: 'agent-api', progress: 35, target: 100, step: 1, totalSteps: 3, status: 'running' },
+  fe:   { el: 'agent-fe',  progress: 20, target: 100, step: 1, totalSteps: 6, status: 'running' },
+  cli:  { el: 'agent-cli', progress: 25, target: 100, step: 2, totalSteps: 6, status: 'running' },
+  e2e:  { el: 'agent-e2e', progress: 30, target: 100, step: 1, totalSteps: 6, status: 'running' },
+};
+
+const logMessages = [
+  { agent: 'API Design', msg: 'Writing OpenAPI 3.1 spec — finding endpoints' },
+  { agent: 'Frontend', msg: 'Writing Toast.test.tsx — test for auto-dismiss' },
+  { agent: 'CLI Agent', msg: 'Writing fingerprint_test.go — normalization tests' },
+  { agent: 'E2E Agent', msg: 'Creating playwright.config.ts' },
+  { agent: 'API Design', msg: 'Writing OpenAPI 3.1 spec — user lifecycle endpoints' },
+  { agent: 'Frontend', msg: 'Implementing use-toast.ts hook' },
+  { agent: 'CLI Agent', msg: 'Implementing Normalize() function' },
+  { agent: 'E2E Agent', msg: 'Writing login helper + smoke tests' },
+  { agent: 'Frontend', msg: 'Writing Pagination.test.tsx' },
+  { agent: 'API Design', msg: 'Writing OpenAPI 3.1 spec — admin endpoints' },
+  { agent: 'CLI Agent', msg: 'Implementing ComputeFingerprint()' },
+  { agent: 'E2E Agent', msg: 'Adding axe-core accessibility helper' },
+  { agent: 'API Design', msg: 'Spec complete — committing' },
+  { agent: 'Frontend', msg: 'Implementing Pagination.tsx component' },
+  { agent: 'CLI Agent', msg: 'Wiring fingerprint into scan pipeline' },
+  { agent: 'E2E Agent', msg: 'Running smoke tests against dev stack' },
+  { agent: 'Frontend', msg: 'All tests passing — committing Toast + Pagination' },
+  { agent: 'CLI Agent', msg: 'All tests passing — committing fingerprint' },
+  { agent: 'E2E Agent', msg: 'Smoke tests passing — committing' },
+  { agent: 'Orchestrator', msg: 'Wave 1 complete — dispatching Wave 2 (DB Migration)' },
+];
+
+let logIndex = 0;
+let elapsed = 3;
+
+function updateProgress() {
+  Object.keys(agents).forEach(key => {
+    const a = agents[key];
+    if (a.status !== 'running') return;
+
+    // Increment progress
+    a.progress = Math.min(a.progress + Math.random() * 5 + 1, a.target);
+
+    // Update step
+    const newStep = Math.floor((a.progress / 100) * a.totalSteps);
+    if (newStep > a.step) a.step = newStep;
+
+    // Check completion
+    if (a.progress >= 99) {
+      a.progress = 100;
+      a.status = 'done';
+    }
+
+    // Update DOM
+    const el = document.getElementById(a.el);
+    if (!el) return;
+
+    const bar = el.querySelector('.progress-bar-fill');
+    const pct = el.querySelector('.pct');
+    const dot = el.querySelector('.status-dot');
+    const pips = el.querySelectorAll('.step-pip');
+
+    bar.style.width = Math.round(a.progress) + '%';
+    pct.textContent = Math.round(a.progress) + '%';
+
+    if (a.status === 'done') {
+      bar.className = 'progress-bar-fill green';
+      dot.className = 'status-dot done';
+      el.querySelector('.agent-detail').textContent = 'Complete — committed';
+    }
+
+    pips.forEach((pip, i) => {
+      if (i < a.step) pip.className = 'step-pip done';
+      else if (i === a.step) pip.className = 'step-pip active';
+      else pip.className = 'step-pip';
+    });
+  });
+
+  // Overall progress
+  const total = Object.keys(agents).length + 6; // 4 running + 6 blocked
+  const doneCount = Object.values(agents).filter(a => a.status === 'done').length;
+  const runningCount = Object.values(agents).filter(a => a.status === 'running').length;
+  const blockedCount = 6;
+  const avgProgress = Object.values(agents).reduce((s, a) => s + a.progress, 0) / total;
+
+  document.getElementById('overall-bar').style.width = Math.round(avgProgress) + '%';
+  document.getElementById('stat-done').textContent = doneCount + ' done';
+  document.getElementById('stat-running').textContent = runningCount + ' in progress';
+  document.getElementById('stat-blocked').textContent = blockedCount + ' blocked';
+
+  // Check if all independent agents done — unblock wave 2
+  if (agents.api.status === 'done') {
+    const w2Header = document.querySelectorAll('.wave')[1].querySelector('.wave-badge');
+    const w2Dot = document.getElementById('agent-db').querySelector('.status-dot');
+    const w2Detail = document.getElementById('agent-db').querySelector('.agent-detail');
+    w2Header.className = 'wave-badge active';
+    w2Header.textContent = 'READY';
+    w2Dot.className = 'status-dot running';
+    w2Detail.textContent = 'Starting DB migration...';
+  }
+
+  // Add log entry
+  elapsed++;
+  if (logIndex < logMessages.length && Math.random() > 0.3) {
+    const entry = logMessages[logIndex++];
+    const log = document.getElementById('log');
+    const div = document.createElement('div');
+    div.className = 'log-entry';
+    const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+    const secs = (elapsed % 60).toString().padStart(2, '0');
+    div.innerHTML = `<span class="log-time">${mins}:${secs}</span><span class="log-agent">${entry.agent}</span> ${entry.msg}`;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+  }
+}
+
+setInterval(updateProgress, 5000);
+</script>
+
+</body>
+</html>

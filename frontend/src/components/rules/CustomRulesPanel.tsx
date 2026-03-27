@@ -458,12 +458,12 @@ export function CustomRulesPanel(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Rule</th>
-              <th>Language</th>
-              <th>Severity</th>
-              <th>Source</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th scope="col">Rule</th>
+              <th scope="col">Language</th>
+              <th scope="col">Severity</th>
+              <th scope="col">Source</th>
+              <th scope="col">Status</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>

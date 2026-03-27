@@ -355,9 +355,9 @@ export function ComplianceDashboard(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Repository</th>
+              <th scope="col">Repository</th>
               {data.frameworks.map((fw) => (
-                <th key={fw.id}>{fw.shortName}</th>
+                <th scope="col" key={fw.id}>{fw.shortName}</th>
               ))}
             </tr>
           </thead>

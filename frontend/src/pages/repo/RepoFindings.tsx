@@ -8,6 +8,7 @@ import {
   type SortDirection,
 } from '@/api/hooks/useFindings';
 import { SeverityBadge } from '@/components/findings/SeverityBadge';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { QuantumBadge } from '@/components/findings/QuantumBadge';
 import { FindingStatusBadge } from '@/components/findings/FindingStatusBadge';
 import { DetectionBadge } from '@/components/findings/DetectionBadge';
@@ -259,7 +260,7 @@ export function RepoFindings({ repoId }: RepoFindingsProps): React.ReactElement 
         <table>
           <thead>
             <tr>
-              <th style={{ width: '32px', padding: '6px' }}>
+              <th scope="col" style={{ width: '32px', padding: '6px' }}>
                 <input
                   type="checkbox"
                   checked={allOnPageSelected}
@@ -270,6 +271,7 @@ export function RepoFindings({ repoId }: RepoFindingsProps): React.ReactElement 
               </th>
               {sortableHeaders.map((h) => (
                 <th
+                  scope="col"
                   key={h.field}
                   className="sortable-header"
                   style={{ cursor: 'pointer', userSelect: 'none' }}
@@ -281,6 +283,7 @@ export function RepoFindings({ repoId }: RepoFindingsProps): React.ReactElement 
                 </th>
               ))}
               <th
+                scope="col"
                 className="sortable-header"
                 style={{ cursor: 'pointer', userSelect: 'none' }}
                 onClick={() => handleSort('file')}
@@ -290,6 +293,7 @@ export function RepoFindings({ repoId }: RepoFindingsProps): React.ReactElement 
                 <SortArrow active={sortField === 'file'} direction={sortDirection} />
               </th>
               <th
+                scope="col"
                 className="sortable-header"
                 style={{ cursor: 'pointer', userSelect: 'none' }}
                 onClick={() => handleSort('title')}
@@ -298,10 +302,11 @@ export function RepoFindings({ repoId }: RepoFindingsProps): React.ReactElement 
                 Finding{' '}
                 <SortArrow active={sortField === 'title'} direction={sortDirection} />
               </th>
-              <th>Algorithm</th>
-              <th>Quantum</th>
-              <th>Detection</th>
+              <th scope="col">Algorithm</th>
+              <th scope="col">Quantum</th>
+              <th scope="col">Detection</th>
               <th
+                scope="col"
                 className="sortable-header"
                 style={{ cursor: 'pointer', userSelect: 'none' }}
                 onClick={() => handleSort('status')}
@@ -315,8 +320,19 @@ export function RepoFindings({ repoId }: RepoFindingsProps): React.ReactElement 
           <tbody>
             {findings.length === 0 ? (
               <tr>
-                <td colSpan={8} style={{ textAlign: 'center', color: 'var(--text-3)' }}>
-                  No findings match the current filters.
+                <td colSpan={8}>
+                  <EmptyState
+                    icon={'\u2713'}
+                    title="No findings match"
+                    description="No findings match the current filters. Try adjusting or clearing your filters."
+                    actionLabel="Clear Filters"
+                    onAction={() => {
+                      setActiveFilter('all');
+                      setSearch('');
+                      setActiveStatuses([...ALL_STATUSES]);
+                      setPage(1);
+                    }}
+                  />
                 </td>
               </tr>
             ) : (

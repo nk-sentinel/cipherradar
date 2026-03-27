@@ -82,7 +82,7 @@ export function buildBreadcrumbs(pathname: string, context: BuildContext): Bread
 
     // Tab breadcrumb (if present)
     if (parts.length >= 3) {
-      const tab = parts[2];
+      const tab = parts[2] ?? '';
       const label = PATH_LABELS[tab] ?? tab;
       segments.push({
         label,
@@ -100,7 +100,7 @@ export function buildBreadcrumbs(pathname: string, context: BuildContext): Bread
       to: '/admin/settings',
     });
     if (parts.length >= 2) {
-      const subPage = parts[1];
+      const subPage = parts[1] ?? '';
       const label = PATH_LABELS[subPage] ?? subPage;
       segments.push({
         label,

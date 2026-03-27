@@ -19,7 +19,6 @@ import {
   getUserOrgs,
   getOrgSettings,
   getOrgUsers,
-  getIntegrations,
   getAuditLog,
   getIntegrationsEnriched,
   getDiscoveredRepos,
@@ -443,7 +442,7 @@ export const handlers = [
   }),
 
   // Finding status history
-  http.get('/api/v1/findings/:findingId/history', ({ params, request }) => {
+  http.get('/api/v1/findings/:findingId/history', ({ request }) => {
     const url = new URL(request.url);
     const page = Number(url.searchParams.get('page') || '1');
     const perPage = Number(url.searchParams.get('perPage') || '25');
@@ -674,7 +673,7 @@ export const handlers = [
   }),
 
   // Scan rerun
-  http.post('/api/v1/scans/:scanId/rerun', ({ params }) => {
+  http.post('/api/v1/scans/:scanId/rerun', () => {
     return HttpResponse.json({
       id: 'scan-rerun-' + Date.now().toString(),
       projectId: 'proj-001',
@@ -862,7 +861,7 @@ export const handlers = [
     return new HttpResponse(null, { status: 204 });
   }),
 
-  http.post('/api/v1/admin/registries/:registryId/test', ({ params }) => {
+  http.post('/api/v1/admin/registries/:registryId/test', () => {
     return HttpResponse.json({
       success: true,
       message: 'Successfully connected to registry',
@@ -885,7 +884,7 @@ export const handlers = [
     return HttpResponse.json({ message: 'Password changed successfully' });
   }),
 
-  http.put('/api/v1/admin/users/:userId/reset-password', ({ params }) => {
+  http.put('/api/v1/admin/users/:userId/reset-password', () => {
     return HttpResponse.json({
       tempPassword: 'temp_' + Date.now().toString(),
       message: 'Temporary password generated',
@@ -1193,7 +1192,7 @@ export const handlers = [
     return HttpResponse.json({ id: params['ruleId'], deleted: true });
   }),
 
-  http.post('/api/v1/admin/rules/:ruleId/test', async ({ request, params }) => {
+  http.post('/api/v1/admin/rules/:ruleId/test', async ({ params }) => {
     return HttpResponse.json({
       ruleId: params['ruleId'],
       ruleName: 'Test Rule',
@@ -1251,7 +1250,7 @@ export const handlers = [
   }),
 
   // Integration management (D3)
-  http.post('/api/v1/admin/integrations/:provider/connect', async ({ request, params }) => {
+  http.post('/api/v1/admin/integrations/:provider/connect', async ({ params }) => {
     return HttpResponse.json({
       id: 'int-' + Date.now().toString(),
       provider: params['provider'],

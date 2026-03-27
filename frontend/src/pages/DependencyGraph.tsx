@@ -416,7 +416,26 @@ export function DependencyGraph(): React.ReactElement {
         <div style={{ borderLeft: '1px solid var(--border)', paddingLeft: '12px', fontSize: '10px', color: 'var(--text-3)', fontWeight: 600 }}>
           NODE TYPE:
         </div>
-        <span style={{ fontSize: '11px', color: 'var(--text-2)' }}>Circle=Algorithm, Square=Library, Diamond=Protocol, Triangle=Cert, Star=Key</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><circle cx="6" cy="6" r="5" fill="var(--text-2)" /></svg>
+          <span>Algorithm</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="1" width="10" height="10" fill="var(--text-2)" /></svg>
+          <span>Library</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0 12,6 6,12 0,6" fill="var(--text-2)" /></svg>
+          <span>Protocol</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0 12,10 0,10" fill="var(--text-2)" /></svg>
+          <span>Cert</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px' }}>
+          <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><polygon points="6,0 7.5,4 12,4.5 8.5,7.5 9.5,12 6,9.5 2.5,12 3.5,7.5 0,4.5 4.5,4" fill="var(--text-2)" /></svg>
+          <span>Key</span>
+        </div>
       </div>
 
       <div className="g2">
@@ -428,6 +447,8 @@ export function DependencyGraph(): React.ReactElement {
         >
           <canvas
             ref={canvasRef}
+            aria-label={`Crypto dependency graph visualization with ${nodeCount} nodes and ${linkCount} edges. Use mouse to pan and zoom. Click nodes for details.`}
+            role="img"
             style={{ display: 'block', width: '100%', height: '100%', cursor: 'grab' }}
           />
         </div>

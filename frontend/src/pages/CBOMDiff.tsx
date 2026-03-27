@@ -237,11 +237,11 @@ export function CBOMDiff(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Type</th>
-              <th>Severity</th>
-              <th>Component</th>
-              <th>File</th>
-              <th>Details</th>
+              <th scope="col">Type</th>
+              <th scope="col">Severity</th>
+              <th scope="col">Component</th>
+              <th scope="col">File</th>
+              <th scope="col">Details</th>
             </tr>
           </thead>
           <tbody>

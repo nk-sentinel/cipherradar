@@ -314,11 +314,11 @@ function AuditLogContent(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Timestamp</th>
-              <th>User</th>
-              <th>Action</th>
-              <th>Resource</th>
-              <th>Detail</th>
+              <th scope="col">Timestamp</th>
+              <th scope="col">User</th>
+              <th scope="col">Action</th>
+              <th scope="col">Resource</th>
+              <th scope="col">Detail</th>
             </tr>
           </thead>
           <tbody>

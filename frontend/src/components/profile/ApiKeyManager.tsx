@@ -54,13 +54,13 @@ export function ApiKeyManager(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Key Prefix</th>
-              <th>Scopes</th>
-              <th>Created</th>
-              <th>Last Used</th>
-              <th>Status</th>
-              <th>Actions</th>
+              <th scope="col">Name</th>
+              <th scope="col">Key Prefix</th>
+              <th scope="col">Scopes</th>
+              <th scope="col">Created</th>
+              <th scope="col">Last Used</th>
+              <th scope="col">Status</th>
+              <th scope="col">Actions</th>
             </tr>
           </thead>
           <tbody>

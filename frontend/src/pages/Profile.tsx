@@ -26,13 +26,16 @@ const NOTIFICATION_PREFS: NotificationPref[] = [
 interface ThemeOptionDef {
   id: Theme;
   label: string;
-  color: string;
+  accent: string;
+  bg: string;
+  sidebar: string;
+  content: string;
 }
 
 const THEME_OPTIONS: ThemeOptionDef[] = [
-  { id: 'radar', label: 'Radar (SOC Dark)', color: '#06b6d4' },
-  { id: 'crystal', label: 'Crystal (Clean SaaS)', color: '#667eea' },
-  { id: 'sentinel', label: 'Sentinel (Data Dense)', color: '#f59e0b' },
+  { id: 'radar', label: 'Radar (SOC Dark)', accent: '#06b6d4', bg: '#05080f', sidebar: '#0a0f1a', content: '#0d1520' },
+  { id: 'crystal', label: 'Crystal (Clean SaaS)', accent: '#667eea', bg: '#f5f6f8', sidebar: '#fff', content: '#fafbfc' },
+  { id: 'sentinel', label: 'Sentinel (Data Dense)', accent: '#f59e0b', bg: '#0c0c0c', sidebar: '#111', content: '#161616' },
 ];
 
 export function Profile(): React.ReactElement {
@@ -153,12 +156,16 @@ export function Profile(): React.ReactElement {
                     tabIndex={0}
                     className={cn('theme-option', currentTheme === opt.id && 'active')}
                     onClick={() => handleThemeChange(opt.id)}
+                    data-testid={`theme-option-${opt.id}`}
                     style={{ cursor: 'pointer' }}
                   >
-                    <div
-                      className="theme-dot"
-                      style={{ background: opt.color, width: '12px', height: '12px', borderRadius: '50%', border: '1px solid var(--border)' }}
-                    />
+                    <div className="theme-preview" style={{ border: currentTheme === opt.id ? `1px solid ${opt.accent}` : undefined }}>
+                      <div className="theme-preview-sidebar" style={{ background: opt.sidebar }} />
+                      <div className="theme-preview-content" style={{ background: opt.content }}>
+                        <div className="theme-preview-line" style={{ background: opt.accent, width: '80%' }} />
+                        <div className="theme-preview-line" style={{ background: opt.accent, width: '50%', opacity: 0.5 }} />
+                      </div>
+                    </div>
                     {opt.label}
                   </div>
                 ))}
@@ -173,9 +180,9 @@ export function Profile(): React.ReactElement {
               <table>
                 <thead>
                   <tr>
-                    <th>Event</th>
-                    <th>In-App</th>
-                    <th>Email</th>
+                    <th scope="col">Event</th>
+                    <th scope="col">In-App</th>
+                    <th scope="col">Email</th>
                   </tr>
                 </thead>
                 <tbody>

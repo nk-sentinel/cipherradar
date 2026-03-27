@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { useNavigate } from '@tanstack/react-router';
 import { useScanQueue, type ScanQueueItem } from '@/api/hooks/useScanQueue';
 import { Pagination } from '@/components/ui/Pagination';
-import { cn } from '@/lib/utils';
+import { EmptyState } from '@/components/ui/EmptyState';
+
 
 const STATUS_OPTIONS = ['', 'queued', 'running', 'completed', 'failed', 'cancelled'];
 const TRIGGER_OPTIONS = ['', 'manual', 'schedule', 'webhook', 'push'];
@@ -32,6 +34,7 @@ function formatDuration(duration: string | null): string {
 }
 
 export function ScanQueue(): React.ReactElement {
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState('');
   const [triggerFilter, setTriggerFilter] = useState('');
   const [page, setPage] = useState(1);
@@ -114,19 +117,25 @@ export function ScanQueue(): React.ReactElement {
           <table data-testid="scan-queue-table">
             <thead>
               <tr>
-                <th>Project</th>
-                <th>Trigger</th>
-                <th>Status</th>
-                <th>Started</th>
-                <th>Duration</th>
-                <th>Triggered By</th>
+                <th scope="col">Project</th>
+                <th scope="col">Trigger</th>
+                <th scope="col">Status</th>
+                <th scope="col">Started</th>
+                <th scope="col">Duration</th>
+                <th scope="col">Triggered By</th>
               </tr>
             </thead>
             <tbody>
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-3)', padding: '24px' }}>
-                    No scans found
+                  <td colSpan={6}>
+                    <EmptyState
+                      icon={'\u25B6'}
+                      title="No scans yet"
+                      description="Import a project and trigger your first scan to see results here."
+                      actionLabel="Run Your First Scan"
+                      onAction={() => void navigate({ to: '/repos' })}
+                    />
                   </td>
                 </tr>
               )}

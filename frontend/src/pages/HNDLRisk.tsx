@@ -208,11 +208,11 @@ export function HNDLRisk(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Algorithm</th>
-              <th>Usage Count</th>
-              <th>Exposure Type</th>
-              <th>Est. Quantum Break Year</th>
-              <th>Years Remaining</th>
+              <th scope="col">Algorithm</th>
+              <th scope="col">Usage Count</th>
+              <th scope="col">Exposure Type</th>
+              <th scope="col">Est. Quantum Break Year</th>
+              <th scope="col">Years Remaining</th>
             </tr>
           </thead>
           <tbody>
