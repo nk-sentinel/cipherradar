@@ -21,6 +21,9 @@ import { ScanDetailPage } from './pages/repo/ScanDetailPage.tsx';
 import { RepoFindingsPage } from './pages/repo/RepoFindingsPage.tsx';
 import { RepoQuantum } from './pages/repo/RepoQuantum.tsx';
 import { RepoCompliance } from './pages/repo/RepoCompliance.tsx';
+import { RepoComplianceUnified } from './pages/repo/RepoComplianceUnified.tsx';
+import { RepoDependencies } from './pages/repo/RepoDependencies.tsx';
+import { RepoSettings } from './pages/repo/RepoSettings.tsx';
 import { CertCalendar } from './pages/CertCalendar.tsx';
 import { ComplianceDashboard } from './pages/ComplianceDashboard.tsx';
 import { CBOMDiff } from './pages/CBOMDiff.tsx';
@@ -42,6 +45,7 @@ import { ArtifactRegistries } from './pages/admin/ArtifactRegistries.tsx';
 import { LLMConfig } from './pages/admin/LLMConfig.tsx';
 import { ForgotPassword } from './pages/ForgotPassword.tsx';
 import { ResetPassword } from './pages/ResetPassword.tsx';
+import { Onboarding } from './pages/Onboarding.tsx';
 import { createRouteGuard } from './lib/route-guard.ts';
 
 const rootRoute = createRootRoute({
@@ -205,6 +209,12 @@ const downloadsRoute = createRoute({
   component: Downloads,
 });
 
+const onboardingRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/onboarding',
+  component: Onboarding,
+});
+
 /* ---- Admin routes ---- */
 
 const adminSettingsRoute = createRoute({
@@ -278,7 +288,19 @@ const repoQuantumRoute = createRoute({
 const repoComplianceRoute = createRoute({
   getParentRoute: () => repoLayoutRoute,
   path: '/compliance',
-  component: RepoCompliance,
+  component: RepoComplianceUnified,
+});
+
+const repoDependenciesRoute = createRoute({
+  getParentRoute: () => repoLayoutRoute,
+  path: '/dependencies',
+  component: RepoDependencies,
+});
+
+const repoSettingsRoute = createRoute({
+  getParentRoute: () => repoLayoutRoute,
+  path: '/settings',
+  component: RepoSettings,
 });
 
 const repoRuntimeRoute = createRoute({
@@ -364,6 +386,7 @@ const routeTree = rootRoute.addChildren([
     scansRoute,
     profileRoute,
     downloadsRoute,
+    onboardingRoute,
     adminSettingsRoute,
     adminUsersRoute,
     adminIntegrationsRoute,
@@ -375,8 +398,10 @@ const routeTree = rootRoute.addChildren([
       repoOverviewRoute,
       repoScansRoute,
       repoFindingsRoute,
-      repoQuantumRoute,
       repoComplianceRoute,
+      repoDependenciesRoute,
+      repoSettingsRoute,
+      repoQuantumRoute,
       repoRuntimeRoute,
       repoAgilityRoute,
       repoHndlRiskRoute,

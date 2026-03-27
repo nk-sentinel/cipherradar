@@ -9,17 +9,21 @@ interface SubTab {
   externalPath?: (repoId: string) => string;
 }
 
-const SUB_TABS: SubTab[] = [
+/**
+ * Consolidated project tabs (D22 #41).
+ * Reduced from 10+ to 6:
+ * - Quantum merged into Compliance as a sub-section
+ * - SBOM merged into Dependencies
+ * - Scan sources, Jira config, notifications, schedule absorbed into Settings
+ * - Runtime, Agility Score, HNDL Risk, CVE Correlation folded into existing views
+ */
+export const CONSOLIDATED_TABS: SubTab[] = [
   { label: 'Overview', path: 'overview' },
-  { label: 'Scans', path: 'scans' },
   { label: 'Findings', path: 'findings' },
-  { label: 'CBOM Diff', path: 'diff' },
-  { label: 'Quantum', path: 'quantum' },
   { label: 'Compliance', path: 'compliance' },
-  { label: 'Runtime', path: 'runtime' },
-  { label: 'Agility Score', path: 'agility' },
-  { label: 'HNDL Risk', path: 'hndl-risk' },
-  { label: 'CVE Correlation', path: 'cve-correlation' },
+  { label: 'Dependencies', path: 'dependencies' },
+  { label: 'Scans', path: 'scans' },
+  { label: 'Settings', path: 'settings' },
 ];
 
 export function RepoLayout(): React.ReactElement {
@@ -40,7 +44,7 @@ export function RepoLayout(): React.ReactElement {
       </div>
 
       <div className="sub-tabs">
-        {SUB_TABS.map((tab) => {
+        {CONSOLIDATED_TABS.map((tab) => {
           const tabPath = `/repos/${repoId}/${tab.path}`;
           const isActive = currentPath === tabPath;
           const target = tab.externalPath ? tab.externalPath(repoId) : tabPath;
