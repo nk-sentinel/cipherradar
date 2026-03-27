@@ -3,6 +3,8 @@ import { useAuth } from '@/lib/auth.tsx';
 import { ROLE_LABELS } from '@/lib/roles.ts';
 import { applyTheme, getStoredTheme, type Theme } from '@/lib/themes.ts';
 import { cn } from '@/lib/utils.ts';
+import { PasswordChangeForm } from '@/components/profile/PasswordChangeForm.tsx';
+import { ApiKeyManager } from '@/components/profile/ApiKeyManager.tsx';
 
 type ProfileSection = 'appearance' | 'notifications' | 'security' | 'api-keys';
 
@@ -21,17 +23,6 @@ const NOTIFICATION_PREFS: NotificationPref[] = [
   { event: 'Compliance score changes', inApp: true, email: false },
 ];
 
-interface ApiKey {
-  name: string;
-  scopes: string;
-  created: string;
-  lastUsed: string;
-}
-
-const MOCK_API_KEYS: ApiKey[] = [
-  { name: 'Local development', scopes: 'scan:write, cbom:read', created: '2026-03-18', lastUsed: '1h ago' },
-];
-
 interface ThemeOptionDef {
   id: Theme;
   label: string;
@@ -48,6 +39,10 @@ export function Profile(): React.ReactElement {
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<ProfileSection>('appearance');
   const [currentTheme, setCurrentTheme] = useState<Theme>(getStoredTheme);
+
+  // Determine auth source. In Phase 4.5, the User model doesn't have authSource yet,
+  // so we default to 'local' unless user object has it.
+  const authSource = (user as Record<string, unknown> | null)?.authSource as string | undefined ?? 'local';
 
   const handleThemeChange = (theme: Theme): void => {
     setCurrentTheme(theme);
@@ -133,6 +128,16 @@ export function Profile(): React.ReactElement {
                   readOnly
                 />
               </div>
+              <div className="field">
+                <label className="field-label">Auth Source</label>
+                <input
+                  className="input"
+                  value={authSource === 'local' ? 'Local (email/password)' : authSource}
+                  disabled
+                  style={{ opacity: 0.6 }}
+                  readOnly
+                />
+              </div>
             </div>
           </div>
 
@@ -192,53 +197,38 @@ export function Profile(): React.ReactElement {
 
           {/* Security */}
           {activeSection === 'security' && (
-            <div className="card">
-              <div className="card-title">Security</div>
-              <div className="g2" style={{ marginBottom: 0 }}>
-                <div className="field">
-                  <label className="field-label">Change Password</label>
-                  <input className="input" type="password" placeholder="New password" />
-                </div>
-                <div className="field">
-                  <label className="field-label">Confirm Password</label>
-                  <input className="input" type="password" placeholder="Confirm" />
+            <>
+              <PasswordChangeForm authSource={authSource} />
+
+              {/* MFA button — disabled, Phase 6 */}
+              <div className="card">
+                <div className="card-title">Multi-Factor Authentication</div>
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <button
+                    className="btn btn-outline"
+                    disabled
+                    title="MFA will be available in Phase 6 (Identity & SSO)"
+                    data-testid="mfa-btn"
+                    style={{ opacity: 0.5 }}
+                  >
+                    Enable MFA
+                  </button>
+                  <span
+                    style={{
+                      marginLeft: '8px',
+                      fontSize: '11px',
+                      color: 'var(--text-3)',
+                    }}
+                  >
+                    Available in Phase 6
+                  </span>
                 </div>
               </div>
-              <div style={{ marginTop: '12px' }}>
-                <button className="btn btn-outline" onClick={() => alert('MFA setup requires backend integration. Coming in a future release.')}>Enable MFA</button>
-              </div>
-            </div>
+            </>
           )}
 
           {/* API Keys */}
-          {activeSection === 'api-keys' && (
-            <div className="card">
-              <div className="card-title">My API Keys</div>
-              <table>
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Scopes</th>
-                    <th>Created</th>
-                    <th>Last Used</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {MOCK_API_KEYS.map((key) => (
-                    <tr key={key.name}>
-                      <td>{key.name}</td>
-                      <td>{key.scopes}</td>
-                      <td>{key.created}</td>
-                      <td>{key.lastUsed}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div style={{ marginTop: '10px' }}>
-                <button className="btn btn-outline" onClick={() => alert('API key generation requires backend integration. Coming in a future release.')}>+ Create API Key</button>
-              </div>
-            </div>
-          )}
+          {activeSection === 'api-keys' && <ApiKeyManager />}
         </div>
       </div>
     </div>
