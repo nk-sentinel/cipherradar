@@ -5,11 +5,14 @@ import {
 } from '@/api/hooks/useNotifications.ts';
 import type { NotificationPreferencesData } from '@/mocks/data/notifications.ts';
 
+export type WebhookTestStatus = 'idle' | 'testing' | 'success' | 'fail';
+
 export function NotificationPreferences(): React.ReactElement {
   const { data, isLoading, error } = useNotificationPreferences();
   const updatePrefs = useUpdateNotificationPreferences();
   const [localPrefs, setLocalPrefs] = useState<NotificationPreferencesData | null>(null);
   const [teamsUrl, setTeamsUrl] = useState('');
+  const [webhookTestStatus, setWebhookTestStatus] = useState<WebhookTestStatus>('idle');
 
   useEffect(() => {
     if (data && !localPrefs) {
@@ -57,6 +60,21 @@ export function NotificationPreferences(): React.ReactElement {
     setLocalPrefs(toSave);
   };
 
+  const handleSendTest = () => {
+    if (!teamsUrl.trim()) return;
+    setWebhookTestStatus('testing');
+    // Simulate webhook test — in production this would be a real API call
+    setTimeout(() => {
+      if (teamsUrl.startsWith('https://')) {
+        setWebhookTestStatus('success');
+      } else {
+        setWebhookTestStatus('fail');
+      }
+      // Reset after 4 seconds
+      setTimeout(() => setWebhookTestStatus('idle'), 4000);
+    }, 1200);
+  };
+
   return (
     <div>
       <div
@@ -88,10 +106,10 @@ export function NotificationPreferences(): React.ReactElement {
         <table>
           <thead>
             <tr>
-              <th>Trigger</th>
-              <th>Description</th>
-              <th style={{ textAlign: 'center' }}>In-App</th>
-              <th style={{ textAlign: 'center' }}>Email</th>
+              <th scope="col">Trigger</th>
+              <th scope="col">Description</th>
+              <th scope="col" style={{ textAlign: 'center' }}>In-App</th>
+              <th scope="col" style={{ textAlign: 'center' }}>Email</th>
             </tr>
           </thead>
           <tbody>
@@ -162,16 +180,48 @@ export function NotificationPreferences(): React.ReactElement {
             <label className="field-label" htmlFor="teams-webhook">
               Webhook URL
             </label>
-            <input
-              id="teams-webhook"
-              className="input"
-              type="url"
-              value={teamsUrl}
-              onChange={(e) => setTeamsUrl(e.target.value)}
-              placeholder="https://outlook.office.com/webhook/..."
-            />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                id="teams-webhook"
+                className="input"
+                type="url"
+                value={teamsUrl}
+                onChange={(e) => { setTeamsUrl(e.target.value); setWebhookTestStatus('idle'); }}
+                placeholder="https://outlook.office.com/webhook/..."
+                style={{ flex: 1 }}
+              />
+              <button
+                className="btn btn-outline"
+                onClick={handleSendTest}
+                disabled={!teamsUrl.trim() || webhookTestStatus === 'testing'}
+                data-testid="webhook-send-test-btn"
+                aria-label="Send test webhook"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                {webhookTestStatus === 'testing' ? 'Testing...' : 'Send Test'}
+              </button>
+            </div>
           </div>
-          <div style={{ fontSize: '10px', color: 'var(--text-4)' }}>
+          {/* Inline test result */}
+          {webhookTestStatus === 'success' && (
+            <div
+              data-testid="webhook-test-success"
+              className="alert alert-success"
+              style={{ marginTop: '8px' }}
+            >
+              Test webhook sent successfully.
+            </div>
+          )}
+          {webhookTestStatus === 'fail' && (
+            <div
+              data-testid="webhook-test-fail"
+              className="alert alert-error"
+              style={{ marginTop: '8px' }}
+            >
+              Webhook test failed. Please verify the URL.
+            </div>
+          )}
+          <div style={{ fontSize: '10px', color: 'var(--text-4)', marginTop: '8px' }}>
             Notifications matching your in-app triggers will also be sent to this Teams channel.
           </div>
         </div>
