@@ -73,6 +73,9 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("either a path argument or --container flag is required")
 	}
 
+	// Auto-sync custom rules from portal if api_url is configured (D27).
+	syncCustomRules(cmd)
+
 	// Parse passes flag. --deep is an alias for --passes 1,2,3.
 	// --fast overrides to pass 1 only.
 	fast, _ := cmd.Flags().GetBool("fast")
@@ -383,4 +386,36 @@ func checkFailOn(findings []types.Finding, failOn string) error {
 		}
 	}
 	return nil
+}
+
+// syncCustomRules attempts to download custom rules from the portal before
+// scanning. Requires api_url in .cradar.yml config. On failure, logs a
+// warning and continues with embedded + cached rules.
+func syncCustomRules(cmd *cobra.Command) {
+	configPath, _ := cmd.Flags().GetString("config")
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil || cfg == nil {
+		return
+	}
+
+	apiURL, _ := cmd.Flags().GetString("api-url")
+	if apiURL == "" {
+		apiURL = cfg.APIURL
+	}
+	if apiURL == "" {
+		return
+	}
+
+	apiKey, _ := cmd.Flags().GetString("api-key")
+	if apiKey == "" {
+		apiKey = os.Getenv("CRADAR_API_KEY")
+	}
+	apiKey = cfg.ResolveAPIKey(apiKey)
+	if apiKey == "" {
+		return
+	}
+
+	if err := rules.SyncRules(apiURL, apiKey); err != nil {
+		fmt.Fprintf(os.Stderr, "WARNING: custom rule sync failed: %v\n", err)
+	}
 }
