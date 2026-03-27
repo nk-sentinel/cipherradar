@@ -25,6 +25,7 @@ import { RepoComplianceUnified } from './pages/repo/RepoComplianceUnified.tsx';
 import { RepoDependencies } from './pages/repo/RepoDependencies.tsx';
 import { RepoSettings } from './pages/repo/RepoSettings.tsx';
 import { CertCalendar } from './pages/CertCalendar.tsx';
+import { CertificateTracker } from './pages/CertificateTracker.tsx';
 import { ComplianceDashboard } from './pages/ComplianceDashboard.tsx';
 import { CBOMDiff } from './pages/CBOMDiff.tsx';
 import { MigrationKanban } from './pages/MigrationKanban.tsx';
@@ -132,6 +133,13 @@ const certCalendarRoute = createRoute({
   path: '/certificates',
   beforeLoad: createRouteGuard('certificates'),
   component: CertCalendar,
+});
+
+const certTrackerRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/certificate-tracker',
+  beforeLoad: createRouteGuard('certificates'),
+  component: CertificateTracker,
 });
 
 const complianceDashboardRoute = createRoute({
@@ -377,6 +385,7 @@ const routeTree = rootRoute.addChildren([
     complianceRoute,
     graphRoute,
     certCalendarRoute,
+    certTrackerRoute,
     complianceDashboardRoute,
     policyRoute,
     cbomDiffRoute,

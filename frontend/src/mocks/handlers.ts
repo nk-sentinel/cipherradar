@@ -1371,6 +1371,107 @@ export const handlers = [
   // Plan 5 — Remediation consent flow (D5)
   // ---------------------------------------------------------------------------
 
+  // ---------------------------------------------------------------------------
+  // D23 — PQC Migration Progress
+  // ---------------------------------------------------------------------------
+
+  http.get('/api/v1/portfolio/pqc-migration', () => {
+    return HttpResponse.json({
+      overview: {
+        totalFindings: 120,
+        vulnerable: 45,
+        safe: 55,
+        unknown: 20,
+        percentVulnerable: 37.5,
+        percentSafe: 45.83,
+        percentUnknown: 16.67,
+      },
+      families: [
+        { family: 'RSA', total: 40, vulnerable: 30, safe: 5, unknown: 5, percentMigrated: 12.5 },
+        { family: 'ECDSA', total: 25, vulnerable: 10, safe: 12, unknown: 3, percentMigrated: 48.0 },
+        { family: 'AES', total: 30, vulnerable: 0, safe: 28, unknown: 2, percentMigrated: 93.33 },
+        { family: 'SHA-2', total: 15, vulnerable: 0, safe: 10, unknown: 5, percentMigrated: 66.67 },
+        { family: 'DES', total: 5, vulnerable: 5, safe: 0, unknown: 0, percentMigrated: 0.0 },
+        { family: 'MD5', total: 5, vulnerable: 0, safe: 0, unknown: 5, percentMigrated: 0.0 },
+      ],
+      laggingProjects: [
+        { projectId: 'proj-001', projectName: 'payment-service', vulnerableCount: 18, totalCount: 25, percentVulnerable: 72.0 },
+        { projectId: 'proj-002', projectName: 'auth-api', vulnerableCount: 12, totalCount: 30, percentVulnerable: 40.0 },
+        { projectId: 'proj-003', projectName: 'data-pipeline', vulnerableCount: 8, totalCount: 35, percentVulnerable: 22.86 },
+        { projectId: 'proj-004', projectName: 'mobile-backend', vulnerableCount: 7, totalCount: 30, percentVulnerable: 23.33 },
+      ],
+    });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // D23 — Certificate Tracker (paginated, filterable)
+  // ---------------------------------------------------------------------------
+
+  http.get('/api/v1/portfolio/certificates', ({ request }) => {
+    const url = new URL(request.url);
+    const statusColor = url.searchParams.get('status_color');
+    const page = Number(url.searchParams.get('page') || '1');
+    const perPage = Number(url.searchParams.get('per_page') || '25');
+
+    const now = new Date();
+    function computeStatus(expiryDate: string): { color: string; days: number } {
+      const expiry = new Date(expiryDate);
+      const days = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      if (days < 0) return { color: 'black', days };
+      if (days < 30) return { color: 'red', days };
+      if (days <= 90) return { color: 'amber', days };
+      return { color: 'green', days };
+    }
+
+    function daysFromNow(d: number): string {
+      const dt = new Date();
+      dt.setDate(dt.getDate() + d);
+      return dt.toISOString();
+    }
+
+    const rawCerts = [
+      { subject: 'api.payment.internal', issuer: 'Internal CA', notAfter: daysFromNow(-5), projectName: 'payment-service', projectId: 'proj-001', filePath: 'certs/api.pem' },
+      { subject: 'auth.internal', issuer: 'Internal CA', notAfter: daysFromNow(3), projectName: 'auth-api', projectId: 'proj-002', filePath: 'certs/auth.pem' },
+      { subject: '*.svc.cluster.local', issuer: 'Istio CA', notAfter: daysFromNow(12), projectName: 'data-pipeline', projectId: 'proj-003', filePath: 'k8s/tls-secret.yaml' },
+      { subject: 'mobile.api.example.com', issuer: "Let's Encrypt R3", notAfter: daysFromNow(25), projectName: 'mobile-backend', projectId: 'proj-004', filePath: 'certs/mobile.pem' },
+      { subject: 'grpc.payment.internal', issuer: 'Internal CA', notAfter: daysFromNow(45), projectName: 'payment-service', projectId: 'proj-001', filePath: 'certs/grpc.pem' },
+      { subject: 'Root CA', issuer: 'Self-signed', notAfter: daysFromNow(180), projectName: 'payment-service', projectId: 'proj-001', filePath: 'certs/root-ca.pem' },
+      { subject: 'kafka.internal', issuer: 'Internal CA', notAfter: daysFromNow(5), projectName: 'data-pipeline', projectId: 'proj-003', filePath: 'certs/kafka.pem' },
+      { subject: 'redis.internal', issuer: 'Internal CA', notAfter: daysFromNow(200), projectName: 'auth-api', projectId: 'proj-002', filePath: 'certs/redis.pem' },
+    ];
+
+    let items = rawCerts.map((c, i) => {
+      const { color, days } = computeStatus(c.notAfter);
+      return {
+        id: `cert-trk-${String(i + 1).padStart(3, '0')}`,
+        subject: c.subject,
+        issuer: c.issuer,
+        notAfter: c.notAfter,
+        statusColor: color,
+        daysRemaining: days,
+        projectName: c.projectName,
+        projectId: c.projectId,
+        filePath: c.filePath,
+      };
+    });
+
+    if (statusColor) {
+      items = items.filter((c) => c.statusColor === statusColor);
+    }
+
+    items.sort((a, b) => a.daysRemaining - b.daysRemaining);
+    const total = items.length;
+    const start = (page - 1) * perPage;
+    const pageItems = items.slice(start, start + perPage);
+
+    return HttpResponse.json({
+      items: pageItems,
+      total,
+      page,
+      perPage,
+    });
+  }),
+
   http.post('/api/v1/findings/:findingId/remediation', async ({ request, params }) => {
     const body = await request.json() as { consent: boolean; codeSnippet?: string };
     if (!body.consent) {

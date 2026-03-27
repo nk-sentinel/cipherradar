@@ -56,6 +56,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Quantum Readiness', icon: Search, to: '/quantum', page: 'portfolio-quantum' },
       { label: 'Dependency Graph', icon: GitBranch, to: '/graph', page: 'graph' },
       { label: 'Certificates', icon: CalendarDays, to: '/certificates', page: 'certificates' },
+      { label: 'Cert Tracker', icon: Shield, to: '/certificate-tracker', page: 'certificates' },
       { label: 'CBOM Diff', icon: ArrowLeftRight, to: '/diff', page: 'diff' },
       { label: 'Migration Board', icon: ArrowLeftRight, to: '/migration', page: 'migration' },
     ],
