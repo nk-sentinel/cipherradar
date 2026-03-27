@@ -3,12 +3,32 @@ import { useAuth } from '@/lib/auth';
 import { canAccessPage } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 import { OrgSwitcher } from './OrgSwitcher.tsx';
+import { ProjectTree } from './ProjectTree.tsx';
 import { useRequests } from '@/api/hooks/useRequests';
 import { useScanQueue } from '@/api/hooks/useScanQueue';
+import {
+  LayoutDashboard,
+  FolderKanban,
+  Zap,
+  Flag,
+  Shield,
+  MessageSquare,
+  Settings,
+  Search,
+  GitBranch,
+  Award,
+  CalendarDays,
+  ArrowLeftRight,
+  Users,
+  Plug,
+  ScrollText,
+  Package,
+  type LucideIcon,
+} from 'lucide-react';
 
 interface NavItem {
   label: string;
-  icon: string;
+  icon: LucideIcon;
   to: string;
   page: string;
 }
@@ -18,43 +38,43 @@ interface NavSection {
   items: NavItem[];
 }
 
-const NAV_SECTIONS: NavSection[] = [
+export const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Overview',
     items: [
-      { label: 'Dashboard', icon: '\u25A0', to: '/', page: 'dashboard' },
-      { label: 'Asset Explorer', icon: '\u26B1', to: '/assets', page: 'assets' },
-      { label: 'Repositories', icon: '\u2630', to: '/repos', page: 'repos' },
-      { label: 'Scans', icon: '\u25B6', to: '/scans', page: 'repos' },
+      { label: 'Dashboard', icon: LayoutDashboard, to: '/', page: 'dashboard' },
+      { label: 'Projects', icon: FolderKanban, to: '/repos', page: 'repos' },
+      { label: 'Scans', icon: Zap, to: '/scans', page: 'repos' },
+      { label: 'Findings', icon: Flag, to: '/assets', page: 'assets' },
     ],
   },
   {
     title: 'Portfolio',
     items: [
-      { label: 'Quantum Readiness', icon: '\u269B', to: '/quantum', page: 'portfolio-quantum' },
-      { label: 'Compliance', icon: '\u2713', to: '/compliance', page: 'portfolio-compliance' },
-      { label: 'Compliance Dashboard', icon: '\u2611', to: '/compliance-dashboard', page: 'compliance-dashboard' },
-      { label: 'Dependency Graph', icon: '\u2B21', to: '/graph', page: 'graph' },
-      { label: 'Certificates', icon: '\u2B50', to: '/certificates', page: 'certificates' },
-      { label: 'CBOM Diff', icon: '\u0394', to: '/diff', page: 'diff' },
-      { label: 'Migration Board', icon: '\u21C4', to: '/migration', page: 'migration' },
+      { label: 'Compliance', icon: Shield, to: '/compliance', page: 'portfolio-compliance' },
+      { label: 'Compliance Dashboard', icon: Award, to: '/compliance-dashboard', page: 'compliance-dashboard' },
+      { label: 'Quantum Readiness', icon: Search, to: '/quantum', page: 'portfolio-quantum' },
+      { label: 'Dependency Graph', icon: GitBranch, to: '/graph', page: 'graph' },
+      { label: 'Certificates', icon: CalendarDays, to: '/certificates', page: 'certificates' },
+      { label: 'CBOM Diff', icon: ArrowLeftRight, to: '/diff', page: 'diff' },
+      { label: 'Migration Board', icon: ArrowLeftRight, to: '/migration', page: 'migration' },
     ],
   },
   {
     title: 'Admin',
     items: [
-      { label: 'Org Settings', icon: '\u2699', to: '/admin/settings', page: 'admin-settings' },
-      { label: 'Users', icon: '\u263A', to: '/admin/users', page: 'admin-users' },
-      { label: 'Integrations', icon: '\u26A1', to: '/admin/integrations', page: 'admin-integrations' },
-      { label: 'Audit Log', icon: '\u2637', to: '/admin/audit-log', page: 'admin-audit-log' },
-      { label: 'Registries', icon: '\u2B22', to: '/admin/registries', page: 'admin-settings' },
+      { label: 'Org Settings', icon: Settings, to: '/admin/settings', page: 'admin-settings' },
+      { label: 'Users', icon: Users, to: '/admin/users', page: 'admin-users' },
+      { label: 'Integrations', icon: Plug, to: '/admin/integrations', page: 'admin-integrations' },
+      { label: 'Audit Log', icon: ScrollText, to: '/admin/audit-log', page: 'admin-audit-log' },
+      { label: 'Registries', icon: Package, to: '/admin/registries', page: 'admin-settings' },
     ],
   },
   {
     title: 'Manage',
     items: [
-      { label: 'Pending Requests', icon: '\u2709', to: '/requests', page: 'requests' },
-      { label: 'Policy Rules', icon: '\u2699', to: '/policy', page: 'policy' },
+      { label: 'Pending Requests', icon: MessageSquare, to: '/requests', page: 'requests' },
+      { label: 'Policy Rules', icon: Shield, to: '/policy', page: 'policy' },
     ],
   },
 ];
@@ -96,6 +116,8 @@ export function Sidebar(): React.ReactElement {
 
       <OrgSwitcher />
 
+      <ProjectTree />
+
       <div>
         {NAV_SECTIONS.map((section) => {
           const visibleItems = section.items.filter((item) =>
@@ -109,40 +131,45 @@ export function Sidebar(): React.ReactElement {
           return (
             <div key={section.title}>
               <div className="nav-section">{section.title}</div>
-              {visibleItems.map((item) => (
-                <Link
-                  key={item.to}
-                  to={item.to}
-                  className={cn(
-                    'nav-item',
-                    (item.to === '/'
-                      ? currentPath === '/'
-                      : currentPath.startsWith(item.to)) &&
-                      'active',
-                  )}
-                >
-                  <span className="nav-icon">{item.icon}</span>
-                  {item.label}
-                  {item.page === 'requests' && pendingCount > 0 && (
-                    <span
-                      className="badge b-crit"
-                      style={{ marginLeft: '6px', fontSize: '9px', padding: '1px 5px' }}
-                      data-testid="requests-count-badge"
-                    >
-                      {pendingCount}
+              {visibleItems.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={cn(
+                      'nav-item',
+                      (item.to === '/'
+                        ? currentPath === '/'
+                        : currentPath.startsWith(item.to)) &&
+                        'active',
+                    )}
+                  >
+                    <span className="nav-icon">
+                      <IconComponent size={14} />
                     </span>
-                  )}
-                  {item.label === 'Scans' && runningScanCount > 0 && (
-                    <span
-                      className="badge b-blue"
-                      style={{ marginLeft: '6px', fontSize: '9px', padding: '1px 5px' }}
-                      data-testid="scans-running-badge"
-                    >
-                      {runningScanCount}
-                    </span>
-                  )}
-                </Link>
-              ))}
+                    {item.label}
+                    {item.page === 'requests' && pendingCount > 0 && (
+                      <span
+                        className="badge b-crit"
+                        style={{ marginLeft: '6px', fontSize: '9px', padding: '1px 5px' }}
+                        data-testid="requests-count-badge"
+                      >
+                        {pendingCount}
+                      </span>
+                    )}
+                    {item.label === 'Scans' && runningScanCount > 0 && (
+                      <span
+                        className="badge b-blue"
+                        style={{ marginLeft: '6px', fontSize: '9px', padding: '1px 5px' }}
+                        data-testid="scans-running-badge"
+                      >
+                        {runningScanCount}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
             </div>
           );
         })}
