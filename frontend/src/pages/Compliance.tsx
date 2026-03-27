@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useCompliance } from '@/api/hooks/useCompliance.ts';
+import { PQCMigrationProgress } from '@/components/compliance/PQCMigrationProgress.tsx';
 
 function scoreColor(score: number): string {
   if (score >= 80) return 'var(--green)';
@@ -100,17 +101,20 @@ export function Compliance(): React.ReactElement {
         ))}
       </div>
 
+      {/* PQC Migration Progress */}
+      <PQCMigrationProgress />
+
       {/* Compliance by Repository table */}
       <div className="card">
         <div className="card-title">Compliance by Repository</div>
         <table>
           <thead>
             <tr>
-              <th>Repository</th>
-              <th>NIST 800-131A</th>
-              <th>FIPS 140-3</th>
-              <th>CNSA 2.0</th>
-              <th>Disallowed</th>
+              <th scope="col">Repository</th>
+              <th scope="col">NIST 800-131A</th>
+              <th scope="col">FIPS 140-3</th>
+              <th scope="col">CNSA 2.0</th>
+              <th scope="col">Disallowed</th>
             </tr>
           </thead>
           <tbody>
