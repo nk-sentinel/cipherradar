@@ -1,6 +1,11 @@
+import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useScans } from '@/api/hooks/useScans.ts';
 import { cn } from '@/lib/utils.ts';
+import { EnvironmentBadge } from '@/components/scan/EnvironmentBadge';
+import { PromoteModal } from '@/components/scan/PromoteModal';
+import { useScanTrigger } from '@/api/hooks/useScanTrigger';
+import { useToast } from '@/lib/use-toast';
 
 function severityBadgeClass(count: number): string {
   if (count > 4) return 'badge b-crit';
@@ -25,6 +30,9 @@ interface ScanHistoryProps {
 export function ScanHistory({ repoId }: ScanHistoryProps): React.ReactElement {
   const { data: scans, isLoading, error } = useScans(repoId);
   const navigate = useNavigate();
+  const [promoteModal, setPromoteModal] = useState<{ scanId: string; env: string } | null>(null);
+  const rerunMutation = useScanTrigger();
+  const { toast } = useToast();
 
   if (isLoading) {
     return (
@@ -82,7 +90,9 @@ export function ScanHistory({ repoId }: ScanHistoryProps): React.ReactElement {
               <th>Findings</th>
               <th>Critical</th>
               <th>Duration</th>
+              <th>Environment</th>
               <th>Time</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -101,12 +111,52 @@ export function ScanHistory({ repoId }: ScanHistoryProps): React.ReactElement {
                   <span className={severityBadgeClass(scan.critical)}>{scan.critical}</span>
                 </td>
                 <td>{scan.duration}</td>
+                <td>
+                  <EnvironmentBadge environment={(scan as Record<string, unknown>).environment as string ?? 'dev'} />
+                </td>
                 <td style={{ color: 'var(--text-3)' }}>{formatRelativeTime(scan.createdAt)}</td>
+                <td>
+                  <div style={{ display: 'flex', gap: '4px' }} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className="btn btn-outline"
+                      style={{ fontSize: '10px', padding: '2px 8px' }}
+                      data-testid={`promote-btn-${scan.id}`}
+                      onClick={() => setPromoteModal({ scanId: scan.id, env: (scan as Record<string, unknown>).environment as string ?? 'dev' })}
+                      type="button"
+                    >
+                      Promote
+                    </button>
+                    <button
+                      className="btn btn-outline"
+                      style={{ fontSize: '10px', padding: '2px 8px' }}
+                      data-testid={`rerun-btn-${scan.id}`}
+                      onClick={() => {
+                        rerunMutation.mutate({
+                          projectId: repoId,
+                          sourceType: 'repository',
+                          branch: scan.branch,
+                        });
+                        toast({ title: 'Rerun triggered', variant: 'success' });
+                      }}
+                      type="button"
+                    >
+                      Rerun
+                    </button>
+                  </div>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {promoteModal && (
+        <PromoteModal
+          scanId={promoteModal.scanId}
+          currentEnvironment={promoteModal.env}
+          onClose={() => setPromoteModal(null)}
+        />
+      )}
     </div>
   );
 }
