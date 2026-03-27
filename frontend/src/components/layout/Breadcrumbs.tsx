@@ -1,0 +1,213 @@
+import { Link, useRouterState, useParams } from '@tanstack/react-router';
+import { useRepository } from '@/api/hooks/useRepositories';
+import { useCurrentOrg } from '@/lib/org-context';
+
+export interface BreadcrumbSegment {
+  label: string;
+  to: string;
+}
+
+/** Map of path segments to human-readable labels */
+const PATH_LABELS: Record<string, string> = {
+  repos: 'Repositories',
+  assets: 'Asset Explorer',
+  quantum: 'Quantum Readiness',
+  compliance: 'Compliance',
+  graph: 'Dependency Graph',
+  certificates: 'Certificates',
+  diff: 'CBOM Diff',
+  migration: 'Migration Board',
+  policy: 'Policy Rules',
+  requests: 'Pending Requests',
+  scans: 'Scans',
+  admin: 'Admin',
+  settings: 'Settings',
+  users: 'Users',
+  integrations: 'Integrations',
+  'audit-log': 'Audit Log',
+  registries: 'Registries',
+  profile: 'Profile',
+  downloads: 'Downloads',
+  overview: 'Overview',
+  findings: 'Findings',
+  dependencies: 'Dependencies',
+  'compliance-dashboard': 'Compliance Dashboard',
+  'llm-config': 'LLM Config',
+  'hndl-risk': 'HNDL Risk',
+  agility: 'Agility Score',
+  runtime: 'Runtime',
+  'cve-correlation': 'CVE Correlation',
+};
+
+interface BuildContext {
+  repoId?: string;
+  repoName?: string;
+  orgName?: string;
+  groupName?: string;
+}
+
+/**
+ * Build breadcrumb segments from a pathname.
+ * Returns an array of { label, to } objects.
+ */
+export function buildBreadcrumbs(pathname: string, context: BuildContext): BreadcrumbSegment[] {
+  if (pathname === '/') return [];
+
+  const parts = pathname.split('/').filter(Boolean);
+  const segments: BreadcrumbSegment[] = [];
+
+  // Handle /repos/:repoId/... pattern
+  if (parts[0] === 'repos' && parts.length >= 2 && context.repoId) {
+    // Org breadcrumb
+    if (context.orgName) {
+      segments.push({
+        label: context.orgName,
+        to: '/',
+      });
+    }
+
+    // Group breadcrumb (if available)
+    if (context.groupName) {
+      segments.push({
+        label: context.groupName,
+        to: '/repos',
+      });
+    }
+
+    // Project/repo breadcrumb
+    segments.push({
+      label: context.repoName ?? context.repoId,
+      to: `/repos/${context.repoId}/overview`,
+    });
+
+    // Tab breadcrumb (if present)
+    if (parts.length >= 3) {
+      const tab = parts[2];
+      const label = PATH_LABELS[tab] ?? tab;
+      segments.push({
+        label,
+        to: `/repos/${context.repoId}/${tab}`,
+      });
+    }
+
+    return segments;
+  }
+
+  // Handle /admin/... pattern
+  if (parts[0] === 'admin') {
+    segments.push({
+      label: 'Admin',
+      to: '/admin/settings',
+    });
+    if (parts.length >= 2) {
+      const subPage = parts[1];
+      const label = PATH_LABELS[subPage] ?? subPage;
+      segments.push({
+        label,
+        to: `/admin/${subPage}`,
+      });
+    }
+    return segments;
+  }
+
+  // Generic path
+  let builtPath = '';
+  for (const part of parts) {
+    builtPath += `/${part}`;
+    const label = PATH_LABELS[part] ?? part;
+    segments.push({
+      label,
+      to: builtPath,
+    });
+  }
+
+  return segments;
+}
+
+/**
+ * Hook that derives breadcrumb segments from the current route.
+ */
+export function useBreadcrumbs(): BreadcrumbSegment[] {
+  const routerState = useRouterState();
+  const pathname = routerState.location.pathname;
+  const params = useParams({ strict: false }) as { repoId?: string };
+
+  let orgName: string | undefined;
+  try {
+    const orgCtx = useCurrentOrg();
+    orgName = orgCtx.currentOrg?.name ?? undefined;
+  } catch {
+    // OrgProvider not available — that is fine
+  }
+
+  let repoName: string | undefined;
+  const repoId = params.repoId;
+  try {
+    if (repoId) {
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      const { data: repo } = useRepository(repoId);
+      repoName = repo?.name;
+    }
+  } catch {
+    // Not in a repo context — that is fine
+  }
+
+  return buildBreadcrumbs(pathname, {
+    repoId,
+    repoName,
+    orgName,
+  });
+}
+
+/**
+ * Breadcrumbs navigation component.
+ * Shows: Org > Group > Project > Tab
+ * Each segment is clickable.
+ */
+export function Breadcrumbs(): React.ReactElement {
+  const segments = useBreadcrumbs();
+
+  if (segments.length === 0) {
+    return <div data-testid="breadcrumbs" />;
+  }
+
+  return (
+    <nav
+      data-testid="breadcrumbs"
+      aria-label="Breadcrumbs"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '6px',
+        fontSize: '12px',
+        color: 'var(--text-3)',
+      }}
+    >
+      {segments.map((segment, index) => {
+        const isLast = index === segments.length - 1;
+        return (
+          <span key={segment.to} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {index > 0 && (
+              <span style={{ color: 'var(--text-4)', fontSize: '10px' }}>/</span>
+            )}
+            {isLast ? (
+              <span style={{ color: 'var(--text-1)', fontWeight: 500 }}>
+                {segment.label}
+              </span>
+            ) : (
+              <Link
+                to={segment.to}
+                style={{
+                  color: 'var(--text-3)',
+                  textDecoration: 'none',
+                }}
+              >
+                {segment.label}
+              </Link>
+            )}
+          </span>
+        );
+      })}
+    </nav>
+  );
+}
