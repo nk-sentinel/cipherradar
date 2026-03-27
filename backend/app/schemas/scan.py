@@ -42,6 +42,36 @@ class ScanListResponse(CamelCaseModel):
     per_page: int
 
 
+class ScanQueueResponse(CamelCaseModel):
+    """Enriched scan response for queue/list view with project context."""
+
+    id: uuid.UUID
+    project_id: uuid.UUID
+    project_name: str | None = None
+    status: str
+    branch: str | None = None
+    commit_sha: str | None = None
+    trigger_type: str | None = None
+    triggered_by: str | None = None
+    findings_count: int = 0
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    created_at: datetime
+    duration_seconds: float | None = None
+    environment: str | None = None
+
+    model_config = {**CamelCaseModel.model_config, "from_attributes": True}
+
+
+class ScanQueueListResponse(CamelCaseModel):
+    """Paginated list of enriched scan queue items."""
+
+    items: list[ScanQueueResponse]
+    total: int
+    page: int
+    per_page: int
+
+
 class CBOMResponse(CamelCaseModel):
     """Response schema for a scan's CBOM document."""
 

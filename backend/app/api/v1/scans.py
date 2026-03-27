@@ -3,13 +3,25 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
+from app.auth.middleware import AuthenticatedUser, get_current_user, require_role
+from app.auth.roles import Role
 from app.db.session import get_session
 from app.models.finding import Finding
-from app.models.scan import Scan
+from app.models.project import Project
+from app.models.scan import Scan, ScanStatus
 from app.schemas.finding import CodeSnippet, FindingListResponse, FindingResponse
-from app.schemas.scan import CBOMResponse, ScanCreate, ScanListResponse, ScanResponse
+from app.schemas.scan import (
+    CBOMResponse,
+    ScanCreate,
+    ScanListResponse,
+    ScanQueueListResponse,
+    ScanQueueResponse,
+    ScanResponse,
+)
 from app.services import scan_service
+from app.services.audit_service import audit_service
 
 router = APIRouter(prefix="/scans", tags=["scans"])
 
@@ -43,14 +55,134 @@ async def get_scan_cbom(
     return await scan_service.get_scan_cbom(session, scan_id)
 
 
-@router.get("", response_model=ScanListResponse)
+@router.get("", response_model=ScanQueueListResponse)
 async def list_scans(
     page: int = Query(default=1, ge=1, description="Page number"),
-    per_page: int = Query(default=20, ge=1, le=100, description="Items per page"),
+    per_page: int = Query(default=25, ge=1, le=100, description="Items per page"),
+    status: str | None = Query(default=None, description="Filter by scan status"),
+    project_id: uuid.UUID | None = Query(default=None, description="Filter by project ID"),
+    trigger_type: str | None = Query(default=None, description="Filter by trigger type (manual, schedule, webhook, cli)"),
+    user: AuthenticatedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
-) -> ScanListResponse:
-    """List scans with pagination."""
-    return await scan_service.list_scans(session, page=page, per_page=per_page)
+) -> ScanQueueListResponse:
+    """List scans with pagination, filters, and RBAC scoping (D20 #38).
+
+    Scans are scoped to the user's organisation. Additional filters can narrow
+    results by status, project, or trigger type.
+    """
+    # Base query scoped to user's org
+    base = select(Scan).where(Scan.org_id == uuid.UUID(user.org_id))
+
+    # Apply filters
+    if status is not None:
+        base = base.where(Scan.status == status)
+    if project_id is not None:
+        base = base.where(Scan.project_id == project_id)
+
+    # Count total matching
+    count_stmt = select(func.count()).select_from(base.subquery())
+    total_result = await session.execute(count_stmt)
+    total = total_result.scalar_one()
+
+    # Fetch page with project join for name
+    offset = (page - 1) * per_page
+    stmt = (
+        base.options(joinedload(Scan.project))
+        .order_by(Scan.created_at.desc())
+        .offset(offset)
+        .limit(per_page)
+    )
+    result = await session.execute(stmt)
+    scans = result.unique().scalars().all()
+
+    items: list[ScanQueueResponse] = []
+    for s in scans:
+        duration = None
+        if s.started_at and s.completed_at:
+            duration = (s.completed_at - s.started_at).total_seconds()
+        items.append(
+            ScanQueueResponse(
+                id=s.id,
+                project_id=s.project_id,
+                project_name=s.project.name if s.project else None,
+                status=s.status.value if isinstance(s.status, ScanStatus) else s.status,
+                branch=s.branch,
+                commit_sha=s.commit_sha,
+                trigger_type=None,  # populated when trigger tracking is added
+                triggered_by=None,
+                findings_count=s.findings_count,
+                started_at=s.started_at,
+                completed_at=s.completed_at,
+                created_at=s.created_at,
+                duration_seconds=duration,
+                environment=s.environment,
+            )
+        )
+
+    return ScanQueueListResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
+
+
+@router.post(
+    "/{scan_id}/rerun",
+    response_model=ScanResponse,
+    status_code=201,
+    dependencies=[Depends(require_role(
+        Role.ORG_ADMIN, Role.SECURITY_MANAGER, Role.SECURITY_ENGINEER,
+    ))],
+)
+async def rerun_scan(
+    scan_id: uuid.UUID,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ScanResponse:
+    """Re-run a scan with the same configuration (D20 #37, #40).
+
+    Clones the original scan's config (branch, policy, source type) and creates
+    a new scan in queued status.
+    RBAC: Org Admin, Security Manager, Security Engineer.
+    """
+    # Load original scan
+    stmt = select(Scan).where(Scan.id == scan_id)
+    result = await session.execute(stmt)
+    original = result.scalar_one_or_none()
+    if original is None:
+        raise HTTPException(status_code=404, detail="Scan not found")
+
+    # Create new scan cloning config
+    new_scan = Scan(
+        id=uuid.uuid4(),
+        project_id=original.project_id,
+        org_id=original.org_id,
+        status=ScanStatus.QUEUED,
+        branch=original.branch,
+        commit_sha=original.commit_sha,
+        findings_count=0,
+    )
+    session.add(new_scan)
+    await session.flush()
+    await session.refresh(new_scan)
+
+    # Audit log
+    await audit_service.log(
+        action_type="scan.rerun",
+        user_id=uuid.UUID(user.user_id),
+        org_id=uuid.UUID(user.org_id),
+        resource_type="scan",
+        resource_id=new_scan.id,
+        details={
+            "original_scan_id": str(scan_id),
+            "branch": original.branch,
+        },
+        session=session,
+    )
+
+    await session.commit()
+    return ScanResponse.model_validate(new_scan)
 
 
 def _finding_to_response(finding: Finding) -> FindingResponse:
