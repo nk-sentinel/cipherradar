@@ -21,6 +21,8 @@ import {
   getOrgUsers,
   getIntegrations,
   getAuditLog,
+  getIntegrationsEnriched,
+  getDiscoveredRepos,
 } from './data/admin.ts';
 
 export const handlers = [
@@ -277,15 +279,59 @@ export const handlers = [
     return HttpResponse.json({ items, total, page, perPage });
   }),
 
-  // Admin: integrations
+  // Admin: integrations (enriched with syncedRepoCount, tokenAge — D3)
   http.get('/api/v1/admin/integrations', () => {
-    return HttpResponse.json(getIntegrations());
+    return HttpResponse.json(getIntegrationsEnriched());
   }),
 
-  // Admin: audit log
-  http.get('/api/v1/admin/audit-log', () => {
-    return HttpResponse.json(getAuditLog());
+  // Admin: connect provider (D3 PAT modal)
+  http.post('/api/v1/admin/integrations/connect', async ({ request }) => {
+    const body = await request.json() as { type: string; baseUrl: string; token: string };
+    return HttpResponse.json({
+      id: 'int-new-' + Date.now().toString(),
+      type: body.type,
+      label: body.type.charAt(0).toUpperCase() + body.type.slice(1),
+      status: 'connected',
+      connectedAt: new Date().toISOString(),
+      detail: body.baseUrl,
+      syncedRepoCount: 0,
+      tokenAge: 0,
+      tokenRotationWarning: false,
+    });
   }),
+
+  // Admin: disconnect provider (D3)
+  http.post('/api/v1/admin/integrations/:providerId/disconnect', () => {
+    return HttpResponse.json({ success: true });
+  }),
+
+  // Admin: test connection (D3)
+  http.post('/api/v1/admin/integrations/:providerId/test', () => {
+    return HttpResponse.json({
+      success: true,
+      message: 'Connection successful',
+      latencyMs: 42,
+    });
+  }),
+
+  // Admin: discover repos (D3 repo picker)
+  http.get('/api/v1/admin/integrations/:providerId/repos', ({ request }) => {
+    const url = new URL(request.url);
+    const search = url.searchParams.get('search') || '';
+    return HttpResponse.json(getDiscoveredRepos(search));
+  }),
+
+  // Admin: import repos (D3)
+  http.post('/api/v1/admin/integrations/import', async ({ request }) => {
+    const body = await request.json() as { repoIds: string[] };
+    return HttpResponse.json({
+      imported: body.repoIds.length,
+      failed: 0,
+      errors: [],
+    });
+  }),
+
+  // Admin: audit log — moved to Plan 5 D28 section with pagination and filters
 
   // ---------------------------------------------------------------------------
   // D18 — Jira integration
@@ -1009,6 +1055,300 @@ export const handlers = [
     }
     return HttpResponse.json({
       message: 'Password reset successfully. Change it immediately.',
+    });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Plan 5 — LLM Configuration (D5)
+  // ---------------------------------------------------------------------------
+
+  http.get('/api/v1/admin/llm-config', () => {
+    return HttpResponse.json({
+      provider: 'anthropic',
+      apiUrl: 'https://api.anthropic.com',
+      apiKey: 'sk-ant-****',
+      model: 'claude-sonnet-4-20250514',
+      temperature: 0.2,
+      maxTokens: 4096,
+      privacy: {
+        consentRequired: true,
+        stripComments: false,
+        anonymizeVariables: false,
+      },
+      customInstructions: '',
+    });
+  }),
+
+  http.put('/api/v1/admin/llm-config', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json(body);
+  }),
+
+  http.post('/api/v1/admin/llm-config/test', async () => {
+    return HttpResponse.json({
+      success: true,
+      message: 'Connection successful',
+      latencyMs: 245,
+      model: 'claude-sonnet-4-20250514',
+    });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Plan 5 — Policy Configuration (D26)
+  // ---------------------------------------------------------------------------
+
+  http.get('/api/v1/admin/policy', () => {
+    return HttpResponse.json({
+      rules: [
+        { id: 'no-broken-algorithms', severity: 'critical', enabled: true, locked: true, scope: 'org', inheritedFrom: null },
+        { id: 'no-ecb-mode', severity: 'high', enabled: true, locked: false, scope: 'org', inheritedFrom: null },
+        { id: 'rsa-min-key-size', severity: 'high', enabled: true, locked: false, scope: 'group', inheritedFrom: 'Engineering' },
+        { id: 'no-deprecated-tls', severity: 'high', enabled: true, locked: false, scope: 'org', inheritedFrom: null },
+        { id: 'quantum-vulnerable', severity: 'medium', enabled: true, locked: false, scope: 'project', inheritedFrom: 'auth-service' },
+        { id: 'no-hardcoded-keys', severity: 'critical', enabled: true, locked: true, scope: 'org', inheritedFrom: null },
+      ],
+    });
+  }),
+
+  http.put('/api/v1/admin/policy', async ({ request }) => {
+    const body = await request.json();
+    return HttpResponse.json(body);
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Plan 5 — Custom Rules (D27)
+  // ---------------------------------------------------------------------------
+
+  http.get('/api/v1/admin/rules', ({ request }) => {
+    const url = new URL(request.url);
+    const source = url.searchParams.get('source');
+    const lang = url.searchParams.get('language');
+    const sev = url.searchParams.get('severity');
+    const search = url.searchParams.get('search');
+
+    let rules = [
+      { id: 'cbom-python-md5-usage', name: 'MD5 Usage (Python)', language: 'python', severity: 'critical', source: 'built-in', enabled: true, description: 'Detects hashlib.md5() usage' },
+      { id: 'cbom-java-weak-rsa', name: 'Weak RSA Keys (Java)', language: 'java', severity: 'high', source: 'built-in', enabled: true, description: 'Detects RSA keys below 2048 bits' },
+      { id: 'cbom-go-des-usage', name: 'DES Usage (Go)', language: 'go', severity: 'critical', source: 'built-in', enabled: true, description: 'Detects DES cipher usage' },
+      { id: 'custom-python-sha1-hmac', name: 'SHA-1 HMAC (Python)', language: 'python', severity: 'high', source: 'custom', enabled: true, description: 'Custom rule for SHA-1 HMAC detection' },
+      { id: 'custom-java-ecb-mode', name: 'ECB Mode (Java)', language: 'java', severity: 'high', source: 'custom', enabled: false, description: 'Custom fork detecting ECB mode' },
+    ];
+
+    if (source) rules = rules.filter(r => r.source === source);
+    if (lang) rules = rules.filter(r => r.language === lang);
+    if (sev) rules = rules.filter(r => r.severity === sev);
+    if (search) {
+      const q = search.toLowerCase();
+      rules = rules.filter(r => r.name.toLowerCase().includes(q) || r.id.toLowerCase().includes(q));
+    }
+
+    return HttpResponse.json(rules);
+  }),
+
+  http.post('/api/v1/admin/rules', async ({ request }) => {
+    const body = await request.json() as Record<string, unknown>;
+    return HttpResponse.json({
+      id: 'custom-' + Date.now().toString(),
+      ...body,
+      source: 'custom',
+      enabled: false,
+    }, { status: 201 });
+  }),
+
+  http.post('/api/v1/admin/rules/validate', async ({ request }) => {
+    const body = await request.json() as { yaml: string };
+    const valid = body.yaml.includes('rules:');
+    return HttpResponse.json({
+      valid,
+      errors: valid ? [] : ['Missing required field: rules'],
+    });
+  }),
+
+  http.post('/api/v1/admin/rules/dry-run', async ({ request }) => {
+    const body = await request.json() as { yaml: string };
+    return HttpResponse.json({
+      matchCount: body.yaml.length > 50 ? 3 : 0,
+      sampleMatches: [
+        { file: 'src/crypto.py', line: 42, snippet: 'hashlib.md5(data)' },
+      ],
+    });
+  }),
+
+  http.post('/api/v1/admin/rules/:ruleId/fork', ({ params }) => {
+    return HttpResponse.json({
+      id: 'custom-fork-' + (params['ruleId'] as string),
+      name: 'Fork of ' + (params['ruleId'] as string),
+      source: 'custom',
+      enabled: false,
+      yaml: 'rules:\\n  - id: custom-fork-example\\n    patterns:\\n      - pattern: ...',
+    });
+  }),
+
+  http.put('/api/v1/admin/rules/:ruleId', async ({ request, params }) => {
+    const body = await request.json() as Record<string, unknown>;
+    return HttpResponse.json({ id: params['ruleId'], ...body });
+  }),
+
+  http.delete('/api/v1/admin/rules/:ruleId', ({ params }) => {
+    return HttpResponse.json({ id: params['ruleId'], deleted: true });
+  }),
+
+  http.post('/api/v1/admin/rules/:ruleId/test', async ({ request, params }) => {
+    return HttpResponse.json({
+      ruleId: params['ruleId'],
+      ruleName: 'Test Rule',
+      matches: [{ line: 1, code: 'hashlib.md5(data)', message: 'Matched' }],
+      matchCount: 1,
+    });
+  }),
+
+  http.get('/api/v1/rules/delta', () => {
+    return HttpResponse.json({ items: [], total: 0 });
+  }),
+
+  // Policy cascade endpoints (D26)
+  http.get('/api/v1/policy/effective', () => {
+    return HttpResponse.json({
+      rules: [
+        { id: 'no-broken-algorithms', severity: 'critical', enabled: true, action: 'fail' },
+        { id: 'no-ecb-mode', severity: 'high', enabled: true, action: 'fail' },
+        { id: 'no-hardcoded-keys', severity: 'critical', enabled: true, action: 'fail' },
+      ],
+      lockedRules: ['no-broken-algorithms', 'no-hardcoded-keys'],
+      scope: 'org',
+    });
+  }),
+
+  http.put('/api/v1/policy/effective', async ({ request }) => {
+    const body = await request.json() as { ruleId: string; action: string };
+    return HttpResponse.json({ ruleId: body.ruleId, action: body.action, saved: true });
+  }),
+
+  http.get('/api/v1/policy/groups/:groupId/effective', () => {
+    return HttpResponse.json({
+      rules: [{ id: 'no-broken-algorithms', severity: 'critical', enabled: true, action: 'fail' }],
+      lockedRules: ['no-broken-algorithms'],
+      scope: 'group',
+    });
+  }),
+
+  http.put('/api/v1/policy/groups/:groupId/effective', async ({ request }) => {
+    const body = await request.json() as { ruleId: string; action: string };
+    return HttpResponse.json({ ruleId: body.ruleId, action: body.action, saved: true });
+  }),
+
+  http.get('/api/v1/policy/projects/:projectId/effective', () => {
+    return HttpResponse.json({
+      rules: [{ id: 'no-broken-algorithms', severity: 'critical', enabled: true, action: 'fail' }],
+      lockedRules: ['no-broken-algorithms'],
+      scope: 'project',
+    });
+  }),
+
+  http.put('/api/v1/policy/projects/:projectId/effective', async ({ request }) => {
+    const body = await request.json() as { ruleId: string; action: string };
+    return HttpResponse.json({ ruleId: body.ruleId, action: body.action, saved: true });
+  }),
+
+  // Integration management (D3)
+  http.post('/api/v1/admin/integrations/:provider/connect', async ({ request, params }) => {
+    return HttpResponse.json({
+      id: 'int-' + Date.now().toString(),
+      provider: params['provider'],
+      status: 'connected',
+      connectedAt: new Date().toISOString(),
+    });
+  }),
+
+  http.delete('/api/v1/admin/integrations/:provider/connect', ({ params }) => {
+    return HttpResponse.json({ provider: params['provider'], status: 'disconnected' });
+  }),
+
+  http.post('/api/v1/admin/integrations/:provider/test', ({ params }) => {
+    return HttpResponse.json({ ok: true, provider: params['provider'] });
+  }),
+
+  http.get('/api/v1/admin/integrations/:provider/repos', ({ params }) => {
+    return HttpResponse.json({
+      repos: [
+        { name: 'payment-service', url: `https://${params['provider'] as string}.com/org/payment-service`, defaultBranch: 'main' },
+        { name: 'auth-api', url: `https://${params['provider'] as string}.com/org/auth-api`, defaultBranch: 'main' },
+      ],
+      total: 2,
+    });
+  }),
+
+  http.post('/api/v1/admin/integrations/import', async ({ request }) => {
+    const body = await request.json() as { repos: unknown[]; provider: string };
+    return HttpResponse.json({
+      imported: Array.isArray(body.repos) ? body.repos.length : 0,
+      provider: body.provider,
+    });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Plan 5 — Audit Log Enhanced (D28)
+  // ---------------------------------------------------------------------------
+
+  http.get('/api/v1/admin/audit-log', ({ request }) => {
+    const url = new URL(request.url);
+    const page = Number(url.searchParams.get('page') || '1');
+    const perPage = Number(url.searchParams.get('perPage') || '25');
+    const userFilter = url.searchParams.get('user');
+    const actionFilter = url.searchParams.get('action');
+    const projectFilter = url.searchParams.get('project');
+    const dateFrom = url.searchParams.get('dateFrom');
+    const dateTo = url.searchParams.get('dateTo');
+
+    let entries = getAuditLog();
+
+    if (userFilter) entries = entries.filter((e: { user: string }) => e.user === userFilter);
+    if (actionFilter) entries = entries.filter((e: { action: string }) => e.action.startsWith(actionFilter));
+    if (projectFilter) entries = entries.filter((e: { resource: string }) => e.resource.toLowerCase().includes(projectFilter.toLowerCase()));
+    if (dateFrom) entries = entries.filter((e: { timestamp: string }) => e.timestamp >= dateFrom);
+    if (dateTo) entries = entries.filter((e: { timestamp: string }) => e.timestamp <= dateTo);
+
+    const total = entries.length;
+    const start = (page - 1) * perPage;
+    const items = entries.slice(start, start + perPage);
+
+    return HttpResponse.json({ items, total, page, perPage });
+  }),
+
+  http.get('/api/v1/admin/audit-log/export', () => {
+    return new HttpResponse(
+      'timestamp,user,action,resource,detail\n2026-03-21T10:05:00Z,alex.chen@nk-sentinel.io,scan.completed,payment-service,"Scan #45 completed"',
+      {
+        headers: { 'Content-Type': 'text/csv', 'Content-Disposition': 'attachment; filename=audit-log.csv' },
+      },
+    );
+  }),
+
+  // ---------------------------------------------------------------------------
+  // Plan 5 — Remediation consent flow (D5)
+  // ---------------------------------------------------------------------------
+
+  http.post('/api/v1/findings/:findingId/remediation', async ({ request, params }) => {
+    const body = await request.json() as { consent: boolean; codeSnippet?: string };
+    if (!body.consent) {
+      return new HttpResponse(
+        JSON.stringify({ detail: 'Consent required before sending code to LLM' }),
+        { status: 400 },
+      );
+    }
+    // Simulate delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    return HttpResponse.json({
+      id: 'rem-' + Date.now().toString(),
+      findingId: params['findingId'],
+      confidence: 'high',
+      provider: 'anthropic',
+      explanation: 'AI-generated fix. Review carefully before applying.',
+      diff: {
+        originalCode: body.codeSnippet || '// original code',
+        fixedCode: '// fixed code with secure alternative',
+      },
+      createdAt: new Date().toISOString(),
     });
   }),
 ];

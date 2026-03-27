@@ -39,6 +39,7 @@ import { CVECorrelation } from './pages/repo/CVECorrelation.tsx';
 import { RequestQueue } from './pages/RequestQueue.tsx';
 import { ScanQueue } from './pages/ScanQueue.tsx';
 import { ArtifactRegistries } from './pages/admin/ArtifactRegistries.tsx';
+import { LLMConfig } from './pages/admin/LLMConfig.tsx';
 import { ForgotPassword } from './pages/ForgotPassword.tsx';
 import { ResetPassword } from './pages/ResetPassword.tsx';
 import { createRouteGuard } from './lib/route-guard.ts';
@@ -183,6 +184,13 @@ const adminRegistriesRoute = createRoute({
   path: '/admin/registries',
   beforeLoad: createRouteGuard('admin-settings'),
   component: ArtifactRegistries,
+});
+
+const adminLLMConfigRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/admin/llm-config',
+  beforeLoad: createRouteGuard('admin-settings'),
+  component: LLMConfig,
 });
 
 const profileRoute = createRoute({
@@ -361,6 +369,7 @@ const routeTree = rootRoute.addChildren([
     adminIntegrationsRoute,
     adminAuditLogRoute,
     adminRegistriesRoute,
+    adminLLMConfigRoute,
     repoScanDetailRoute,
     repoLayoutRoute.addChildren([
       repoOverviewRoute,
