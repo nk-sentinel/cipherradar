@@ -279,6 +279,36 @@ export const MOCK_AUDIT_LOG: AuditLogEntry[] = [
   },
 ];
 
+/* ---------- Enriched integration type (D3 #85, #86) ---------- */
+
+export interface IntegrationEnriched extends Integration {
+  syncedRepoCount: number;
+  tokenAge: number | null;
+  tokenRotationWarning: boolean;
+}
+
+/* ---------- Discovered repo type (D3 repo picker) ---------- */
+
+export interface DiscoveredRepo {
+  id: string;
+  name: string;
+  fullName: string;
+  language: string | null;
+  defaultBranch: string;
+  lastPush: string;
+  private: boolean;
+  alreadyImported: boolean;
+}
+
+export const MOCK_DISCOVERED_REPOS: DiscoveredRepo[] = [
+  { id: 'dr-001', name: 'auth-service', fullName: 'nk-sentinel/auth-service', language: 'Go', defaultBranch: 'main', lastPush: '2026-03-26T10:00:00Z', private: false, alreadyImported: true },
+  { id: 'dr-002', name: 'payment-gateway', fullName: 'nk-sentinel/payment-gateway', language: 'Java', defaultBranch: 'main', lastPush: '2026-03-25T14:00:00Z', private: true, alreadyImported: true },
+  { id: 'dr-003', name: 'data-pipeline', fullName: 'nk-sentinel/data-pipeline', language: 'Python', defaultBranch: 'main', lastPush: '2026-03-24T09:00:00Z', private: false, alreadyImported: false },
+  { id: 'dr-004', name: 'frontend-app', fullName: 'nk-sentinel/frontend-app', language: 'TypeScript', defaultBranch: 'develop', lastPush: '2026-03-27T08:00:00Z', private: false, alreadyImported: false },
+  { id: 'dr-005', name: 'infra-configs', fullName: 'nk-sentinel/infra-configs', language: null, defaultBranch: 'main', lastPush: '2026-03-20T12:00:00Z', private: true, alreadyImported: false },
+  { id: 'dr-006', name: 'ml-models', fullName: 'nk-sentinel/ml-models', language: 'Python', defaultBranch: 'main', lastPush: '2026-03-22T16:00:00Z', private: false, alreadyImported: false },
+];
+
 /* ---------- Getter functions ---------- */
 
 export function getUserOrgs(): Org[] {
@@ -295,6 +325,35 @@ export function getOrgUsers(): OrgUser[] {
 
 export function getIntegrations(): Integration[] {
   return MOCK_INTEGRATIONS;
+}
+
+export function getIntegrationsEnriched(): IntegrationEnriched[] {
+  return MOCK_INTEGRATIONS.map((i) => {
+    const ageInDays = i.connectedAt
+      ? Math.floor((Date.now() - new Date(i.connectedAt).getTime()) / 86400000)
+      : null;
+    const syncedCounts: Record<string, number> = {
+      github: 12,
+      gitlab: 5,
+      bitbucket: 0,
+      jira: 0,
+      teams: 0,
+    };
+    return {
+      ...i,
+      syncedRepoCount: syncedCounts[i.type] ?? 0,
+      tokenAge: ageInDays,
+      tokenRotationWarning: ageInDays !== null && ageInDays > 90,
+    };
+  });
+}
+
+export function getDiscoveredRepos(search?: string): DiscoveredRepo[] {
+  if (!search) return MOCK_DISCOVERED_REPOS;
+  const q = search.toLowerCase();
+  return MOCK_DISCOVERED_REPOS.filter(
+    (r) => r.name.toLowerCase().includes(q) || r.fullName.toLowerCase().includes(q),
+  );
 }
 
 export function getAuditLog(): AuditLogEntry[] {
