@@ -143,3 +143,17 @@ class CipherRadarUser(HttpUser):
     def list_environments(self) -> None:
         """GET /api/v1/admin/environments — environment list."""
         self.client.get("/api/v1/admin/environments")
+
+    # ------------------------------------------------------------------
+    # Portfolio endpoints (Plan 7 — certificate tracker & PQC migration)
+    # ------------------------------------------------------------------
+
+    @task(1)
+    def certificate_tracker(self) -> None:
+        """GET /api/v1/portfolio/certificates — paginated certificate list."""
+        self.client.get("/api/v1/portfolio/certificates?page=1&per_page=25")
+
+    @task(1)
+    def pqc_migration(self) -> None:
+        """GET /api/v1/portfolio/pqc-migration — PQC migration status."""
+        self.client.get("/api/v1/portfolio/pqc-migration")

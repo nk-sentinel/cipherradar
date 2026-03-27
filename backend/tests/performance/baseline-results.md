@@ -194,3 +194,72 @@ cd backend && .venv/bin/locust -f tests/performance/locustfile.py \
 - Provenance endpoint uses fake scan ID; 404 responses indicate the scan does not exist.
 - Registries and environments are admin-only endpoints; 403 responses indicate role mismatch.
 - All new endpoints benefit from Redis caching after initial cold call.
+
+---
+
+# Performance Baseline Results (Plan 7 — Portfolio Views)
+
+**Date:** 2026-03-27
+**Tool:** Locust 2.x
+**Config:** 50 users, ramp rate 10/sec, duration 60s
+**Target:** http://localhost:8001 (Docker dev stack)
+
+## Run Command
+
+```bash
+cd backend && .venv/bin/locust -f tests/performance/locustfile.py \
+    --headless -u 50 -r 10 -t 60s --host http://localhost:8001
+```
+
+## New Endpoints Added (Plan 7)
+
+| Endpoint                                              | Method | Weight | Description                    |
+|-------------------------------------------------------|--------|--------|--------------------------------|
+| `/api/v1/portfolio/certificates?page=1&per_page=25`   | GET    | 1      | Paginated certificate tracker  |
+| `/api/v1/portfolio/pqc-migration`                     | GET    | 1      | PQC migration status           |
+
+## Results
+
+> Populate this section after running the load test against the dev stack.
+> Start the dev stack with `docker compose -f deploy/docker-compose.yml up`, then run the command above.
+
+```
+ Name                                                  # reqs      # fails |    Avg     Min     Max    Med |   req/s  failures/s
+------------------------------------------------------------------------------------------------------------------------------
+ GET /api/v1/admin/environments                             -          -   |      -       -       -      - |       -          -
+ GET /api/v1/admin/registries                               -          -   |      -       -       -      - |       -          -
+ GET /api/v1/admin/rules/.../analytics?time_window=90d      -          -   |      -       -       -      - |       -          -
+ GET /api/v1/admin/settings                                 -          -   |      -       -       -      - |       -          -
+ GET /api/v1/admin/users                                    -          -   |      -       -       -      - |       -          -
+ GET /api/v1/assets?...                                     -          -   |      -       -       -      - |       -          -
+ GET /api/v1/findings/.../history                           -          -   |      -       -       -      - |       -          -
+ GET /api/v1/health                                         -          -   |      -       -       -      - |       -          -
+ GET /api/v1/portfolio/certificates?...                     -          -   |      -       -       -      - |       -          -
+ GET /api/v1/portfolio/compliance                           -          -   |      -       -       -      - |       -          -
+ GET /api/v1/portfolio/pqc-migration                        -          -   |      -       -       -      - |       -          -
+ GET /api/v1/portfolio/quantum                              -          -   |      -       -       -      - |       -          -
+ GET /api/v1/portfolio/summary                              -          -   |      -       -       -      - |       -          -
+ GET /api/v1/projects/.../findings?...                      -          -   |      -       -       -      - |       -          -
+ GET /api/v1/projects/.../schedule                          -          -   |      -       -       -      - |       -          -
+ GET /api/v1/requests?...                                   -          -   |      -       -       -      - |       -          -
+ GET /api/v1/scans?...                                      -          -   |      -       -       -      - |       -          -
+ GET /api/v1/scans/.../provenance                           -          -   |      -       -       -      - |       -          -
+ PATCH /api/v1/findings/.../status                          -          -   |      -       -       -      - |       -          -
+ POST /api/v1/auth/login                                    -          -   |      -       -       -      - |       -          -
+------------------------------------------------------------------------------------------------------------------------------
+```
+
+## Targets (Phase 4.5 — Plan 7 Portfolio View Endpoints)
+
+| Endpoint                                | p50 target | p95 target | p99 target |
+|-----------------------------------------|-----------|-----------|-----------|
+| GET /api/v1/portfolio/certificates      | < 150ms   | < 400ms   | < 700ms   |
+| GET /api/v1/portfolio/pqc-migration     | < 100ms   | < 300ms   | < 500ms   |
+
+## Notes
+
+- Certificate tracker endpoint returns paginated list with expiry status badges; benefits from Redis cache.
+- PQC migration endpoint aggregates algorithm migration progress across the portfolio.
+- Both endpoints are read-only and scoped to the authenticated user's org via RLS.
+- 401 responses on these endpoints indicate token extraction issues.
+- 404 responses may indicate endpoints not yet wired.
