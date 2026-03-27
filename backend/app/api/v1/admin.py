@@ -4,8 +4,10 @@ All endpoints require org_admin or security_manager role.
 """
 
 import uuid
+from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import PlainTextResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,8 +15,6 @@ from app.auth.middleware import AuthenticatedUser, get_current_user, require_rol
 from app.auth.roles import Role
 from app.db.session import get_session
 from app.schemas.admin import (
-    AuditLogEntry,
-    AuditLogResponse,
     Integration,
     IntegrationList,
     InviteRequest,
@@ -24,105 +24,35 @@ from app.schemas.admin import (
     OrgUser,
     OrgUserList,
 )
+from app.schemas.integration import (
+    DiscoverReposResponse,
+    ImportReposRequest,
+    ImportReposResponse,
+    IntegrationConnectRequest,
+    IntegrationConnectResponse,
+    IntegrationStatusResponse,
+    IntegrationTestResponse,
+)
+from app.schemas.llm_config import (
+    LLMConfigResponse,
+    LLMConfigUpdateRequest,
+    LLMTestResponse,
+)
 from app.schemas.user_lifecycle import (
     ChangeRoleRequest,
     ChangeRoleResponse,
     DeleteUserResponse,
     UserStatusResponse,
 )
+from app.schemas.audit_log import AuditLogEntryEnhanced, AuditLogQueryResponse
+from app.services.audit_log_query_service import audit_log_query_service
+from app.services.integration_service import integration_service
+from app.services.llm_config_service import llm_config_service
 from app.services.user_lifecycle_service import user_lifecycle_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 _admin_dep = require_role(Role.ORG_ADMIN, Role.SECURITY_MANAGER)
-
-
-# ---------------------------------------------------------------------------
-# Hardcoded mock audit events (no audit_events table yet)
-# ---------------------------------------------------------------------------
-
-_MOCK_AUDIT_LOG: list[dict[str, str | None]] = [
-    {
-        "id": "al-001",
-        "timestamp": "2026-03-21T10:05:00Z",
-        "user": "alex.chen@nk-sentinel.io",
-        "action": "scan.completed",
-        "resource": "payment-service",
-        "detail": "Scan #45 completed with 3 critical findings",
-    },
-    {
-        "id": "al-002",
-        "timestamp": "2026-03-21T09:58:00Z",
-        "user": "alex.chen@nk-sentinel.io",
-        "action": "scan.started",
-        "resource": "payment-service",
-        "detail": "Scan #45 triggered manually",
-    },
-    {
-        "id": "al-003",
-        "timestamp": "2026-03-21T09:30:00Z",
-        "user": "sarah.kim@nk-sentinel.io",
-        "action": "policy.updated",
-        "resource": "Default Policy",
-        "detail": "Updated fail-on severity from medium to high",
-    },
-    {
-        "id": "al-004",
-        "timestamp": "2026-03-21T08:45:00Z",
-        "user": "sarah.kim@nk-sentinel.io",
-        "action": "finding.suppressed",
-        "resource": "auth-api / SHA-1 usage",
-        "detail": "Suppressed with justification: legacy compatibility",
-    },
-    {
-        "id": "al-005",
-        "timestamp": "2026-03-21T08:00:00Z",
-        "user": "alex.chen@nk-sentinel.io",
-        "action": "user.invite",
-        "resource": "tom.nguyen@nk-sentinel.io",
-        "detail": "Invited as Guest / Viewer",
-    },
-    {
-        "id": "al-006",
-        "timestamp": "2026-03-20T17:30:00Z",
-        "user": "james.liu@nk-sentinel.io",
-        "action": "cbom.exported",
-        "resource": "data-pipeline",
-        "detail": "Exported CycloneDX 1.7 JSON",
-    },
-    {
-        "id": "al-007",
-        "timestamp": "2026-03-20T16:00:00Z",
-        "user": "alex.chen@nk-sentinel.io",
-        "action": "user.role_change",
-        "resource": "david.park@nk-sentinel.io",
-        "detail": "Changed role from Developer to Compliance Auditor",
-    },
-    {
-        "id": "al-008",
-        "timestamp": "2026-03-20T14:15:00Z",
-        "user": "alex.chen@nk-sentinel.io",
-        "action": "settings.updated",
-        "resource": "Org Settings",
-        "detail": "Enabled auto-scan on PR merge",
-    },
-    {
-        "id": "al-009",
-        "timestamp": "2026-03-20T12:00:00Z",
-        "user": "sarah.kim@nk-sentinel.io",
-        "action": "integration.connected",
-        "resource": "Microsoft Teams",
-        "detail": "Webhook configured for #cipherradar-alerts",
-    },
-    {
-        "id": "al-010",
-        "timestamp": "2026-03-20T10:00:00Z",
-        "user": "alex.chen@nk-sentinel.io",
-        "action": "user.login",
-        "resource": "Session",
-        "detail": None,
-    },
-]
 
 
 # ---------------------------------------------------------------------------
@@ -300,7 +230,7 @@ async def invite_user(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/admin/integrations
+# GET /api/v1/admin/integrations (legacy static list)
 # ---------------------------------------------------------------------------
 
 
@@ -356,27 +286,304 @@ async def list_integrations(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/admin/audit-log
+# Integration management — connect/disconnect/test/discover/import (D3)
 # ---------------------------------------------------------------------------
 
 
-@router.get("/audit-log", response_model=AuditLogResponse)
+@router.post(
+    "/integrations/{provider}/connect",
+    response_model=IntegrationConnectResponse,
+    dependencies=[Depends(_admin_dep)],
+)
+async def connect_integration(
+    provider: str,
+    body: IntegrationConnectRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> IntegrationConnectResponse:
+    """Connect a git provider by storing a PAT. Roles: OA, SM."""
+    try:
+        result = await integration_service.connect(
+            provider=provider,
+            token=body.token,
+            actor=user,
+            session=session,
+        )
+        await session.commit()
+        return IntegrationConnectResponse(**result)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.delete(
+    "/integrations/{provider}/connect",
+    response_model=IntegrationStatusResponse,
+    dependencies=[Depends(_admin_dep)],
+)
+async def disconnect_integration(
+    provider: str,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> IntegrationStatusResponse:
+    """Disconnect a git provider by revoking its token. Roles: OA, SM."""
+    try:
+        result = await integration_service.disconnect(
+            provider=provider,
+            actor=user,
+            session=session,
+        )
+        await session.commit()
+        return IntegrationStatusResponse(**result)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+
+@router.post(
+    "/integrations/{provider}/test",
+    response_model=IntegrationTestResponse,
+    dependencies=[Depends(_admin_dep)],
+)
+async def test_integration(
+    provider: str,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> IntegrationTestResponse:
+    """Test connectivity to a git provider API. Roles: OA, SM."""
+    try:
+        result = await integration_service.test_connection(
+            provider=provider,
+            actor=user,
+            session=session,
+        )
+        return IntegrationTestResponse(**result)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+
+
+@router.get(
+    "/integrations/{provider}/repos",
+    response_model=DiscoverReposResponse,
+    dependencies=[Depends(_admin_dep)],
+)
+async def discover_repos(
+    provider: str,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> DiscoverReposResponse:
+    """Discover repositories from a connected provider. Roles: OA, SM."""
+    try:
+        repos = await integration_service.discover_repos(
+            provider=provider,
+            actor=user,
+            session=session,
+        )
+        return DiscoverReposResponse(repos=repos, total=len(repos))
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post(
+    "/integrations/import",
+    response_model=ImportReposResponse,
+    dependencies=[Depends(_admin_dep)],
+)
+async def import_repos(
+    body: ImportReposRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ImportReposResponse:
+    """Import discovered repos as Project records. Roles: OA, SM."""
+    try:
+        result = await integration_service.import_repos(
+            repos=[r.model_dump() for r in body.repos],
+            group_id=body.group_id,
+            provider=body.provider,
+            actor=user,
+            session=session,
+        )
+        await session.commit()
+        return ImportReposResponse(**result)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# LLM Configuration (D5) — OA only
+# ---------------------------------------------------------------------------
+
+_oa_llm_dep = require_role(Role.ORG_ADMIN)
+
+
+@router.get(
+    "/llm-config",
+    response_model=LLMConfigResponse,
+    dependencies=[Depends(_oa_llm_dep)],
+)
+async def get_llm_config(
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> LLMConfigResponse:
+    """Get the current LLM configuration. OA only."""
+    result = await llm_config_service.get_config(actor=user, session=session)
+    if result is None:
+        return LLMConfigResponse()
+    return LLMConfigResponse(**result)
+
+
+@router.put(
+    "/llm-config",
+    response_model=LLMConfigResponse,
+    dependencies=[Depends(_oa_llm_dep)],
+)
+async def update_llm_config(
+    body: LLMConfigUpdateRequest,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> LLMConfigResponse:
+    """Create or update LLM configuration. OA only."""
+    try:
+        result = await llm_config_service.save_config(
+            provider=body.provider,
+            model=body.model,
+            api_key=body.api_key,
+            actor=user,
+            session=session,
+            endpoint_url=body.endpoint_url,
+            max_tokens=body.max_tokens,
+            temperature=body.temperature,
+            enabled=body.enabled,
+        )
+        await session.commit()
+        return LLMConfigResponse(**result)
+    except PermissionError as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post(
+    "/llm-config/test",
+    response_model=LLMTestResponse,
+    dependencies=[Depends(_oa_llm_dep)],
+)
+async def test_llm_config(
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> LLMTestResponse:
+    """Test the configured LLM provider connection. OA only."""
+    result = await llm_config_service.test_connection(actor=user, session=session)
+    return LLMTestResponse(**result)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/admin/audit-log — enhanced with filters (D28)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/audit-log", response_model=AuditLogQueryResponse)
 async def get_audit_log(
     user: AuthenticatedUser = Depends(_admin_dep),
-) -> AuditLogResponse:
-    """Return audit log events (mock data — no audit_events table yet)."""
-    items = [
-        AuditLogEntry(
-            id=entry["id"],
-            timestamp=entry["timestamp"],
-            user=entry["user"],
-            action=entry["action"],
-            resource=entry["resource"],
-            detail=entry.get("detail"),
-        )
-        for entry in _MOCK_AUDIT_LOG
-    ]
-    return AuditLogResponse(items=items, total=len(items))
+    session: AsyncSession = Depends(get_session),
+    page: int = Query(default=1, ge=1),
+    per_page: int = Query(default=25, ge=1, le=100),
+    date_from: str | None = Query(default=None, description="ISO 8601 start date"),
+    date_to: str | None = Query(default=None, description="ISO 8601 end date"),
+    user_id: str | None = Query(default=None, description="Filter by user UUID"),
+    action_type: str | None = Query(default=None, description="Filter by action type"),
+    resource_type: str | None = Query(default=None),
+    resource_id: str | None = Query(default=None),
+) -> AuditLogQueryResponse:
+    """Return filtered, paginated audit log events from the database (D28)."""
+    date_from_dt = None
+    date_to_dt = None
+    if date_from:
+        try:
+            date_from_dt = datetime.fromisoformat(date_from)
+            if date_from_dt.tzinfo is None:
+                date_from_dt = date_from_dt.replace(tzinfo=UTC)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid date_from: {date_from}")
+    if date_to:
+        try:
+            date_to_dt = datetime.fromisoformat(date_to)
+            if date_to_dt.tzinfo is None:
+                date_to_dt = date_to_dt.replace(tzinfo=UTC)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid date_to: {date_to}")
+
+    result = await audit_log_query_service.query(
+        org_id=user.org_id,
+        session=session,
+        page=page,
+        per_page=per_page,
+        date_from=date_from_dt,
+        date_to=date_to_dt,
+        user_id=user_id,
+        action_type=action_type,
+        resource_type=resource_type,
+        resource_id=resource_id,
+    )
+    return AuditLogQueryResponse(
+        items=[AuditLogEntryEnhanced(**item) for item in result["items"]],
+        total=result["total"],
+        page=result["page"],
+        per_page=result["per_page"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/admin/audit-log/export — CSV export (D28)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/audit-log/export", dependencies=[Depends(_admin_dep)])
+async def export_audit_log(
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+    date_from: str | None = Query(default=None),
+    date_to: str | None = Query(default=None),
+    user_id: str | None = Query(default=None),
+    action_type: str | None = Query(default=None),
+) -> PlainTextResponse:
+    """Export audit log as CSV for compliance. Roles: OA, SM."""
+    date_from_dt = None
+    date_to_dt = None
+    if date_from:
+        try:
+            date_from_dt = datetime.fromisoformat(date_from)
+            if date_from_dt.tzinfo is None:
+                date_from_dt = date_from_dt.replace(tzinfo=UTC)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid date_from: {date_from}")
+    if date_to:
+        try:
+            date_to_dt = datetime.fromisoformat(date_to)
+            if date_to_dt.tzinfo is None:
+                date_to_dt = date_to_dt.replace(tzinfo=UTC)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid date_to: {date_to}")
+
+    csv_content = await audit_log_query_service.export_csv(
+        org_id=user.org_id,
+        session=session,
+        date_from=date_from_dt,
+        date_to=date_to_dt,
+        user_id=user_id,
+        action_type=action_type,
+    )
+    return PlainTextResponse(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=audit-log.csv"},
+    )
 
 
 # ---------------------------------------------------------------------------
