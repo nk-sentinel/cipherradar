@@ -15,6 +15,7 @@ from app.api.v1 import (
     bulk_actions,
     cbom,
     compliance,
+    custom_rules,
     deptrack,
     finding_requests,
     finding_status,
@@ -146,6 +147,7 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
     app.include_router(artifact_registries.router, prefix="/api/v1")
     app.include_router(password.router, prefix="/api/v1")
     app.include_router(api_keys.router, prefix="/api/v1")
+    app.include_router(custom_rules.router, prefix="/api/v1")
 
     return app
 
