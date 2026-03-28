@@ -58,7 +58,8 @@ export function useRules(filters: {
   return useQuery<CustomRule[]>({
     queryKey: ['admin', 'rules', filters],
     queryFn: async () => {
-      return apiClient<CustomRule[]>(`/admin/rules${qs ? `?${qs}` : ''}`);
+      const data = await apiClient<CustomRule[] | { items: CustomRule[] }>(`/admin/rules${qs ? `?${qs}` : ''}`);
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 30_000,
   });

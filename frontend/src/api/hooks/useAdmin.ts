@@ -36,8 +36,8 @@ export function useOrgUsers() {
     queryKey: ['admin', 'users'],
     queryFn: async () => {
       try {
-        const data = await apiClient<{ items: OrgUser[]; total: number }>('/admin/users');
-        if (data) return data.items;
+        const data = await apiClient<OrgUser[] | { items: OrgUser[]; total: number }>('/admin/users');
+        if (data) return Array.isArray(data) ? data : (data.items ?? []);
       } catch {
           const { getOrgUsers } = await import('@/mocks/data/admin.ts');
           return getOrgUsers();
@@ -94,8 +94,8 @@ export function useIntegrations() {
     queryKey: ['admin', 'integrations'],
     queryFn: async () => {
       try {
-        const data = await apiClient<{ items: Integration[] }>('/admin/integrations');
-        if (data) return data.items;
+        const data = await apiClient<Integration[] | { items: Integration[] }>('/admin/integrations');
+        if (data) return Array.isArray(data) ? data : (data.items ?? []);
       } catch {
           const { getIntegrations } = await import('@/mocks/data/admin.ts');
           return getIntegrations();
@@ -114,8 +114,8 @@ export function useAuditLog() {
     queryKey: ['admin', 'audit-log'],
     queryFn: async () => {
       try {
-        const data = await apiClient<{ items: AuditLogEntry[]; total: number }>('/admin/audit-log');
-        if (data) return data.items;
+        const data = await apiClient<AuditLogEntry[] | { items: AuditLogEntry[]; total: number }>('/admin/audit-log');
+        if (data) return Array.isArray(data) ? data : (data.items ?? []);
       } catch {
           const { getAuditLog } = await import('@/mocks/data/admin.ts');
           return getAuditLog();

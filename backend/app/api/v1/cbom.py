@@ -4,9 +4,11 @@ from enum import StrEnum
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import get_session
+from app.models.scan import Scan, ScanStatus
 from app.schemas.cbom import CBOMDiff, CBOMVersion, MergedCBOM, MergeRequest
 from app.services.cbom_service import cbom_service
 from app.services.scan_service import get_scan_cbom
@@ -143,3 +145,46 @@ async def export_cbom(
             "Content-Disposition": f'attachment; filename="cbom-{scan_id}-report.json"',
         },
     )
+
+
+@router.get("/cbom/scans")
+async def list_cbom_scans(
+    session: AsyncSession = Depends(get_session),
+) -> JSONResponse:
+    """Return completed scans for the CBOM diff selector (BUG-006).
+
+    The frontend useScanSelectors hook needs a list of completed scans
+    to populate the base/target dropdowns on the CBOM Diff page.
+    """
+    stmt = (
+        select(Scan)
+        .where(Scan.status == ScanStatus.COMPLETED)
+        .order_by(Scan.created_at.desc())
+        .limit(50)
+    )
+    result = await session.execute(stmt)
+    scans = result.scalars().all()
+
+    items = []
+    for idx, s in enumerate(scans):
+        items.append({
+            "scanId": str(s.id),
+            "scanNumber": len(scans) - idx,
+            "date": s.created_at.isoformat() if s.created_at else "",
+            "branch": s.branch or "main",
+            "commit": (s.commit_sha or "")[:8],
+            "totalFindings": s.findings_count or 0,
+        })
+
+    return JSONResponse(content=items)
+
+
+@router.get("/kanban")
+async def get_kanban() -> JSONResponse:
+    """Stub endpoint for the Migration Board page (BUG-006).
+
+    The Kanban board was rejected per D23 decision and replaced by PQC
+    Migration Progress. This stub returns an empty list so the frontend
+    page does not crash while it is migrated.
+    """
+    return JSONResponse(content=[])

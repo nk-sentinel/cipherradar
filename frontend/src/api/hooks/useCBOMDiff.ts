@@ -34,8 +34,8 @@ export function useScanSelectors() {
     queryKey: ['cbom-scans'],
     queryFn: async () => {
       try {
-        const data = await apiClient<ScanSelector[]>('/cbom/scans');
-        if (data) return data;
+        const data = await apiClient<ScanSelector[] | { items: ScanSelector[] }>('/cbom/scans');
+        if (data) return Array.isArray(data) ? data : (data.items ?? []);
       } catch {
           const { getScanSelectors } = await import('@/mocks/data/cbomDiff.ts');
           return getScanSelectors();

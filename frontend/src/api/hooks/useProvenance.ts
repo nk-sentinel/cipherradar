@@ -36,7 +36,8 @@ export function useEnvironments() {
   return useQuery<EnvironmentInfo[]>({
     queryKey: ['environments'],
     queryFn: async (): Promise<EnvironmentInfo[]> => {
-      return apiClient<EnvironmentInfo[]>('/environments');
+      const data = await apiClient<EnvironmentInfo[] | { items: EnvironmentInfo[] }>('/environments');
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 300_000,
   });

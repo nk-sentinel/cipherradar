@@ -34,7 +34,8 @@ export function useRegistries() {
   return useQuery<Registry[]>({
     queryKey: ['registries'],
     queryFn: async (): Promise<Registry[]> => {
-      return apiClient<Registry[]>('/admin/registries');
+      const data = await apiClient<Registry[] | { items: Registry[] }>('/admin/registries');
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 60_000,
   });

@@ -68,7 +68,8 @@ export function useIntegrationProviders() {
   return useQuery<IntegrationProvider[]>({
     queryKey: ['admin', 'integration-providers'],
     queryFn: async () => {
-      return apiClient<IntegrationProvider[]>('/admin/integrations');
+      const data = await apiClient<IntegrationProvider[] | { items: IntegrationProvider[] }>('/admin/integrations');
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 30_000,
   });
@@ -135,9 +136,12 @@ export function useDiscoverRepos(providerId: string | null, search: string) {
     queryKey: ['admin', 'discover-repos', providerId, search],
     queryFn: async () => {
       const params = search ? `?search=${encodeURIComponent(search)}` : '';
-      return apiClient<DiscoveredRepo[]>(
+      const data = await apiClient<DiscoveredRepo[] | { repos: DiscoveredRepo[] } | { items: DiscoveredRepo[] }>(
         `/admin/integrations/${providerId!}/repos${params}`,
       );
+      if (Array.isArray(data)) return data;
+      if ('repos' in data) return data.repos ?? [];
+      return data.items ?? [];
     },
     staleTime: 30_000,
     enabled: !!providerId,

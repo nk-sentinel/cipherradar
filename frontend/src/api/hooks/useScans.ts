@@ -11,8 +11,8 @@ export function useScans(repoId: string) {
     queryKey: ['scans', repoId],
     queryFn: async (): Promise<ScanSummary[]> => {
       try {
-        const data = await apiClient<ScanSummary[]>(`/projects/${repoId}/scans`);
-        if (Array.isArray(data)) return data;
+        const data = await apiClient<ScanSummary[] | { items: ScanSummary[] }>(`/projects/${repoId}/scans`);
+        if (data) return Array.isArray(data) ? data : (data.items ?? []);
       } catch { /* fall through */ }
       const { getScansForRepo } = await import('@/mocks/data/scans.ts');
       return getScansForRepo(repoId);

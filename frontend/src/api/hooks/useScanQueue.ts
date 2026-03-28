@@ -30,21 +30,28 @@ interface ScanQueueFilters {
 export function useScanQueue(filters: ScanQueueFilters = {}) {
   const { status, projectId, triggerType, page = 1, perPage = 25 } = filters;
 
-  const hasRunning = true; // We want auto-refresh when there are running scans
-
   return useQuery<ScanQueueResponse>({
     queryKey: ['scan-queue', status, projectId, triggerType, page, perPage],
     queryFn: async (): Promise<ScanQueueResponse> => {
-      const params = new URLSearchParams();
-      if (status) params.set('status', status);
-      if (projectId) params.set('projectId', projectId);
-      if (triggerType) params.set('triggerType', triggerType);
-      params.set('page', String(page));
-      params.set('perPage', String(perPage));
+      try {
+        const params = new URLSearchParams();
+        if (status) params.set('status', status);
+        if (projectId) params.set('projectId', projectId);
+        if (triggerType) params.set('triggerType', triggerType);
+        params.set('page', String(page));
+        params.set('perPage', String(perPage));
 
-      return apiClient<ScanQueueResponse>(`/scans?${params.toString()}`);
+        const data = await apiClient<ScanQueueResponse | ScanQueueItem[]>(`/scans?${params.toString()}`);
+        if (Array.isArray(data)) {
+          return { items: data, total: data.length, page, perPage };
+        }
+        return data ?? { items: [], total: 0, page, perPage };
+      } catch {
+        return { items: [], total: 0, page, perPage };
+      }
     },
-    staleTime: 10_000,
-    refetchInterval: hasRunning ? 5_000 : false,
+    retry: 1,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
 }

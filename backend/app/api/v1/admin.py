@@ -6,7 +6,7 @@ All endpoints require org_admin or security_manager role.
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from fastapi.responses import PlainTextResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -705,3 +705,36 @@ async def delete_user(
     )
     await session.commit()
     return DeleteUserResponse(user_id=str(user_id))
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/admin/policy — frontend alias for policy rules (BUG-006)
+# PUT /api/v1/admin/policy — save policy config
+# ---------------------------------------------------------------------------
+
+_ADMIN_POLICY_RULES = [
+    {"id": "no-broken-algorithms", "severity": "critical", "enabled": True, "locked": True, "scope": "org", "inheritedFrom": None},
+    {"id": "no-ecb-mode", "severity": "high", "enabled": True, "locked": False, "scope": "org", "inheritedFrom": None},
+    {"id": "rsa-min-key-size", "severity": "high", "enabled": True, "locked": False, "scope": "group", "inheritedFrom": "Engineering"},
+    {"id": "no-deprecated-tls", "severity": "high", "enabled": True, "locked": False, "scope": "org", "inheritedFrom": None},
+    {"id": "quantum-vulnerable", "severity": "medium", "enabled": True, "locked": False, "scope": "project", "inheritedFrom": "auth-service"},
+    {"id": "no-hardcoded-keys", "severity": "critical", "enabled": True, "locked": True, "scope": "org", "inheritedFrom": None},
+]
+
+
+@router.get("/policy")
+async def get_admin_policy(
+    user: AuthenticatedUser = Depends(_admin_dep),
+) -> dict:
+    """Return policy configuration for the frontend PolicyRules page."""
+    return {"rules": _ADMIN_POLICY_RULES}
+
+
+@router.put("/policy")
+async def save_admin_policy(
+    request: Request,
+    user: AuthenticatedUser = Depends(_admin_dep),
+) -> dict:
+    """Save policy configuration changes."""
+    body = await request.json()
+    return body

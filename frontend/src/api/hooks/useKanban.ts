@@ -7,8 +7,8 @@ export function useKanbanCards() {
     queryKey: ['kanban'],
     queryFn: async () => {
       try {
-        const data = await apiClient<KanbanCard[]>('/kanban');
-        if (data) return data;
+        const data = await apiClient<KanbanCard[] | { items: KanbanCard[] }>('/kanban');
+        if (data) return Array.isArray(data) ? data : (data.items ?? []);
       } catch {
           const { getKanbanCards } = await import('@/mocks/data/kanban.ts');
           return getKanbanCards();

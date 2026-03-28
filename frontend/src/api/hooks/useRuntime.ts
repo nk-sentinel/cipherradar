@@ -36,10 +36,10 @@ export function useEnrichedFindings(scanId: string) {
     queryKey: ['runtime', 'enriched', scanId],
     queryFn: async (): Promise<any> => {
       try {
-        const data = await apiClient<EnrichedFinding[]>(
+        const data = await apiClient<EnrichedFinding[] | { items: EnrichedFinding[] }>(
           `/scans/${scanId}/runtime/enriched`,
         );
-        if (data) return data;
+        if (data) return Array.isArray(data) ? data : (data.items ?? []);
       } catch {
         const { getEnrichedFindings } = await import('@/mocks/data/runtime.ts');
         return getEnrichedFindings(scanId);

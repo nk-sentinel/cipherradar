@@ -94,9 +94,10 @@ export function useRulesSummary(timeWindow: TimeWindow = '90d') {
   return useQuery<RuleSummary[]>({
     queryKey: ['rules-summary', timeWindow],
     queryFn: async () => {
-      return apiClient<RuleSummary[]>(
+      const data = await apiClient<RuleSummary[] | { items: RuleSummary[] }>(
         `/admin/rules/summary?time_window=${timeWindow}`,
       );
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 60_000,
   });

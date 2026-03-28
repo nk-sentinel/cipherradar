@@ -36,8 +36,8 @@ export function useMyApiKeys() {
   return useQuery({
     queryKey: ['auth', 'api-keys'],
     queryFn: async () => {
-      const data = await apiClient<ApiKey[]>('/auth/api-keys');
-      return data;
+      const data = await apiClient<ApiKey[] | { items: ApiKey[] }>('/auth/api-keys');
+      return Array.isArray(data) ? data : (data.items ?? []);
     },
     staleTime: 30_000,
   });
