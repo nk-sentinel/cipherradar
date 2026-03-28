@@ -13,7 +13,13 @@ export function useScans(repoId: string) {
       try {
         const data = await apiClient<ScanSummary[] | { items: ScanSummary[] }>(`/projects/${repoId}/scans`);
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch { /* fall through */ }
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] API unavailable, using mock data for scans');
+      }
+      if (!import.meta.env.DEV) {
+        throw new Error('Scans API unavailable');
+      }
       const { getScansForRepo } = await import('@/mocks/data/scans.ts');
       return getScansForRepo(repoId);
     },
@@ -33,7 +39,13 @@ export function useScan(scanId: string) {
       try {
         const data = await apiClient<ScanDetail>(`/scans/${scanId}`);
         if (data) return data;
-      } catch { /* fall through */ }
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] API unavailable, using mock data for scan detail');
+      }
+      if (!import.meta.env.DEV) {
+        throw new Error('Scan detail API unavailable');
+      }
       const { getScanDetail } = await import('@/mocks/data/scans.ts');
       return getScanDetail(scanId);
     },

@@ -16,9 +16,13 @@ export function useRuntimeSummary(projectId: string) {
           `/projects/${projectId}/runtime/summary`,
         );
         if (data) return data;
-      } catch {
-        const { getRuntimeSummary } = await import('@/mocks/data/runtime.ts');
-        return getRuntimeSummary(projectId);
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for runtime summary');
+          const { getRuntimeSummary } = await import('@/mocks/data/runtime.ts');
+          return getRuntimeSummary(projectId);
+        }
+        throw err;
       }
     },
     staleTime: 30_000,
@@ -40,9 +44,13 @@ export function useEnrichedFindings(scanId: string) {
           `/scans/${scanId}/runtime/enriched`,
         );
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch {
-        const { getEnrichedFindings } = await import('@/mocks/data/runtime.ts');
-        return getEnrichedFindings(scanId);
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for enriched findings');
+          const { getEnrichedFindings } = await import('@/mocks/data/runtime.ts');
+          return getEnrichedFindings(scanId);
+        }
+        throw err;
       }
     },
     staleTime: 30_000,

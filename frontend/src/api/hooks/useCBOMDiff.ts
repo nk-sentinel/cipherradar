@@ -15,10 +15,14 @@ export function useCBOMDiff(baseScanId: string, targetScanId: string) {
           `/cbom/diff?base=${baseScanId}&target=${targetScanId}`,
         );
         if (data) return data;
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for CBOM diff');
           const { getCBOMDiff } = await import('@/mocks/data/cbomDiff.ts');
           return getCBOMDiff();
-    }
+        }
+        throw err;
+      }
     },
     enabled: !!baseScanId && !!targetScanId,
     staleTime: 30_000,
@@ -36,10 +40,14 @@ export function useScanSelectors() {
       try {
         const data = await apiClient<ScanSelector[] | { items: ScanSelector[] }>('/cbom/scans');
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for scan selectors');
           const { getScanSelectors } = await import('@/mocks/data/cbomDiff.ts');
           return getScanSelectors();
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 60_000,
   });

@@ -9,9 +9,13 @@ export function useKanbanCards() {
       try {
         const data = await apiClient<KanbanCard[] | { items: KanbanCard[] }>('/kanban');
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for kanban');
           const { getKanbanCards } = await import('@/mocks/data/kanban.ts');
           return getKanbanCards();
+        }
+        throw err;
       }
     },
     staleTime: 30_000,

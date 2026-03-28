@@ -5,6 +5,8 @@ import { ROLE_LABELS, type Role } from '@/lib/roles.ts';
 import { Pagination } from '@/components/ui/Pagination.tsx';
 import { UserCreateModal } from '@/components/admin/UserCreateModal.tsx';
 import { UserDetailDrawer } from '@/components/admin/UserDetailDrawer.tsx';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '@/api/client.ts';
 import {
   useUsers,
   useChangeRole,
@@ -104,11 +106,15 @@ function UserManagementContent(): React.ReactElement {
 
   const canEditRole = currentUser?.role === 'org-admin';
 
-  // H9: Count org admins for last-OA check
-  const orgAdminCount = useMemo(() => {
-    if (!data) return 0;
-    return data.items.filter((u) => u.role === 'org-admin').length;
-  }, [data]);
+  // H9: Count org admins across ALL pages (not just current page) for last-OA check
+  const { data: oaCountData } = useQuery({
+    queryKey: ['org-admin-count'],
+    queryFn: async () => {
+      const res = await apiClient<{ items: unknown[]; total: number } | unknown[]>('/admin/users?role=org_admin&per_page=1');
+      return Array.isArray(res) ? res.length : (res?.total ?? 0);
+    },
+  });
+  const orgAdminCount = oaCountData ?? 0;
 
   // H9: Check if user is last org admin before disable/demote
   const isLastOrgAdmin = (targetUser: ManagedUser): boolean => {

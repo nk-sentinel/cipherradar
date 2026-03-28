@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { useRequests, useApproveRequest, useRejectRequest } from '@/api/hooks/useRequests';
 import type { ReviewRequest } from '@/api/hooks/useRequests';
 import { RequireRole } from '@/components/guards/RequireRole';
+import { useAuth } from '@/lib/auth';
 import { Pagination } from '@/components/ui/Pagination';
 import { SeverityBadge } from '@/components/findings/SeverityBadge';
 import type { Severity } from '@/mocks/data/findings';
@@ -83,6 +84,7 @@ export function RequestQueue(): React.ReactElement {
 }
 
 function RequestQueueContent(): React.ReactElement {
+  const { user } = useAuth();
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -90,6 +92,15 @@ function RequestQueueContent(): React.ReactElement {
   const { data, isLoading, error } = useRequests(page, perPage);
   const approveRequest = useApproveRequest();
   const rejectRequest = useRejectRequest();
+
+  // RBAC-2: Role + request type check for approval actions
+  // TM is view-only (no Approve/Reject). SE can only approve FP requests, not RA.
+  const canApprove = (request: ReviewRequest): boolean => {
+    if (!user) return false;
+    if (user.role === 'team-manager') return false;
+    if (user.role === 'security-engineer' && request.type === 'risk_accepted') return false;
+    return true;
+  };
 
   const handleApprove = useCallback((requestId: string) => {
     approveRequest.mutate(requestId);
@@ -172,23 +183,29 @@ function RequestQueueContent(): React.ReactElement {
                   <td>{new Date(req.createdAt).toLocaleDateString()}</td>
                   <td>
                     <div style={{ display: 'flex', gap: '4px' }}>
-                      <button
-                        className="btn btn-accent"
-                        style={{ fontSize: '11px', padding: '2px 8px' }}
-                        onClick={() => handleApprove(req.id)}
-                        disabled={approveRequest.isPending}
-                        data-testid={`approve-${req.id}`}
-                      >
-                        Approve
-                      </button>
-                      <button
-                        className="btn btn-outline"
-                        style={{ fontSize: '11px', padding: '2px 8px' }}
-                        onClick={() => setRejectingId(req.id)}
-                        data-testid={`reject-${req.id}`}
-                      >
-                        Reject
-                      </button>
+                      {canApprove(req) ? (
+                        <>
+                          <button
+                            className="btn btn-accent"
+                            style={{ fontSize: '11px', padding: '2px 8px' }}
+                            onClick={() => handleApprove(req.id)}
+                            disabled={approveRequest.isPending}
+                            data-testid={`approve-${req.id}`}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className="btn btn-outline"
+                            style={{ fontSize: '11px', padding: '2px 8px' }}
+                            onClick={() => setRejectingId(req.id)}
+                            data-testid={`reject-${req.id}`}
+                          >
+                            Reject
+                          </button>
+                        </>
+                      ) : (
+                        <span style={{ fontSize: '11px', color: 'var(--text-3)' }}>View only</span>
+                      )}
                     </div>
                   </td>
                 </tr>

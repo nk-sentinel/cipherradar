@@ -16,9 +16,13 @@ export function useCVECorrelation(projectId: string) {
           `/projects/${projectId}/sbom-cbom-link`,
         );
         if (data) return data;
-      } catch {
-        const { getCVECorrelation } = await import('@/mocks/data/cveCorrelation.ts');
-        return getCVECorrelation(projectId);
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for CVE correlation');
+          const { getCVECorrelation } = await import('@/mocks/data/cveCorrelation.ts');
+          return getCVECorrelation(projectId);
+        }
+        throw err;
       }
     },
     staleTime: 60_000,

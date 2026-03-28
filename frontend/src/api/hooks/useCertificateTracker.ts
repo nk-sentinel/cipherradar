@@ -49,8 +49,12 @@ export function useCertificateTracker(filters: CertificateTrackerFilters = {}) {
           `/portfolio/certificates${qs ? `?${qs}` : ''}`,
         );
         if (data && Array.isArray(data.items)) return data;
-      } catch {
-        /* fall through to mock */
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] API unavailable, using mock data for certificate tracker');
+      }
+      if (!import.meta.env.DEV) {
+        throw new Error('Certificate tracker API unavailable');
       }
       const { getCertificates } = await import('@/mocks/data/certificates.ts');
       const certs = getCertificates();

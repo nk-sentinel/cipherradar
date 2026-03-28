@@ -16,9 +16,13 @@ export function useAgilityScore(projectId: string) {
           `/projects/${projectId}/agility-score`,
         );
         if (data) return data;
-      } catch {
-        const { getAgilityScore } = await import('@/mocks/data/agilityScore.ts');
-        return getAgilityScore(projectId);
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for agility score');
+          const { getAgilityScore } = await import('@/mocks/data/agilityScore.ts');
+          return getAgilityScore(projectId);
+        }
+        throw err;
       }
     },
     staleTime: 60_000,

@@ -25,7 +25,13 @@ export function usePortfolioSummary() {
         ) {
           return data;
         }
-      } catch { /* fall through to mock */ }
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] API unavailable, using mock data for portfolio summary');
+      }
+      if (!import.meta.env.DEV) {
+        throw new Error('Portfolio summary API unavailable');
+      }
       const { getPortfolioSummary } = await import('@/mocks/data/portfolio.ts');
       return getPortfolioSummary();
     },
@@ -49,7 +55,13 @@ export function useHeatMap() {
         if (data && Array.isArray(heatMapArray)) {
           return { ...data, repos: heatMapArray as HeatMapData['repos'] };
         }
-      } catch { /* fall through to mock */ }
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] API unavailable, using mock data for heat map');
+      }
+      if (!import.meta.env.DEV) {
+        throw new Error('Heat map API unavailable');
+      }
       const { getHeatMap } = await import('@/mocks/data/portfolio.ts');
       return getHeatMap();
     },

@@ -14,9 +14,13 @@ export function useRemediation(findingId: string | null) {
       try {
         const data = await apiClient<Remediation>(`/findings/${findingId!}/remediation`);
         if (data) return data;
-      } catch {
-        const { getRemediationForFinding } = await import('@/mocks/data/remediation.ts');
-        return getRemediationForFinding(findingId!);
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for remediation');
+          const { getRemediationForFinding } = await import('@/mocks/data/remediation.ts');
+          return getRemediationForFinding(findingId!);
+        }
+        throw err;
       }
     },
     staleTime: 60_000,
@@ -38,7 +42,9 @@ export function useRequestRemediation() {
           method: 'POST',
           body: { consent: true },
         });
-      } catch {
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] API unavailable, using mock data for remediation request');
         // Mock: simulate generation delay and return mock data
         await new Promise((resolve) => setTimeout(resolve, 1500));
         const { getRemediationForFinding } = await import(

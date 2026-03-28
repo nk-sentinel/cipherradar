@@ -18,9 +18,13 @@ export function useHNDLRisk(projectId: string, sensitivity?: DataSensitivity) {
         const url = `/projects/${projectId}/hndl-risk${qs ? `?${qs}` : ''}`;
         const data = await apiClient<HNDLRiskData>(url);
         if (data) return data;
-      } catch {
-        const { getHNDLRisk } = await import('@/mocks/data/hndlRisk.ts');
-        return getHNDLRisk(projectId, sensitivity);
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for HNDL risk');
+          const { getHNDLRisk } = await import('@/mocks/data/hndlRisk.ts');
+          return getHNDLRisk(projectId, sensitivity);
+        }
+        throw err;
       }
     },
     staleTime: 60_000,

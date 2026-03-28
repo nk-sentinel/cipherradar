@@ -13,12 +13,16 @@ export function useComplianceDashboard() {
       try {
         const data = await apiClient<ComplianceDashboardData>('/compliance/trends');
         if (data) return data;
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for compliance dashboard');
           const { getComplianceDashboard } = await import(
             '@/mocks/data/complianceDashboard.ts'
           );
           return getComplianceDashboard();
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 30_000,
   });

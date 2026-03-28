@@ -43,8 +43,10 @@ export function useSearch(query: string, type?: SearchResultType) {
         if (type) params.set('type', type);
         const qs = params.toString();
         return await apiClient<SearchResponse>(`/search${qs ? `?${qs}` : ''}`);
-      } catch {
-        // Fall back to mock search
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] API unavailable, using mock data for search');
+        // Fall back to mock search (dev only)
         const { MOCK_REPOSITORIES } = await import('@/mocks/data/repositories');
         const { MOCK_FINDINGS } = await import('@/mocks/data/findings');
 

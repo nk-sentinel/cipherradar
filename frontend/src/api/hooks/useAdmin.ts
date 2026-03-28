@@ -18,10 +18,14 @@ export function useOrgSettings() {
       try {
         const data = await apiClient<OrgSettings>('/admin/settings');
         if (data) return data;
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for org settings');
           const { getOrgSettings } = await import('@/mocks/data/admin.ts');
           return getOrgSettings();
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 60_000,
   });
@@ -38,10 +42,14 @@ export function useOrgUsers() {
       try {
         const data = await apiClient<OrgUser[] | { items: OrgUser[]; total: number }>('/admin/users');
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for org users');
           const { getOrgUsers } = await import('@/mocks/data/admin.ts');
           return getOrgUsers();
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 30_000,
   });
@@ -96,10 +104,14 @@ export function useIntegrations() {
       try {
         const data = await apiClient<Integration[] | { items: Integration[] }>('/admin/integrations');
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for integrations');
           const { getIntegrations } = await import('@/mocks/data/admin.ts');
           return getIntegrations();
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 60_000,
   });
@@ -116,10 +128,14 @@ export function useAuditLog() {
       try {
         const data = await apiClient<AuditLogEntry[] | { items: AuditLogEntry[]; total: number }>('/admin/audit-log');
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for audit log');
           const { getAuditLog } = await import('@/mocks/data/admin.ts');
           return getAuditLog();
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 15_000,
   });

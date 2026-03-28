@@ -47,8 +47,12 @@ export function useScanQueue(filters: ScanQueueFilters = {}) {
           return { items: data, total: data.length, page, perPage };
         }
         return data ?? { items: [], total: 0, page, perPage };
-      } catch {
-        return { items: [], total: 0, page, perPage };
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, returning empty scan queue');
+          return { items: [], total: 0, page, perPage };
+        }
+        throw err;
       }
     },
     retry: 1,

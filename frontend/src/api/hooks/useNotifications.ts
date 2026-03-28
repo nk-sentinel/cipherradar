@@ -16,10 +16,14 @@ export function useNotifications() {
       try {
         const data = await apiClient<Notification[] | { items: Notification[] }>('/notifications');
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for notifications');
           const { getNotifications } = await import('@/mocks/data/notifications.ts');
           return getNotifications();
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 15_000,
     refetchInterval: 30_000,
@@ -40,9 +44,12 @@ export function useMarkRead() {
           method: 'PATCH',
         });
         if (data) return data;
-      } catch {
-        // Optimistic update only in dev
-        return { success: true };
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          // Optimistic update only in dev
+          return { success: true };
+        }
+        throw err;
       }
     },
     onMutate: async (id: string) => {
@@ -78,9 +85,12 @@ export function useMarkAllRead() {
           method: 'POST',
         });
         if (data) return data;
-      } catch {
-        // Optimistic update only in dev
-        return { success: true };
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          // Optimistic update only in dev
+          return { success: true };
+        }
+        throw err;
       }
     },
     onMutate: async () => {
@@ -113,12 +123,16 @@ export function useNotificationPreferences() {
       try {
         const data = await apiClient<NotificationPreferencesData>('/notifications/preferences');
         if (data) return data;
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for notification preferences');
           const { getNotificationPreferences } = await import(
             '@/mocks/data/notifications.ts'
           );
           return getNotificationPreferences();
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 60_000,
   });
@@ -139,9 +153,12 @@ export function useUpdateNotificationPreferences() {
           { method: 'PUT', body: prefs },
         );
         if (data) return data;
-      } catch {
-        // Optimistic update in dev
-        return prefs;
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          // Optimistic update in dev
+          return prefs;
+        }
+        throw err;
       }
     },
     onSuccess: (data) => {

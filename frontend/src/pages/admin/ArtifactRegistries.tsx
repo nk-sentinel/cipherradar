@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RequireRole } from '@/components/guards/RequireRole';
 import {
   useRegistries,
   useCreateRegistry,
@@ -177,6 +178,23 @@ function AddRegistryModal({ onClose }: { onClose: () => void }) {
 }
 
 export function ArtifactRegistries(): React.ReactElement {
+  return (
+    <RequireRole
+      roles={['org-admin']}
+      fallback={
+        <div className="card">
+          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>
+            Access denied. You do not have permission to manage artifact registries. Contact your admin.
+          </p>
+        </div>
+      }
+    >
+      <ArtifactRegistriesContent />
+    </RequireRole>
+  );
+}
+
+function ArtifactRegistriesContent(): React.ReactElement {
   const { data: registries, isLoading, error } = useRegistries();
   const deleteMutation = useDeleteRegistry();
   const testMutation = useTestConnection();

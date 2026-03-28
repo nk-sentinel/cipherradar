@@ -64,8 +64,11 @@ export function useJiraConfig(scopeType: JiraScopeType, scopeId: string) {
     queryFn: async () => {
       try {
         return await apiClient<JiraConfig>(`/${prefix}/${scopeId}/jira-config`);
-      } catch {
-        return null;
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          return null;
+        }
+        throw err;
       }
     },
     staleTime: 60_000,

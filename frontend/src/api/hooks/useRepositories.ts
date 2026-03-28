@@ -13,10 +13,14 @@ export function useRepositories() {
       try {
         const data = await apiClient<Repository[] | { items: Repository[] }>('/projects');
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for repositories');
           const { MOCK_REPOSITORIES } = await import('@/mocks/data/repositories.ts');
           return MOCK_REPOSITORIES;
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 30_000,
   });
@@ -33,14 +37,18 @@ export function useRepository(id: string) {
       try {
         const data = await apiClient<RepositoryDetail>(`/projects/${id}`);
         if (data) return data;
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for repository detail');
           const { MOCK_REPOSITORY_DETAILS } = await import(
             '@/mocks/data/repositories.ts'
           );
           const detail = MOCK_REPOSITORY_DETAILS[id];
           if (!detail) throw new Error('Repository not found');
           return detail;
-    }
+        }
+        throw err;
+      }
     },
     enabled: !!id,
     staleTime: 30_000,

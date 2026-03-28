@@ -25,10 +25,14 @@ export function useAssets(filters: AssetFilters, page: number, pageSize = 15) {
       try {
         const data = await apiClient<AssetSearchResult>(`/assets?${params.toString()}`);
         if (data) return data;
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for assets');
           const { searchAssets } = await import('@/mocks/data/assets.ts');
           return searchAssets(filters, page, pageSize);
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 30_000,
   });

@@ -45,10 +45,14 @@ export function usePQCMigration() {
       try {
         const data = await apiClient<PQCMigrationResponse>('/portfolio/pqc-migration');
         if (data && data.overview) return data;
-      } catch {
-        /* fall through to mock */
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] API unavailable, using mock data for PQC migration');
       }
-      // Inline mock data as fallback
+      if (!import.meta.env.DEV) {
+        throw new Error('PQC migration API unavailable');
+      }
+      // Inline mock data as fallback (dev only)
       return {
         overview: {
           totalFindings: 120,

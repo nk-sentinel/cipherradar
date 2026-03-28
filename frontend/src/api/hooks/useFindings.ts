@@ -79,7 +79,9 @@ export function useFindings(repoId: string, filters?: FindingsFilters) {
         const qs = params.toString();
         const url = `/scans/${repoId}/findings${qs ? `?${qs}` : ''}`;
         return await apiClient<FindingsResult>(url);
-      } catch {
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] API unavailable, using mock data for findings');
           const { getFindingsForRepo } = await import('@/mocks/data/findings');
           const allForRepo = getFindingsForRepo(repoId);
           let filtered = [...allForRepo];
@@ -191,10 +193,14 @@ export function useFinding(findingId: string | null) {
       try {
         const data = await apiClient<Finding>(`/findings/${findingId!}`);
         if (data) return data;
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for finding');
           const { getFindingById } = await import('@/mocks/data/findings');
           return getFindingById(findingId!);
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 30_000,
     enabled: !!findingId,

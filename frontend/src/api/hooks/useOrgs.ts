@@ -13,10 +13,14 @@ export function useUserOrgs() {
       try {
         const data = await apiClient<Org[] | { items: Org[] }>('/user/orgs');
         if (data) return Array.isArray(data) ? data : (data.items ?? []);
-      } catch {
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[CipherRadar] API unavailable, using mock data for user orgs');
           const { getUserOrgs } = await import('@/mocks/data/admin.ts');
           return getUserOrgs();
-    }
+        }
+        throw err;
+      }
     },
     staleTime: 60_000,
   });
