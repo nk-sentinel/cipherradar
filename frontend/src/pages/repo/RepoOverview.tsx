@@ -37,7 +37,7 @@ export function RepoOverview(): React.ReactElement {
   const { repoId } = useParams({ strict: false }) as { repoId: string };
   const navigate = useNavigate();
   const { data: repo, isLoading, error } = useRepository(repoId);
-  const [activeScanId, _setActiveScanId] = useState<string | null>(null);
+  const [activeScanId, setActiveScanId] = useState<string | null>(null);
   const [showScanModal, setShowScanModal] = useState(false);
   const scanProgress = useScanProgress(activeScanId);
 
@@ -98,6 +98,7 @@ export function RepoOverview(): React.ReactElement {
           context="project-overview"
           projectId={repoId}
           onClose={() => setShowScanModal(false)}
+          onScanStarted={(scanId: string) => setActiveScanId(scanId)}
         />
       )}
 

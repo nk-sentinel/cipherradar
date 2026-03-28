@@ -7,6 +7,7 @@ interface ScanModalProps {
   projectId?: string;
   defaultSourceType?: SourceType;
   onClose: () => void;
+  onScanStarted?: (scanId: string) => void;
 }
 
 const BRANCHES = ['main', 'develop', 'staging', 'release/v1.0', 'feature/pqc-migration'];
@@ -22,6 +23,7 @@ export function ScanModal({
   projectId,
   defaultSourceType = 'repository',
   onClose,
+  onScanStarted,
 }: ScanModalProps): React.ReactElement {
   const [sourceType, setSourceType] = useState<SourceType>(defaultSourceType);
   const [branch, setBranch] = useState('main');
@@ -48,7 +50,12 @@ export function ScanModal({
         containerTag: sourceType === 'container' ? containerTag : undefined,
         artifactVersion: sourceType === 'artifact' ? artifactVersion : undefined,
       },
-      { onSuccess: () => onClose() },
+      {
+        onSuccess: (response) => {
+          onScanStarted?.(response.scanId);
+          onClose();
+        },
+      },
     );
   }
 

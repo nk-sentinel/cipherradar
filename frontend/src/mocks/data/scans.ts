@@ -24,6 +24,7 @@ export interface ScanSummary {
   createdAt: string;
   status: 'completed' | 'running' | 'failed' | 'queued';
   triggerType?: 'manual' | 'schedule' | 'webhook' | 'push';
+  environment?: 'production' | 'staging' | 'development' | null;
 }
 
 export interface ScanDetail extends ScanSummary {
@@ -53,6 +54,7 @@ export const mockScans: ScanSummary[] = [
     createdAt: '2026-03-19T08:00:00Z',
     status: 'completed',
     triggerType: 'manual',
+    environment: 'production',
   },
   {
     id: 'scan-46',
@@ -70,6 +72,7 @@ export const mockScans: ScanSummary[] = [
     createdAt: '2026-03-18T10:00:00Z',
     status: 'completed',
     triggerType: 'schedule',
+    environment: 'production',
   },
   {
     id: 'scan-45',
@@ -87,6 +90,7 @@ export const mockScans: ScanSummary[] = [
     createdAt: '2026-03-17T14:30:00Z',
     status: 'completed',
     triggerType: 'webhook',
+    environment: 'staging',
   },
   {
     id: 'scan-44',
@@ -104,6 +108,7 @@ export const mockScans: ScanSummary[] = [
     createdAt: '2026-03-16T09:15:00Z',
     status: 'completed',
     triggerType: 'push',
+    environment: 'development',
   },
   {
     id: 'scan-43',
@@ -121,6 +126,7 @@ export const mockScans: ScanSummary[] = [
     createdAt: '2026-03-15T16:45:00Z',
     status: 'completed',
     triggerType: 'push',
+    environment: null,
   },
   {
     id: 'scan-42',
@@ -138,6 +144,7 @@ export const mockScans: ScanSummary[] = [
     createdAt: '2026-03-28T12:00:00Z',
     status: 'queued',
     triggerType: 'schedule',
+    environment: 'staging',
   },
   {
     id: 'scan-41',
@@ -155,6 +162,7 @@ export const mockScans: ScanSummary[] = [
     createdAt: '2026-03-28T11:30:00Z',
     status: 'running',
     triggerType: 'webhook',
+    environment: 'development',
   },
   {
     id: 'scan-40',
@@ -172,6 +180,7 @@ export const mockScans: ScanSummary[] = [
     createdAt: '2026-03-27T09:00:00Z',
     status: 'failed',
     triggerType: 'manual',
+    environment: null,
   },
   {
     id: 'scan-39',
@@ -189,6 +198,7 @@ export const mockScans: ScanSummary[] = [
     createdAt: '2026-03-26T15:20:00Z',
     status: 'completed',
     triggerType: 'schedule',
+    environment: 'production',
   },
 ];
 

@@ -19,14 +19,10 @@ export const DEFAULT_ENTITY_LABELS: EntityLabels = {
  * Falls back to defaults if org context is not available.
  */
 export function useEntityLabels(): EntityLabels {
-  try {
-    // In the future, read from org settings context
-    // const { currentOrg } = useCurrentOrg();
-    // return currentOrg?.entityLabels ?? DEFAULT_ENTITY_LABELS;
-    return DEFAULT_ENTITY_LABELS;
-  } catch {
-    return DEFAULT_ENTITY_LABELS;
-  }
+  // In the future, read from org settings context
+  // const { currentOrg } = useCurrentOrg();
+  // return currentOrg?.entityLabels ?? DEFAULT_ENTITY_LABELS;
+  return DEFAULT_ENTITY_LABELS;
 }
 
 /** Color pip for repository provider */

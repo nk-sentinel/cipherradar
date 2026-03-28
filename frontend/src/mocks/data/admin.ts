@@ -96,6 +96,10 @@ export const MOCK_ORG_SETTINGS: OrgSettings = {
     policyFile: 'policy.cbom.yml',
     failOnSeverity: 'high',
   },
+  labels: {
+    groupLabel: 'Business Unit',
+    projectLabel: 'Service',
+  },
 };
 
 export const MOCK_ORG_USERS: OrgUser[] = [

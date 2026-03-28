@@ -5,6 +5,8 @@ import { applyTheme, getStoredTheme, type Theme } from '@/lib/themes.ts';
 import { cn } from '@/lib/utils.ts';
 import { PasswordChangeForm } from '@/components/profile/PasswordChangeForm.tsx';
 import { ApiKeyManager } from '@/components/profile/ApiKeyManager.tsx';
+import { useNotificationPreferences, useUpdateNotificationPreferences } from '@/api/hooks/useNotifications.ts';
+import type { NotificationPreference } from '@/mocks/data/notifications.ts';
 
 type ProfileSection = 'appearance' | 'notifications' | 'security' | 'api-keys';
 
@@ -42,6 +44,23 @@ export function Profile(): React.ReactElement {
   const { user } = useAuth();
   const [activeSection, setActiveSection] = useState<ProfileSection>('appearance');
   const [currentTheme, setCurrentTheme] = useState<Theme>(getStoredTheme);
+  const { data: prefsData } = useNotificationPreferences();
+  const updatePrefs = useUpdateNotificationPreferences();
+  const notifPrefs: NotificationPreference[] = prefsData?.preferences ?? NOTIFICATION_PREFS.map((p) => ({
+    trigger: p.event.toLowerCase().replace(/\s+/g, '-') as NotificationPreference['trigger'],
+    label: p.event,
+    description: '',
+    inApp: p.inApp,
+    email: p.email,
+  }));
+
+  const handleTogglePref = (trigger: NotificationPreference['trigger'], field: 'inApp' | 'email') => {
+    if (!prefsData) return;
+    const updated = prefsData.preferences.map((p) =>
+      p.trigger === trigger ? { ...p, [field]: !p[field] } : p,
+    );
+    updatePrefs.mutate({ ...prefsData, preferences: updated });
+  };
 
   // Determine auth source. In Phase 4.5, the User model doesn't have authSource yet,
   // so we default to 'local' unless user object has it.
@@ -186,14 +205,37 @@ export function Profile(): React.ReactElement {
                   </tr>
                 </thead>
                 <tbody>
-                  {NOTIFICATION_PREFS.map((pref) => (
-                    <tr key={pref.event}>
-                      <td>{pref.event}</td>
-                      <td style={{ color: pref.inApp ? 'var(--green)' : 'var(--text-4)' }}>
-                        {pref.inApp ? 'On' : 'Off'}
+                  {notifPrefs.map((pref) => (
+                    <tr key={pref.trigger}>
+                      <td>
+                        <div>{pref.label}</div>
+                        {pref.description && (
+                          <div style={{ fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
+                            {pref.description}
+                          </div>
+                        )}
                       </td>
-                      <td style={{ color: pref.email ? 'var(--green)' : 'var(--text-4)' }}>
-                        {pref.email ? 'On' : 'Off'}
+                      <td>
+                        <button
+                          type="button"
+                          className={cn('btn', pref.inApp ? 'btn-accent' : 'btn-outline')}
+                          style={{ fontSize: '11px', padding: '2px 8px', minWidth: '40px' }}
+                          onClick={() => handleTogglePref(pref.trigger, 'inApp')}
+                          disabled={updatePrefs.isPending}
+                        >
+                          {pref.inApp ? 'On' : 'Off'}
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          type="button"
+                          className={cn('btn', pref.email ? 'btn-accent' : 'btn-outline')}
+                          style={{ fontSize: '11px', padding: '2px 8px', minWidth: '40px' }}
+                          onClick={() => handleTogglePref(pref.trigger, 'email')}
+                          disabled={updatePrefs.isPending}
+                        >
+                          {pref.email ? 'On' : 'Off'}
+                        </button>
                       </td>
                     </tr>
                   ))}

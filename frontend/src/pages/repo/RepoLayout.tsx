@@ -1,4 +1,4 @@
-import { Link, Outlet, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
+import { Link, Outlet, useParams, useRouterState } from '@tanstack/react-router';
 import { useRepository } from '@/api/hooks/useRepositories.ts';
 import { cn } from '@/lib/utils.ts';
 
@@ -31,7 +31,6 @@ export function RepoLayout(): React.ReactElement {
   const { data: repo } = useRepository(repoId);
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
-  const navigate = useNavigate();
 
   const repoName = repo?.name ?? repoId;
 
@@ -49,14 +48,14 @@ export function RepoLayout(): React.ReactElement {
           const isActive = currentPath === tabPath;
           const target = tab.externalPath ? tab.externalPath(repoId) : tabPath;
           return (
-            <a
+            <Link
               key={tab.path}
+              to={target}
               className={cn('sub-tab', isActive && 'active')}
-              style={{ cursor: 'pointer', textDecoration: 'none' }}
-              onClick={() => void navigate({ to: target })}
+              style={{ textDecoration: 'none' }}
             >
               {tab.label}
-            </a>
+            </Link>
           );
         })}
       </div>

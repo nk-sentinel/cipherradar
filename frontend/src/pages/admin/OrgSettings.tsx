@@ -38,6 +38,8 @@ function OrgSettingsContent(): React.ReactElement {
       setScanOnPr(data.defaultScanConfig.scanOnPr);
       setPolicyFile(data.defaultScanConfig.policyFile);
       setFailOnSeverity(data.defaultScanConfig.failOnSeverity);
+      setGroupLabel(data.labels?.groupLabel ?? 'Group');
+      setProjectLabel(data.labels?.projectLabel ?? 'Project');
     }
   }, [data]);
 

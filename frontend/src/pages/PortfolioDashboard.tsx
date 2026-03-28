@@ -1,11 +1,21 @@
 import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { usePortfolioSummary, useHeatMap } from '@/api/hooks/usePortfolio.ts';
 import { useAuth } from '@/lib/auth.tsx';
 import { cn, formatNumber } from '@/lib/utils.ts';
 import { ScanModal } from '@/components/scan/ScanModal';
+import { apiClient } from '@/api/client.ts';
 import type { HeatMapCell, SeverityLevel } from '@/mocks/data/portfolio.ts';
+
+interface AssignedFinding {
+  id: string;
+  severity: SeverityLevel;
+  projectName: string;
+  finding: string;
+  status: string;
+}
 
 const SEVERITY_COLORS: Record<SeverityLevel, string> = {
   critical: 'var(--red)',
@@ -55,6 +65,12 @@ export function PortfolioDashboard(): React.ReactElement {
   const [scanModalOpen, setScanModalOpen] = useState(false);
 
   const isTeamManager = user?.role === 'team-manager';
+  const showAssigned = user?.role === 'developer' || user?.role === 'team-manager';
+  const { data: assignedFindings, isLoading: assignedLoading } = useQuery({
+    queryKey: ['my-assigned-findings'],
+    queryFn: () => apiClient<AssignedFinding[]>('/findings?assigned_to=me&status=open,in_review,in_progress'),
+    enabled: showAssigned,
+  });
 
   if (summaryLoading) {
     return (
@@ -290,7 +306,7 @@ export function PortfolioDashboard(): React.ReactElement {
       )}
 
       {/* My Assigned Findings — for DEV and TM roles */}
-      {(user?.role === 'developer' || user?.role === 'team-manager') && (
+      {showAssigned && (
         <div className="card" data-testid="my-assigned-findings">
           <div className="card-title">My Assigned Findings</div>
           <p style={{ color: 'var(--text-3)', fontSize: '12px', marginBottom: '8px' }}>
@@ -306,12 +322,39 @@ export function PortfolioDashboard(): React.ReactElement {
               </tr>
             </thead>
             <tbody>
-              {/* Placeholder — will be populated by useMyAssignedFindings hook when backend is ready */}
-              <tr>
-                <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-3)' }}>
-                  No findings assigned to you.
-                </td>
-              </tr>
+              {assignedLoading ? (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-3)' }}>
+                    Loading...
+                  </td>
+                </tr>
+              ) : assignedFindings && assignedFindings.length > 0 ? (
+                assignedFindings.map((f) => (
+                  <tr key={f.id}>
+                    <td>
+                      <span
+                        className={cn(
+                          'badge',
+                          f.severity === 'critical' ? 'b-crit' :
+                          f.severity === 'high' ? 'b-high' :
+                          f.severity === 'medium' ? 'b-med' : 'b-low',
+                        )}
+                      >
+                        {SEVERITY_LABELS[f.severity]}
+                      </span>
+                    </td>
+                    <td>{f.projectName}</td>
+                    <td>{f.finding}</td>
+                    <td>{f.status}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={4} style={{ textAlign: 'center', color: 'var(--text-3)' }}>
+                    No findings assigned to you.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
