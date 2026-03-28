@@ -4,7 +4,7 @@ import type { Finding, Severity, QuantumStatus, FindingStatus } from '@/mocks/da
 
 export type { Finding, Severity, QuantumStatus, FindingStatus };
 
-export type SortField = 'severity' | 'file' | 'title' | 'status' | 'firstSeen';
+export type SortField = 'severity' | 'file' | 'title' | 'status' | 'firstSeen' | 'algorithm' | 'confidence';
 export type SortDirection = 'asc' | 'desc';
 
 export interface FindingsFilters {
@@ -126,6 +126,14 @@ export function useFindings(repoId: string, filters?: FindingsFilters) {
               case 'firstSeen':
                 cmp = a.firstSeen.localeCompare(b.firstSeen);
                 break;
+              case 'algorithm':
+                cmp = (a.algorithm ?? '').localeCompare(b.algorithm ?? '');
+                break;
+              case 'confidence': {
+                const confOrder: Record<string, number> = { high: 0, medium: 1, low: 2 };
+                cmp = (confOrder[a.confidence] ?? 3) - (confOrder[b.confidence] ?? 3);
+                break;
+              }
             }
             if (cmp !== 0) return cmp * dirMul;
             // Secondary sort by firstSeen desc

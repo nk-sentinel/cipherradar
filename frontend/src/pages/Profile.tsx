@@ -125,7 +125,7 @@ export function Profile(): React.ReactElement {
                 <label className="field-label">Member since</label>
                 <input
                   className="input"
-                  value="2026-03-15"
+                  value={(user as Record<string, unknown> | null)?.createdAt ? new Date(String((user as Record<string, unknown>).createdAt)).toLocaleDateString() : 'N/A'}
                   disabled
                   style={{ opacity: 0.6 }}
                   readOnly

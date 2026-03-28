@@ -8,17 +8,37 @@ import { useAuth } from '@/lib/auth.tsx';
 
 /**
  * Onboarding page shown on first login for Org Admin / Security Manager roles.
- * Redirects to dashboard if onboarding was already completed.
+ * Redirects to dashboard if onboarding was already completed or if user lacks required role.
  */
 export function Onboarding(): React.ReactElement {
   const navigate = useNavigate();
   const { user } = useAuth();
 
+  const shouldShow = user?.role === 'org-admin' || user?.role === 'security-manager';
+
   useEffect(() => {
-    if (isOnboardingComplete()) {
+    if (isOnboardingComplete() || !shouldShow) {
       void navigate({ to: '/' });
     }
-  }, [navigate]);
+  }, [navigate, shouldShow]);
+
+  // Redirect non-OA/SM roles to dashboard
+  if (!shouldShow) {
+    return (
+      <div className="card" style={{ maxWidth: '500px', margin: '60px auto', textAlign: 'center' }}>
+        <h2 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '8px', color: 'var(--text-1)' }}>
+          Getting Started
+        </h2>
+        <p style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '16px' }}>
+          Onboarding is managed by your Organization Admin or Security Manager.
+          Check the dashboard for your current projects and findings.
+        </p>
+        <button className="btn btn-accent" onClick={() => void navigate({ to: '/' })}>
+          Go to Dashboard
+        </button>
+      </div>
+    );
+  }
 
   const handleComplete = (): void => {
     void navigate({ to: '/' });

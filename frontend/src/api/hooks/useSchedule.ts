@@ -6,6 +6,7 @@ export interface ScheduleData {
   preset: 'off' | 'daily' | 'weekly';
   hour: number;
   timezone: string;
+  dayOfWeek?: number;
   source: 'project' | 'group' | 'org' | 'none';
   nextRun: string | null;
 }
@@ -14,6 +15,7 @@ export interface SaveScheduleParams {
   preset: 'off' | 'daily' | 'weekly';
   hour: number;
   timezone: string;
+  dayOfWeek?: number;
 }
 
 export function useSchedule(scopeType: 'projects' | 'groups' | 'orgs', scopeId: string) {

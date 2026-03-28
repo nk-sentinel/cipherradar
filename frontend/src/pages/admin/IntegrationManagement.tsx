@@ -10,6 +10,7 @@ import {
   type IntegrationProvider,
   type ProviderType,
 } from '@/api/hooks/useIntegrations.ts';
+import { useUserOrgs } from '@/api/hooks/useOrgs.ts';
 import { useToast } from '@/lib/use-toast.ts';
 
 // ---------------------------------------------------------------------------
@@ -106,8 +107,8 @@ function PATModal({
   onClose,
   onConnect,
   isPending,
-  testConnection: _testConnection,
-  isTestPending: _isTestPending,
+  testConnection,
+  isTestPending,
   testResult,
 }: PATModalProps): React.ReactElement {
   const [baseUrl, setBaseUrl] = useState('');
@@ -209,6 +210,14 @@ function PATModal({
             Cancel
           </button>
           <button
+            className="btn btn-outline"
+            disabled={!baseUrl || !token || isTestPending}
+            onClick={() => testConnection(providerType)}
+            data-testid="test-connection-btn"
+          >
+            {isTestPending ? 'Testing...' : 'Test Connection'}
+          </button>
+          <button
             className="btn btn-accent"
             disabled={!baseUrl || !token || isPending}
             onClick={() => onConnect(baseUrl, token)}
@@ -235,8 +244,10 @@ function RepoPicker({ providerId, providerLabel, onClose }: RepoPickerProps): Re
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [autoScan, setAutoScan] = useState(true);
+  const [groupId, setGroupId] = useState<string | null>(null);
   const { toast } = useToast();
   const { data: repos, isLoading } = useDiscoverRepos(providerId, search);
+  const { data: orgs } = useUserOrgs();
   const importRepos = useImportRepos();
 
   const toggleSelect = (id: string) => {
@@ -250,7 +261,7 @@ function RepoPicker({ providerId, providerLabel, onClose }: RepoPickerProps): Re
 
   const handleImport = () => {
     importRepos.mutate(
-      { providerType: 'github', repoIds: Array.from(selectedIds), groupId: null, autoScan },
+      { providerType: 'github', repoIds: Array.from(selectedIds), groupId, autoScan },
       {
         onSuccess: (result) => {
           toast({
@@ -371,6 +382,27 @@ function RepoPicker({ providerId, providerLabel, onClose }: RepoPickerProps): Re
           ))}
         </div>
 
+        {/* Group selector */}
+        <div style={{ marginBottom: '12px' }}>
+          <label className="field-label" htmlFor="group-select">
+            Import to Group
+          </label>
+          <select
+            id="group-select"
+            className="input"
+            value={groupId ?? ''}
+            onChange={(e) => setGroupId(e.target.value || null)}
+            data-testid="group-select"
+          >
+            <option value="">No group (root)</option>
+            {orgs?.map((org) => (
+              <option key={org.id} value={org.id}>
+                {org.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Auto-scan toggle */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
           <input
@@ -413,9 +445,11 @@ interface ProviderCardProps {
   onConnect: () => void;
   onDisconnect: () => void;
   onBrowseRepos: () => void;
+  onResync?: () => void;
+  isResyncing?: boolean;
 }
 
-function ProviderCard({ provider, onConnect, onDisconnect, onBrowseRepos }: ProviderCardProps): React.ReactElement {
+function ProviderCard({ provider, onConnect, onDisconnect, onBrowseRepos, onResync, isResyncing }: ProviderCardProps): React.ReactElement {
   const isGit = ['github', 'gitlab', 'bitbucket'].includes(provider.type);
   const connected = provider.status === 'connected';
 
@@ -504,6 +538,17 @@ function ProviderCard({ provider, onConnect, onDisconnect, onBrowseRepos }: Prov
                 Browse Repos
               </button>
             )}
+            {isGit && onResync && (
+              <button
+                className="btn btn-outline"
+                onClick={onResync}
+                disabled={isResyncing}
+                style={{ fontSize: '11px', padding: '4px 8px' }}
+                data-testid={`resync-btn-${provider.type}`}
+              >
+                {isResyncing ? 'Syncing...' : 'Re-sync'}
+              </button>
+            )}
             <button
               className="btn btn-outline"
               onClick={onDisconnect}
@@ -528,7 +573,16 @@ function ProviderCard({ provider, onConnect, onDisconnect, onBrowseRepos }: Prov
 
 export function IntegrationManagement(): React.ReactElement {
   return (
-    <RequireRole roles={['org-admin', 'security-manager']}>
+    <RequireRole
+      roles={['org-admin', 'security-manager']}
+      fallback={
+        <div className="card">
+          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>
+            Access denied. You do not have permission to manage integrations. Contact your admin.
+          </p>
+        </div>
+      }
+    >
       <IntegrationManagementContent />
     </RequireRole>
   );
@@ -544,6 +598,9 @@ function IntegrationManagementContent(): React.ReactElement {
   const [patModal, setPATModal] = useState<{ type: ProviderType; label: string } | null>(null);
   const [repoPickerProvider, setRepoPickerProvider] = useState<IntegrationProvider | null>(null);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [resyncingId, setResyncingId] = useState<string | null>(null);
+  // H19: TODO — full New Project flow for vendor/non-git repos. For now, show "Coming soon" message.
+  const [showNewProjectMsg, setShowNewProjectMsg] = useState(false);
 
   if (isLoading) {
     return (
@@ -608,6 +665,21 @@ function IntegrationManagementContent(): React.ReactElement {
     );
   };
 
+  const handleResync = (provider: IntegrationProvider) => {
+    setResyncingId(provider.id);
+    // Trigger a discover repos call to refresh the repo list from the provider
+    void fetch(`/api/v1/admin/integrations/${provider.id}/repos`)
+      .then(() => {
+        toast({ title: `${provider.label} repositories re-synced`, variant: 'success' });
+      })
+      .catch(() => {
+        toast({ title: `Failed to re-sync ${provider.label}`, variant: 'error' });
+      })
+      .finally(() => {
+        setResyncingId(null);
+      });
+  };
+
   return (
     <div>
       <div
@@ -628,7 +700,36 @@ function IntegrationManagementContent(): React.ReactElement {
         >
           Integrations
         </h1>
+        <button
+          className="btn btn-accent"
+          onClick={() => setShowNewProjectMsg(true)}
+          data-testid="new-project-btn"
+          style={{ fontSize: '12px' }}
+        >
+          + New Project
+        </button>
       </div>
+
+      {/* H19: New Project placeholder — full vendor/non-git flow is a future feature */}
+      {showNewProjectMsg && (
+        <div
+          className="card"
+          style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          data-testid="new-project-coming-soon"
+        >
+          <p style={{ fontSize: '12px', color: 'var(--text-2)', margin: 0 }}>
+            Coming soon — use the CLI for vendor/non-git projects:{' '}
+            <code style={{ fontSize: '11px' }}>cradar scan /path --push</code>
+          </p>
+          <button
+            className="btn btn-outline"
+            onClick={() => setShowNewProjectMsg(false)}
+            style={{ fontSize: '11px', padding: '4px 8px' }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Git Providers */}
       <div className="card">
@@ -641,6 +742,8 @@ function IntegrationManagementContent(): React.ReactElement {
               onConnect={() => setPATModal({ type: provider.type, label: provider.label })}
               onDisconnect={() => handleDisconnect(provider)}
               onBrowseRepos={() => setRepoPickerProvider(provider)}
+              onResync={() => handleResync(provider)}
+              isResyncing={resyncingId === provider.id}
             />
           ))}
         </div>

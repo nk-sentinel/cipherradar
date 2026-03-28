@@ -10,6 +10,7 @@ export interface ScanQueueItem {
   startedAt: string;
   duration: string | null;
   triggeredBy: string;
+  environment: string | null;
 }
 
 interface ScanQueueResponse {

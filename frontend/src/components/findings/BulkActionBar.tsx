@@ -32,7 +32,7 @@ const ACTION_LABELS: Record<BulkAction, string> = {
 const ROLE_ACTIONS: Record<Role, BulkAction[]> = {
   'org-admin': ['assign', 'status_change', 'mark_fp', 'mark_ra', 'create_jira', 'export'],
   'security-manager': ['assign', 'status_change', 'mark_fp', 'mark_ra', 'create_jira', 'export'],
-  'security-engineer': ['assign', 'status_change', 'create_jira', 'export'],
+  'security-engineer': ['assign', 'status_change', 'raise_fp_request', 'create_jira', 'export'],
   'team-manager': ['assign', 'status_change', 'raise_fp_request', 'create_jira', 'export'],
   'compliance-auditor': ['export'],
   developer: ['raise_fp_request', 'export'],
@@ -44,6 +44,15 @@ const STATUS_OPTIONS: { value: FindingStatus; label: string }[] = [
   { value: 'in_review', label: 'In Review' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'resolved', label: 'Resolved' },
+];
+
+const REASON_CATEGORIES = [
+  'Acceptable risk level',
+  'Compensating controls in place',
+  'Short-lived key/token',
+  'Internal-only service',
+  'Migration planned',
+  'Other',
 ];
 
 // ---------------------------------------------------------------------------
@@ -63,6 +72,10 @@ export function BulkActionBar({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [activeMenu, setActiveMenu] = useState<'status' | 'more' | null>(null);
+  const [justificationTarget, setJustificationTarget] = useState<'mark_fp' | 'mark_ra' | null>(null);
+  const [justification, setJustification] = useState('');
+  const [reasonCategory, setReasonCategory] = useState(REASON_CATEGORIES[0]);
+  const [reviewDate, setReviewDate] = useState('');
 
   const role = (user?.role ?? 'guest') as Role;
   const allowedActions = ROLE_ACTIONS[role] ?? [];
@@ -106,6 +119,13 @@ export function BulkActionBar({
 
   const handleAction = useCallback(
     (action: BulkAction) => {
+      if (action === 'mark_fp' || action === 'mark_ra') {
+        setJustificationTarget(action);
+        setJustification('');
+        setReasonCategory(REASON_CATEGORIES[0]);
+        setReviewDate('');
+        return;
+      }
       bulkMutation.mutate({
         action,
         findingIds: selectedIds,
@@ -113,6 +133,21 @@ export function BulkActionBar({
     },
     [bulkMutation, selectedIds],
   );
+
+  const handleJustificationSubmit = useCallback(() => {
+    if (!justificationTarget || !justification.trim()) return;
+    const isRA = justificationTarget === 'mark_ra';
+    bulkMutation.mutate({
+      action: justificationTarget,
+      findingIds: selectedIds,
+      payload: {
+        justification: justification.trim(),
+        ...(isRA ? { reasonCategory, reviewDate } : {}),
+      },
+    });
+    setJustificationTarget(null);
+    setJustification('');
+  }, [justificationTarget, justification, reasonCategory, reviewDate, bulkMutation, selectedIds]);
 
   if (selectedIds.length === 0) return null;
 
@@ -256,6 +291,80 @@ export function BulkActionBar({
       >
         Clear
       </button>
+
+      {/* C4: Justification modal for bulk FP/RA actions */}
+      {justificationTarget && (
+        <div
+          className="modal-overlay"
+          data-testid="bulk-justification-modal"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setJustificationTarget(null); }}
+        >
+          <div className="modal card" style={{ maxWidth: '440px', width: '100%' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px' }}>
+              Justification Required
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '12px' }}>
+              {justificationTarget === 'mark_fp'
+                ? `Mark ${String(selectedIds.length)} finding(s) as False Positive`
+                : `Mark ${String(selectedIds.length)} finding(s) as Risk Accepted`}
+            </p>
+            {justificationTarget === 'mark_ra' && (
+              <div style={{ marginBottom: '8px' }}>
+                <label className="field-label">Reason Category</label>
+                <select
+                  className="input"
+                  value={reasonCategory}
+                  onChange={(e) => setReasonCategory(e.target.value)}
+                  data-testid="bulk-reason-category"
+                >
+                  {REASON_CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div style={{ marginBottom: '8px' }}>
+              <label className="field-label">Justification</label>
+              <textarea
+                className="input"
+                style={{ minHeight: '60px', resize: 'vertical', width: '100%' }}
+                required
+                placeholder="Explain why..."
+                value={justification}
+                onChange={(e) => setJustification(e.target.value)}
+                data-testid="bulk-justification-input"
+              />
+            </div>
+            {justificationTarget === 'mark_ra' && (
+              <div style={{ marginBottom: '8px' }}>
+                <label className="field-label">Review Date</label>
+                <input
+                  className="input"
+                  type="date"
+                  required
+                  value={reviewDate}
+                  onChange={(e) => setReviewDate(e.target.value)}
+                  data-testid="bulk-review-date"
+                />
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline" onClick={() => setJustificationTarget(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-accent"
+                disabled={!justification.trim() || (justificationTarget === 'mark_ra' && !reviewDate)}
+                onClick={handleJustificationSubmit}
+                data-testid="bulk-justification-submit"
+              >
+                Submit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
