@@ -17,6 +17,7 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid as _uuid
 from typing import TYPE_CHECKING
@@ -35,6 +36,57 @@ class AuditService:
     All security-relevant actions across the platform should be logged through
     this service to ensure consistent formatting and storage.
     """
+
+    async def _fire_webhook(self, org_id: _uuid.UUID, entry_data: dict) -> None:
+        """Forward audit entry to org webhook if configured.
+
+        Runs as a fire-and-forget background task so it never blocks the
+        main request path. Errors are logged as warnings but never raised.
+        """
+        try:
+            from app.services.audit_log_query_service import audit_log_query_service
+
+            # Look up org webhook URL from settings.
+            # Import here to avoid circular imports at module level.
+            from sqlalchemy import text
+
+            from app.db.session import async_session_factory
+
+            webhook_url: str | None = None
+            async with async_session_factory() as sess:
+                result = await sess.execute(
+                    text("SELECT settings FROM organisations WHERE id = :org_id"),
+                    {"org_id": org_id},
+                )
+                row = result.fetchone()
+                if row and row[0]:
+                    webhook_url = row[0].get("audit_webhook_url")
+
+            if not webhook_url:
+                return
+
+            success = await audit_log_query_service.forward_to_webhook(
+                webhook_url=webhook_url,
+                entry=entry_data,
+            )
+            if success:
+                logger.info(
+                    "Audit webhook sent",
+                    extra={"extra_fields": {
+                        "org_id": str(org_id),
+                        "action_type": entry_data.get("action_type"),
+                    }},
+                )
+            else:
+                logger.warning(
+                    "Audit webhook failed",
+                    extra={"extra_fields": {
+                        "org_id": str(org_id),
+                        "webhook_url": webhook_url,
+                    }},
+                )
+        except Exception:
+            logger.warning("Audit webhook error", exc_info=True)
 
     async def log(
         self,
@@ -89,16 +141,22 @@ class AuditService:
         session.add(entry)
         await session.flush()
 
+        entry_data = {
+            "action_type": action_type,
+            "user_id": str(user_id) if user_id else None,
+            "org_id": str(org_id),
+            "resource_type": resource_type,
+            "resource_id": str(resource_id) if resource_id else None,
+            "details": details,
+        }
+
         logger.info(
             "Audit entry created",
-            extra={"extra_fields": {
-                "action_type": action_type,
-                "user_id": str(user_id) if user_id else None,
-                "org_id": str(org_id),
-                "resource_type": resource_type,
-                "resource_id": str(resource_id) if resource_id else None,
-            }},
+            extra={"extra_fields": entry_data},
         )
+
+        # Fire webhook in background — never block the caller
+        asyncio.create_task(self._fire_webhook(org_id, entry_data))
 
 
 # Module-level singleton for dependency injection

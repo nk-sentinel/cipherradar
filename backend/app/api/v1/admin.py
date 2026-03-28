@@ -3,6 +3,7 @@
 All endpoints require org_admin or security_manager role.
 """
 
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -49,6 +50,8 @@ from app.services.audit_log_query_service import audit_log_query_service
 from app.services.integration_service import integration_service
 from app.services.llm_config_service import llm_config_service
 from app.services.user_lifecycle_service import user_lifecycle_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -188,6 +191,43 @@ async def list_users(
         )
 
     return OrgUserList(items=items, total=len(items))
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/admin/users/list — simple list for dropdowns (M4)
+# ---------------------------------------------------------------------------
+
+
+@router.get("/users/list")
+async def list_users_simple(
+    user: AuthenticatedUser = Depends(_admin_dep),
+    session: AsyncSession = Depends(get_session),
+) -> list[dict]:
+    """Return a minimal user list (id, name, email) for filter dropdowns.
+
+    Used by the audit log user filter (M4). Roles: OA, SM.
+    """
+    result = await session.execute(
+        text(
+            "SELECT id, email FROM users "
+            "WHERE org_id = :org_id AND is_active = true "
+            "ORDER BY email"
+        ),
+        {"org_id": user.org_id},
+    )
+    rows = result.fetchall()
+    logger.info(
+        "User list fetched for dropdown",
+        extra={"extra_fields": {"org_id": user.org_id, "count": len(rows)}},
+    )
+    return [
+        {
+            "id": str(row[0]),
+            "name": row[1].split("@")[0],
+            "email": row[1],
+        }
+        for row in rows
+    ]
 
 
 # ---------------------------------------------------------------------------
@@ -502,6 +542,14 @@ async def get_audit_log(
     resource_id: str | None = Query(default=None),
 ) -> AuditLogQueryResponse:
     """Return filtered, paginated audit log events from the database (D28)."""
+    logger.info(
+        "Audit log queried",
+        extra={"extra_fields": {
+            "org_id": user.org_id,
+            "user_id_filter": user_id,
+            "action_type_filter": action_type,
+        }},
+    )
     date_from_dt = None
     date_to_dt = None
     if date_from:
@@ -613,6 +661,15 @@ async def change_user_role(
         session=session,
     )
     await session.commit()
+    logger.info(
+        "User role changed",
+        extra={"extra_fields": {
+            "target_user_id": str(user_id),
+            "old_role": old_role,
+            "new_role": body.role,
+            "actor_id": user.user_id,
+        }},
+    )
     return ChangeRoleResponse(
         user_id=str(user_id),
         old_role=old_role,
@@ -644,6 +701,10 @@ async def disable_user(
         session=session,
     )
     await session.commit()
+    logger.info(
+        "User disabled",
+        extra={"extra_fields": {"target_user_id": str(user_id), "actor_id": user.user_id}},
+    )
     return UserStatusResponse(
         user_id=str(user_id),
         status="disabled",
@@ -674,6 +735,10 @@ async def enable_user(
         session=session,
     )
     await session.commit()
+    logger.info(
+        "User re-enabled",
+        extra={"extra_fields": {"target_user_id": str(user_id), "actor_id": user.user_id}},
+    )
     return UserStatusResponse(
         user_id=str(user_id),
         status="active",
@@ -704,6 +769,10 @@ async def delete_user(
         session=session,
     )
     await session.commit()
+    logger.info(
+        "User soft-deleted",
+        extra={"extra_fields": {"target_user_id": str(user_id), "actor_id": user.user_id}},
+    )
     return DeleteUserResponse(user_id=str(user_id))
 
 

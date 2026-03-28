@@ -6,6 +6,7 @@ configurations. GET requires OA or SM. Mutations require OA only.
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, status
@@ -21,6 +22,8 @@ from app.schemas.artifact_registry import (
     RegistryUpdate,
 )
 from app.services.artifact_registry_service import artifact_registry_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["artifact-registries"])
 
@@ -88,6 +91,10 @@ async def create_registry(
         session=session,
     )
     await session.commit()
+    logger.info(
+        "Artifact registry created",
+        extra={"extra_fields": {"user_id": user.user_id, "org_id": user.org_id}},
+    )
     return result
 
 
@@ -111,6 +118,13 @@ async def update_registry(
         session=session,
     )
     await session.commit()
+    logger.info(
+        "Artifact registry updated",
+        extra={"extra_fields": {
+            "registry_id": str(registry_id),
+            "user_id": user.user_id,
+        }},
+    )
     return result
 
 
@@ -132,6 +146,13 @@ async def delete_registry(
         session=session,
     )
     await session.commit()
+    logger.info(
+        "Artifact registry deleted",
+        extra={"extra_fields": {
+            "registry_id": str(registry_id),
+            "user_id": user.user_id,
+        }},
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -15,6 +16,8 @@ from app.schemas.policy_cascade import (
     PolicyOverrideResponse,
 )
 from app.services.policy_service import policy_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/policy", tags=["policy"])
 
@@ -96,11 +99,25 @@ async def _count_violations_for_rule(
     return result.scalar_one()
 
 
-@router.get("/rules", response_model=PolicyRuleListResponse)
+@router.get(
+    "/rules",
+    response_model=PolicyRuleListResponse,
+    dependencies=[
+        Depends(
+            require_role(
+                Role.ORG_ADMIN,
+                Role.SECURITY_MANAGER,
+                Role.SECURITY_ENGINEER,
+                Role.COMPLIANCE_AUDITOR,
+            )
+        )
+    ],
+)
 async def list_policy_rules(
     session: AsyncSession = Depends(get_session),
 ) -> PolicyRuleListResponse:
     """List all policy rules with violation counts from the findings table."""
+    logger.info("Listing policy rules")
     rules: list[PolicyRule] = []
     for rule_def in _DEFAULT_RULES:
         rule_id = rule_def["id"]
@@ -119,19 +136,33 @@ async def list_policy_rules(
     return PolicyRuleListResponse(rules=rules, total=len(rules))
 
 
-@router.put("/rules/{rule_id}", response_model=PolicyRule)
+@router.put(
+    "/rules/{rule_id}",
+    response_model=PolicyRule,
+    dependencies=[Depends(require_role(Role.ORG_ADMIN, Role.SECURITY_MANAGER))],
+)
 async def toggle_policy_rule(
     rule_id: str,
     body: PolicyRuleToggle,
+    user: AuthenticatedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> PolicyRule:
-    """Toggle enable/disable for a policy rule."""
+    """Toggle enable/disable for a policy rule. Roles: OA, SM."""
     # Validate rule_id exists
     rule_def = next((r for r in _DEFAULT_RULES if r["id"] == rule_id), None)
     if rule_def is None:
         raise HTTPException(status_code=404, detail=f"Policy rule '{rule_id}' not found")
 
     _rule_enabled_state[rule_id] = body.enabled
+
+    logger.info(
+        "Policy rule toggled",
+        extra={"extra_fields": {
+            "rule_id": rule_id,
+            "enabled": body.enabled,
+            "user_id": user.user_id,
+        }},
+    )
 
     violation_count = await _count_violations_for_rule(session, rule_id)
 

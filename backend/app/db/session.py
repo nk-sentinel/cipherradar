@@ -36,6 +36,18 @@ async def dispose_engine() -> None:
         _async_session_factory = None
 
 
+def async_session_factory() -> AsyncSession:
+    """Return a new async session from the factory.
+
+    For use outside of FastAPI dependency injection (e.g. background tasks).
+    Caller is responsible for closing the session.
+    """
+    if _async_session_factory is None:
+        msg = "Database engine not initialised. Call init_engine() first."
+        raise RuntimeError(msg)
+    return _async_session_factory()
+
+
 async def get_session() -> AsyncIterator[AsyncSession]:
     """Dependency that yields an async session.
 

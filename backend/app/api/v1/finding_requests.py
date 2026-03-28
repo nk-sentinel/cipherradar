@@ -6,6 +6,7 @@ false positive and risk acceptance requests.
 
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -21,6 +22,8 @@ from app.schemas.finding_request import (
     FindingRequestResponse,
 )
 from app.services.finding_request_service import finding_request_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["finding-requests"])
 
@@ -60,11 +63,23 @@ async def create_finding_request(
             detail="Finding not found",
         )
     except PermissionError as e:
+        logger.warning(
+            "RBAC denied: create finding request",
+            extra={"extra_fields": {"user_id": user.user_id, "finding_id": str(finding_id)}},
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e),
         )
 
+    logger.info(
+        "Finding request created",
+        extra={"extra_fields": {
+            "finding_id": str(finding_id),
+            "request_type": body.request_type,
+            "user_id": user.user_id,
+        }},
+    )
     return FindingRequestResponse.model_validate(request)
 
 
@@ -78,8 +93,6 @@ async def create_finding_request(
                 Role.SECURITY_MANAGER,
                 Role.SECURITY_ENGINEER,
                 Role.TEAM_MANAGER,
-                Role.COMPLIANCE_AUDITOR,
-                Role.DEVELOPER,
             )
         )
     ],
@@ -91,6 +104,10 @@ async def list_requests(
     session: AsyncSession = Depends(get_session),
 ) -> FindingRequestListResponse:
     """List finding requests, paginated and RBAC-scoped."""
+    logger.info(
+        "Listing finding requests",
+        extra={"extra_fields": {"user_id": user.user_id, "org_id": user.org_id}},
+    )
     result = await finding_request_service.list_requests(
         org_id=uuid.UUID(user.org_id),
         actor=user,
@@ -142,11 +159,19 @@ async def approve_request(
             detail=str(e),
         )
     except PermissionError as e:
+        logger.warning(
+            "RBAC denied: approve finding request",
+            extra={"extra_fields": {"user_id": user.user_id, "request_id": str(request_id)}},
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e),
         )
 
+    logger.info(
+        "Finding request approved",
+        extra={"extra_fields": {"request_id": str(request_id), "user_id": user.user_id}},
+    )
     return FindingRequestResponse.model_validate(request)
 
 
@@ -188,9 +213,17 @@ async def reject_request(
             detail=str(e),
         )
     except PermissionError as e:
+        logger.warning(
+            "RBAC denied: reject finding request",
+            extra={"extra_fields": {"user_id": user.user_id, "request_id": str(request_id)}},
+        )
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(e),
         )
 
+    logger.info(
+        "Finding request rejected",
+        extra={"extra_fields": {"request_id": str(request_id), "user_id": user.user_id}},
+    )
     return FindingRequestResponse.model_validate(request)
