@@ -39,6 +39,8 @@ export const PAGE_ACCESS: Record<Role, string[]> = {
     'admin-users',
     'admin-integrations',
     'admin-audit-log',
+    'admin-registries',
+    'admin-llm-config',
     'runtime',
     'agility-score',
     'hndl-risk',

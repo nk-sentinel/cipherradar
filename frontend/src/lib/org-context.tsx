@@ -77,3 +77,12 @@ export function useCurrentOrg(): OrgContextValue {
   }
   return context;
 }
+
+/**
+ * Like useCurrentOrg but returns null instead of throwing when
+ * OrgProvider is not available. Safe to call unconditionally
+ * (no Rules of Hooks violation).
+ */
+export function useOptionalCurrentOrg(): OrgContextValue | null {
+  return useContext(OrgContext);
+}

@@ -14,15 +14,15 @@ import {
   Shield,
   MessageSquare,
   Settings,
-  Search,
   GitBranch,
-  Award,
   ArrowLeftRight,
   Users,
   Plug,
   ScrollText,
   Package,
   Sparkles,
+  Key,
+  FolderTree,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -44,7 +44,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { label: 'Dashboard', icon: LayoutDashboard, to: '/', page: 'dashboard' },
       { label: 'Projects', icon: FolderKanban, to: '/repos', page: 'repos' },
-      { label: 'Scans', icon: Zap, to: '/scans', page: 'repos' },
+      { label: 'Scans', icon: Zap, to: '/scans', page: 'scans' },
       { label: 'Findings', icon: Flag, to: '/assets', page: 'assets' },
     ],
   },
@@ -52,8 +52,6 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'Portfolio',
     items: [
       { label: 'Portfolio Compliance', icon: Shield, to: '/compliance', page: 'portfolio-compliance' },
-      { label: 'Compliance Dashboard', icon: Award, to: '/compliance-dashboard', page: 'compliance-dashboard' },
-      { label: 'Quantum Readiness', icon: Search, to: '/quantum', page: 'portfolio-quantum' },
       { label: 'Dependency Graph', icon: GitBranch, to: '/graph', page: 'graph' },
       { label: 'Certificate Tracker', icon: Shield, to: '/certificate-tracker', page: 'certificates' },
       { label: 'CBOM Diff', icon: ArrowLeftRight, to: '/diff', page: 'diff' },
@@ -66,8 +64,10 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Users', icon: Users, to: '/admin/users', page: 'admin-users' },
       { label: 'Integrations', icon: Plug, to: '/admin/integrations', page: 'admin-integrations' },
       { label: 'Audit Log', icon: ScrollText, to: '/admin/audit-log', page: 'admin-audit-log' },
-      { label: 'Registries', icon: Package, to: '/admin/registries', page: 'admin-settings' },
-      { label: 'AI Remediation', icon: Sparkles, to: '/admin/llm-config', page: 'admin-settings' },
+      { label: 'API Keys', icon: Key, to: '/admin/api-keys', page: 'admin-settings' },
+      { label: 'Groups', icon: FolderTree, to: '/admin/groups', page: 'admin-settings' },
+      { label: 'Registries', icon: Package, to: '/admin/registries', page: 'admin-registries' },
+      { label: 'AI Remediation', icon: Sparkles, to: '/admin/llm-config', page: 'admin-llm-config' },
     ],
   },
   {

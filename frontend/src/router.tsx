@@ -34,6 +34,8 @@ import { OrgSettings } from './pages/admin/OrgSettings.tsx';
 import { UserManagement } from './pages/admin/UserManagement.tsx';
 import { IntegrationManagement } from './pages/admin/IntegrationManagement.tsx';
 import { AuditLog } from './pages/admin/AuditLog.tsx';
+import { AdminApiKeys } from './pages/admin/AdminApiKeys.tsx';
+import { GroupManagement } from './pages/admin/GroupManagement.tsx';
 import { LazyDependencyGraph } from './pages/LazyDependencyGraph.tsx';
 import { PolicyRules } from './pages/PolicyRules.tsx';
 import { RuntimeView } from './pages/RuntimeView.tsx';
@@ -180,14 +182,14 @@ const scansRoute = createRoute({
 const adminRegistriesRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/admin/registries',
-  beforeLoad: createRouteGuard('admin-settings'),
+  beforeLoad: createRouteGuard('admin-registries'),
   component: ArtifactRegistries,
 });
 
 const adminLLMConfigRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/admin/llm-config',
-  beforeLoad: createRouteGuard('admin-settings'),
+  beforeLoad: createRouteGuard('admin-llm-config'),
   component: LLMConfig,
 });
 
@@ -237,6 +239,20 @@ const adminAuditLogRoute = createRoute({
   path: '/admin/audit-log',
   beforeLoad: createRouteGuard('admin-audit-log'),
   component: AuditLog,
+});
+
+const adminApiKeysRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/admin/api-keys',
+  beforeLoad: createRouteGuard('admin-settings'),
+  component: AdminApiKeys,
+});
+
+const adminGroupsRoute = createRoute({
+  getParentRoute: () => authenticatedRoute,
+  path: '/admin/groups',
+  beforeLoad: createRouteGuard('admin-settings'),
+  component: GroupManagement,
 });
 
 /* ---- Repo routes ---- */
@@ -386,6 +402,8 @@ const routeTree = rootRoute.addChildren([
     adminUsersRoute,
     adminIntegrationsRoute,
     adminAuditLogRoute,
+    adminApiKeysRoute,
+    adminGroupsRoute,
     adminRegistriesRoute,
     adminLLMConfigRoute,
     repoScanDetailRoute,

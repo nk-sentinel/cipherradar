@@ -21,6 +21,8 @@ const PAGE_TO_ROUTE: Record<string, string> = {
   'admin-users': '/admin/users',
   'admin-integrations': '/admin/integrations',
   'admin-audit-log': '/admin/audit-log',
+  'admin-registries': '/admin/registries',
+  'admin-llm-config': '/admin/llm-config',
 };
 
 /**
