@@ -64,13 +64,13 @@ export function ProjectTree(): React.ReactElement {
 
   // Group repos by org path prefix
   const groups = useMemo((): GroupNode[] => {
-    if (!repos) return [];
+    if (!repos || !Array.isArray(repos)) return [];
 
     const groupMap = new Map<string, GroupNode>();
 
     for (const repo of repos) {
-      const parts = repo.orgPath.split('/');
-      const groupName = parts.length > 1 ? (parts[0] ?? 'Default') : 'Default';
+      const orgPath = (repo as unknown as Record<string, unknown>).orgPath as string | undefined;
+      const groupName = orgPath ? (orgPath.split('/')[0] ?? 'Default') : (repo.name?.charAt(0)?.toUpperCase() ?? 'Default');
 
       if (!groupMap.has(groupName)) {
         groupMap.set(groupName, { name: groupName, repos: [] });

@@ -14,8 +14,8 @@ export function useNotifications() {
     queryKey: ['notifications'],
     queryFn: async () => {
       try {
-        const data = await apiClient<Notification[]>('/notifications');
-        if (data) return data;
+        const data = await apiClient<Notification[] | { items: Notification[] }>('/notifications');
+        if (data) return Array.isArray(data) ? data : (data.items ?? []);
       } catch {
           const { getNotifications } = await import('@/mocks/data/notifications.ts');
           return getNotifications();

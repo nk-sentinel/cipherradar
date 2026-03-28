@@ -106,7 +106,7 @@ export function OrgSwitcher(): React.ReactElement {
             overflow: 'hidden',
           }}
         >
-          {orgs.map((org) => (
+          {(Array.isArray(orgs) ? orgs : []).map((org) => (
             <div
               key={org.id}
               role="option"

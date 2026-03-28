@@ -11,8 +11,8 @@ export function useRepositories() {
     queryKey: ['repositories'],
     queryFn: async () => {
       try {
-        const data = await apiClient<Repository[]>('/projects');
-        if (data) return data;
+        const data = await apiClient<Repository[] | { items: Repository[] }>('/projects');
+        if (data) return Array.isArray(data) ? data : (data.items ?? []);
       } catch {
           const { MOCK_REPOSITORIES } = await import('@/mocks/data/repositories.ts');
           return MOCK_REPOSITORIES;

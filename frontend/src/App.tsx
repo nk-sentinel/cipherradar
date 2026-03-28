@@ -20,7 +20,8 @@ const queryClient = new QueryClient({
 
 function OrgBootstrap({ children }: { children: React.ReactNode }): React.ReactElement {
   const { data: orgs } = useUserOrgs();
-  const resolvedOrgs: Org[] = orgs ?? [];
+  const rawOrgs = orgs as Org[] | { items?: Org[] } | undefined;
+  const resolvedOrgs: Org[] = Array.isArray(rawOrgs) ? rawOrgs : (rawOrgs?.items ?? []);
 
   return <OrgProvider orgs={resolvedOrgs}>{children}</OrgProvider>;
 }
