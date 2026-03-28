@@ -827,15 +827,7 @@ tr.clickable {
 .kanban-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .download-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 
-/* Responsive — large tablets / narrow desktop */
-@media (max-width: 1100px) and (min-width: 1025px) {
-  .sidebar {
-    width: 200px;
-  }
-  .content-area {
-    margin-left: 200px;
-  }
-}
+/* Responsive — large tablets / narrow desktop (removed 1100px breakpoint — now handled by 1024px collapse below) */
 
 /* Tablet */
 @media (max-width: 768px) {
@@ -1194,11 +1186,13 @@ tr.clickable {
 }
 
 /* ======================================
-   Focus-visible (D32 / A11y)
+   Focus-visible (D32 #92 / A11y)
    ====================================== */
+/* D32 #92 — Visible focus indicator for keyboard navigation */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+  border-radius: var(--radius, 4px);
 }
 
 button:focus-visible,
@@ -1221,6 +1215,16 @@ textarea:focus-visible,
   .sidebar {
     width: 60px;
     overflow: hidden;
+  }
+  .sidebar .nav-label,
+  .sidebar .section-label,
+  .sidebar .org-name,
+  .sidebar .org-label {
+    display: none;
+  }
+  .sidebar .nav-item {
+    justify-content: center;
+    padding: 8px;
   }
   .sidebar .nav-item span:not(.nav-icon) {
     display: none;

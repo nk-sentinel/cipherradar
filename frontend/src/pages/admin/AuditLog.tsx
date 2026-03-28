@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { RequireRole } from '@/components/guards/RequireRole.tsx';
 import {
   useAuditLogPaginated,
@@ -8,7 +9,11 @@ import {
   type DatePreset,
 } from '@/api/hooks/useAuditLog.ts';
 import type { AuditAction } from '@/mocks/data/admin.ts';
+import { apiClient } from '@/api/client.ts';
 import { useToast } from '@/lib/use-toast.ts';
+import { AccessibleTable } from '@/components/ui/AccessibleTable.tsx';
+
+// TODO: Add webhook configuration section per D28 (SIEM export)
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -38,14 +43,6 @@ const ACTION_TYPE_OPTIONS = [
   { value: 'integration', label: 'Integrations' },
   { value: 'finding', label: 'Findings' },
   { value: 'cbom', label: 'CBOM' },
-];
-
-const KNOWN_USERS = [
-  { value: '', label: 'All Users' },
-  { value: 'alex.chen@nk-sentinel.io', label: 'Alex Chen' },
-  { value: 'sarah.kim@nk-sentinel.io', label: 'Sarah Kim' },
-  { value: 'james.liu@nk-sentinel.io', label: 'James Liu' },
-  { value: 'maria.garcia@nk-sentinel.io', label: 'Maria Garcia' },
 ];
 
 const PAGE_SIZE = 25;
@@ -97,7 +94,16 @@ function formatTimestamp(iso: string): string {
 
 export function AuditLog(): React.ReactElement {
   return (
-    <RequireRole roles={['org-admin', 'security-manager']}>
+    <RequireRole
+      roles={['org-admin', 'security-manager']}
+      fallback={
+        <div className="card">
+          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>
+            Access denied. You do not have permission to view the audit log. Contact your admin.
+          </p>
+        </div>
+      }
+    >
       <AuditLogContent />
     </RequireRole>
   );
@@ -109,6 +115,13 @@ export function AuditLog(): React.ReactElement {
 
 function AuditLogContent(): React.ReactElement {
   const { toast } = useToast();
+
+  // Fetch users from API for user filter dropdown
+  const { data: usersData } = useQuery({
+    queryKey: ['admin-users-list'],
+    queryFn: () => apiClient<{ items: Array<{ email: string; name: string }> } | Array<{ email: string; name: string }>>('/admin/users'),
+  });
+  const userOptions = Array.isArray(usersData) ? usersData : (usersData?.items ?? []);
 
   // Filters
   const [userFilter, setUserFilter] = useState('');
@@ -266,7 +279,7 @@ function AuditLogContent(): React.ReactElement {
           </>
         )}
 
-        {/* User dropdown */}
+        {/* User dropdown (API-driven) */}
         <select
           className="filter"
           value={userFilter}
@@ -274,9 +287,10 @@ function AuditLogContent(): React.ReactElement {
           aria-label="Filter by user"
           data-testid="user-filter"
         >
-          {KNOWN_USERS.map((u) => (
-            <option key={u.value} value={u.value}>
-              {u.label}
+          <option value="">All Users</option>
+          {userOptions.map((u) => (
+            <option key={u.email} value={u.email}>
+              {u.name}
             </option>
           ))}
         </select>
@@ -311,17 +325,17 @@ function AuditLogContent(): React.ReactElement {
 
       {/* Audit log table */}
       <div className="card">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Timestamp</th>
-              <th scope="col">User</th>
-              <th scope="col">Action</th>
-              <th scope="col">Resource</th>
-              <th scope="col">Detail</th>
-            </tr>
-          </thead>
-          <tbody>
+        <AccessibleTable
+          columns={[
+            { label: 'Timestamp' },
+            { label: 'User' },
+            { label: 'Action' },
+            { label: 'Resource' },
+            { label: 'Detail' },
+          ]}
+          caption="Audit log entries"
+          data-testid="audit-log-table"
+        >
             {entries.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '12px', padding: '20px' }}>
@@ -359,8 +373,7 @@ function AuditLogContent(): React.ReactElement {
                 </tr>
               );
             })}
-          </tbody>
-        </table>
+        </AccessibleTable>
       </div>
 
       {/* Pagination */}
