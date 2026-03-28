@@ -69,12 +69,12 @@ describe('Sidebar uses Lucide React icons', () => {
     expect(item!.icon).toBe(Flag);
   });
 
-  it('Compliance item uses Shield icon', async () => {
+  it('Portfolio Compliance item uses Shield icon', async () => {
     const mod = await import('@/components/layout/Sidebar');
     const { Shield } = await import('lucide-react');
     const item = mod.NAV_SECTIONS
       .flatMap((s: { items: Array<{ label: string; icon: unknown }> }) => s.items)
-      .find((i: { label: string }) => i.label === 'Compliance');
+      .find((i: { label: string }) => i.label === 'Portfolio Compliance');
     expect(item).toBeDefined();
     expect(item!.icon).toBe(Shield);
   });

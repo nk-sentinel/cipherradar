@@ -20,24 +20,26 @@ describe('Breadcrumb segment generation', () => {
     expect(typeof mod.buildBreadcrumbs).toBe('function');
   });
 
-  it('returns empty array for root path', async () => {
+  it('returns Dashboard crumb for root path (no org)', async () => {
     const mod = await import('@/components/layout/Breadcrumbs');
     const segments = mod.buildBreadcrumbs('/', {});
-    expect(segments).toEqual([]);
+    expect(segments).toHaveLength(1);
+    expect(segments[0].label).toBe('Dashboard');
   });
 
-  it('returns Dashboard crumb for / path', async () => {
+  it('returns Org > Dashboard crumbs for root path (with org)', async () => {
     const mod = await import('@/components/layout/Breadcrumbs');
-    const segments = mod.buildBreadcrumbs('/', {});
-    // Root path has no breadcrumbs (we are already on Dashboard)
-    expect(segments).toHaveLength(0);
+    const segments = mod.buildBreadcrumbs('/', { orgName: 'nk-sentinel' });
+    expect(segments).toHaveLength(2);
+    expect(segments[0].label).toBe('nk-sentinel');
+    expect(segments[1].label).toBe('Dashboard');
   });
 
-  it('returns Repositories crumb for /repos path', async () => {
+  it('returns Projects crumb for /repos path', async () => {
     const mod = await import('@/components/layout/Breadcrumbs');
     const segments = mod.buildBreadcrumbs('/repos', {});
     expect(segments).toHaveLength(1);
-    expect(segments[0].label).toBe('Repositories');
+    expect(segments[0].label).toBe('Projects');
     expect(segments[0].to).toBe('/repos');
   });
 

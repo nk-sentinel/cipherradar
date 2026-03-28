@@ -58,11 +58,11 @@ describe('Repositories page', () => {
     try { sessionStorage.clear(); } catch { /* jsdom may not support */ }
   });
 
-  it('renders the page title and connect button', async () => {
+  it('renders the page title and add project button', async () => {
     renderWithProviders();
     await waitFor(() => {
-      expect(screen.getByText('Repositories')).toBeInTheDocument();
-      expect(screen.getByText('+ Connect Repo')).toBeInTheDocument();
+      expect(screen.getByText('Projects')).toBeInTheDocument();
+      expect(screen.getByText('+ Add Project')).toBeInTheDocument();
     });
   });
 

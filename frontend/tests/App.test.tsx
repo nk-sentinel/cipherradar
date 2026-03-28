@@ -16,11 +16,12 @@ describe('App', () => {
     expect(screen.getByText('Sign In')).toBeInTheDocument();
   });
 
-  it('shows SSO buttons on the login page', async () => {
+  it('does not show SSO buttons on the login page (D8: removed)', async () => {
     render(<App />);
     await waitFor(() => {
-      expect(screen.getByText('Sign in with GitHub SSO')).toBeInTheDocument();
+      expect(screen.getByText('Sign In')).toBeInTheDocument();
     });
-    expect(screen.getByText('Sign in with SAML / OIDC')).toBeInTheDocument();
+    expect(screen.queryByText('Sign in with GitHub SSO')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sign in with SAML / OIDC')).not.toBeInTheDocument();
   });
 });
