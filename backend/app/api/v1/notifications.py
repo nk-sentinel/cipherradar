@@ -60,10 +60,14 @@ def set_update_preferences(fn) -> None:  # noqa: ANN001
 async def list_notifications(
     page: int = Query(default=1, ge=1, description="Page number"),
     per_page: int = Query(default=20, ge=1, le=100, description="Items per page"),
-    user_id: uuid.UUID = Query(description="User ID to filter notifications"),
+    user_id: uuid.UUID | None = Query(default=None, description="User ID to filter notifications"),
 ) -> NotificationListResponse:
-    """List notifications for a user (paginated)."""
-    if _list_notifications is not None:
+    """List notifications for a user (paginated).
+
+    ``user_id`` is optional; when omitted the endpoint returns an empty list
+    (callers that need real data should provide it).
+    """
+    if user_id is not None and _list_notifications is not None:
         return await _list_notifications(str(user_id), page, per_page)
 
     return NotificationListResponse(items=[], total=0, page=page, per_page=per_page)

@@ -73,7 +73,7 @@ export function PortfolioDashboard(): React.ReactElement {
     );
   }
 
-  const barData = summary.severityDistribution.map((s) => ({
+  const barData = (summary.severityDistribution ?? []).map((s) => ({
     name: SEVERITY_LABELS[s.severity],
     count: s.count,
     fill: SEVERITY_COLORS[s.severity],
@@ -233,7 +233,7 @@ export function PortfolioDashboard(): React.ReactElement {
       </div>
 
       {/* Heat map */}
-      {!heatMapLoading && heatMap && (
+      {!heatMapLoading && heatMap && heatMap.repos && (
         <div className="card">
           <div className="card-title">Severity Heat Map</div>
           <div style={{ overflowX: 'auto' }}>
@@ -247,7 +247,7 @@ export function PortfolioDashboard(): React.ReactElement {
                 </tr>
               </thead>
               <tbody>
-                {heatMap.repos.map((repo) => {
+                {(heatMap.repos ?? []).map((repo) => {
                   const maxVal = Math.max(repo.critical, repo.high, repo.medium, repo.low, repo.info);
                   return (
                     <tr
@@ -338,7 +338,7 @@ export function PortfolioDashboard(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {summary.topRiskRepos.map((repo) => (
+            {(summary.topRiskRepos ?? []).map((repo) => (
               <tr
                 key={repo.repoId}
                 className="clickable"

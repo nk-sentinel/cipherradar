@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
@@ -57,6 +57,7 @@ async def get_scan_cbom(
 
 @router.get("", response_model=ScanQueueListResponse)
 async def list_scans(
+    request: Request,
     page: int = Query(default=1, ge=1, description="Page number"),
     per_page: int = Query(default=25, ge=1, le=100, description="Items per page"),
     status: str | None = Query(default=None, description="Filter by scan status"),
@@ -69,7 +70,28 @@ async def list_scans(
 
     Scans are scoped to the user's organisation. Additional filters can narrow
     results by status, project, or trigger type.
+
+    Accepts both ``per_page`` (snake_case) and ``perPage`` (camelCase) for the
+    page-size parameter.
     """
+    # Support camelCase query params from frontend
+    camel_per_page = request.query_params.get("perPage")
+    if camel_per_page is not None:
+        try:
+            val = int(camel_per_page)
+            if 1 <= val <= 100:
+                per_page = val
+        except ValueError:
+            pass
+
+    if project_id is None:
+        camel_project_id = request.query_params.get("projectId")
+        if camel_project_id is not None:
+            try:
+                project_id = uuid.UUID(camel_project_id)
+            except ValueError:
+                pass
+
     # Base query scoped to user's org
     base = select(Scan).where(Scan.org_id == uuid.UUID(user.org_id))
 

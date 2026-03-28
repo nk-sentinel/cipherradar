@@ -58,6 +58,13 @@ def _make_actor(
     return actor
 
 
+def _make_request(query_params: dict[str, str] | None = None) -> MagicMock:
+    """Build a mock Request with query_params."""
+    req = MagicMock()
+    req.query_params = query_params or {}
+    return req
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -92,6 +99,7 @@ async def test_list_scans_returns_paginated() -> None:
         from app.api.v1.scans import list_scans
 
         result = await list_scans(
+            request=_make_request(),
             page=1,
             per_page=25,
             status=None,
@@ -126,6 +134,7 @@ async def test_list_scans_filter_by_status() -> None:
     from app.api.v1.scans import list_scans
 
     result = await list_scans(
+        request=_make_request(),
         page=1,
         per_page=25,
         status="queued",
@@ -160,6 +169,7 @@ async def test_list_scans_filter_by_project() -> None:
     from app.api.v1.scans import list_scans
 
     result = await list_scans(
+        request=_make_request(),
         page=1,
         per_page=25,
         status=None,
@@ -191,6 +201,7 @@ async def test_list_scans_rbac_scoped() -> None:
     from app.api.v1.scans import list_scans
 
     result = await list_scans(
+        request=_make_request(),
         page=1,
         per_page=25,
         status=None,

@@ -1,16 +1,162 @@
 import uuid
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.middleware import AuthenticatedUser, get_current_user
 from app.db.session import get_session
+from app.models.organisation import Organisation
 from app.models.project import Project
 from app.models.scan import Scan, ScanStatus
+from app.schemas.base import CamelCaseModel
 from app.schemas.scan import ScanListResponse, ScanResponse
 
 router = APIRouter(tags=["projects"])
 repos_router = APIRouter(tags=["repos"])
+
+
+# ---------------------------------------------------------------------------
+# Schemas for project list endpoint
+# ---------------------------------------------------------------------------
+
+
+class ProjectResponse(CamelCaseModel):
+    """Response schema for a single project in a list."""
+
+    id: uuid.UUID
+    name: str
+    type: str = "repository"
+    group_id: uuid.UUID
+    org_id: uuid.UUID
+    git_url: str | None = None
+    provider: str | None = None
+    last_scan_at: datetime | None = None
+    findings_count: int = 0
+
+    model_config = {**CamelCaseModel.model_config, "from_attributes": True}
+
+
+class ProjectListResponse(CamelCaseModel):
+    """Paginated list of projects."""
+
+    items: list[ProjectResponse]
+    total: int
+    page: int
+    per_page: int
+
+
+# ---------------------------------------------------------------------------
+# GET /projects — list all projects for the user's org
+# ---------------------------------------------------------------------------
+
+
+@router.get("/projects", response_model=ProjectListResponse)
+async def list_projects(
+    page: int = Query(default=1, ge=1, description="Page number"),
+    per_page: int = Query(default=20, ge=1, le=100, description="Items per page"),
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ProjectListResponse:
+    """List all projects for the authenticated user's organisation (paginated)."""
+    org_id = uuid.UUID(user.org_id)
+
+    # Count total projects in org
+    count_stmt = (
+        select(func.count())
+        .select_from(Project)
+        .where(Project.org_id == org_id)
+    )
+    total_result = await session.execute(count_stmt)
+    total = total_result.scalar_one()
+
+    # Fetch page
+    offset = (page - 1) * per_page
+    stmt = (
+        select(Project)
+        .where(Project.org_id == org_id)
+        .order_by(Project.name)
+        .offset(offset)
+        .limit(per_page)
+    )
+    result = await session.execute(stmt)
+    projects = result.scalars().all()
+
+    # For each project, get latest scan date and total findings count
+    items: list[ProjectResponse] = []
+    for p in projects:
+        # Latest scan date
+        last_scan_stmt = (
+            select(func.max(Scan.completed_at))
+            .where(Scan.project_id == p.id)
+            .where(Scan.status == ScanStatus.COMPLETED)
+        )
+        last_scan_result = await session.execute(last_scan_stmt)
+        last_scan_at = last_scan_result.scalar_one_or_none()
+
+        # Findings count from latest completed scan
+        findings_stmt = (
+            select(func.coalesce(func.sum(Scan.findings_count), 0))
+            .where(Scan.project_id == p.id)
+            .where(Scan.status == ScanStatus.COMPLETED)
+        )
+        findings_result = await session.execute(findings_stmt)
+        findings_count = findings_result.scalar_one()
+
+        items.append(
+            ProjectResponse(
+                id=p.id,
+                name=p.name,
+                type=p.type,
+                group_id=p.group_id,
+                org_id=p.org_id,
+                git_url=p.git_url,
+                provider=p.provider,
+                last_scan_at=last_scan_at,
+                findings_count=findings_count,
+            )
+        )
+
+    return ProjectListResponse(
+        items=items,
+        total=total,
+        page=page,
+        per_page=per_page,
+    )
+
+
+async def _compute_is_stale(
+    project_id: uuid.UUID,
+    org_id: uuid.UUID,
+    session: AsyncSession,
+) -> bool | None:
+    """Compute whether a project's last scan is stale (D20 #40).
+
+    Returns True if the most recent completed scan is older than the org's
+    stale_scan_threshold_days. Returns None if there are no completed scans.
+    """
+    # Get org threshold
+    org_result = await session.execute(
+        select(Organisation.stale_scan_threshold_days).where(Organisation.id == org_id)
+    )
+    threshold = org_result.scalar_one_or_none()
+    if threshold is None:
+        return None
+
+    # Get last completed scan date
+    last_scan_result = await session.execute(
+        select(func.max(Scan.completed_at))
+        .where(Scan.project_id == project_id)
+        .where(Scan.status == ScanStatus.COMPLETED)
+    )
+    last_scan_at = last_scan_result.scalar_one_or_none()
+    if last_scan_at is None:
+        return None
+
+    age_days = (datetime.now(timezone.utc) - last_scan_at).days
+    return age_days > threshold
 
 
 async def _list_project_scans(
