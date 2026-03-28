@@ -16,6 +16,7 @@ Usage::
 
 from __future__ import annotations
 
+import logging
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -24,6 +25,8 @@ from typing import TYPE_CHECKING
 from sqlalchemy import select
 
 from app.models.finding import Finding
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -125,6 +128,17 @@ class FindingMatcher:
                 result.resolved.append(existing_f)
             # Sticky statuses (false_positive, risk_accepted) and already
             # resolved findings are left untouched.
+
+        logger.info(
+            "Finding match completed",
+            extra={"extra_fields": {
+                "project_id": str(project_id),
+                "total_new_scan": len(new_findings),
+                "matched": len(result.matched),
+                "new": len(result.new),
+                "resolved": len(result.resolved),
+            }},
+        )
 
         return result
 

@@ -14,6 +14,7 @@ Usage::
 
 from __future__ import annotations
 
+import logging
 import uuid
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,8 @@ from app.models.finding import Finding
 from app.models.finding_status_history import FindingStatusHistory
 from app.models.notification import Notification
 from app.services.audit_service import audit_service
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -107,9 +110,28 @@ class FindingStatusService:
         finding = await self._load_finding(finding_id, actor, session)
         old_status = finding.status
 
+        logger.debug(
+            "Attempting status change",
+            extra={"extra_fields": {
+                "finding_id": str(finding_id),
+                "old_status": old_status,
+                "new_status": new_status,
+                "actor": actor.user_id,
+            }},
+        )
+
         # Validate transition
         allowed = VALID_TRANSITIONS.get(old_status, [])
         if new_status not in allowed:
+            logger.warning(
+                "Invalid status transition attempted",
+                extra={"extra_fields": {
+                    "finding_id": str(finding_id),
+                    "old_status": old_status,
+                    "new_status": new_status,
+                    "actor": actor.user_id,
+                }},
+            )
             msg = f"Invalid transition from '{old_status}' to '{new_status}'"
             raise ValueError(msg)
 
@@ -155,6 +177,17 @@ class FindingStatusService:
                 "reason": reason,
             },
             session=session,
+        )
+
+        logger.info(
+            "Finding status changed",
+            extra={"extra_fields": {
+                "finding_id": str(finding_id),
+                "old_status": old_status,
+                "new_status": new_status,
+                "actor": actor.user_id,
+                "org_id": str(finding.org_id),
+            }},
         )
 
         await session.flush()
@@ -240,6 +273,16 @@ class FindingStatusService:
                 "new_status": finding.status,
             },
             session=session,
+        )
+
+        logger.info(
+            "Finding assigned",
+            extra={"extra_fields": {
+                "finding_id": str(finding_id),
+                "assignee_id": str(assignee_id),
+                "actor": actor.user_id,
+                "org_id": str(finding.org_id),
+            }},
         )
 
         await session.flush()

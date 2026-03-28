@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     # App
     app_name: str = "CipherRadar"
     debug: bool = False
+    log_level: str = "INFO"
 
     # CBOM Store (per ADR-012: "postgres" for dev, "s3" for production)
     cbom_store_type: str = "postgres"

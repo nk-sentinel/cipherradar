@@ -6,6 +6,7 @@ Implements the state machine: Active -> Disabled -> Deleted -> Purged (30d).
 
 from __future__ import annotations
 
+import logging
 import uuid as _uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -17,6 +18,8 @@ from app.auth.roles import ROLE_DEFAULT_SCOPES, Role
 from app.models.api_key import APIKey
 from app.models.user import User
 from app.services.audit_service import audit_service
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -119,6 +122,18 @@ class UserLifecycleService:
             },
             session=session,
         )
+        logger.info(
+            "User role changed",
+            extra={"extra_fields": {
+                "target_user_id": target_user_id,
+                "old_role": old_role,
+                "new_role": new_role,
+                "revoked_keys": revoked_count,
+                "actor_id": actor_id,
+                "org_id": str(user.org_id),
+            }},
+        )
+
         await session.flush()
         return old_role, revoked_count
 
@@ -195,6 +210,16 @@ class UserLifecycleService:
             details={"target_email": user.email},
             session=session,
         )
+
+        logger.info(
+            "User disabled",
+            extra={"extra_fields": {
+                "target_user_id": target_user_id,
+                "actor_id": actor_id,
+                "org_id": str(user.org_id),
+            }},
+        )
+
         await session.flush()
 
     # ------------------------------------------------------------------
@@ -253,6 +278,16 @@ class UserLifecycleService:
             details={"target_email": user.email},
             session=session,
         )
+
+        logger.info(
+            "User re-enabled",
+            extra={"extra_fields": {
+                "target_user_id": target_user_id,
+                "actor_id": actor_id,
+                "org_id": str(user.org_id),
+            }},
+        )
+
         await session.flush()
 
     # ------------------------------------------------------------------
@@ -305,6 +340,17 @@ class UserLifecycleService:
             details={"target_email": user.email, "grace_period_days": 30},
             session=session,
         )
+
+        logger.info(
+            "User soft-deleted",
+            extra={"extra_fields": {
+                "target_user_id": target_user_id,
+                "actor_id": actor_id,
+                "org_id": str(user.org_id),
+                "grace_period_days": 30,
+            }},
+        )
+
         await session.flush()
 
 

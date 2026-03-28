@@ -15,6 +15,7 @@ Usage::
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
@@ -26,6 +27,8 @@ from app.models.finding import Finding
 from app.models.finding_request import FindingRequest
 from app.models.finding_status_history import FindingStatusHistory
 from app.services.audit_service import audit_service
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -96,6 +99,16 @@ class FindingRequestService:
                 "finding_id": str(finding.id),
             },
             session=session,
+        )
+
+        logger.info(
+            "Finding request created",
+            extra={"extra_fields": {
+                "request_type": request_type,
+                "finding_id": str(finding.id),
+                "actor": actor.user_id,
+                "org_id": str(finding.org_id),
+            }},
         )
 
         await session.flush()
@@ -191,6 +204,17 @@ class FindingRequestService:
             session=session,
         )
 
+        logger.info(
+            "Finding request approved",
+            extra={"extra_fields": {
+                "request_id": str(request_id),
+                "request_type": request.request_type,
+                "finding_id": str(request.finding_id),
+                "actor": actor.user_id,
+                "org_id": str(request.org_id),
+            }},
+        )
+
         await session.flush()
         return request
 
@@ -229,6 +253,17 @@ class FindingRequestService:
                 "reason": reason,
             },
             session=session,
+        )
+
+        logger.info(
+            "Finding request rejected",
+            extra={"extra_fields": {
+                "request_id": str(request_id),
+                "request_type": request.request_type,
+                "finding_id": str(request.finding_id),
+                "actor": actor.user_id,
+                "org_id": str(request.org_id),
+            }},
         )
 
         await session.flush()

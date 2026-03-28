@@ -53,7 +53,10 @@ async def publish_progress(
     """
     redis = get_redis()
     if redis is None:
-        logger.warning("Redis unavailable — scan progress not published for %s", scan_id)
+        logger.warning(
+            "Redis unavailable, scan progress not published",
+            extra={"extra_fields": {"scan_id": scan_id, "status": status}},
+        )
         return
 
     payload = json.dumps({
@@ -66,5 +69,17 @@ async def publish_progress(
 
     try:
         await redis.publish(f"scan:{scan_id}", payload)
+        logger.info(
+            "Scan progress published",
+            extra={"extra_fields": {
+                "scan_id": scan_id,
+                "status": status,
+                "progress_pct": progress_pct,
+            }},
+        )
     except Exception:
-        logger.warning("Failed to publish scan progress for %s", scan_id, exc_info=True)
+        logger.error(
+            "Failed to publish scan progress",
+            extra={"extra_fields": {"scan_id": scan_id, "status": status}},
+            exc_info=True,
+        )

@@ -1,8 +1,14 @@
+from __future__ import annotations
+
+import logging
+import time
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+
+from app.logging_config import setup_logging
 
 from app.api.v1 import (
     admin,
@@ -49,6 +55,8 @@ from app.config import settings
 from app.db.session import dispose_engine, init_engine
 from app.services.cache_service import close_redis, init_redis
 
+logger = logging.getLogger(__name__)
+
 
 async def _lookup_user_by_email(email: str):
     """Database-backed user lookup for auth module."""
@@ -78,11 +86,14 @@ async def _lookup_user_by_email(email: str):
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Application lifespan: initialise resources on startup, dispose on shutdown."""
+    setup_logging(settings.log_level)
+    logger.info("Starting CipherRadar backend", extra={"extra_fields": {"version": "0.1.0"}})
     init_engine(settings.database_url)
     await init_redis()
     # Wire auth callbacks to real database
     auth.set_user_lookup(_lookup_user_by_email)
     yield
+    logger.info("Shutting down CipherRadar backend")
     await close_redis()
     await dispose_engine()
 
@@ -109,6 +120,25 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Request logging middleware
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next) -> Response:  # noqa: ANN001
+        start = time.time()
+        response: Response = await call_next(request)
+        duration_ms = (time.time() - start) * 1000
+        # Skip noisy health-check logs
+        if request.url.path != "/api/v1/health":
+            logger.info(
+                "Request completed",
+                extra={"extra_fields": {
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "duration_ms": round(duration_ms, 2),
+                }},
+            )
+        return response
 
     # Routers
     app.include_router(health.router, prefix="/api/v1")

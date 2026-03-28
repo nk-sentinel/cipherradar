@@ -7,6 +7,7 @@ and token-based password reset.
 from __future__ import annotations
 
 import hashlib
+import logging
 import secrets
 import uuid as _uuid
 from datetime import UTC, datetime, timedelta
@@ -18,6 +19,8 @@ from sqlalchemy import select, update
 
 from app.models.user import User
 from app.services.audit_service import audit_service
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -91,6 +94,16 @@ class PasswordService:
             details={"method": "self_change"},
             session=session,
         )
+
+        logger.info(
+            "Password changed by user",
+            extra={"extra_fields": {
+                "user_id": user_id,
+                "org_id": str(user.org_id),
+                "method": "self_change",
+            }},
+        )
+
         await session.flush()
 
     # ------------------------------------------------------------------
@@ -142,6 +155,16 @@ class PasswordService:
             details={"target_user": target_user_id},
             session=session,
         )
+
+        logger.info(
+            "Admin password reset",
+            extra={"extra_fields": {
+                "actor_id": actor_id,
+                "target_user_id": target_user_id,
+                "org_id": str(user.org_id),
+            }},
+        )
+
         await session.flush()
         return temp_password
 
@@ -187,6 +210,15 @@ class PasswordService:
             details={"email": email},
             session=session,
         )
+
+        logger.info(
+            "Forgot password requested",
+            extra={"extra_fields": {
+                "user_id": str(user.id),
+                "org_id": str(user.org_id),
+            }},
+        )
+
         await session.flush()
 
         # Send email (gracefully handle missing SMTP)
@@ -260,6 +292,16 @@ class PasswordService:
             details={"method": "token_reset"},
             session=session,
         )
+
+        logger.info(
+            "Password reset via token",
+            extra={"extra_fields": {
+                "user_id": str(user.id),
+                "org_id": str(user.org_id),
+                "method": "token_reset",
+            }},
+        )
+
         await session.flush()
 
     # ------------------------------------------------------------------

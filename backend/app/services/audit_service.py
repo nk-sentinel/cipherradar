@@ -17,6 +17,7 @@ Usage::
 
 from __future__ import annotations
 
+import logging
 import uuid as _uuid
 from typing import TYPE_CHECKING
 
@@ -24,6 +25,8 @@ from app.models.audit_log import AuditLog
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 
 class AuditService:
@@ -85,6 +88,17 @@ class AuditService:
         )
         session.add(entry)
         await session.flush()
+
+        logger.info(
+            "Audit entry created",
+            extra={"extra_fields": {
+                "action_type": action_type,
+                "user_id": str(user_id) if user_id else None,
+                "org_id": str(org_id),
+                "resource_type": resource_type,
+                "resource_id": str(resource_id) if resource_id else None,
+            }},
+        )
 
 
 # Module-level singleton for dependency injection

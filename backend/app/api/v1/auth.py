@@ -5,6 +5,7 @@ Handles login, token refresh, API key management, and user info.
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import UTC, datetime
 
@@ -25,6 +26,8 @@ from app.schemas.auth import (
     TokenResponse,
     UserInfo,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -64,9 +67,21 @@ async def login(body: LoginRequest) -> TokenResponse:
 
     user = await _user_by_email(body.email)
     if user is None or not _bcrypt_lib.checkpw(body.password.encode(), user["hashed_password"].encode()):
+        logger.warning(
+            "Login failed",
+            extra={"extra_fields": {"email": body.email, "reason": "invalid_credentials"}},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     if not user.get("is_active", True):
+        logger.warning(
+            "Login failed",
+            extra={"extra_fields": {
+                "email": body.email,
+                "user_id": str(user["id"]),
+                "reason": "account_deactivated",
+            }},
+        )
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account is deactivated")
 
     role = user["role"]
@@ -80,6 +95,16 @@ async def login(body: LoginRequest) -> TokenResponse:
         org_id=user.get("org_id", ""),
     )
     refresh_token = create_refresh_token(user_id=str(user["id"]))
+
+    logger.info(
+        "Login successful",
+        extra={"extra_fields": {
+            "user_id": str(user["id"]),
+            "email": body.email,
+            "role": role,
+            "org_id": user.get("org_id", ""),
+        }},
+    )
 
     return TokenResponse(
         access_token=access_token,
@@ -219,6 +244,10 @@ async def recover(body: RecoverRequest) -> RecoverResponse:
         )
 
     if not hmac.compare_digest(body.recovery_key, _recovery_key):
+        logger.warning(
+            "Recovery attempt failed",
+            extra={"extra_fields": {"email": body.email, "reason": "invalid_recovery_key"}},
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid recovery key",
@@ -246,6 +275,11 @@ async def recover(body: RecoverRequest) -> RecoverResponse:
 
     # Invalidate recovery key after use
     _recovery_key = None
+
+    logger.warning(
+        "Break-glass recovery used",
+        extra={"extra_fields": {"email": body.email, "user_id": str(user["id"])}},
+    )
 
     return RecoverResponse()
 
