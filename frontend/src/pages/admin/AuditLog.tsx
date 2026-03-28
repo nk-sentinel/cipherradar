@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { RequireRole } from '@/components/guards/RequireRole.tsx';
+import { useAuth } from '@/lib/auth.tsx';
 import {
   useAuditLogPaginated,
   useExportAuditLog,
@@ -12,8 +13,6 @@ import type { AuditAction } from '@/mocks/data/admin.ts';
 import { apiClient } from '@/api/client.ts';
 import { useToast } from '@/lib/use-toast.ts';
 import { AccessibleTable } from '@/components/ui/AccessibleTable.tsx';
-
-// TODO: Add webhook configuration section per D28 (SIEM export)
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -95,7 +94,7 @@ function formatTimestamp(iso: string): string {
 export function AuditLog(): React.ReactElement {
   return (
     <RequireRole
-      roles={['org-admin', 'security-manager']}
+      roles={['org-admin', 'security-manager', 'compliance-auditor']}
       fallback={
         <div className="card">
           <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>
@@ -114,7 +113,46 @@ export function AuditLog(): React.ReactElement {
 // ---------------------------------------------------------------------------
 
 function AuditLogContent(): React.ReactElement {
+  const { user } = useAuth();
   const { toast } = useToast();
+
+  // Webhook state (D28 — SIEM export)
+  const [webhookUrl, setWebhookUrl] = useState('');
+  const [webhookTestResult, setWebhookTestResult] = useState<string | null>(null);
+
+  const testWebhook = useCallback(async () => {
+    if (!webhookUrl.trim()) {
+      setWebhookTestResult('Please enter a webhook URL.');
+      return;
+    }
+    setWebhookTestResult('Testing...');
+    try {
+      await apiClient('/admin/settings', {
+        method: 'PUT',
+        body: { audit_webhook_url: webhookUrl, test: true },
+      });
+      setWebhookTestResult('Connection successful.');
+    } catch {
+      setWebhookTestResult('Connection failed. Check the URL and try again.');
+    }
+  }, [webhookUrl]);
+
+  const saveWebhook = useCallback(async () => {
+    if (!webhookUrl.trim()) {
+      setWebhookTestResult('Please enter a webhook URL.');
+      return;
+    }
+    try {
+      await apiClient('/admin/settings', {
+        method: 'PUT',
+        body: { audit_webhook_url: webhookUrl },
+      });
+      toast({ title: 'Webhook URL saved', variant: 'success' });
+      setWebhookTestResult(null);
+    } catch {
+      toast({ title: 'Failed to save webhook URL', variant: 'error' });
+    }
+  }, [webhookUrl, toast]);
 
   // Fetch users from API for user filter dropdown
   const { data: usersData } = useQuery({
@@ -407,6 +445,52 @@ function AuditLogContent(): React.ReactElement {
           >
             Next
           </button>
+        </div>
+      )}
+
+      {/* SIEM Webhook Export — D28, OA only */}
+      {user?.role === 'org-admin' && (
+        <div className="card" style={{ marginTop: 24 }} data-testid="webhook-section">
+          <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '8px' }}>
+            SIEM Webhook Export
+          </h3>
+          <p style={{ fontSize: 12, color: 'var(--text-2)', marginBottom: '12px' }}>
+            Forward audit events as JSON to your SIEM (Splunk, Sentinel, QRadar).
+          </p>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input
+              className="input"
+              placeholder="https://your-siem.com/api/events"
+              value={webhookUrl}
+              onChange={(e) => setWebhookUrl(e.target.value)}
+              data-testid="webhook-url-input"
+              style={{ flex: 1, fontSize: '12px' }}
+            />
+            <button
+              className="btn btn-outline"
+              onClick={() => void testWebhook()}
+              style={{ fontSize: '11px', padding: '4px 10px' }}
+              data-testid="webhook-test-btn"
+            >
+              Test
+            </button>
+            <button
+              className="btn btn-primary"
+              onClick={() => void saveWebhook()}
+              style={{ fontSize: '11px', padding: '4px 10px' }}
+              data-testid="webhook-save-btn"
+            >
+              Save
+            </button>
+          </div>
+          {webhookTestResult && (
+            <p
+              style={{ fontSize: '11px', marginTop: '8px', color: 'var(--text-2)' }}
+              data-testid="webhook-test-result"
+            >
+              {webhookTestResult}
+            </p>
+          )}
         </div>
       )}
     </div>

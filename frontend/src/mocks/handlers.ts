@@ -967,14 +967,52 @@ export const handlers = [
           id: 'key-001',
           name: 'CI Pipeline',
           keyPrefix: 'cbom_sk_xxxx',
+          owner: 'alex.chen@nk-sentinel.io',
           scopes: ['scan:read', 'scan:write'],
           createdAt: '2026-03-15T10:00:00Z',
           expiresAt: null,
           lastUsedAt: '2026-03-27T08:00:00Z',
           revokedAt: null,
+          status: 'active',
+        },
+        {
+          id: 'key-002',
+          name: 'Read-only Dashboard',
+          keyPrefix: 'cbom_sk_yyyy',
+          owner: 'sarah.kim@nk-sentinel.io',
+          scopes: ['scan:read'],
+          createdAt: '2026-03-20T14:00:00Z',
+          expiresAt: '2026-06-20T14:00:00Z',
+          lastUsedAt: null,
+          revokedAt: null,
+          status: 'active',
+        },
+        {
+          id: 'key-003',
+          name: 'Legacy Integration',
+          keyPrefix: 'cbom_sk_zzzz',
+          owner: 'alex.chen@nk-sentinel.io',
+          scopes: ['scan:read', 'scan:write', 'cbom:read'],
+          createdAt: '2026-01-10T10:00:00Z',
+          expiresAt: null,
+          lastUsedAt: '2026-01-15T08:00:00Z',
+          revokedAt: null,
+          status: 'active',
+        },
+        {
+          id: 'key-004',
+          name: 'Revoked Key',
+          keyPrefix: 'cbom_sk_rrrr',
+          owner: 'james.liu@nk-sentinel.io',
+          scopes: ['scan:read'],
+          createdAt: '2026-02-01T10:00:00Z',
+          expiresAt: null,
+          lastUsedAt: '2026-02-15T08:00:00Z',
+          revokedAt: '2026-03-01T10:00:00Z',
+          status: 'revoked',
         },
       ],
-      total: 1,
+      total: 4,
     });
   }),
 
@@ -1469,6 +1507,109 @@ export const handlers = [
       page,
       perPage,
     });
+  }),
+
+  // ---------------------------------------------------------------------------
+  // D4 — Group management
+  // ---------------------------------------------------------------------------
+
+  http.get('/api/v1/admin/groups', () => {
+    return HttpResponse.json([
+      {
+        id: 'grp-001',
+        name: 'Platform Engineering',
+        description: 'Core platform services team',
+        projectCount: 5,
+        memberCount: 8,
+        createdAt: '2026-01-15T10:00:00Z',
+      },
+      {
+        id: 'grp-002',
+        name: 'Security Team',
+        description: 'Application security and compliance',
+        projectCount: 3,
+        memberCount: 4,
+        createdAt: '2026-02-01T10:00:00Z',
+      },
+      {
+        id: 'grp-003',
+        name: 'Data Engineering',
+        description: 'Data pipelines and analytics',
+        projectCount: 2,
+        memberCount: 6,
+        createdAt: '2026-02-20T10:00:00Z',
+      },
+    ]);
+  }),
+
+  http.get('/api/v1/admin/groups/:groupId', ({ params }) => {
+    const groupId = params['groupId'] as string;
+    const groups: Record<string, object> = {
+      'grp-001': {
+        id: 'grp-001',
+        name: 'Platform Engineering',
+        description: 'Core platform services team',
+        projectCount: 5,
+        memberCount: 8,
+        createdAt: '2026-01-15T10:00:00Z',
+        members: [
+          { email: 'alex.chen@nk-sentinel.io', name: 'Alex Chen', role: 'org-admin' },
+          { email: 'sarah.kim@nk-sentinel.io', name: 'Sarah Kim', role: 'security-manager' },
+          { email: 'bob@example.com', name: 'Bob Jones', role: 'developer' },
+        ],
+        projects: [
+          { id: 'proj-001', name: 'payment-service' },
+          { id: 'proj-002', name: 'auth-api' },
+        ],
+      },
+      'grp-002': {
+        id: 'grp-002',
+        name: 'Security Team',
+        description: 'Application security and compliance',
+        projectCount: 3,
+        memberCount: 4,
+        createdAt: '2026-02-01T10:00:00Z',
+        members: [
+          { email: 'sarah.kim@nk-sentinel.io', name: 'Sarah Kim', role: 'security-manager' },
+          { email: 'james.liu@nk-sentinel.io', name: 'James Liu', role: 'security-engineer' },
+        ],
+        projects: [
+          { id: 'proj-001', name: 'payment-service' },
+        ],
+      },
+      'grp-003': {
+        id: 'grp-003',
+        name: 'Data Engineering',
+        description: 'Data pipelines and analytics',
+        projectCount: 2,
+        memberCount: 6,
+        createdAt: '2026-02-20T10:00:00Z',
+        members: [],
+        projects: [
+          { id: 'proj-003', name: 'data-pipeline' },
+        ],
+      },
+    };
+    const group = groups[groupId];
+    if (!group) {
+      return new HttpResponse(JSON.stringify({ error: 'Group not found' }), { status: 404 });
+    }
+    return HttpResponse.json(group);
+  }),
+
+  http.post('/api/v1/admin/groups', async ({ request }) => {
+    const body = await request.json() as { name: string; description: string };
+    return HttpResponse.json(
+      {
+        id: 'grp-' + Date.now().toString(),
+        name: body.name,
+        description: body.description,
+        projectCount: 0,
+        memberCount: 0,
+        createdAt: new Date().toISOString(),
+      },
+      { status: 201 },
+    );
   }),
 
   http.post('/api/v1/findings/:findingId/remediation', async ({ request, params }) => {
