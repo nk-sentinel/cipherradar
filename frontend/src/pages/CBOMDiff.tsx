@@ -88,7 +88,7 @@ export function CBOMDiff(): React.ReactElement {
   /* filtered items */
   const filteredItems = useMemo(() => {
     if (!data) return [];
-    let items = data.items;
+    let items = data.items ?? [];
     if (typeFilter !== 'all') {
       items = items.filter((i) => i.diffType === typeFilter);
     }
@@ -189,19 +189,19 @@ export function CBOMDiff(): React.ReactElement {
       <div className="g4">
         <div className="stat">
           <div className="stat-label">Added</div>
-          <div className="stat-val" style={{ color: 'var(--green)' }}>+{data.summary.added}</div>
+          <div className="stat-val" style={{ color: 'var(--green)' }}>+{data.summary?.added ?? 0}</div>
         </div>
         <div className="stat">
           <div className="stat-label">Removed</div>
-          <div className="stat-val" style={{ color: 'var(--red)' }}>-{data.summary.removed}</div>
+          <div className="stat-val" style={{ color: 'var(--red)' }}>-{data.summary?.removed ?? 0}</div>
         </div>
         <div className="stat">
           <div className="stat-label">Changed</div>
-          <div className="stat-val" style={{ color: 'var(--yellow)' }}>~{data.summary.changed}</div>
+          <div className="stat-val" style={{ color: 'var(--yellow)' }}>~{data.summary?.changed ?? 0}</div>
         </div>
         <div className="stat">
           <div className="stat-label">Unchanged</div>
-          <div className="stat-val" style={{ color: 'var(--text-3)' }}>={data.summary.unchanged}</div>
+          <div className="stat-val" style={{ color: 'var(--text-3)' }}>={data.summary?.unchanged ?? 0}</div>
         </div>
       </div>
 
@@ -213,7 +213,7 @@ export function CBOMDiff(): React.ReactElement {
             className={cn('filter', typeFilter === t && 'active')}
             onClick={() => setTypeFilter(t)}
           >
-            {t === 'all' ? `All (${String(data.items.length)})` : `${diffTypeLabel(t as DiffType)} (${String(data.items.filter((i) => i.diffType === t).length)})`}
+            {t === 'all' ? `All (${String((data.items ?? []).length)})` : `${diffTypeLabel(t as DiffType)} (${String((data.items ?? []).filter((i) => i.diffType === t).length)})`}
           </button>
         ))}
         <div style={{ borderLeft: '1px solid var(--border)', margin: '0 4px' }} />

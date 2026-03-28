@@ -36,7 +36,8 @@ export function RuntimeView(): React.ReactElement {
     );
   }
 
-  const mismatchCount = data.observations.filter((o) => o.mismatch).length;
+  const observations = data.observations ?? [];
+  const mismatchCount = observations.filter((o) => o.mismatch).length;
 
   return (
     <div>
@@ -64,7 +65,7 @@ export function RuntimeView(): React.ReactElement {
       <div className="g3">
         <div className="stat" style={{ textAlign: 'center', padding: '20px' }}>
           <div className="stat-val" style={{ fontSize: '48px', color: 'var(--accent)' }}>
-            {data.observations.length}
+            {observations.length}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '4px' }}>
             Services Observed
@@ -80,7 +81,7 @@ export function RuntimeView(): React.ReactElement {
         </div>
         <div className="stat" style={{ textAlign: 'center', padding: '20px' }}>
           <div className="stat-val" style={{ fontSize: '48px', color: 'var(--green)' }}>
-            {data.observations.length - mismatchCount}
+            {observations.length - mismatchCount}
           </div>
           <div style={{ fontSize: '12px', color: 'var(--text-3)', marginTop: '4px' }}>
             Matching Config
@@ -94,7 +95,7 @@ export function RuntimeView(): React.ReactElement {
           <div className="card-title">Configured vs Observed TLS Versions</div>
           <div style={{ height: '220px' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.tlsVersionChart}>
+              <BarChart data={data.tlsVersionChart ?? []}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                 <XAxis
                   dataKey="version"
@@ -145,7 +146,7 @@ export function RuntimeView(): React.ReactElement {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {data.observations
+              {observations
                 .filter((o) => o.mismatch)
                 .map((o) => (
                   <div
@@ -177,7 +178,7 @@ export function RuntimeView(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {data.observations.map((obs) => (
+            {observations.map((obs) => (
               <tr
                 key={obs.id}
                 style={obs.mismatch ? { background: 'rgba(239, 68, 68, 0.06)' } : undefined}

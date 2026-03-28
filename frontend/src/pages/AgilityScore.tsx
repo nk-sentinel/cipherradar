@@ -122,7 +122,7 @@ export function AgilityScore(): React.ReactElement {
           marginBottom: '16px',
         }}
       >
-        {data.factors.map((factor) => (
+        {(data.factors ?? []).map((factor) => (
           <div className="card" key={factor.name}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ fontSize: '13px', fontWeight: 600 }}>{factor.name}</div>
@@ -160,7 +160,7 @@ export function AgilityScore(): React.ReactElement {
         <div className="card">
           <div className="card-title">Recommendations</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {data.recommendations.map((rec, idx) => (
+            {(data.recommendations ?? []).map((rec, idx) => (
               <div
                 key={idx}
                 style={{
@@ -207,7 +207,7 @@ export function AgilityScore(): React.ReactElement {
               </tr>
             </thead>
             <tbody>
-              {data.repoComparison.map((repo) => (
+              {(data.repoComparison ?? []).map((repo) => (
                 <tr key={repo.repoId}>
                   <td><strong>{repo.repoName}</strong></td>
                   <td style={{ color: scoreColor(repo.score), fontWeight: 600 }}>{repo.score}</td>

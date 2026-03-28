@@ -103,7 +103,7 @@ export function RepoScans({ scanId }: RepoScansProps): React.ReactElement {
         <div className="stat">
           <div className="stat-label">Low + Info</div>
           <div className="stat-val" style={{ color: 'var(--text-3)' }} data-testid="stat-low-info">
-            {scan.low + scan.info}
+            {(scan.low ?? 0) + (scan.info ?? 0)}
           </div>
         </div>
       </div>
@@ -119,7 +119,7 @@ export function RepoScans({ scanId }: RepoScansProps): React.ReactElement {
             info: scan.info,
           }}
         />
-        <AlgorithmChart data={scan.algorithms} />
+        <AlgorithmChart data={scan.algorithms ?? []} />
       </div>
 
       {/* Top findings table */}
@@ -136,7 +136,7 @@ export function RepoScans({ scanId }: RepoScansProps): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {scan.findings.map((f) => (
+            {(scan.findings ?? []).map((f) => (
                 <tr key={f.id}>
                   <td>
                     <SeverityBadge severity={f.severity as Severity} />

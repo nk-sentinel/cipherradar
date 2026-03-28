@@ -58,8 +58,8 @@ export function QuantumReadiness(): React.ReactElement {
     );
   }
 
-  const { statusBreakdown } = data;
-  const total = statusBreakdown.vulnerable + statusBreakdown.safe + statusBreakdown.unknown + statusBreakdown.broken;
+  const statusBreakdown = data.statusBreakdown ?? { vulnerable: 0, safe: 0, unknown: 0, broken: 0 };
+  const total = (statusBreakdown.vulnerable ?? 0) + (statusBreakdown.safe ?? 0) + (statusBreakdown.unknown ?? 0) + (statusBreakdown.broken ?? 0);
 
   return (
     <div>
@@ -137,7 +137,7 @@ export function QuantumReadiness(): React.ReactElement {
               </tr>
             </thead>
             <tbody>
-              {data.migrationPriorities.map((item) => (
+              {(data.migrationPriorities ?? []).map((item) => (
                 <tr key={item.algorithm}>
                   <td>
                     <strong>{item.algorithm}</strong>
@@ -202,7 +202,7 @@ export function QuantumReadiness(): React.ReactElement {
                 </tr>
               </thead>
               <tbody>
-                {data.repoRisks.map((repo) => (
+                {(data.repoRisks ?? []).map((repo) => (
                   <tr
                     key={repo.repoId}
                     className="clickable"

@@ -63,7 +63,7 @@ export function Compliance(): React.ReactElement {
 
       {/* 3 framework cards */}
       <div className="g3">
-        {data.frameworks.map((fw) => (
+        {(data.frameworks ?? []).map((fw) => (
           <div
             key={fw.framework}
             className="card"
@@ -118,7 +118,7 @@ export function Compliance(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {data.repoCompliance.map((repo) => (
+            {(data.repoCompliance ?? []).map((repo) => (
               <tr
                 key={repo.repoId}
                 className="clickable"

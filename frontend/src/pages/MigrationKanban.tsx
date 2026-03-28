@@ -78,9 +78,9 @@ export function MigrationKanban(): React.ReactElement {
   }
 
   // Extract unique filter values
-  const repos = [...new Set(activeCards.map((c) => c.repo))];
-  const languages = [...new Set(activeCards.map((c) => c.language))];
-  const frameworks = [...new Set(activeCards.map((c) => c.framework))];
+  const repos = [...new Set((activeCards ?? []).map((c) => c.repo))];
+  const languages = [...new Set((activeCards ?? []).map((c) => c.language))];
+  const frameworks = [...new Set((activeCards ?? []).map((c) => c.framework))];
 
   // Apply filters
   let filteredCards = activeCards;

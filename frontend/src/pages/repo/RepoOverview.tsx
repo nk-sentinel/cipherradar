@@ -87,7 +87,7 @@ export function RepoOverview(): React.ReactElement {
 
       {/* Stale scan warning */}
       <StaleScanBanner
-        lastScanDate={repo.recentScans[0]?.time}
+        lastScanDate={(repo.recentScans ?? [])[0]?.time}
         staleDays={14}
         onAction={() => setShowScanModal(true)}
       />
@@ -106,25 +106,25 @@ export function RepoOverview(): React.ReactElement {
         <div className="stat">
           <div className="stat-label">Total Findings</div>
           <div className="stat-val" style={{ color: 'var(--accent)' }}>
-            {repo.findings}
+            {repo.findings ?? 0}
           </div>
         </div>
         <div className="stat">
           <div className="stat-label">Critical</div>
           <div className="stat-val" style={{ color: 'var(--red)' }}>
-            {repo.critical}
+            {repo.critical ?? 0}
           </div>
         </div>
         <div className="stat">
           <div className="stat-label">Quantum Risk</div>
           <div className="stat-val" style={{ color: 'var(--orange)' }}>
-            {repo.quantumRisk}
+            {repo.quantumRisk ?? 0}
           </div>
         </div>
         <div className="stat">
           <div className="stat-label">Compliance</div>
           <div className="stat-val" style={{ color: 'var(--yellow)' }}>
-            {repo.compliancePercent}%
+            {repo.compliancePercent ?? 0}%
           </div>
         </div>
       </div>
@@ -134,7 +134,7 @@ export function RepoOverview(): React.ReactElement {
         <div className="card">
           <div className="card-title">Algorithm Distribution</div>
           <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={repo.algorithmDistribution}>
+            <BarChart data={repo.algorithmDistribution ?? []}>
               <XAxis
                 dataKey="name"
                 tick={{ fontSize: 10, fill: 'var(--text-4)' }}
@@ -152,7 +152,7 @@ export function RepoOverview(): React.ReactElement {
                 }}
               />
               <Bar dataKey="count" radius={[3, 3, 0, 0]}>
-                {repo.algorithmDistribution.map((_entry, index) => (
+                {(repo.algorithmDistribution ?? []).map((_entry, index) => (
                   <Cell
                     key={`cell-${String(index)}`}
                     fill={CHART_COLORS[index % CHART_COLORS.length] ?? 'var(--accent)'}
@@ -166,7 +166,7 @@ export function RepoOverview(): React.ReactElement {
         <div className="card">
           <div className="card-title">By Language</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {repo.languageBreakdown.map((lang) => (
+            {(repo.languageBreakdown ?? []).map((lang) => (
               <div key={lang.language}>
                 <div
                   style={{
@@ -212,7 +212,7 @@ export function RepoOverview(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {repo.recentScans.map((scan) => (
+            {(repo.recentScans ?? []).map((scan) => (
               <tr
                 key={scan.id}
                 className="clickable"

@@ -111,13 +111,13 @@ export function ComplianceDashboard(): React.ReactElement {
     }));
 
   /* cross-repo bar chart data */
-  const barChartData = data.repoComparison.map((repo) => ({
+  const barChartData = (data.repoComparison ?? []).map((repo) => ({
     name: repo.repoName,
     ...repo.scores,
   }));
 
   const selectedFw = selectedFramework
-    ? data.frameworks.find((fw) => fw.id === selectedFramework)
+    ? (data.frameworks ?? []).find((fw) => fw.id === selectedFramework)
     : null;
 
   return (
@@ -159,7 +159,7 @@ export function ComplianceDashboard(): React.ReactElement {
           marginBottom: '16px',
         }}
       >
-        {data.frameworks.map((fw) => (
+        {(data.frameworks ?? []).map((fw) => (
           <div
             key={fw.id}
             className="card"
@@ -263,7 +263,7 @@ export function ComplianceDashboard(): React.ReactElement {
         <div className="card">
           <div className="card-title">CNSA 2.0 Migration Timeline</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {data.cnsaTimeline.map((item, idx) => (
+            {(data.cnsaTimeline ?? []).map((item, idx) => (
               <div key={item.id}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
                   {/* timeline dot + line */}
@@ -278,7 +278,7 @@ export function ComplianceDashboard(): React.ReactElement {
                         flexShrink: 0,
                       }}
                     />
-                    {idx < data.cnsaTimeline.length - 1 && (
+                    {idx < (data.cnsaTimeline ?? []).length - 1 && (
                       <div
                         style={{
                           width: '2px',
@@ -333,7 +333,7 @@ export function ComplianceDashboard(): React.ReactElement {
                   }}
                 />
                 <Legend wrapperStyle={{ fontSize: '10px' }} />
-                {data.frameworks.map((fw) => (
+                {(data.frameworks ?? []).map((fw) => (
                   <Bar
                     key={fw.id}
                     dataKey={fw.id}
@@ -356,13 +356,13 @@ export function ComplianceDashboard(): React.ReactElement {
           <thead>
             <tr>
               <th scope="col">Repository</th>
-              {data.frameworks.map((fw) => (
+              {(data.frameworks ?? []).map((fw) => (
                 <th scope="col" key={fw.id}>{fw.shortName}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {data.repoComparison.map((repo) => (
+            {(data.repoComparison ?? []).map((repo) => (
               <tr
                 key={repo.repoId}
                 className="clickable"
@@ -374,7 +374,7 @@ export function ComplianceDashboard(): React.ReactElement {
                 }
               >
                 <td><strong>{repo.repoName}</strong></td>
-                {data.frameworks.map((fw) => {
+                {(data.frameworks ?? []).map((fw) => {
                   const score = repo.scores[fw.id] ?? 0;
                   return (
                     <td key={fw.id} style={{ color: scoreColor(score) }}>

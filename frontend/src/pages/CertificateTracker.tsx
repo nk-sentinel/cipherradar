@@ -157,19 +157,19 @@ export function CertificateTracker(): React.ReactElement {
         <div className="stat">
           <div className="stat-label">Expired</div>
           <div className="stat-val" style={{ color: 'var(--red)' }}>
-            {data.items.filter((c) => c.statusColor === 'black').length}
+            {(data.items ?? []).filter((c) => c.statusColor === 'black').length}
           </div>
         </div>
         <div className="stat">
           <div className="stat-label">Critical</div>
           <div className="stat-val" style={{ color: 'var(--orange)' }}>
-            {data.items.filter((c) => c.statusColor === 'red').length}
+            {(data.items ?? []).filter((c) => c.statusColor === 'red').length}
           </div>
         </div>
         <div className="stat">
           <div className="stat-label">Safe</div>
           <div className="stat-val" style={{ color: 'var(--green)' }}>
-            {data.items.filter((c) => c.statusColor === 'green').length}
+            {(data.items ?? []).filter((c) => c.statusColor === 'green').length}
           </div>
         </div>
       </div>
@@ -177,7 +177,7 @@ export function CertificateTracker(): React.ReactElement {
       {/* Certificate table */}
       <div className="card">
         <div className="card-title">Certificates ({data.total})</div>
-        {data.items.length === 0 ? (
+        {(data.items ?? []).length === 0 ? (
           <p style={{ color: 'var(--text-3)', fontSize: '12px' }}>
             No certificates match the selected filter.
           </p>
@@ -195,7 +195,7 @@ export function CertificateTracker(): React.ReactElement {
               </tr>
             </thead>
             <tbody>
-              {data.items.map((cert: CertificateEntry) => (
+              {(data.items ?? []).map((cert: CertificateEntry) => (
                 <tr key={cert.id}>
                   <td>
                     <strong>{cert.subject}</strong>

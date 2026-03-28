@@ -88,7 +88,7 @@ export function RepoCompliance(): React.ReactElement {
 
       {/* 3 framework cards */}
       <div className="g3">
-        {data.frameworks.map((fw) => (
+        {(data.frameworks ?? []).map((fw) => (
           <div
             key={fw.framework}
             className="card"
@@ -137,7 +137,7 @@ export function RepoCompliance(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {data.nonCompliantItems.map((item) => (
+            {(data.nonCompliantItems ?? []).map((item) => (
               <tr key={`${item.algorithm}-${item.status}`}>
                 <td>
                   <span className={cn('badge', statusBadgeClass(item.status))}>

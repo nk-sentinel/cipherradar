@@ -54,10 +54,10 @@ export function HNDLRisk(): React.ReactElement {
     );
   }
 
-  const riskPercent = Math.round(data.riskScore * 100);
-  const { mosca } = data;
-  const totalHorizon = mosca.shelfLife + mosca.migrationTime;
-  const yearsUntilQuantum = mosca.quantumDeadline - mosca.currentYear;
+  const riskPercent = Math.round((data.riskScore ?? 0) * 100);
+  const mosca = data.mosca ?? { shelfLife: 0, migrationTime: 0, quantumDeadline: 2030, currentYear: 2026, isAtRisk: false };
+  const totalHorizon = (mosca.shelfLife ?? 0) + (mosca.migrationTime ?? 0);
+  const yearsUntilQuantum = (mosca.quantumDeadline ?? 2030) - (mosca.currentYear ?? 2026);
 
   return (
     <div>
@@ -216,7 +216,7 @@ export function HNDLRisk(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {data.quantumExposures.map((exp) => {
+            {(data.quantumExposures ?? []).map((exp) => {
               const yearsLeft = exp.quantumBreakYear - mosca.currentYear;
               return (
                 <tr key={exp.algorithm}>
@@ -247,7 +247,7 @@ export function HNDLRisk(): React.ReactElement {
       <div className="card">
         <div className="card-title">Recommendations</div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {data.recommendations.map((rec, idx) => (
+          {(data.recommendations ?? []).map((rec, idx) => (
             <div
               key={idx}
               style={{

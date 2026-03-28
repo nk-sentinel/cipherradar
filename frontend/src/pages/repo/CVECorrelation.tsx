@@ -47,10 +47,11 @@ export function CVECorrelation(): React.ReactElement {
   }
 
   // Get unique libraries for filter dropdown
-  const uniqueLibraries = [...new Set(data.entries.map((e) => e.library))];
+  const entries = data.entries ?? [];
+  const uniqueLibraries = [...new Set(entries.map((e) => e.library))];
 
   // Apply filters
-  let filtered = [...data.entries];
+  let filtered = [...entries];
   if (severityFilter !== 'all') {
     filtered = filtered.filter((e) => e.cveSeverity === severityFilter);
   }

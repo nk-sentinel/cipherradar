@@ -112,7 +112,7 @@ export function PortfolioDashboard(): React.ReactElement {
           )}
         </h1>
         <div className="topbar-right">
-          <span>Last scan: {summary.lastScanTime}</span>
+          <span>Last scan: {summary.lastScanTime ?? 'N/A'}</span>
           <button
             className="btn btn-accent"
             disabled={triggerScan.isPending}

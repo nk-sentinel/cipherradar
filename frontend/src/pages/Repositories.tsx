@@ -30,10 +30,10 @@ export function Repositories(): React.ReactElement {
     const q = search.toLowerCase();
     return repos.filter(
       (r) =>
-        r.name.toLowerCase().includes(q) ||
-        r.orgPath.toLowerCase().includes(q) ||
-        r.provider.toLowerCase().includes(q) ||
-        r.languages.some((l) => l.toLowerCase().includes(q)),
+        (r.name ?? '').toLowerCase().includes(q) ||
+        (r.orgPath ?? '').toLowerCase().includes(q) ||
+        (r.provider ?? '').toLowerCase().includes(q) ||
+        (r.languages ?? []).some((l: string) => l.toLowerCase().includes(q)),
     );
   }, [repos, search]);
 
@@ -121,32 +121,32 @@ export function Repositories(): React.ReactElement {
                       color: 'var(--text-4)',
                     }}
                   >
-                    {repo.orgPath}
+                    {repo.orgPath ?? ''}
                   </span>
                 </td>
-                <td>{repo.provider}</td>
-                <td>{repo.languages.join(', ')}</td>
-                <td>{repo.findings}</td>
+                <td>{repo.provider ?? ''}</td>
+                <td>{(repo.languages ?? []).join(', ')}</td>
+                <td>{repo.findings ?? 0}</td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div className="progress" style={{ width: '70px' }}>
                       <div
                         className="progress-fill"
                         style={{
-                          width: `${String(repo.compliancePercent)}%`,
-                          background: getComplianceColor(repo.compliancePercent),
+                          width: `${String(repo.compliancePercent ?? 0)}%`,
+                          background: getComplianceColor(repo.compliancePercent ?? 0),
                         }}
                       />
                     </div>
-                    <span>{repo.compliancePercent}%</span>
+                    <span>{repo.compliancePercent ?? 0}%</span>
                   </div>
                 </td>
                 <td>
-                  <span className={cn('badge', getQuantumBadgeClass(repo.quantumScore))}>
-                    {repo.quantumScore}
+                  <span className={cn('badge', getQuantumBadgeClass(repo.quantumScore ?? 0))}>
+                    {repo.quantumScore ?? 0}
                   </span>
                 </td>
-                <td>{repo.lastScan}</td>
+                <td>{repo.lastScan ?? 'Never'}</td>
                 <td>
                   <button
                     className="btn btn-outline"

@@ -101,7 +101,7 @@ export function AssetExplorer(): React.ReactElement {
   const exportCSV = useCallback(() => {
     if (!data) return;
     const header = 'Name,Type,Language,Repository,File,Line,Quantum Status,Compliance\n';
-    const rows = data.assets.map((a) =>
+    const rows = (data.assets ?? []).map((a) =>
       [
         a.name,
         a.type,
@@ -110,7 +110,7 @@ export function AssetExplorer(): React.ReactElement {
         a.file,
         String(a.line),
         a.quantumStatus,
-        a.compliance.join('; '),
+        (a.compliance ?? []).join('; '),
       ]
         .map((v) => `"${v}"`)
         .join(','),
@@ -235,7 +235,7 @@ export function AssetExplorer(): React.ReactElement {
       <div className="card">
         {isLoading ? (
           <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>Loading...</p>
-        ) : data && data.assets.length === 0 ? (
+        ) : data && (data.assets ?? []).length === 0 ? (
           <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>No assets match your filters.</p>
         ) : data ? (
           <table>
@@ -251,7 +251,7 @@ export function AssetExplorer(): React.ReactElement {
               </tr>
             </thead>
             <tbody>
-              {data.assets.map((asset) => (
+              {(data.assets ?? []).map((asset) => (
                 <tr key={asset.id}>
                   <td>
                     <strong>{asset.name}</strong>
@@ -272,11 +272,11 @@ export function AssetExplorer(): React.ReactElement {
                     </span>
                   </td>
                   <td>
-                    {asset.compliance.length === 0 ? (
+                    {(asset.compliance ?? []).length === 0 ? (
                       <span style={{ color: 'var(--text-4)', fontSize: '11px' }}>None</span>
                     ) : (
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        {asset.compliance.map((c) => (
+                        {(asset.compliance ?? []).map((c) => (
                           <span
                             key={c}
                             style={{

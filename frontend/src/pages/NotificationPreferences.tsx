@@ -113,7 +113,7 @@ export function NotificationPreferences(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {prefs.preferences.map((pref) => (
+            {(prefs.preferences ?? []).map((pref) => (
               <tr key={pref.trigger}>
                 <td>
                   <strong>{pref.label}</strong>

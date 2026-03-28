@@ -134,7 +134,7 @@ export function RepoQuantum(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {data.migrationPriorities.map((item) => (
+            {(data.migrationPriorities ?? []).map((item) => (
               <tr key={item.algorithm}>
                 <td>
                   <strong>{item.algorithm}</strong>
