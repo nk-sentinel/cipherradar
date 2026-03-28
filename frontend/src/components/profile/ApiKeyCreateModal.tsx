@@ -47,6 +47,18 @@ export function ApiKeyCreateModal({ onClose }: ApiKeyCreateModalProps): React.Re
   const [rawKey, setRawKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  if (user?.role === 'guest') {
+    return (
+      <div className="card" data-testid="api-key-guest-denied">
+        <div className="card-title">Create API Key</div>
+        <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '12px' }}>
+          Guests cannot create API keys. Contact your administrator to upgrade your role.
+        </p>
+        <button className="btn btn-outline" onClick={onClose}>Close</button>
+      </div>
+    );
+  }
+
   const availableScopes = user ? SCOPE_BY_ROLE[user.role] ?? [] : [];
 
   const toggleScope = (scope: string): void => {

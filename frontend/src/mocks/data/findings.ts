@@ -27,6 +27,7 @@ export interface Finding {
   status: FindingStatus;
   assignee?: string | null;
   firstSeen: string;
+  jiraIssueUrl?: string | null;
 }
 
 export const MOCK_FINDINGS: Finding[] = [

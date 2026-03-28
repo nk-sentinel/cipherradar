@@ -24,6 +24,10 @@ export interface OrgSettings {
     policyFile: string;
     failOnSeverity: 'critical' | 'high' | 'medium' | 'low' | 'none';
   };
+  labels?: {
+    groupLabel: string;
+    projectLabel: string;
+  };
 }
 
 /* ---------- User management types ---------- */

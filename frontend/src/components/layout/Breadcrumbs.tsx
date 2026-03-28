@@ -9,14 +9,13 @@ export interface BreadcrumbSegment {
 
 /** Map of path segments to human-readable labels */
 const PATH_LABELS: Record<string, string> = {
-  repos: 'Repositories',
-  assets: 'Asset Explorer',
+  repos: 'Projects',
+  assets: 'Findings',
   quantum: 'Quantum Readiness',
-  compliance: 'Compliance',
+  compliance: 'Portfolio Compliance',
   graph: 'Dependency Graph',
-  certificates: 'Certificates',
+  'certificate-tracker': 'Certificate Tracker',
   diff: 'CBOM Diff',
-  migration: 'Migration Board',
   policy: 'Policy Rules',
   requests: 'Pending Requests',
   scans: 'Scans',
@@ -32,7 +31,7 @@ const PATH_LABELS: Record<string, string> = {
   findings: 'Findings',
   dependencies: 'Dependencies',
   'compliance-dashboard': 'Compliance Dashboard',
-  'llm-config': 'LLM Config',
+  'llm-config': 'AI Remediation',
   'hndl-risk': 'HNDL Risk',
   agility: 'Agility Score',
   runtime: 'Runtime',
@@ -51,21 +50,26 @@ interface BuildContext {
  * Returns an array of { label, to } objects.
  */
 export function buildBreadcrumbs(pathname: string, context: BuildContext): BreadcrumbSegment[] {
-  if (pathname === '/') return [];
+  const segments: BreadcrumbSegment[] = [];
+
+  // Always prepend org name as the root breadcrumb when available
+  if (context.orgName) {
+    segments.push({
+      label: context.orgName,
+      to: '/',
+    });
+  }
+
+  // Dashboard (root) — show "Org Name > Dashboard"
+  if (pathname === '/') {
+    segments.push({ label: 'Dashboard', to: '/' });
+    return segments;
+  }
 
   const parts = pathname.split('/').filter(Boolean);
-  const segments: BreadcrumbSegment[] = [];
 
   // Handle /repos/:repoId/... pattern
   if (parts[0] === 'repos' && parts.length >= 2 && context.repoId) {
-    // Org breadcrumb
-    if (context.orgName) {
-      segments.push({
-        label: context.orgName,
-        to: '/',
-      });
-    }
-
     // Group breadcrumb (if available)
     if (context.groupName) {
       segments.push({
@@ -110,7 +114,7 @@ export function buildBreadcrumbs(pathname: string, context: BuildContext): Bread
     return segments;
   }
 
-  // Generic path
+  // Generic path — prepend page segments after org name
   let builtPath = '';
   for (const part of parts) {
     builtPath += `/${part}`;
@@ -140,17 +144,9 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
     // OrgProvider not available — that is fine
   }
 
-  let repoName: string | undefined;
   const repoId = params.repoId;
-  try {
-    if (repoId) {
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      const { data: repo } = useRepository(repoId);
-      repoName = repo?.name;
-    }
-  } catch {
-    // Not in a repo context — that is fine
-  }
+  const { data: repo } = useRepository(repoId ?? '');
+  const repoName = repoId ? repo?.name : undefined;
 
   return buildBreadcrumbs(pathname, {
     repoId,

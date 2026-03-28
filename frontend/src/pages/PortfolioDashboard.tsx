@@ -1,9 +1,10 @@
+import { useState } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { usePortfolioSummary, useHeatMap } from '@/api/hooks/usePortfolio.ts';
-import { useTriggerScan } from '@/api/hooks/useTriggerScan.ts';
 import { useAuth } from '@/lib/auth.tsx';
 import { cn, formatNumber } from '@/lib/utils.ts';
+import { ScanModal } from '@/components/scan/ScanModal';
 import type { HeatMapCell, SeverityLevel } from '@/mocks/data/portfolio.ts';
 
 const SEVERITY_COLORS: Record<SeverityLevel, string> = {
@@ -49,9 +50,9 @@ function complianceColor(score: number): string {
 export function PortfolioDashboard(): React.ReactElement {
   const { data: summary, isLoading: summaryLoading, error: summaryError } = usePortfolioSummary();
   const { data: heatMap, isLoading: heatMapLoading } = useHeatMap();
-  const triggerScan = useTriggerScan();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [scanModalOpen, setScanModalOpen] = useState(false);
 
   const isTeamManager = user?.role === 'team-manager';
 
@@ -115,15 +116,9 @@ export function PortfolioDashboard(): React.ReactElement {
           <span>Last scan: {summary.lastScanTime ?? 'N/A'}</span>
           <button
             className="btn btn-accent"
-            disabled={triggerScan.isPending}
-            onClick={() => {
-              const projectId = prompt('Enter project ID to scan:');
-              if (projectId) {
-                triggerScan.mutate(projectId);
-              }
-            }}
+            onClick={() => setScanModalOpen(true)}
           >
-            {triggerScan.isPending ? 'Scanning...' : '+ New Scan'}
+            + New Scan
           </button>
         </div>
       </div>
@@ -376,6 +371,10 @@ export function PortfolioDashboard(): React.ReactElement {
           </tbody>
         </table>
       </div>
+
+      {scanModalOpen && (
+        <ScanModal context="dashboard" onClose={() => setScanModalOpen(false)} />
+      )}
     </div>
   );
 }

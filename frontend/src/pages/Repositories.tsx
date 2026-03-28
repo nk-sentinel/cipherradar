@@ -1,8 +1,8 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from '@tanstack/react-router';
 import { useRepositories } from '@/api/hooks/useRepositories.ts';
-import { useTriggerScan } from '@/api/hooks/useTriggerScan.ts';
 import { EmptyState } from '@/components/ui/EmptyState.tsx';
+import { ScanModal } from '@/components/scan/ScanModal';
 import { cn } from '@/lib/utils.ts';
 
 function getComplianceColor(percent: number): string {
@@ -20,8 +20,8 @@ function getQuantumBadgeClass(score: number): string {
 
 export function Repositories(): React.ReactElement {
   const { data: repos, isLoading, error } = useRepositories();
-  const triggerScan = useTriggerScan();
   const [search, setSearch] = useState('');
+  const [scanRepoId, setScanRepoId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const filtered = useMemo(() => {
@@ -41,7 +41,7 @@ export function Repositories(): React.ReactElement {
     return (
       <div>
         <div className="topbar">
-          <h1>Repositories</h1>
+          <h1>Projects</h1>
         </div>
         <div className="card">
           <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>Loading...</p>
@@ -54,7 +54,7 @@ export function Repositories(): React.ReactElement {
     return (
       <div>
         <div className="topbar">
-          <h1>Repositories</h1>
+          <h1>Projects</h1>
         </div>
         <div className="card">
           <p style={{ color: 'var(--red)', fontSize: '13px' }}>
@@ -68,7 +68,7 @@ export function Repositories(): React.ReactElement {
   return (
     <div>
       <div className="topbar">
-        <h1>Repositories</h1>
+        <h1>Projects</h1>
         <div className="topbar-right">
           <input
             className="input"
@@ -81,7 +81,7 @@ export function Repositories(): React.ReactElement {
             className="btn btn-accent"
             onClick={() => void navigate({ to: '/admin/integrations' })}
           >
-            + Connect Repo
+            + Add Project
           </button>
         </div>
       </div>
@@ -150,14 +150,13 @@ export function Repositories(): React.ReactElement {
                 <td>
                   <button
                     className="btn btn-outline"
-                    disabled={triggerScan.isPending}
                     aria-label={`Scan ${repo.name}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      triggerScan.mutate(repo.id);
+                      setScanRepoId(repo.id);
                     }}
                   >
-                    {triggerScan.isPending ? 'Scanning...' : 'Scan'}
+                    Scan
                   </button>
                 </td>
               </tr>
@@ -181,6 +180,10 @@ export function Repositories(): React.ReactElement {
           />
         )}
       </div>
+
+      {scanRepoId && (
+        <ScanModal context="project-row" projectId={scanRepoId} onClose={() => setScanRepoId(null)} />
+      )}
     </div>
   );
 }

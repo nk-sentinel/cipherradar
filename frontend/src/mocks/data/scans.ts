@@ -22,7 +22,8 @@ export interface ScanSummary {
   info: number;
   duration: string;
   createdAt: string;
-  status: 'completed' | 'running' | 'failed';
+  status: 'completed' | 'running' | 'failed' | 'queued';
+  triggerType?: 'manual' | 'schedule' | 'webhook' | 'push';
 }
 
 export interface ScanDetail extends ScanSummary {
@@ -51,6 +52,7 @@ export const mockScans: ScanSummary[] = [
     duration: '4.2s',
     createdAt: '2026-03-19T08:00:00Z',
     status: 'completed',
+    triggerType: 'manual',
   },
   {
     id: 'scan-46',
@@ -67,6 +69,7 @@ export const mockScans: ScanSummary[] = [
     duration: '4.1s',
     createdAt: '2026-03-18T10:00:00Z',
     status: 'completed',
+    triggerType: 'schedule',
   },
   {
     id: 'scan-45',
@@ -83,6 +86,7 @@ export const mockScans: ScanSummary[] = [
     duration: '3.8s',
     createdAt: '2026-03-17T14:30:00Z',
     status: 'completed',
+    triggerType: 'webhook',
   },
   {
     id: 'scan-44',
@@ -99,6 +103,7 @@ export const mockScans: ScanSummary[] = [
     duration: '3.9s',
     createdAt: '2026-03-16T09:15:00Z',
     status: 'completed',
+    triggerType: 'push',
   },
   {
     id: 'scan-43',
@@ -115,6 +120,75 @@ export const mockScans: ScanSummary[] = [
     duration: '3.7s',
     createdAt: '2026-03-15T16:45:00Z',
     status: 'completed',
+    triggerType: 'push',
+  },
+  {
+    id: 'scan-42',
+    repoId: 'repo-2',
+    number: 42,
+    branch: 'main',
+    commit: '',
+    totalFindings: 0,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    info: 0,
+    duration: '',
+    createdAt: '2026-03-28T12:00:00Z',
+    status: 'queued',
+    triggerType: 'schedule',
+  },
+  {
+    id: 'scan-41',
+    repoId: 'repo-3',
+    number: 41,
+    branch: 'develop',
+    commit: 'c9d1e2f',
+    totalFindings: 0,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    info: 0,
+    duration: '',
+    createdAt: '2026-03-28T11:30:00Z',
+    status: 'running',
+    triggerType: 'webhook',
+  },
+  {
+    id: 'scan-40',
+    repoId: 'repo-2',
+    number: 40,
+    branch: 'feat/oauth2',
+    commit: 'a1b2c3d',
+    totalFindings: 0,
+    critical: 0,
+    high: 0,
+    medium: 0,
+    low: 0,
+    info: 0,
+    duration: '2.8s',
+    createdAt: '2026-03-27T09:00:00Z',
+    status: 'failed',
+    triggerType: 'manual',
+  },
+  {
+    id: 'scan-39',
+    repoId: 'repo-4',
+    number: 39,
+    branch: 'main',
+    commit: 'f4e5d6c',
+    totalFindings: 448,
+    critical: 4,
+    high: 30,
+    medium: 72,
+    low: 256,
+    info: 86,
+    duration: '5.6s',
+    createdAt: '2026-03-26T15:20:00Z',
+    status: 'completed',
+    triggerType: 'schedule',
   },
 ];
 

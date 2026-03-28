@@ -17,12 +17,12 @@ import {
   Search,
   GitBranch,
   Award,
-  CalendarDays,
   ArrowLeftRight,
   Users,
   Plug,
   ScrollText,
   Package,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -51,14 +51,12 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     title: 'Portfolio',
     items: [
-      { label: 'Compliance', icon: Shield, to: '/compliance', page: 'portfolio-compliance' },
+      { label: 'Portfolio Compliance', icon: Shield, to: '/compliance', page: 'portfolio-compliance' },
       { label: 'Compliance Dashboard', icon: Award, to: '/compliance-dashboard', page: 'compliance-dashboard' },
       { label: 'Quantum Readiness', icon: Search, to: '/quantum', page: 'portfolio-quantum' },
       { label: 'Dependency Graph', icon: GitBranch, to: '/graph', page: 'graph' },
-      { label: 'Certificates', icon: CalendarDays, to: '/certificates', page: 'certificates' },
-      { label: 'Cert Tracker', icon: Shield, to: '/certificate-tracker', page: 'certificates' },
+      { label: 'Certificate Tracker', icon: Shield, to: '/certificate-tracker', page: 'certificates' },
       { label: 'CBOM Diff', icon: ArrowLeftRight, to: '/diff', page: 'diff' },
-      { label: 'Migration Board', icon: ArrowLeftRight, to: '/migration', page: 'migration' },
     ],
   },
   {
@@ -69,6 +67,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { label: 'Integrations', icon: Plug, to: '/admin/integrations', page: 'admin-integrations' },
       { label: 'Audit Log', icon: ScrollText, to: '/admin/audit-log', page: 'admin-audit-log' },
       { label: 'Registries', icon: Package, to: '/admin/registries', page: 'admin-settings' },
+      { label: 'AI Remediation', icon: Sparkles, to: '/admin/llm-config', page: 'admin-settings' },
     ],
   },
   {

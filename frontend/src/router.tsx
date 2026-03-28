@@ -24,11 +24,11 @@ import { RepoQuantum } from './pages/repo/RepoQuantum.tsx';
 import { RepoComplianceUnified } from './pages/repo/RepoComplianceUnified.tsx';
 import { RepoDependencies } from './pages/repo/RepoDependencies.tsx';
 import { RepoSettings } from './pages/repo/RepoSettings.tsx';
-import { CertCalendar } from './pages/CertCalendar.tsx';
+
 import { CertificateTracker } from './pages/CertificateTracker.tsx';
 import { ComplianceDashboard } from './pages/ComplianceDashboard.tsx';
 import { CBOMDiff } from './pages/CBOMDiff.tsx';
-import { MigrationKanban } from './pages/MigrationKanban.tsx';
+
 import { NotificationPreferences } from './pages/NotificationPreferences.tsx';
 import { OrgSettings } from './pages/admin/OrgSettings.tsx';
 import { UserManagement } from './pages/admin/UserManagement.tsx';
@@ -128,13 +128,6 @@ const graphRoute = createRoute({
   component: LazyDependencyGraph,
 });
 
-const certCalendarRoute = createRoute({
-  getParentRoute: () => authenticatedRoute,
-  path: '/certificates',
-  beforeLoad: createRouteGuard('certificates'),
-  component: CertCalendar,
-});
-
 const certTrackerRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/certificate-tracker',
@@ -154,13 +147,6 @@ const cbomDiffRoute = createRoute({
   path: '/diff',
   beforeLoad: createRouteGuard('diff'),
   component: CBOMDiff,
-});
-
-const migrationKanbanRoute = createRoute({
-  getParentRoute: () => authenticatedRoute,
-  path: '/migration',
-  beforeLoad: createRouteGuard('migration'),
-  component: MigrationKanban,
 });
 
 const policyRoute = createRoute({
@@ -187,7 +173,7 @@ const requestsRoute = createRoute({
 const scansRoute = createRoute({
   getParentRoute: () => authenticatedRoute,
   path: '/scans',
-  beforeLoad: createRouteGuard('repos'),
+  beforeLoad: createRouteGuard('scans'),
   component: ScanQueue,
 });
 
@@ -384,12 +370,12 @@ const routeTree = rootRoute.addChildren([
     quantumRoute,
     complianceRoute,
     graphRoute,
-    certCalendarRoute,
+
     certTrackerRoute,
     complianceDashboardRoute,
     policyRoute,
     cbomDiffRoute,
-    migrationKanbanRoute,
+
     notificationPreferencesRoute,
     requestsRoute,
     scansRoute,

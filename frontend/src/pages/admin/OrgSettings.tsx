@@ -4,7 +4,16 @@ import { useOrgSettings, useSaveOrgSettings } from '@/api/hooks/useAdmin.ts';
 
 export function OrgSettings(): React.ReactElement {
   return (
-    <RequireRole roles={['org-admin', 'security-manager']}>
+    <RequireRole
+      roles={['org-admin', 'security-manager']}
+      fallback={
+        <div className="card">
+          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>
+            Access denied. You do not have permission to view organization settings. Contact your admin.
+          </p>
+        </div>
+      }
+    >
       <OrgSettingsContent />
     </RequireRole>
   );
@@ -18,6 +27,8 @@ function OrgSettingsContent(): React.ReactElement {
   const [scanOnPr, setScanOnPr] = useState(false);
   const [policyFile, setPolicyFile] = useState('');
   const [failOnSeverity, setFailOnSeverity] = useState<'critical' | 'high' | 'medium' | 'low' | 'none'>('high');
+  const [groupLabel, setGroupLabel] = useState('Group');
+  const [projectLabel, setProjectLabel] = useState('Project');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -86,6 +97,10 @@ function OrgSettingsContent(): React.ReactElement {
                     scanOnPr,
                     policyFile,
                     failOnSeverity,
+                  },
+                  labels: {
+                    groupLabel,
+                    projectLabel,
                   },
                 },
                 {
@@ -177,6 +192,44 @@ function OrgSettingsContent(): React.ReactElement {
                 <option value="none">None</option>
               </select>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Customizable labels */}
+      <div className="card">
+        <div className="card-title">Customizable Labels</div>
+        <p style={{ fontSize: '12px', color: 'var(--text-3)', marginBottom: '14px' }}>
+          Customize the terminology used across the platform to match your organization.
+        </p>
+        <div className="g2" style={{ marginBottom: 0 }}>
+          <div className="field">
+            <label className="field-label">Group Label</label>
+            <select
+              className="input"
+              value={groupLabel}
+              onChange={(e) => setGroupLabel(e.target.value)}
+            >
+              <option value="Group">Group</option>
+              <option value="Team">Team</option>
+              <option value="Department">Department</option>
+              <option value="Business Unit">Business Unit</option>
+              <option value="Division">Division</option>
+            </select>
+          </div>
+          <div className="field">
+            <label className="field-label">Project Label</label>
+            <select
+              className="input"
+              value={projectLabel}
+              onChange={(e) => setProjectLabel(e.target.value)}
+            >
+              <option value="Project">Project</option>
+              <option value="Application">Application</option>
+              <option value="Service">Service</option>
+              <option value="Repository">Repository</option>
+              <option value="Component">Component</option>
+            </select>
           </div>
         </div>
       </div>

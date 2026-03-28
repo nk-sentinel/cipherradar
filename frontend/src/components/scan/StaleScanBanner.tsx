@@ -1,7 +1,7 @@
 interface StaleScanBannerProps {
   /** ISO date string of the last scan, or undefined if no scans exist */
   lastScanDate?: string;
-  /** Number of days before showing the warning (default: 14) */
+  /** Number of days before showing the warning (default: 30) */
   staleDays?: number;
   /** Action handler for the "Scan Now" button */
   onAction: () => void;
@@ -14,7 +14,7 @@ function getDaysAgo(dateStr: string): number {
 
 export function StaleScanBanner({
   lastScanDate,
-  staleDays = 14,
+  staleDays = 30,
   onAction,
 }: StaleScanBannerProps): React.ReactElement | null {
   if (!lastScanDate) return null;

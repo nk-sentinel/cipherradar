@@ -16,7 +16,16 @@ import {
 
 export function UserManagement(): React.ReactElement {
   return (
-    <RequireRole roles={['org-admin', 'security-manager']}>
+    <RequireRole
+      roles={['org-admin', 'security-manager']}
+      fallback={
+        <div className="card">
+          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>
+            Access denied. You do not have permission to manage users. Contact your admin.
+          </p>
+        </div>
+      }
+    >
       <UserManagementContent />
     </RequireRole>
   );
@@ -72,6 +81,16 @@ function UserManagementContent(): React.ReactElement {
   const [showCreate, setShowCreate] = useState(false);
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
 
+  // C5: Delete confirmation state
+  const [deleteTarget, setDeleteTarget] = useState<ManagedUser | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // H8: Role change confirmation state
+  const [roleChangeTarget, setRoleChangeTarget] = useState<{ user: ManagedUser; newRole: Role } | null>(null);
+
+  // H9: Last OA error
+  const [lastOAError, setLastOAError] = useState<string | null>(null);
+
   const { data, isLoading, error } = useUsers(page, perPage, search);
   const changeRole = useChangeRole();
   const disableUser = useDisableUser();
@@ -84,6 +103,59 @@ function UserManagementContent(): React.ReactElement {
   );
 
   const canEditRole = currentUser?.role === 'org-admin';
+
+  // H9: Count org admins for last-OA check
+  const orgAdminCount = useMemo(() => {
+    if (!data) return 0;
+    return data.items.filter((u) => u.role === 'org-admin').length;
+  }, [data]);
+
+  // H9: Check if user is last org admin before disable/demote
+  const isLastOrgAdmin = (targetUser: ManagedUser): boolean => {
+    return targetUser.role === 'org-admin' && orgAdminCount <= 1;
+  };
+
+  // H8: Handle role change with confirmation
+  const handleRoleChangeRequest = (targetUser: ManagedUser, newRole: Role) => {
+    if (newRole === targetUser.role) return;
+    // H9: Prevent demoting the last OA
+    if (targetUser.role === 'org-admin' && newRole !== 'org-admin' && isLastOrgAdmin(targetUser)) {
+      setLastOAError('Cannot demote the last Org Admin. Promote another user to Org Admin first.');
+      return;
+    }
+    setRoleChangeTarget({ user: targetUser, newRole });
+  };
+
+  const confirmRoleChange = () => {
+    if (!roleChangeTarget) return;
+    changeRole.mutate({
+      userId: roleChangeTarget.user.id,
+      role: roleChangeTarget.newRole,
+    });
+    setRoleChangeTarget(null);
+  };
+
+  // H9: Handle disable with last-OA check
+  const handleDisableRequest = (targetUser: ManagedUser) => {
+    if (isLastOrgAdmin(targetUser)) {
+      setLastOAError('Cannot disable the last Org Admin. Promote another user to Org Admin first.');
+      return;
+    }
+    disableUser.mutate(targetUser.id);
+  };
+
+  // C5: Handle delete with confirmation dialog
+  const handleDeleteRequest = (targetUser: ManagedUser) => {
+    setDeleteTarget(targetUser);
+    setDeleteConfirmText('');
+  };
+
+  const confirmDelete = () => {
+    if (!deleteTarget) return;
+    deleteUser.mutate(deleteTarget.id);
+    setDeleteTarget(null);
+    setDeleteConfirmText('');
+  };
 
   if (isLoading) {
     return (
@@ -194,10 +266,7 @@ function UserManagementContent(): React.ReactElement {
                       onClick={(e) => e.stopPropagation()}
                       onChange={(e) => {
                         e.stopPropagation();
-                        changeRole.mutate({
-                          userId: u.id,
-                          role: e.target.value as Role,
-                        });
+                        handleRoleChangeRequest(u, e.target.value as Role);
                       }}
                       data-testid={`role-select-${u.id}`}
                       style={{
@@ -288,7 +357,7 @@ function UserManagementContent(): React.ReactElement {
                         style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--yellow)' }}
                         data-testid={`disable-btn-${u.id}`}
                         disabled={disableUser.isPending}
-                        onClick={() => disableUser.mutate(u.id)}
+                        onClick={() => handleDisableRequest(u)}
                       >
                         Disable
                       </button>
@@ -309,7 +378,7 @@ function UserManagementContent(): React.ReactElement {
                           style={{ fontSize: '10px', padding: '2px 8px', color: 'var(--red)' }}
                           data-testid={`delete-btn-${u.id}`}
                           disabled={deleteUser.isPending}
-                          onClick={() => deleteUser.mutate(u.id)}
+                          onClick={() => handleDeleteRequest(u)}
                         >
                           Delete
                         </button>
@@ -343,6 +412,107 @@ function UserManagementContent(): React.ReactElement {
           user={selectedUser}
           onClose={() => setSelectedUser(null)}
         />
+      )}
+
+      {/* C5: Delete confirmation dialog */}
+      {deleteTarget && (
+        <div
+          className="modal-overlay"
+          data-testid="delete-confirm-modal"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setDeleteTarget(null); }}
+        >
+          <div className="modal card" style={{ maxWidth: '400px', width: '100%' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px' }}>
+              Confirm User Deletion
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '12px' }}>
+              Type &quot;<strong>{deleteTarget.email}</strong>&quot; to confirm deletion:
+            </p>
+            <input
+              className="input"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={deleteTarget.email}
+              data-testid="delete-confirm-input"
+              style={{ marginBottom: '12px' }}
+            />
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline" onClick={() => setDeleteTarget(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-accent"
+                style={{ background: 'var(--red)', borderColor: 'var(--red)' }}
+                disabled={deleteConfirmText !== deleteTarget.email}
+                onClick={confirmDelete}
+                data-testid="delete-confirm-btn"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* H8: Role change confirmation dialog */}
+      {roleChangeTarget && (
+        <div
+          className="modal-overlay"
+          data-testid="role-change-confirm-modal"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setRoleChangeTarget(null); }}
+        >
+          <div className="modal card" style={{ maxWidth: '400px', width: '100%' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px' }}>
+              Confirm Role Change
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '12px' }}>
+              Change <strong>{roleChangeTarget.user.name}</strong>&apos;s role from{' '}
+              <strong>{ROLE_LABELS[roleChangeTarget.user.role]}</strong> to{' '}
+              <strong>{ROLE_LABELS[roleChangeTarget.newRole]}</strong>?
+            </p>
+            <p style={{ fontSize: '11px', color: 'var(--orange)', marginBottom: '12px' }}>
+              This may revoke API keys with scopes exceeding the new role.
+            </p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-outline" onClick={() => setRoleChangeTarget(null)}>
+                Cancel
+              </button>
+              <button
+                className="btn btn-accent"
+                onClick={confirmRoleChange}
+                data-testid="role-change-confirm-btn"
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* H9: Last OA error dialog */}
+      {lastOAError && (
+        <div
+          className="modal-overlay"
+          data-testid="last-oa-error-modal"
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setLastOAError(null); }}
+        >
+          <div className="modal card" style={{ maxWidth: '400px', width: '100%' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '12px', color: 'var(--red)' }}>
+              Action Blocked
+            </h3>
+            <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '12px' }}>
+              {lastOAError}
+            </p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              <button className="btn btn-accent" onClick={() => setLastOAError(null)}>
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

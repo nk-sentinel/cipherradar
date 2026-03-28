@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useRequests, useApproveRequest, useRejectRequest } from '@/api/hooks/useRequests';
 import type { ReviewRequest } from '@/api/hooks/useRequests';
+import { RequireRole } from '@/components/guards/RequireRole';
 import { Pagination } from '@/components/ui/Pagination';
 import { SeverityBadge } from '@/components/findings/SeverityBadge';
 import type { Severity } from '@/mocks/data/findings';
@@ -65,6 +66,23 @@ function RejectReasonModal({
 }
 
 export function RequestQueue(): React.ReactElement {
+  return (
+    <RequireRole
+      roles={['org-admin', 'security-manager', 'security-engineer', 'team-manager']}
+      fallback={
+        <div className="card">
+          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>
+            Access denied. You do not have permission to view pending requests. Contact your admin.
+          </p>
+        </div>
+      }
+    >
+      <RequestQueueContent />
+    </RequireRole>
+  );
+}
+
+function RequestQueueContent(): React.ReactElement {
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(25);
   const [rejectingId, setRejectingId] = useState<string | null>(null);

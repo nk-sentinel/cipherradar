@@ -43,17 +43,24 @@ export function ScheduleConfig({ scopeType, scopeId }: ScheduleConfigProps): Rea
   const [preset, setPreset] = useState<'off' | 'daily' | 'weekly'>('off');
   const [hour, setHour] = useState(2);
   const [timezone, setTimezone] = useState('UTC');
+  const [dayOfWeek, setDayOfWeek] = useState(1);
 
   useEffect(() => {
     if (schedule) {
       setPreset(schedule.preset);
       setHour(schedule.hour);
       setTimezone(schedule.timezone);
+      if (schedule.dayOfWeek !== undefined) setDayOfWeek(schedule.dayOfWeek);
     }
   }, [schedule]);
 
   function handleSave() {
-    const params: SaveScheduleParams = { preset, hour, timezone };
+    const params: SaveScheduleParams = {
+      preset,
+      hour,
+      timezone,
+      ...(preset === 'weekly' ? { dayOfWeek } : {}),
+    };
     saveMutation.mutate(params);
   }
 
@@ -169,6 +176,37 @@ export function ScheduleConfig({ scopeType, scopeId }: ScheduleConfigProps): Rea
               ))}
             </select>
           </div>
+
+          {/* Day-of-week picker for weekly preset */}
+          {preset === 'weekly' && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ fontSize: '11px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>
+                Day of Week
+              </label>
+              <select
+                data-testid="schedule-day-of-week"
+                value={dayOfWeek}
+                onChange={(e) => setDayOfWeek(Number(e.target.value))}
+                style={{
+                  width: '100%',
+                  padding: '6px 10px',
+                  fontSize: '13px',
+                  background: 'var(--bg-2)',
+                  color: 'var(--text-1)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)',
+                }}
+              >
+                <option value={0}>Sunday</option>
+                <option value={1}>Monday</option>
+                <option value={2}>Tuesday</option>
+                <option value={3}>Wednesday</option>
+                <option value={4}>Thursday</option>
+                <option value={5}>Friday</option>
+                <option value={6}>Saturday</option>
+              </select>
+            </div>
+          )}
         </>
       )}
 

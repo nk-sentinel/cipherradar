@@ -153,7 +153,7 @@ export function AssetExplorer(): React.ReactElement {
             letterSpacing: '0.04em',
           }}
         >
-          Asset Explorer
+          Findings
         </h1>
         <div className="topbar-right">
           <button className="btn btn-outline" onClick={exportCSV}>

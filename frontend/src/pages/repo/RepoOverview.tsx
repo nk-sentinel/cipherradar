@@ -68,7 +68,7 @@ export function RepoOverview(): React.ReactElement {
         </div>
         <div className="topbar-right">
           <button className="btn btn-accent" onClick={() => setShowScanModal(true)}>Scan Now</button>
-          <button className="btn btn-outline" onClick={() => void navigate({ to: '/admin/settings' })}>Settings</button>
+          <button className="btn btn-outline" onClick={() => void navigate({ to: '/repos/$repoId/settings', params: { repoId } })}>Settings</button>
         </div>
       </div>
 

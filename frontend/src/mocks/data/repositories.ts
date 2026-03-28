@@ -138,6 +138,28 @@ export const MOCK_REPOSITORIES: Repository[] = [
     quantumScore: 128,
     lastScan: '1d ago',
   },
+  {
+    id: 'repo-5',
+    name: 'infra-config',
+    orgPath: 'nk-sentinel/infra-config',
+    provider: 'GitHub',
+    languages: ['Go', 'YAML'],
+    findings: 24,
+    compliancePercent: 97,
+    quantumScore: 3,
+    lastScan: '6h ago',
+  },
+  {
+    id: 'repo-6',
+    name: 'notification-service',
+    orgPath: 'nk-sentinel/notification-service',
+    provider: 'GitLab',
+    languages: ['Python', 'TypeScript'],
+    findings: 215,
+    compliancePercent: 73,
+    quantumScore: 56,
+    lastScan: '12h ago',
+  },
 ];
 
 export const MOCK_REPOSITORY_DETAILS: Record<string, RepositoryDetail> = {

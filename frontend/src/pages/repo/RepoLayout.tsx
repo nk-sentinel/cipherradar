@@ -38,7 +38,7 @@ export function RepoLayout(): React.ReactElement {
   return (
     <div>
       <div className="breadcrumb">
-        <Link to="/repos">Repositories</Link>
+        <Link to="/repos">Projects</Link>
         <span>/</span>
         <strong>{repoName}</strong>
       </div>
