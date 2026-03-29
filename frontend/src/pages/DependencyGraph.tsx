@@ -351,6 +351,27 @@ export function DependencyGraph(): React.ReactElement {
     );
   }
 
+  // Fresh org — no graph data
+  if ((data.nodes ?? []).length === 0) {
+    return (
+      <div>
+        <h1 style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '24px' }}>
+          Crypto Dependency Graph
+        </h1>
+        <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🕸️</div>
+          <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-0)' }}>
+            No dependency data yet
+          </h2>
+          <p style={{ color: 'var(--text-2)', fontSize: '14px', maxWidth: '480px', margin: '0 auto', lineHeight: 1.6 }}>
+            The cryptographic dependency graph will visualize relationships between algorithms,
+            libraries, and certificates once scan results are available.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const nodeCount = filteredData?.nodes.length ?? 0;
   const linkCount = filteredData?.links.length ?? 0;
 
