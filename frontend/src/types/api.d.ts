@@ -32,10 +32,16 @@ export interface Repository {
   orgPath: string;
   provider: string;
   languages: string[];
+  /** Mock field name */
   findings: number;
+  /** API field name — takes precedence when present */
+  findingsCount?: number;
   compliancePercent: number;
   quantumScore: number;
+  /** Mock field name */
   lastScan: string;
+  /** API field name — ISO timestamp, takes precedence when present */
+  lastScanAt?: string;
 }
 
 export interface RecentScan {

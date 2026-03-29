@@ -243,22 +243,22 @@ export function PortfolioDashboard(): React.ReactElement {
         </div>
       </div>
 
-      {/* Heat map */}
-      {!heatMapLoading && heatMap && heatMap.repos && (
+      {/* Heat map — the useHeatMap hook normalises API { groups } to { repos } */}
+      {!heatMapLoading && heatMap && heatMap.repos && heatMap.repos.length > 0 && (
         <div className="card">
           <div className="card-title">Severity Heat Map</div>
           <div style={{ overflowX: 'auto' }}>
             <table>
               <thead>
                 <tr>
-                  <th scope="col">Repository</th>
+                  <th scope="col">Group</th>
                   {(['critical', 'high', 'medium', 'low', 'info'] as SeverityLevel[]).map((s) => (
                     <th scope="col" key={s} style={{ textAlign: 'center' }}>{SEVERITY_LABELS[s]}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {(heatMap.repos ?? []).map((repo) => {
+                {heatMap.repos.map((repo) => {
                   const maxVal = Math.max(repo.critical, repo.high, repo.medium, repo.low, repo.info);
                   return (
                     <tr

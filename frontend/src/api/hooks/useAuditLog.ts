@@ -79,7 +79,15 @@ export function useAuditLogPaginated(filters: AuditLogFilters) {
   return useQuery<PaginatedAuditLog>({
     queryKey: ['admin', 'audit-log', filters],
     queryFn: async () => {
-      return apiClient<PaginatedAuditLog>(`/admin/audit-log?${params.toString()}`);
+      try {
+        const data = await apiClient<PaginatedAuditLog>(`/admin/audit-log?${params.toString()}`);
+        if (data) return data;
+      } catch (err) {
+        if (!import.meta.env.DEV) throw err;
+        console.warn('[CipherRadar] Audit log API unavailable, returning empty result');
+      }
+      // Return empty result so the page renders an empty state instead of loading forever
+      return { items: [], total: 0, page: filters.page, perPage: filters.perPage };
     },
     staleTime: 15_000,
   });

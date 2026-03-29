@@ -24,7 +24,15 @@ export function useAssets(filters: AssetFilters, page: number, pageSize = 15) {
     queryFn: async () => {
       try {
         const data = await apiClient<AssetSearchResult>(`/assets?${params.toString()}`);
-        if (data) return data;
+        if (data) {
+          // The API may return { items: [...] } instead of { assets: [...] }.
+          // Normalise so the frontend always sees data.assets.
+          const raw = data as unknown as Record<string, unknown>;
+          if (!data.assets && Array.isArray(raw.items)) {
+            return { ...data, assets: raw.items as AssetSearchResult['assets'] };
+          }
+          return data;
+        }
       } catch (err) {
         if (import.meta.env.DEV) {
           console.warn('[CipherRadar] API unavailable, using mock data for assets');

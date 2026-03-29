@@ -126,7 +126,7 @@ export function Repositories(): React.ReactElement {
                 </td>
                 <td>{repo.provider ?? ''}</td>
                 <td>{(repo.languages ?? []).join(', ')}</td>
-                <td>{repo.findings ?? 0}</td>
+                <td>{repo.findingsCount ?? repo.findings ?? 0}</td>
                 <td>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <div className="progress" style={{ width: '70px' }}>
@@ -146,7 +146,7 @@ export function Repositories(): React.ReactElement {
                     {repo.quantumScore ?? 0}
                   </span>
                 </td>
-                <td>{repo.lastScan ?? 'Never'}</td>
+                <td>{repo.lastScanAt ? new Date(repo.lastScanAt).toLocaleDateString() : (repo.lastScan ?? 'Never')}</td>
                 <td>
                   <button
                     className="btn btn-outline"

@@ -179,7 +179,9 @@ export function CertificateTracker(): React.ReactElement {
         <div className="card-title">Certificates ({data.total})</div>
         {(data.items ?? []).length === 0 ? (
           <p style={{ color: 'var(--text-3)', fontSize: '12px' }}>
-            No certificates match the selected filter.
+            {data.total === 0 && !statusFilter
+              ? 'No certificates found. Certificate data will appear here once scans detect X.509 certificates, TLS endpoints, or PEM files in your codebase.'
+              : 'No certificates match the selected filter.'}
           </p>
         ) : (
           <table>

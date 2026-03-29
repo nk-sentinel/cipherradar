@@ -403,7 +403,9 @@ function AuditLogContent(): React.ReactElement {
             {entries.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ textAlign: 'center', color: 'var(--text-3)', fontSize: '12px', padding: '20px' }}>
-                  No entries match the current filters.
+                  {data?.total === 0 && !userFilter && !actionFilter && !projectFilter
+                    ? 'No audit log entries yet. Actions will appear here as users interact with the system.'
+                    : 'No entries match the current filters.'}
                 </td>
               </tr>
             )}

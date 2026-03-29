@@ -45,8 +45,20 @@ export interface PortfolioSummaryData {
   topRiskRepos: TopRiskyRepo[];
 }
 
+export interface HeatMapGroup {
+  id?: string;
+  name: string;
+  projectCount?: number;
+  criticalCount?: number;
+  highCount?: number;
+  mediumCount?: number;
+  lowCount?: number;
+  infoCount?: number;
+}
+
 export interface HeatMapData {
-  repos: HeatMapCell[];
+  repos?: HeatMapCell[];
+  groups?: HeatMapGroup[];
 }
 
 export const MOCK_PORTFOLIO_SUMMARY: PortfolioSummaryData = {

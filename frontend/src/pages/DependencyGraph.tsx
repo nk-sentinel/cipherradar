@@ -22,17 +22,24 @@ function quantumColor(status: QuantumNodeStatus): string {
   }
 }
 
+/* Fallback hex values in case CSS vars are not yet resolved */
+const QUANTUM_FALLBACKS: Record<QuantumNodeStatus, string> = {
+  safe: '#4ade80',
+  vulnerable: '#fb923c',
+  broken: '#f87171',
+  unknown: '#fbbf24',
+};
+
+const CSS_VAR_MAP: Record<QuantumNodeStatus, string> = {
+  safe: '--green',
+  vulnerable: '--orange',
+  broken: '--red',
+  unknown: '--yellow',
+};
+
 function quantumHex(status: QuantumNodeStatus): string {
-  switch (status) {
-    case 'safe':
-      return getCSSVar('--green');
-    case 'vulnerable':
-      return getCSSVar('--orange');
-    case 'broken':
-      return getCSSVar('--red');
-    case 'unknown':
-      return getCSSVar('--yellow');
-  }
+  const resolved = getCSSVar(CSS_VAR_MAP[status]);
+  return resolved || QUANTUM_FALLBACKS[status];
 }
 
 function nodeRadius(severity: string): number {
@@ -148,22 +155,25 @@ export function DependencyGraph(): React.ReactElement {
       const { width, height } = dimensions;
 
       /* resolve CSS variables inside draw so current theme is used */
-      const labelColor = getCSSVar('--text-3');
-      const selectionStroke = getCSSVar('--text-1');
+      const labelColor = getCSSVar('--text-3') || '#888888';
+      const selectionStroke = getCSSVar('--text-1') || '#ffffff';
 
       ctx.save();
       ctx.clearRect(0, 0, width, height);
       ctx.translate(transform.x, transform.y);
       ctx.scale(transform.k, transform.k);
 
-      /* links */
+      /* links — use theme-aware color */
+      const linkColor = getCSSVar('--border') || 'rgba(100, 120, 150, 0.25)';
       for (const link of links) {
         ctx.beginPath();
         ctx.moveTo(link.source.x, link.source.y);
         ctx.lineTo(link.target.x, link.target.y);
-        ctx.strokeStyle = 'rgba(100, 120, 150, 0.25)';
+        ctx.strokeStyle = linkColor;
+        ctx.globalAlpha = 0.35;
         ctx.lineWidth = 0.8;
         ctx.stroke();
+        ctx.globalAlpha = 1;
       }
 
       /* nodes */

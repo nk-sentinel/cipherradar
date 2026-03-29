@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useCBOMDiff, useScanSelectors } from '@/api/hooks/useCBOMDiff.ts';
 import { cn } from '@/lib/utils.ts';
 import type { DiffItem, DiffType, DiffSeverity } from '@/mocks/data/cbomDiff.ts';
@@ -77,12 +77,22 @@ type SeverityFilter = DiffSeverity | 'all';
 
 export function CBOMDiff(): React.ReactElement {
   const { data: scans, isLoading: scansLoading } = useScanSelectors();
-  const [baseScanId, setBaseScanId] = useState('scan-46');
-  const [targetScanId, setTargetScanId] = useState('scan-47');
+  const [baseScanId, setBaseScanId] = useState('');
+  const [targetScanId, setTargetScanId] = useState('');
+
+  // Auto-select the two most recent scans once available
+  useEffect(() => {
+    if (scans && scans.length >= 2 && !baseScanId && !targetScanId) {
+      setBaseScanId(scans[scans.length - 2]!.scanId);
+      setTargetScanId(scans[scans.length - 1]!.scanId);
+    }
+  }, [scans, baseScanId, targetScanId]);
+
   const [typeFilter, setTypeFilter] = useState<FilterType>('all');
   const [severityFilter, setSeverityFilter] = useState<SeverityFilter>('all');
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
+  const hasBothScans = !!baseScanId && !!targetScanId;
   const { data, isLoading, error } = useCBOMDiff(baseScanId, targetScanId);
 
   /* filtered items */
@@ -98,7 +108,7 @@ export function CBOMDiff(): React.ReactElement {
     return items;
   }, [data, typeFilter, severityFilter]);
 
-  if ((isLoading || scansLoading) && !data) {
+  if (scansLoading) {
     return (
       <div className="card">
         <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>Loading...</p>
@@ -106,15 +116,8 @@ export function CBOMDiff(): React.ReactElement {
     );
   }
 
-  if (error || !data) {
-    return (
-      <div className="card">
-        <p style={{ color: 'var(--red)', fontSize: '13px' }}>
-          Failed to load CBOM diff data.
-        </p>
-      </div>
-    );
-  }
+  /* Show the scan selector + prompt when no scans are selected or diff data is unavailable */
+  const showDiffContent = hasBothScans && data && !error;
 
   return (
     <div>
@@ -157,6 +160,7 @@ export function CBOMDiff(): React.ReactElement {
               onChange={(e) => setBaseScanId(e.target.value)}
               aria-label="Select base scan"
             >
+              {!baseScanId && <option value="">-- Select scan --</option>}
               {(scans ?? []).map((s) => (
                 <option key={s.scanId} value={s.scanId}>
                   #{s.scanNumber} - {formatDate(s.date)} ({s.branch})
@@ -175,6 +179,7 @@ export function CBOMDiff(): React.ReactElement {
               onChange={(e) => setTargetScanId(e.target.value)}
               aria-label="Select target scan"
             >
+              {!targetScanId && <option value="">-- Select scan --</option>}
               {(scans ?? []).map((s) => (
                 <option key={s.scanId} value={s.scanId}>
                   #{s.scanNumber} - {formatDate(s.date)} ({s.branch})
@@ -185,84 +190,107 @@ export function CBOMDiff(): React.ReactElement {
         </div>
       </div>
 
-      {/* Summary bar */}
-      <div className="g4">
-        <div className="stat">
-          <div className="stat-label">Added</div>
-          <div className="stat-val" style={{ color: 'var(--green)' }}>+{data.summary?.added ?? 0}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Removed</div>
-          <div className="stat-val" style={{ color: 'var(--red)' }}>-{data.summary?.removed ?? 0}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Changed</div>
-          <div className="stat-val" style={{ color: 'var(--yellow)' }}>~{data.summary?.changed ?? 0}</div>
-        </div>
-        <div className="stat">
-          <div className="stat-label">Unchanged</div>
-          <div className="stat-val" style={{ color: 'var(--text-3)' }}>={data.summary?.unchanged ?? 0}</div>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
-        {(['all', 'added', 'removed', 'changed'] as FilterType[]).map((t) => (
-          <button
-            key={t}
-            className={cn('filter', typeFilter === t && 'active')}
-            onClick={() => setTypeFilter(t)}
-          >
-            {t === 'all' ? `All (${String((data.items ?? []).length)})` : `${diffTypeLabel(t as DiffType)} (${String((data.items ?? []).filter((i) => i.diffType === t).length)})`}
-          </button>
-        ))}
-        <div style={{ borderLeft: '1px solid var(--border)', margin: '0 4px' }} />
-        <select
-          className="filter"
-          value={severityFilter}
-          onChange={(e) => setSeverityFilter(e.target.value as SeverityFilter)}
-          aria-label="Filter by severity"
-        >
-          <option value="all">All Severities</option>
-          <option value="critical">Critical</option>
-          <option value="high">High</option>
-          <option value="medium">Medium</option>
-          <option value="low">Low</option>
-          <option value="info">Info</option>
-        </select>
-      </div>
-
-      {/* Diff table */}
-      <div className="card">
-        <table>
-          <thead>
-            <tr>
-              <th scope="col">Type</th>
-              <th scope="col">Severity</th>
-              <th scope="col">Component</th>
-              <th scope="col">File</th>
-              <th scope="col">Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredItems.map((item) => (
-              <DiffRow
-                key={item.id}
-                item={item}
-                expanded={expandedItem === item.id}
-                onToggle={() =>
-                  setExpandedItem(expandedItem === item.id ? null : item.id)
-                }
-              />
-            ))}
-          </tbody>
-        </table>
-        {filteredItems.length === 0 && (
-          <p style={{ color: 'var(--text-3)', fontSize: '12px', padding: '16px 0', textAlign: 'center' }}>
-            No diff items match your filters.
+      {/* Prompt when no diff data is available */}
+      {!showDiffContent && !isLoading && (
+        <div className="card">
+          <p style={{ color: 'var(--text-3)', fontSize: '13px', textAlign: 'center', padding: '24px 0' }}>
+            {!hasBothScans
+              ? 'Select two scans to compare their cryptographic findings.'
+              : (scans ?? []).length < 2
+                ? 'At least two completed scans are required to generate a diff. Run more scans to enable comparison.'
+                : 'Unable to load diff data for the selected scans. Try selecting different scans.'}
           </p>
-        )}
-      </div>
+        </div>
+      )}
+
+      {isLoading && hasBothScans && (
+        <div className="card">
+          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>Loading diff...</p>
+        </div>
+      )}
+
+      {showDiffContent && (
+        <>
+          {/* Summary bar */}
+          <div className="g4">
+            <div className="stat">
+              <div className="stat-label">Added</div>
+              <div className="stat-val" style={{ color: 'var(--green)' }}>+{data.summary?.added ?? 0}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Removed</div>
+              <div className="stat-val" style={{ color: 'var(--red)' }}>-{data.summary?.removed ?? 0}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Changed</div>
+              <div className="stat-val" style={{ color: 'var(--yellow)' }}>~{data.summary?.changed ?? 0}</div>
+            </div>
+            <div className="stat">
+              <div className="stat-label">Unchanged</div>
+              <div className="stat-val" style={{ color: 'var(--text-3)' }}>={data.summary?.unchanged ?? 0}</div>
+            </div>
+          </div>
+
+          {/* Filters */}
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
+            {(['all', 'added', 'removed', 'changed'] as FilterType[]).map((t) => (
+              <button
+                key={t}
+                className={cn('filter', typeFilter === t && 'active')}
+                onClick={() => setTypeFilter(t)}
+              >
+                {t === 'all' ? `All (${String((data.items ?? []).length)})` : `${diffTypeLabel(t as DiffType)} (${String((data.items ?? []).filter((i) => i.diffType === t).length)})`}
+              </button>
+            ))}
+            <div style={{ borderLeft: '1px solid var(--border)', margin: '0 4px' }} />
+            <select
+              className="filter"
+              value={severityFilter}
+              onChange={(e) => setSeverityFilter(e.target.value as SeverityFilter)}
+              aria-label="Filter by severity"
+            >
+              <option value="all">All Severities</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+              <option value="info">Info</option>
+            </select>
+          </div>
+
+          {/* Diff table */}
+          <div className="card">
+            <table>
+              <thead>
+                <tr>
+                  <th scope="col">Type</th>
+                  <th scope="col">Severity</th>
+                  <th scope="col">Component</th>
+                  <th scope="col">File</th>
+                  <th scope="col">Details</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map((item) => (
+                  <DiffRow
+                    key={item.id}
+                    item={item}
+                    expanded={expandedItem === item.id}
+                    onToggle={() =>
+                      setExpandedItem(expandedItem === item.id ? null : item.id)
+                    }
+                  />
+                ))}
+              </tbody>
+            </table>
+            {filteredItems.length === 0 && (
+              <p style={{ color: 'var(--text-3)', fontSize: '12px', padding: '16px 0', textAlign: 'center' }}>
+                No diff items match your filters.
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

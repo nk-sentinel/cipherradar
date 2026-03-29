@@ -312,6 +312,19 @@ export function Compliance(): React.ReactElement {
       </div>
 
       {/* ====== Compliance Dashboard section (merged from NAV-2) ====== */}
+      {dashLoading && (
+        <div className="card" style={{ marginTop: '16px' }}>
+          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>Loading framework trends...</p>
+        </div>
+      )}
+      {!dashLoading && (dashError || !dashData) && (
+        <div className="card" style={{ marginTop: '16px' }}>
+          <div className="card-title">Framework Trends</div>
+          <p style={{ color: 'var(--text-3)', fontSize: '12px' }}>
+            No framework data available. Compliance trend data will appear here once scans have been run with framework analysis enabled.
+          </p>
+        </div>
+      )}
       {!dashLoading && !dashError && dashData && (
         <>
           <h2
@@ -529,40 +542,46 @@ export function Compliance(): React.ReactElement {
           {/* Extended Compliance by Repository table (from dashboard) */}
           <div className="card" style={{ marginTop: '16px' }}>
             <div className="card-title">All Frameworks by Repository</div>
-            <table>
-              <thead>
-                <tr>
-                  <th scope="col">Repository</th>
-                  {(dashData.frameworks ?? []).map((fw) => (
-                    <th scope="col" key={fw.id}>{fw.shortName}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(dashData.repoComparison ?? []).map((repo) => (
-                  <tr
-                    key={repo.repoId}
-                    className="clickable"
-                    onClick={() =>
-                      void navigate({
-                        to: '/repos/$repoId/compliance',
-                        params: { repoId: repo.repoId },
-                      })
-                    }
-                  >
-                    <td><strong>{repo.repoName}</strong></td>
-                    {(dashData.frameworks ?? []).map((fw) => {
-                      const score = repo.scores[fw.id] ?? 0;
-                      return (
-                        <td key={fw.id} style={{ color: scoreColor(score) }}>
-                          {score}%
-                        </td>
-                      );
-                    })}
+            {(dashData.repoComparison ?? []).length === 0 ? (
+              <p style={{ color: 'var(--text-3)', fontSize: '12px' }}>
+                No framework data available.
+              </p>
+            ) : (
+              <table>
+                <thead>
+                  <tr>
+                    <th scope="col">Repository</th>
+                    {(dashData.frameworks ?? []).map((fw) => (
+                      <th scope="col" key={fw.id}>{fw.shortName}</th>
+                    ))}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(dashData.repoComparison ?? []).map((repo) => (
+                    <tr
+                      key={repo.repoId}
+                      className="clickable"
+                      onClick={() =>
+                        void navigate({
+                          to: '/repos/$repoId/compliance',
+                          params: { repoId: repo.repoId },
+                        })
+                      }
+                    >
+                      <td><strong>{repo.repoName}</strong></td>
+                      {(dashData.frameworks ?? []).map((fw) => {
+                        const score = repo.scores[fw.id] ?? 0;
+                        return (
+                          <td key={fw.id} style={{ color: scoreColor(score) }}>
+                            {score}%
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
         </>
       )}
