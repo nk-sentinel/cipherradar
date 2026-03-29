@@ -179,6 +179,28 @@ export function Compliance(): React.ReactElement {
     );
   }
 
+  // Fresh org — no compliance data yet
+  const isEmpty = (data.frameworks ?? []).length === 0;
+  if (isEmpty) {
+    return (
+      <div>
+        <h1 style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '24px' }}>
+          Compliance (Portfolio)
+        </h1>
+        <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>📋</div>
+          <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-0)' }}>
+            No compliance data yet
+          </h2>
+          <p style={{ color: 'var(--text-2)', fontSize: '14px', maxWidth: '480px', margin: '0 auto', lineHeight: 1.6 }}>
+            Compliance posture will appear here once you&apos;ve imported projects and run scans
+            with framework analysis enabled (NIST, FIPS, PCI-DSS, CNSA 2.0, ISO 27001, EU CRA).
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   /* sparkline data per framework */
   const sparklineData = (fw: FrameworkScoreCard) =>
     fw.trend.map((val, idx) => ({
