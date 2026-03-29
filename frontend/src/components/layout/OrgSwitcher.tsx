@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useUserOrgs } from '@/api/hooks/useOrgs.ts';
 import { useCurrentOrg } from '@/lib/org-context.tsx';
 
-export function OrgSwitcher(): React.ReactElement {
+export function OrgSwitcher(): React.ReactElement | null {
   const { data: orgs } = useUserOrgs();
   const { currentOrg, setCurrentOrg } = useCurrentOrg();
   const [open, setOpen] = useState(false);
@@ -20,31 +20,8 @@ export function OrgSwitcher(): React.ReactElement {
   }, []);
 
   if (!orgs || orgs.length <= 1) {
-    // Single org — show static label, no dropdown
-    return (
-      <div className="org-switcher" style={{ padding: '6px 16px 10px', marginBottom: '4px' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '11px',
-            color: 'var(--text-2)',
-          }}
-        >
-          <span
-            style={{
-              width: '8px',
-              height: '8px',
-              borderRadius: '2px',
-              background: 'var(--accent)',
-              flexShrink: 0,
-            }}
-          />
-          {currentOrg?.name ?? 'Organization'}
-        </div>
-      </div>
-    );
+    // Single org — hide switcher entirely, no need to show which org
+    return null;
   }
 
   return (
