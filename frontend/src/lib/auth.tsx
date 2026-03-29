@@ -51,6 +51,7 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password: _password }),
+      credentials: 'include', // receive httpOnly refresh cookie
     });
 
     if (!response.ok) {
@@ -109,6 +110,8 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
   }, []);
 
   const logout = useCallback((): void => {
+    // Clear httpOnly refresh cookie via backend
+    fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
     memoryToken = null;
     setToken(null);
     setUser(null);

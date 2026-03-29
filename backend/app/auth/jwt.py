@@ -2,16 +2,33 @@
 
 Access tokens carry user identity, role, and scopes.  Refresh tokens
 carry only the user ID and are used to obtain new access tokens.
+
+Security features:
+- Token fingerprinting: SHA-256(user_agent + client_ip + salt) embedded in JWT.
+  Server verifies fingerprint on each request — stolen tokens fail from different clients.
+- httpOnly refresh cookie: refresh token set as httpOnly cookie, invisible to JS.
 """
 
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import JWTError, jwt
 
 from app.config import settings
+
+
+def compute_fingerprint(user_agent: str, client_ip: str) -> str:
+    """Compute a client fingerprint from User-Agent and IP.
+
+    This is embedded in the JWT and verified on each request.
+    If a token is stolen and used from a different client, the
+    fingerprint won't match and the request is rejected.
+    """
+    raw = f"{user_agent}|{client_ip}|{settings.jwt_secret_key}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:16]
 
 # Re-export JWTError so callers don't need to import jose directly.
 __all__ = ["JWTError", "create_access_token", "create_refresh_token", "decode_token"]
@@ -27,6 +44,7 @@ def create_access_token(
     assigned_group_id: str | None = None,
     assigned_project_ids: list[str] | None = None,
     expires_delta: timedelta | None = None,
+    fingerprint: str | None = None,
 ) -> str:
     """Create a short-lived JWT access token.
 
@@ -59,6 +77,8 @@ def create_access_token(
         payload["assigned_group_id"] = assigned_group_id
     if assigned_project_ids:
         payload["assigned_project_ids"] = assigned_project_ids
+    if fingerprint:
+        payload["fgp"] = fingerprint
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 

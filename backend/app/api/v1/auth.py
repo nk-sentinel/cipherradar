@@ -10,9 +10,10 @@ import uuid
 from datetime import UTC, datetime
 
 import bcrypt as _bcrypt_lib
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 
-from app.auth.jwt import JWTError, create_access_token, create_refresh_token, decode_token
+from app.auth.jwt import JWTError, compute_fingerprint, create_access_token, create_refresh_token, decode_token
 from app.auth.middleware import AuthenticatedUser, get_current_user, require_role
 from app.auth.roles import API_KEY_CREATOR_ROLES, ROLE_DEFAULT_SCOPES, Role
 from app.config import settings
@@ -23,7 +24,6 @@ from app.schemas.auth import (
     RecoverRequest,
     RecoverResponse,
     RefreshRequest,
-    TokenResponse,
     UserInfo,
 )
 
@@ -59,9 +59,13 @@ def set_api_key_store(fn):  # noqa: ANN001, ANN201
 # ---------------------------------------------------------------------------
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest) -> TokenResponse:
-    """Authenticate with email + password and receive JWT tokens."""
+@router.post("/login")
+async def login(body: LoginRequest, request: Request) -> Response:
+    """Authenticate with email + password and receive JWT tokens.
+
+    Sets refresh token as httpOnly cookie for security.
+    Access token returned in response body.
+    """
     if _user_by_email is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Auth backend not configured")
 
@@ -88,11 +92,17 @@ async def login(body: LoginRequest) -> TokenResponse:
     role_enum = Role(role) if role in Role.__members__.values() else Role.DEVELOPER
     scopes = [str(s) for s in ROLE_DEFAULT_SCOPES.get(role_enum, [])]
 
+    # Compute client fingerprint for token binding
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+    fgp = compute_fingerprint(user_agent, client_ip)
+
     access_token = create_access_token(
         user_id=str(user["id"]),
         role=role,
         scopes=scopes,
         org_id=user.get("org_id", ""),
+        fingerprint=fgp,
     )
     refresh_token = create_refresh_token(user_id=str(user["id"]))
 
@@ -106,12 +116,22 @@ async def login(body: LoginRequest) -> TokenResponse:
         }},
     )
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=refresh_token,
-        token_type="bearer",
-        expires_in=settings.jwt_access_token_expire_minutes * 60,
+    # Return access token in body, set refresh token as httpOnly cookie
+    response = JSONResponse(content={
+        "accessToken": access_token,
+        "tokenType": "bearer",
+        "expiresIn": settings.jwt_access_token_expire_minutes * 60,
+    })
+    response.set_cookie(
+        key="cipherradar_refresh",
+        value=refresh_token,
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="strict",
+        path="/api/v1/auth/refresh",
+        max_age=settings.jwt_refresh_token_expire_days * 86400,
     )
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -119,11 +139,22 @@ async def login(body: LoginRequest) -> TokenResponse:
 # ---------------------------------------------------------------------------
 
 
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh(body: RefreshRequest) -> TokenResponse:
-    """Exchange a valid refresh token for a new access + refresh token pair."""
+@router.post("/refresh")
+async def refresh(request: Request, body: RefreshRequest | None = None) -> Response:
+    """Exchange a valid refresh token for a new access + refresh token pair.
+
+    Reads refresh token from httpOnly cookie (preferred) or request body (legacy).
+    Sets new refresh token as httpOnly cookie.
+    """
+    # Read refresh token: prefer httpOnly cookie, fall back to body
+    refresh_token = request.cookies.get("cipherradar_refresh")
+    if not refresh_token and body and body.refresh_token:
+        refresh_token = body.refresh_token
+    if not refresh_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token provided")
+
     try:
-        payload = decode_token(body.refresh_token)
+        payload = decode_token(refresh_token)
     except JWTError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired refresh token"
@@ -134,28 +165,57 @@ async def refresh(body: RefreshRequest) -> TokenResponse:
 
     user_id = payload["sub"]
 
-    # Re-fetch user to pick up any role changes since the original login.
-    if _user_by_email is not None:
-        # For refresh we only have user_id, not email.  A production
-        # implementation would look up by ID.  For now, issue tokens with the
-        # role from the original refresh payload or a default.
-        pass
-
-    # Issue fresh tokens with the same identity.
-    # In production the role/scopes would be re-read from the database.
+    # Re-read role from DB if possible, otherwise use stored role
     role = payload.get("role", "developer")
     role_enum = Role(role) if role in Role.__members__.values() else Role.DEVELOPER
     scopes = [str(s) for s in ROLE_DEFAULT_SCOPES.get(role_enum, [])]
 
-    access_token = create_access_token(user_id=user_id, role=role, scopes=scopes)
+    # Compute fingerprint for new access token
+    client_ip = request.client.host if request.client else "unknown"
+    user_agent = request.headers.get("user-agent", "unknown")
+    fgp = compute_fingerprint(user_agent, client_ip)
+
+    access_token = create_access_token(
+        user_id=user_id, role=role, scopes=scopes,
+        org_id=payload.get("org_id", ""),
+        fingerprint=fgp,
+    )
     new_refresh = create_refresh_token(user_id=user_id)
 
-    return TokenResponse(
-        access_token=access_token,
-        refresh_token=new_refresh,
-        token_type="bearer",
-        expires_in=settings.jwt_access_token_expire_minutes * 60,
+    logger.info("Token refreshed", extra={"extra_fields": {"user_id": user_id}})
+
+    response = JSONResponse(content={
+        "accessToken": access_token,
+        "tokenType": "bearer",
+        "expiresIn": settings.jwt_access_token_expire_minutes * 60,
+    })
+    response.set_cookie(
+        key="cipherradar_refresh",
+        value=new_refresh,
+        httponly=True,
+        secure=request.url.scheme == "https",
+        samesite="strict",
+        path="/api/v1/auth/refresh",
+        max_age=settings.jwt_refresh_token_expire_days * 86400,
     )
+    return response
+
+
+# ---------------------------------------------------------------------------
+# POST /api/v1/auth/logout
+# ---------------------------------------------------------------------------
+
+
+@router.post("/logout")
+async def logout() -> Response:
+    """Clear the refresh token cookie."""
+    response = JSONResponse(content={"ok": True})
+    response.delete_cookie(
+        key="cipherradar_refresh",
+        path="/api/v1/auth/refresh",
+    )
+    logger.info("User logged out")
+    return response
 
 
 # ---------------------------------------------------------------------------

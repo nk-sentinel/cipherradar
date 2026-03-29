@@ -83,6 +83,7 @@ class AuthenticatedUser:
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> AuthenticatedUser:
     """Extract and validate the current user from a JWT Bearer token.
@@ -90,8 +91,12 @@ async def get_current_user(
     The JWT payload is expected to carry ``org_id`` so that multi-tenant
     enforcement can set the RLS context downstream.
 
+    Also verifies the token fingerprint (if present) to prevent session
+    hijacking — a stolen token used from a different client is rejected.
+
     Raises:
-        HTTPException 401: If the token is missing, invalid, or expired.
+        HTTPException 401: If the token is missing, invalid, expired, or
+        the fingerprint doesn't match the current client.
     """
     if credentials is None:
         raise HTTPException(
@@ -115,6 +120,20 @@ async def get_current_user(
             detail="Invalid token type",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Verify token fingerprint (anti-hijacking)
+    token_fgp = payload.get("fgp")
+    if token_fgp:
+        from app.auth.jwt import compute_fingerprint
+        client_ip = request.client.host if request.client else "unknown"
+        user_agent = request.headers.get("user-agent", "unknown")
+        expected_fgp = compute_fingerprint(user_agent, client_ip)
+        if token_fgp != expected_fgp:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token fingerprint mismatch — possible session hijacking",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
     return AuthenticatedUser(
         user_id=payload["sub"],
@@ -353,7 +372,7 @@ def require_project_access(project_id_param: str = "project_id"):
 async def resolve_role_for_group(
     user: AuthenticatedUser,
     group_id: str,
-    session: "AsyncSession",
+    session: AsyncSession,
 ) -> str:
     """Resolve the effective role for the user in the context of a group.
 
