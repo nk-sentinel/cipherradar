@@ -110,7 +110,7 @@ export function AssetExplorer(): React.ReactElement {
         a.file,
         String(a.line),
         a.quantumStatus,
-        (a.compliance ?? []).join('; '),
+        (Array.isArray(a.compliance) ? a.compliance.join('; ') : String(a.compliance ?? '')),
       ]
         .map((v) => `"${v}"`)
         .join(','),
@@ -272,11 +272,11 @@ export function AssetExplorer(): React.ReactElement {
                     </span>
                   </td>
                   <td>
-                    {(asset.compliance ?? []).length === 0 ? (
+                    {(Array.isArray(asset.compliance) ? asset.compliance : []).length === 0 ? (
                       <span style={{ color: 'var(--text-4)', fontSize: '11px' }}>None</span>
                     ) : (
                       <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                        {(asset.compliance ?? []).map((c) => (
+                        {(Array.isArray(asset.compliance) ? asset.compliance : []).map((c) => (
                           <span
                             key={c}
                             style={{
