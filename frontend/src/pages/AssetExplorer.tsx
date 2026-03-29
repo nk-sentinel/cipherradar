@@ -236,7 +236,18 @@ export function AssetExplorer(): React.ReactElement {
         {isLoading ? (
           <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>Loading...</p>
         ) : data && (data.assets ?? []).length === 0 ? (
-          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>No assets match your filters.</p>
+          (() => {
+            const hasActiveFilter = !!(filters.type || filters.language || filters.quantumStatus || filters.compliance || filters.search);
+            return hasActiveFilter ? (
+              <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>No findings match your filters.</p>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+                <div style={{ fontSize: '32px', marginBottom: '12px' }}>🔍</div>
+                <p style={{ color: 'var(--text-1)', fontSize: '14px', fontWeight: 500, marginBottom: '4px' }}>No findings yet</p>
+                <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>Run your first scan to detect cryptographic assets across your codebase.</p>
+              </div>
+            );
+          })()
         ) : data ? (
           <table>
             <thead>
