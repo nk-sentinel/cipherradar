@@ -393,51 +393,41 @@ async def invite_user(
 @router.get("/integrations", response_model=IntegrationList)
 async def list_integrations(
     user: AuthenticatedUser = Depends(_admin_dep),
+    session: AsyncSession = Depends(get_session),
 ) -> IntegrationList:
-    """List connected integrations (git providers + collaboration tools)."""
-    # For now return a static list — real implementation will query integrations table
-    items = [
-        Integration(
-            id="int-1",
-            type="github",
-            label="GitHub",
-            status="connected",
-            connected_at="2026-03-10T14:00:00Z",
-            detail="nk-sentinel organization",
-        ),
-        Integration(
-            id="int-2",
-            type="gitlab",
-            label="GitLab",
-            status="connected",
-            connected_at="2026-03-12T09:30:00Z",
-            detail="gitlab.nk-sentinel.io",
-        ),
-        Integration(
-            id="int-3",
-            type="bitbucket",
-            label="Bitbucket",
-            status="disconnected",
-            connected_at=None,
-            detail=None,
-        ),
-        Integration(
-            id="int-4",
-            type="jira",
-            label="Jira",
-            status="connected",
-            connected_at="2026-03-15T11:00:00Z",
-            detail="https://nk-sentinel.atlassian.net",
-        ),
-        Integration(
-            id="int-5",
-            type="teams",
-            label="Microsoft Teams",
-            status="connected",
-            connected_at="2026-03-16T08:00:00Z",
-            detail="Webhook configured",
-        ),
+    """List integrations — shows all supported providers with their connection status from DB."""
+    from sqlalchemy import select as sa_select
+    from app.models.integration_token import IntegrationToken
+
+    # All supported providers
+    PROVIDERS = [
+        ("github", "GitHub"),
+        ("gitlab", "GitLab"),
+        ("bitbucket", "Bitbucket"),
+        ("jira", "Jira"),
+        ("teams", "Microsoft Teams"),
     ]
+
+    # Fetch connected tokens from DB
+    stmt = sa_select(IntegrationToken).where(
+        IntegrationToken.org_id == uuid.UUID(user.org_id),
+        IntegrationToken.status == "active",
+    )
+    result = await session.execute(stmt)
+    tokens = {t.provider: t for t in result.scalars().all()}
+
+    items = []
+    for provider_type, label in PROVIDERS:
+        token = tokens.get(provider_type)
+        items.append(Integration(
+            id=str(token.id) if token else f"new-{provider_type}",
+            type=provider_type,
+            label=label,
+            status="connected" if token else "disconnected",
+            connected_at=token.created_at.isoformat() if token and token.created_at else None,
+            detail=token.base_url if token and hasattr(token, 'base_url') else None,
+        ))
+
     return IntegrationList(items=items)
 
 
