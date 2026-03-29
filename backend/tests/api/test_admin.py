@@ -92,22 +92,22 @@ class TestGetSettings:
         app.dependency_overrides.clear()
 
     @pytest.mark.asyncio
-    async def test_get_settings_as_developer_forbidden(self, app, client: AsyncClient) -> None:
+    async def test_get_settings_as_developer_forbidden(self, app, client_with_session: AsyncClient) -> None:
         token = create_access_token(
             user_id=FAKE_USER_ID,
             role=str(Role.DEVELOPER),
             scopes=["scan:read"],
             org_id=FAKE_ORG_ID,
         )
-        response = await client.get(
+        response = await client_with_session.get(
             "/api/v1/admin/settings",
             headers={"Authorization": f"Bearer {token}"},
         )
         assert response.status_code == 403
 
     @pytest.mark.asyncio
-    async def test_get_settings_no_auth_returns_401(self, app, client: AsyncClient) -> None:
-        response = await client.get("/api/v1/admin/settings")
+    async def test_get_settings_no_auth_returns_401(self, app, client_with_session: AsyncClient) -> None:
+        response = await client_with_session.get("/api/v1/admin/settings")
         assert response.status_code == 401
 
 
@@ -314,26 +314,57 @@ class TestListIntegrations:
 class TestAuditLog:
     @pytest.mark.asyncio
     async def test_audit_log_returns_entries(self, app, client: AsyncClient) -> None:
+        from unittest.mock import patch
+
         user = _make_admin_user()
+        mock_session = AsyncMock()
+
+        async def _override():
+            yield mock_session
+
+        app.dependency_overrides[get_session] = _override
         app.dependency_overrides[get_current_user] = lambda: user
 
-        response = await client.get("/api/v1/admin/audit-log")
+        mock_items = [
+            {
+                "id": str(uuid.uuid4()),
+                "timestamp": "2026-03-01T10:00:00Z",
+                "user_id": str(uuid.uuid4()),
+                "action_type": action,
+                "resource_type": "scan",
+                "resource_id": str(uuid.uuid4()),
+                "details": {},
+                "ip_address": "127.0.0.1",
+            }
+            for action in [
+                "scan.completed", "user.login", "policy.updated",
+                "scan.started", "user.login", "scan.completed",
+                "policy.updated", "user.login", "scan.completed",
+                "user.login",
+            ]
+        ]
+
+        with patch(
+            "app.services.audit_log_query_service.audit_log_query_service.query",
+            new_callable=AsyncMock,
+            return_value={"items": mock_items, "total": 10, "page": 1, "per_page": 25},
+        ):
+            response = await client.get("/api/v1/admin/audit-log")
 
         assert response.status_code == 200
         body = response.json()
         assert body["total"] == 10
         assert len(body["items"]) == 10
 
-        # Check structure of first entry
+        # Check structure of first entry (camelCase keys)
         entry = body["items"][0]
         assert "id" in entry
         assert "timestamp" in entry
-        assert "user" in entry
-        assert "action" in entry
-        assert "resource" in entry
+        assert "actionType" in entry
+        assert "resourceType" in entry
 
         # Check action types are valid
-        actions = {item["action"] for item in body["items"]}
+        actions = {item["actionType"] for item in body["items"]}
         assert "scan.completed" in actions
         assert "user.login" in actions
         assert "policy.updated" in actions
@@ -341,14 +372,14 @@ class TestAuditLog:
         app.dependency_overrides.clear()
 
     @pytest.mark.asyncio
-    async def test_audit_log_developer_forbidden(self, app, client: AsyncClient) -> None:
+    async def test_audit_log_developer_forbidden(self, app, client_with_session: AsyncClient) -> None:
         token = create_access_token(
             user_id=FAKE_USER_ID,
             role=str(Role.DEVELOPER),
             scopes=["scan:read"],
             org_id=FAKE_ORG_ID,
         )
-        response = await client.get(
+        response = await client_with_session.get(
             "/api/v1/admin/audit-log",
             headers={"Authorization": f"Bearer {token}"},
         )

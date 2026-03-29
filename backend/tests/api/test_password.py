@@ -53,8 +53,8 @@ def _user_token() -> str:
 
 class TestChangePasswordEndpoint:
     @pytest.mark.asyncio
-    async def test_change_password_requires_auth(self, client: AsyncClient) -> None:
-        resp = await client.put(
+    async def test_change_password_requires_auth(self, client_with_session: AsyncClient) -> None:
+        resp = await client_with_session.put(
             "/api/v1/auth/password",
             json={"currentPassword": "old", "newPassword": "NewPass123!"},
         )
@@ -63,11 +63,11 @@ class TestChangePasswordEndpoint:
 
 class TestForgotPasswordEndpoint:
     @pytest.mark.asyncio
-    async def test_forgot_password_always_200(self, client: AsyncClient) -> None:
+    async def test_forgot_password_always_200(self, client_with_session: AsyncClient) -> None:
         """Forgot password should return 200 regardless of whether email exists."""
         with patch("app.api.v1.password.password_service") as mock_svc:
             mock_svc.forgot_password = AsyncMock()
-            resp = await client.post(
+            resp = await client_with_session.post(
                 "/api/v1/auth/forgot-password",
                 json={"email": "nobody@example.com"},
             )
@@ -76,9 +76,9 @@ class TestForgotPasswordEndpoint:
 
 class TestResetPasswordEndpoint:
     @pytest.mark.asyncio
-    async def test_reset_password_validation(self, client: AsyncClient) -> None:
+    async def test_reset_password_validation(self, client_with_session: AsyncClient) -> None:
         """Reset password with short password should fail validation."""
-        resp = await client.post(
+        resp = await client_with_session.post(
             "/api/v1/auth/reset-password",
             json={"token": "sometoken", "newPassword": "short"},
         )

@@ -243,20 +243,20 @@ class TestDeniedRolesGet403:
         ],
     )
     async def test_denied_role_gets_403(
-        self, client: AsyncClient, method: str, path: str, role: Role
+        self, client_with_session: AsyncClient, method: str, path: str, role: Role
     ) -> None:
         token = _token_for_role(role)
         headers = {"Authorization": f"Bearer {token}"}
         body = _request_body(method, path)
 
         if method == "GET":
-            resp = await client.get(path, headers=headers)
+            resp = await client_with_session.get(path, headers=headers)
         elif method == "POST":
-            resp = await client.post(path, json=body, headers=headers)
+            resp = await client_with_session.post(path, json=body, headers=headers)
         elif method == "PUT":
-            resp = await client.put(path, json=body, headers=headers)
+            resp = await client_with_session.put(path, json=body, headers=headers)
         elif method == "DELETE":
-            resp = await client.delete(path, headers=headers)
+            resp = await client_with_session.delete(path, headers=headers)
         else:
             pytest.fail(f"Unknown method: {method}")
 
@@ -279,18 +279,18 @@ class TestUnauthenticatedGet401:
         list(ENDPOINT_ROLE_MAP.keys()),
     )
     async def test_unauthenticated_gets_401(
-        self, client: AsyncClient, method: str, path: str
+        self, client_with_session: AsyncClient, method: str, path: str
     ) -> None:
         body = _request_body(method, path)
 
         if method == "GET":
-            resp = await client.get(path)
+            resp = await client_with_session.get(path)
         elif method == "POST":
-            resp = await client.post(path, json=body)
+            resp = await client_with_session.post(path, json=body)
         elif method == "PUT":
-            resp = await client.put(path, json=body)
+            resp = await client_with_session.put(path, json=body)
         elif method == "DELETE":
-            resp = await client.delete(path)
+            resp = await client_with_session.delete(path)
         else:
             pytest.fail(f"Unknown method: {method}")
 
@@ -378,11 +378,11 @@ class TestPasswordValidation:
 
     @pytest.mark.asyncio
     async def test_password_change_rejects_short_password(
-        self, client: AsyncClient
+        self, client_with_session: AsyncClient
     ) -> None:
         """PUT /api/v1/auth/password with new_password < 8 chars should get 422."""
         token = _token_for_role(Role.DEVELOPER)
-        resp = await client.put(
+        resp = await client_with_session.put(
             "/api/v1/auth/password",
             json={"currentPassword": "OldPass123!", "newPassword": "short"},
             headers={"Authorization": f"Bearer {token}"},
@@ -391,10 +391,10 @@ class TestPasswordValidation:
 
     @pytest.mark.asyncio
     async def test_reset_password_rejects_short_password(
-        self, client: AsyncClient
+        self, client_with_session: AsyncClient
     ) -> None:
         """POST /api/v1/auth/reset-password with short password should get 422."""
-        resp = await client.post(
+        resp = await client_with_session.post(
             "/api/v1/auth/reset-password",
             json={"token": "sometoken", "newPassword": "short"},
         )

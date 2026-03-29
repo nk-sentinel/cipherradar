@@ -40,7 +40,7 @@ def _reset_policy_state():
 
 
 @pytest.mark.asyncio
-async def test_list_policy_rules(app, client: AsyncClient) -> None:
+async def test_list_policy_rules(app, client_with_auth: AsyncClient) -> None:
     """GET /api/v1/policy/rules should return all 6 hardcoded policy rules."""
     mock_session = AsyncMock()
 
@@ -54,7 +54,7 @@ async def test_list_policy_rules(app, client: AsyncClient) -> None:
     count_result.scalar_one.return_value = 0
     mock_session.execute = AsyncMock(return_value=count_result)
 
-    response = await client.get("/api/v1/policy/rules")
+    response = await client_with_auth.get("/api/v1/policy/rules")
 
     assert response.status_code == 200
     body = response.json()
@@ -82,7 +82,7 @@ async def test_list_policy_rules(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_toggle_policy_rule(app, client: AsyncClient) -> None:
+async def test_toggle_policy_rule(app, client_with_auth: AsyncClient) -> None:
     """PUT /api/v1/policy/rules/{rule_id} should toggle enabled state."""
     mock_session = AsyncMock()
 
@@ -96,7 +96,7 @@ async def test_toggle_policy_rule(app, client: AsyncClient) -> None:
     mock_session.execute = AsyncMock(return_value=count_result)
 
     # Disable the rule
-    response = await client.put(
+    response = await client_with_auth.put(
         "/api/v1/policy/rules/no-broken-algorithms",
         json={"enabled": False},
     )
@@ -111,7 +111,7 @@ async def test_toggle_policy_rule(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_toggle_nonexistent_rule_returns_404(app, client: AsyncClient) -> None:
+async def test_toggle_nonexistent_rule_returns_404(app, client_with_auth: AsyncClient) -> None:
     """PUT /api/v1/policy/rules/{rule_id} should return 404 for unknown rule."""
     mock_session = AsyncMock()
 
@@ -120,7 +120,7 @@ async def test_toggle_nonexistent_rule_returns_404(app, client: AsyncClient) -> 
 
     app.dependency_overrides[get_session] = _override_get_session
 
-    response = await client.put(
+    response = await client_with_auth.put(
         "/api/v1/policy/rules/nonexistent-rule",
         json={"enabled": False},
     )
@@ -137,7 +137,7 @@ async def test_toggle_nonexistent_rule_returns_404(app, client: AsyncClient) -> 
 
 
 @pytest.mark.asyncio
-async def test_toggle_persists_in_list(app, client: AsyncClient) -> None:
+async def test_toggle_persists_in_list(app, client_with_auth: AsyncClient) -> None:
     """After toggling a rule off, listing should reflect the disabled state."""
     mock_session = AsyncMock()
 
@@ -151,13 +151,13 @@ async def test_toggle_persists_in_list(app, client: AsyncClient) -> None:
     mock_session.execute = AsyncMock(return_value=count_result)
 
     # Disable a rule
-    await client.put(
+    await client_with_auth.put(
         "/api/v1/policy/rules/no-ecb-mode",
         json={"enabled": False},
     )
 
     # List rules and check
-    response = await client.get("/api/v1/policy/rules")
+    response = await client_with_auth.get("/api/v1/policy/rules")
     assert response.status_code == 200
     body = response.json()
 

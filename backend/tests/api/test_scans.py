@@ -73,7 +73,7 @@ async def client(app):
 
 
 @pytest.mark.asyncio
-async def test_create_scan_returns_201(app, client: AsyncClient) -> None:
+async def test_create_scan_returns_201(app, client_with_auth: AsyncClient) -> None:
     """POST /api/v1/scans should return 201 with correct fields."""
     fake_scan = _make_fake_scan()
 
@@ -89,7 +89,7 @@ async def test_create_scan_returns_201(app, client: AsyncClient) -> None:
 
         mock_create.return_value = ScanResponse.model_validate(fake_scan)
 
-        response = await client.post(
+        response = await client_with_auth.post(
             "/api/v1/scans",
             json={
                 "project_id": str(FAKE_PROJECT_ID),
@@ -116,7 +116,7 @@ async def test_create_scan_returns_201(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_scan_returns_200(app, client: AsyncClient) -> None:
+async def test_get_scan_returns_200(app, client_with_auth: AsyncClient) -> None:
     """GET /api/v1/scans/{scan_id} should return 200 for an existing scan."""
     fake_scan = _make_fake_scan()
 
@@ -132,7 +132,7 @@ async def test_get_scan_returns_200(app, client: AsyncClient) -> None:
 
         mock_get.return_value = ScanResponse.model_validate(fake_scan)
 
-        response = await client.get(f"/api/v1/scans/{FAKE_SCAN_ID}")
+        response = await client_with_auth.get(f"/api/v1/scans/{FAKE_SCAN_ID}")
 
     assert response.status_code == 200
     body = response.json()
@@ -143,7 +143,7 @@ async def test_get_scan_returns_200(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_nonexistent_scan_returns_404(app, client: AsyncClient) -> None:
+async def test_get_nonexistent_scan_returns_404(app, client_with_auth: AsyncClient) -> None:
     """GET /api/v1/scans/{scan_id} should return 404 for a missing scan."""
     from fastapi import HTTPException
 
@@ -158,7 +158,7 @@ async def test_get_nonexistent_scan_returns_404(app, client: AsyncClient) -> Non
         mock_get.side_effect = HTTPException(status_code=404, detail="Scan not found")
 
         missing_id = uuid.uuid4()
-        response = await client.get(f"/api/v1/scans/{missing_id}")
+        response = await client_with_auth.get(f"/api/v1/scans/{missing_id}")
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Scan not found"
@@ -172,7 +172,7 @@ async def test_get_nonexistent_scan_returns_404(app, client: AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
-async def test_list_scans_with_pagination(app, client: AsyncClient) -> None:
+async def test_list_scans_with_pagination(app, client_with_auth: AsyncClient) -> None:
     """GET /api/v1/scans should return paginated results."""
     fake_scans = [_make_fake_scan(scan_id=uuid.uuid4()) for _ in range(3)]
 
@@ -193,7 +193,7 @@ async def test_list_scans_with_pagination(app, client: AsyncClient) -> None:
             per_page=20,
         )
 
-        response = await client.get("/api/v1/scans?page=1&per_page=20")
+        response = await client_with_auth.get("/api/v1/scans?page=1&per_page=20")
 
     assert response.status_code == 200
     body = response.json()
@@ -211,7 +211,7 @@ async def test_list_scans_with_pagination(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_scan_cbom(app, client: AsyncClient) -> None:
+async def test_get_scan_cbom(app, client_with_auth: AsyncClient) -> None:
     """GET /api/v1/scans/{scan_id}/cbom should return the CBOM document."""
     mock_session = AsyncMock()
 
@@ -234,7 +234,7 @@ async def test_get_scan_cbom(app, client: AsyncClient) -> None:
             },
         )
 
-        response = await client.get(f"/api/v1/scans/{FAKE_SCAN_ID}/cbom")
+        response = await client_with_auth.get(f"/api/v1/scans/{FAKE_SCAN_ID}/cbom")
 
     assert response.status_code == 200
     body = response.json()
@@ -247,7 +247,7 @@ async def test_get_scan_cbom(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_cbom_for_nonexistent_scan_returns_404(app, client: AsyncClient) -> None:
+async def test_get_cbom_for_nonexistent_scan_returns_404(app, client_with_auth: AsyncClient) -> None:
     """GET /api/v1/scans/{scan_id}/cbom should return 404 when scan has no CBOM."""
     from fastapi import HTTPException
 
@@ -261,7 +261,7 @@ async def test_get_cbom_for_nonexistent_scan_returns_404(app, client: AsyncClien
     with patch("app.api.v1.scans.scan_service.get_scan_cbom", new_callable=AsyncMock) as mock_cbom:
         mock_cbom.side_effect = HTTPException(status_code=404, detail="CBOM not found for this scan")
 
-        response = await client.get(f"/api/v1/scans/{FAKE_SCAN_ID}/cbom")
+        response = await client_with_auth.get(f"/api/v1/scans/{FAKE_SCAN_ID}/cbom")
 
     assert response.status_code == 404
 

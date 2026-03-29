@@ -343,21 +343,21 @@ class TestAuditLogRBAC:
         ],
     )
     async def test_audit_log_denied_roles(
-        self, client: AsyncClient, role: Role
+        self, client_with_session: AsyncClient, role: Role
     ) -> None:
         """SE, CA, DEV, TM, Guest should be denied access to audit logs."""
         token = _token_for_role(role)
         headers = {"Authorization": f"Bearer {token}"}
 
-        resp = await client.get("/api/v1/admin/audit-log", headers=headers)
+        resp = await client_with_session.get("/api/v1/admin/audit-log", headers=headers)
         assert resp.status_code == 403, (
             f"GET /admin/audit-log as {role}: expected 403, got {resp.status_code}"
         )
 
     @pytest.mark.asyncio
-    async def test_audit_log_unauthenticated(self, client: AsyncClient) -> None:
+    async def test_audit_log_unauthenticated(self, client_with_session: AsyncClient) -> None:
         """Unauthenticated access to audit log should return 401."""
-        resp = await client.get("/api/v1/admin/audit-log")
+        resp = await client_with_session.get("/api/v1/admin/audit-log")
         assert resp.status_code == 401, (
             f"GET /admin/audit-log unauthenticated: expected 401, got {resp.status_code}"
         )

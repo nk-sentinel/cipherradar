@@ -90,7 +90,7 @@ async def client(app):
 
 
 @pytest.mark.asyncio
-async def test_remediate_requires_consent(app, client: AsyncClient) -> None:
+async def test_remediate_requires_consent(app, client_with_auth: AsyncClient) -> None:
     """Should return 400 when consent is false."""
     mock_session = AsyncMock()
 
@@ -99,7 +99,7 @@ async def test_remediate_requires_consent(app, client: AsyncClient) -> None:
 
     app.dependency_overrides[get_session] = _override
 
-    response = await client.post(
+    response = await client_with_auth.post(
         f"/api/v1/remediation/findings/{FAKE_FINDING_ID}/remediate",
         json={"consent": False},
     )
@@ -110,7 +110,7 @@ async def test_remediate_requires_consent(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_remediate_finding_not_found(app, client: AsyncClient) -> None:
+async def test_remediate_finding_not_found(app, client_with_auth: AsyncClient) -> None:
     """Should return 404 when finding does not exist."""
     mock_session = AsyncMock()
 
@@ -123,7 +123,7 @@ async def test_remediate_finding_not_found(app, client: AsyncClient) -> None:
     result_mock.scalar_one_or_none.return_value = None
     mock_session.execute = AsyncMock(return_value=result_mock)
 
-    response = await client.post(
+    response = await client_with_auth.post(
         f"/api/v1/remediation/findings/{uuid.uuid4()}/remediate",
         json={"consent": True},
     )
@@ -134,7 +134,7 @@ async def test_remediate_finding_not_found(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_remediate_success(app, client: AsyncClient) -> None:
+async def test_remediate_success(app, client_with_auth: AsyncClient) -> None:
     """Should generate a remediation when consent is given and finding exists."""
     fake_finding = _make_fake_finding()
     mock_session = AsyncMock()
@@ -166,7 +166,7 @@ async def test_remediate_success(app, client: AsyncClient) -> None:
         mock_provider.generate_remediation = AsyncMock(return_value=SAMPLE_REMEDIATION)
         mock_factory.return_value = mock_provider
 
-        response = await client.post(
+        response = await client_with_auth.post(
             f"/api/v1/remediation/findings/{FAKE_FINDING_ID}/remediate",
             json={"consent": True},
         )
@@ -183,7 +183,7 @@ async def test_remediate_success(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_remediate_returns_cached(app, client: AsyncClient) -> None:
+async def test_remediate_returns_cached(app, client_with_auth: AsyncClient) -> None:
     """Should return cached result without calling LLM when cache hit."""
     fake_finding = _make_fake_finding()
     mock_session = AsyncMock()
@@ -202,7 +202,7 @@ async def test_remediate_returns_cached(app, client: AsyncClient) -> None:
         new_callable=AsyncMock,
         return_value=SAMPLE_REMEDIATION,
     ):
-        response = await client.post(
+        response = await client_with_auth.post(
             f"/api/v1/remediation/findings/{FAKE_FINDING_ID}/remediate",
             json={"consent": True},
         )
@@ -221,7 +221,7 @@ async def test_remediate_returns_cached(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_remediation_cached(app, client: AsyncClient) -> None:
+async def test_get_remediation_cached(app, client_with_auth: AsyncClient) -> None:
     """Should return cached remediation on GET."""
     fake_finding = _make_fake_finding()
     mock_session = AsyncMock()
@@ -240,7 +240,7 @@ async def test_get_remediation_cached(app, client: AsyncClient) -> None:
         new_callable=AsyncMock,
         return_value=SAMPLE_REMEDIATION,
     ):
-        response = await client.get(
+        response = await client_with_auth.get(
             f"/api/v1/remediation/findings/{FAKE_FINDING_ID}/remediation",
         )
 
@@ -252,7 +252,7 @@ async def test_get_remediation_cached(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_get_remediation_not_cached(app, client: AsyncClient) -> None:
+async def test_get_remediation_not_cached(app, client_with_auth: AsyncClient) -> None:
     """Should return 404 when no cached remediation exists."""
     fake_finding = _make_fake_finding()
     mock_session = AsyncMock()
@@ -271,7 +271,7 @@ async def test_get_remediation_not_cached(app, client: AsyncClient) -> None:
         new_callable=AsyncMock,
         return_value=None,
     ):
-        response = await client.get(
+        response = await client_with_auth.get(
             f"/api/v1/remediation/findings/{FAKE_FINDING_ID}/remediation",
         )
 
@@ -287,7 +287,7 @@ async def test_get_remediation_not_cached(app, client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
-async def test_batch_remediate_requires_consent(app, client: AsyncClient) -> None:
+async def test_batch_remediate_requires_consent(app, client_with_auth: AsyncClient) -> None:
     """Should return 400 when consent is false for batch."""
     mock_session = AsyncMock()
 
@@ -296,7 +296,7 @@ async def test_batch_remediate_requires_consent(app, client: AsyncClient) -> Non
 
     app.dependency_overrides[get_session] = _override
 
-    response = await client.post(
+    response = await client_with_auth.post(
         "/api/v1/remediation/batch",
         json={
             "findingIds": [str(uuid.uuid4())],
@@ -310,7 +310,7 @@ async def test_batch_remediate_requires_consent(app, client: AsyncClient) -> Non
 
 
 @pytest.mark.asyncio
-async def test_batch_remediate_success(app, client: AsyncClient) -> None:
+async def test_batch_remediate_success(app, client_with_auth: AsyncClient) -> None:
     """Should remediate multiple findings in one request."""
     fid1 = uuid.uuid4()
     fid2 = uuid.uuid4()
@@ -349,7 +349,7 @@ async def test_batch_remediate_success(app, client: AsyncClient) -> None:
         mock_provider.generate_remediation = AsyncMock(return_value=SAMPLE_REMEDIATION)
         mock_factory.return_value = mock_provider
 
-        response = await client.post(
+        response = await client_with_auth.post(
             "/api/v1/remediation/batch",
             json={
                 "findingIds": [str(fid1), str(fid2)],

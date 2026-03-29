@@ -201,6 +201,6 @@ class TestListAssets:
         app.dependency_overrides.clear()
 
     @pytest.mark.asyncio
-    async def test_list_assets_no_auth_returns_401(self, app, client: AsyncClient) -> None:
-        response = await client.get("/api/v1/assets")
+    async def test_list_assets_no_auth_returns_401(self, app, client_with_session: AsyncClient) -> None:
+        response = await client_with_session.get("/api/v1/assets")
         assert response.status_code == 401
