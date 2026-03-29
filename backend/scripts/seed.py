@@ -54,14 +54,12 @@ def _duuid(name: str) -> uuid.UUID:
 
 
 # Org
-ORG_ID = _duuid("org.default")
+ORG_ID = _duuid("org.sentinel-labs-seed")
 
 # Groups
-GRP_ROOT = _duuid("group.default-org")
-GRP_ENGINEERING = _duuid("group.engineering")
-GRP_BACKEND = _duuid("group.backend-team")
-GRP_FRONTEND = _duuid("group.frontend-team")
-GRP_SECURITY = _duuid("group.security")
+GRP_PAYMENTS = _duuid("group.payment-services")
+GRP_IDENTITY = _duuid("group.identity-platform")
+GRP_INFRA = _duuid("group.core-infrastructure")
 
 # Users
 USR_ADMIN = _duuid("user.admin")
@@ -73,12 +71,12 @@ USR_DEVELOPER = _duuid("user.developer")
 USR_VIEWER = _duuid("user.viewer")
 
 # Projects
-PRJ_PAYMENT = _duuid("project.payment-service")
-PRJ_AUTH = _duuid("project.auth-api")
-PRJ_PIPELINE = _duuid("project.data-pipeline")
-PRJ_MOBILE = _duuid("project.mobile-backend")
+PRJ_PAYMENT = _duuid("project.payment-api")
+PRJ_AUTH = _duuid("project.auth-service")
+PRJ_TOKEN = _duuid("project.token-manager")
+PRJ_GATEWAY = _duuid("project.api-gateway")
+PRJ_SECRETS = _duuid("project.secrets-engine")
 PRJ_WEBFRONT = _duuid("project.web-frontend")
-PRJ_INFRA = _duuid("project.infra-tools")
 
 
 NOW = datetime.now(UTC)
@@ -89,39 +87,62 @@ NOW = datetime.now(UTC)
 # ---------------------------------------------------------------------------
 
 USERS = [
-    (USR_ADMIN, "admin@cipherradar.local", "admin123", "org_admin"),
-    (USR_SEC_MGR, "security-mgr@cipherradar.local", "password123", "security_manager"),
-    (USR_SEC_ENG, "security-eng@cipherradar.local", "password123", "security_engineer"),
-    (USR_TEAM_LEAD, "team-lead@cipherradar.local", "password123", "team_manager"),
-    (USR_AUDITOR, "auditor@cipherradar.local", "password123", "compliance_auditor"),
-    (USR_DEVELOPER, "developer@cipherradar.local", "password123", "developer"),
-    (USR_VIEWER, "viewer@cipherradar.local", "password123", "guest"),
+    (USR_ADMIN, "admin@sentinel-labs.local", "admin123", "org_admin"),
+    (USR_SEC_MGR, "sarah.chen@sentinel-labs.local", "password123", "security_manager"),
+    (USR_SEC_ENG, "alex.kumar@sentinel-labs.local", "password123", "security_engineer"),
+    (USR_TEAM_LEAD, "priya.patel@sentinel-labs.local", "password123", "team_manager"),
+    (USR_AUDITOR, "james.wilson@sentinel-labs.local", "password123", "compliance_auditor"),
+    (USR_DEVELOPER, "dev.kim@sentinel-labs.local", "password123", "developer"),
+    (USR_VIEWER, "guest@sentinel-labs.local", "password123", "guest"),
 ]
 
 GROUPS = [
-    (GRP_ROOT, None, "Default Org"),
-    (GRP_ENGINEERING, GRP_ROOT, "Engineering"),
-    (GRP_BACKEND, GRP_ENGINEERING, "Backend Team"),
-    (GRP_FRONTEND, GRP_ENGINEERING, "Frontend Team"),
-    (GRP_SECURITY, GRP_ROOT, "Security"),
+    (GRP_PAYMENTS, None, "Payment Services"),
+    (GRP_IDENTITY, None, "Identity Platform"),
+    (GRP_INFRA, None, "Core Infrastructure"),
+]
+
+# User-group assignments: (user_id, group_id)
+USER_GROUPS = [
+    # Admin in all groups
+    (USR_ADMIN, GRP_PAYMENTS),
+    (USR_ADMIN, GRP_IDENTITY),
+    (USR_ADMIN, GRP_INFRA),
+    # SM oversees all
+    (USR_SEC_MGR, GRP_PAYMENTS),
+    (USR_SEC_MGR, GRP_IDENTITY),
+    (USR_SEC_MGR, GRP_INFRA),
+    # SE in payments and identity
+    (USR_SEC_ENG, GRP_PAYMENTS),
+    (USR_SEC_ENG, GRP_IDENTITY),
+    # TM leads payments
+    (USR_TEAM_LEAD, GRP_PAYMENTS),
+    # Auditor sees all
+    (USR_AUDITOR, GRP_PAYMENTS),
+    (USR_AUDITOR, GRP_IDENTITY),
+    (USR_AUDITOR, GRP_INFRA),
+    # Dev in payments
+    (USR_DEVELOPER, GRP_PAYMENTS),
+    # Guest in payments (read-only)
+    (USR_VIEWER, GRP_PAYMENTS),
 ]
 
 PROJECTS = [
-    (PRJ_PAYMENT, GRP_BACKEND, "payment-service", "https://github.com/nk-sentinel/payment-service", "github"),
-    (PRJ_AUTH, GRP_BACKEND, "auth-api", "https://github.com/nk-sentinel/auth-api", "github"),
-    (PRJ_PIPELINE, GRP_BACKEND, "data-pipeline", "https://gitlab.com/nk-sentinel/data-pipeline", "gitlab"),
-    (PRJ_MOBILE, GRP_FRONTEND, "mobile-backend", "https://bitbucket.org/nk-sentinel/mobile-backend", "bitbucket"),
-    (PRJ_WEBFRONT, GRP_FRONTEND, "web-frontend", "https://github.com/nk-sentinel/web-frontend", "github"),
-    (PRJ_INFRA, GRP_SECURITY, "infra-tools", "https://github.com/nk-sentinel/infra-tools", "github"),
+    (PRJ_PAYMENT, GRP_PAYMENTS, "payment-api", "https://github.com/sentinel-labs/payment-api", "github"),
+    (PRJ_AUTH, GRP_IDENTITY, "auth-service", "https://github.com/sentinel-labs/auth-service", "github"),
+    (PRJ_TOKEN, GRP_IDENTITY, "token-manager", "https://github.com/sentinel-labs/token-manager", "github"),
+    (PRJ_GATEWAY, GRP_INFRA, "api-gateway", "https://github.com/sentinel-labs/api-gateway", "github"),
+    (PRJ_SECRETS, GRP_INFRA, "secrets-engine", "https://gitlab.com/sentinel-labs/secrets-engine", "gitlab"),
+    (PRJ_WEBFRONT, GRP_PAYMENTS, "web-frontend", "https://github.com/sentinel-labs/web-frontend", "github"),
 ]
 
 PROJECT_LANGUAGES = {
-    PRJ_PAYMENT: ["Java", "Python"],
-    PRJ_AUTH: ["Python", "JavaScript"],
-    PRJ_PIPELINE: ["Python"],
-    PRJ_MOBILE: ["Java", "Kotlin"],
-    PRJ_WEBFRONT: ["JavaScript", "TypeScript"],
-    PRJ_INFRA: ["Go"],
+    PRJ_PAYMENT: ["Go", "Python"],
+    PRJ_AUTH: ["Python"],
+    PRJ_TOKEN: ["Go"],
+    PRJ_GATEWAY: ["Java"],
+    PRJ_SECRETS: ["Rust"],
+    PRJ_WEBFRONT: ["TypeScript", "JavaScript"],
 }
 
 # ---------------------------------------------------------------------------
@@ -467,7 +488,7 @@ NOTIFICATION_TEMPLATES = [
         "severity": "high",
         "title": "3 new compliance violations in mobile-backend",
         "message": "Scan #15 introduced 3 new NIST 800-131A violations: DES, RC4, MD5.",
-        "link": f"/repos/{PRJ_MOBILE}/compliance",
+        "link": f"/repos/{PRJ_GATEWAY}/compliance",
         "read": False,
     },
     {
@@ -483,7 +504,7 @@ NOTIFICATION_TEMPLATES = [
         "severity": "info",
         "title": "Scan completed for data-pipeline",
         "message": "Scan #22 on branch main completed with 98 findings (0 critical). All clean!",
-        "link": f"/repos/{PRJ_PIPELINE}/scans",
+        "link": f"/repos/{PRJ_TOKEN}/scans",
         "read": True,
     },
     {
@@ -515,7 +536,7 @@ NOTIFICATION_TEMPLATES = [
         "severity": "high",
         "title": "New hardcoded key in infra-tools",
         "message": "Scan #5 detected a hardcoded AES key in internal/config/keys.go:34.",
-        "link": f"/repos/{PRJ_INFRA}/findings",
+        "link": f"/repos/{PRJ_SECRETS}/findings",
         "read": False,
     },
     {
@@ -550,20 +571,21 @@ async def seed_database() -> None:
         # ------------------------------------------------------------------
         # 1. Organisation
         # ------------------------------------------------------------------
+        org_name = "Sentinel Labs [Seed]"
         existing_org = await conn.fetchval(
-            "SELECT id FROM organisations WHERE name = 'Default'",
+            "SELECT id FROM organisations WHERE name = $1", org_name,
         )
         if existing_org:
             org_id = existing_org
-            print(f"[seed] Organisation 'Default' already exists: {org_id}")
+            print(f"[seed] Organisation '{org_name}' already exists: {org_id}")
         else:
             org_id = ORG_ID
             await conn.execute(
                 """INSERT INTO organisations (id, name, plan, description, created_at, updated_at)
                    VALUES ($1, $2, $3, $4, $5, $5)""",
-                org_id, "Default", "enterprise", "Default development organisation", NOW,
+                org_id, org_name, "enterprise", "Seed data for CipherRadar development and testing", NOW,
             )
-            print(f"[seed] Created organisation 'Default': {org_id}")
+            print(f"[seed] Created organisation '{org_name}': {org_id}")
 
         # ------------------------------------------------------------------
         # 2. Users
@@ -603,6 +625,24 @@ async def seed_database() -> None:
         print(f"[seed] Groups created: {group_count}")
 
         # ------------------------------------------------------------------
+        # 3b. User-Group assignments
+        # ------------------------------------------------------------------
+        ug_count = 0
+        for uid, gid in USER_GROUPS:
+            exists = await conn.fetchval(
+                "SELECT 1 FROM user_groups WHERE user_id = $1 AND group_id = $2", uid, gid,
+            )
+            if exists:
+                continue
+            await conn.execute(
+                """INSERT INTO user_groups (id, user_id, group_id, org_id, created_at, updated_at)
+                   VALUES ($1, $2, $3, $4, $5, $5)""",
+                _duuid(f"ug.{uid}.{gid}"), uid, gid, org_id, NOW,
+            )
+            ug_count += 1
+        print(f"[seed] User-group assignments: {ug_count}")
+
+        # ------------------------------------------------------------------
         # 4. Projects
         # ------------------------------------------------------------------
         project_count = 0
@@ -626,7 +666,11 @@ async def seed_database() -> None:
 
         all_scans = []  # (scan_id, project_id, scan_index)
 
-        for pid, _gid, _pname, _url, _prov in PROJECTS:
+        trigger_types = ["manual", "manual", "schedule", "webhook", "push", "manual"]
+        environments = ["production", "staging", "development", None, "production", "staging"]
+        scan_statuses = ["completed", "completed", "completed", "completed", "failed", "completed"]
+
+        for proj_idx, (pid, _gid, _pname, _url, _prov) in enumerate(PROJECTS):
             for scan_idx in range(3):
                 scan_id = _duuid(f"scan.{pid}.{scan_idx}")
                 days_ago = 30 - (scan_idx * 10) + random.randint(-2, 2)
@@ -634,21 +678,28 @@ async def seed_database() -> None:
                 completed = started + timedelta(seconds=random.randint(2, 8))
                 commit = _sha(f"{pid}-{scan_idx}-commit")
                 branch = "main" if scan_idx < 2 else random.choice(["main", "develop", "feat/auth", "fix/crypto"])
+                trigger = trigger_types[(proj_idx + scan_idx) % len(trigger_types)]
+                env = environments[(proj_idx + scan_idx) % len(environments)]
+                scan_status = scan_statuses[(proj_idx + scan_idx) % len(scan_statuses)]
+                triggered_by = USR_ADMIN if trigger == "manual" else None
 
-                all_scans.append((scan_id, pid, scan_idx, started, completed, commit, branch))
+                all_scans.append((scan_id, pid, scan_idx, started, completed, commit, branch, trigger, env, scan_status, triggered_by))
 
         # Insert scans first
-        for scan_id, pid, _scan_idx, started, completed, commit, branch in all_scans:
+        for scan_id, pid, _scan_idx, started, completed, commit, branch, trigger, env, scan_status, trig_by in all_scans:
             await conn.execute(
                 """INSERT INTO scans (id, project_id, org_id, status, branch, commit_sha,
-                                      started_at, completed_at, findings_count, created_at, updated_at)
-                   VALUES ($1, $2, $3, 'completed', $4, $5, $6, $7, 0, $6, $7)""",
-                scan_id, pid, org_id, branch, commit, started, completed,
+                                      started_at, completed_at, findings_count,
+                                      trigger_type, environment, triggered_by,
+                                      created_at, updated_at)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, $9, $10, $11, $7, $8)""",
+                scan_id, pid, org_id, scan_status, branch, commit, started, completed,
+                trigger, env, trig_by,
             )
             scan_count += 1
 
         # Insert findings for each scan
-        for scan_id, pid, scan_idx, started, _completed, _commit, _branch in all_scans:
+        for scan_id, pid, scan_idx, started, _completed, _commit, _branch, *_rest in all_scans:
             findings = _gen_findings_for_scan(pid, scan_id, scan_idx, org_id)
 
             for f in findings:

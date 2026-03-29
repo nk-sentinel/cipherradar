@@ -39,17 +39,25 @@ async def seed_admin():
 
     async with async_session() as session:
         # Check if admin exists
-        result = await session.execute(text(\"SELECT id FROM users WHERE email = 'admin@cipherradar.local'\"))
-        if result.fetchone():
-            print('Admin user already exists')
+        result = await session.execute(text(\"SELECT count(*) FROM users WHERE role = 'org_admin'\"))
+        count = result.scalar()
+        if count and count > 0:
+            print('Admin user already exists — skipping')
             return
 
-        # Create org
-        import uuid
-        org_id = uuid.uuid4()
-        await session.execute(text(
-            \"INSERT INTO organisations (id, name, plan) VALUES (:id, :name, :plan)\"
-        ), {'id': str(org_id), 'name': 'Default', 'plan': 'enterprise'})
+        # Check if org exists
+        org_result = await session.execute(text(\"SELECT id FROM organisations LIMIT 1\"))
+        org_row = org_result.fetchone()
+        if org_row:
+            org_id = org_row[0]
+            print(f'Using existing org: {org_id}')
+        else:
+            import uuid
+            org_id = uuid.uuid4()
+            await session.execute(text(
+                \"INSERT INTO organisations (id, name, plan) VALUES (:id, :name, :plan)\"
+            ), {'id': str(org_id), 'name': 'CipherRadar', 'plan': 'enterprise'})
+            print(f'Created org: {org_id}')
 
         # Create admin user with bcrypt hash of 'admin123'
         import bcrypt as _bcrypt
@@ -72,9 +80,13 @@ async def seed_admin():
 asyncio.run(seed_admin())
 "
 
-# Seed test data (idempotent — skips if data exists)
-echo "Seeding test data..."
-python scripts/seed.py
+# Seed test data only when explicitly requested
+if [ "${SEED_ON_STARTUP:-false}" = "true" ]; then
+    echo "Seeding test data..."
+    python scripts/seed.py
+else
+    echo "Skipping seed (set SEED_ON_STARTUP=true to enable)"
+fi
 
 echo "=== Starting uvicorn ==="
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
