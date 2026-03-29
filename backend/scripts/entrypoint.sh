@@ -24,7 +24,10 @@ async def run_migrations():
 asyncio.run(run_migrations())
 "
 
-# Seed default admin user if not exists
+# Seed default admin user if not exists (skip if SKIP_DEFAULT_ADMIN=true)
+if [ "${SKIP_DEFAULT_ADMIN:-false}" = "true" ]; then
+    echo "Skipping default admin creation (SKIP_DEFAULT_ADMIN=true)"
+else
 echo "Checking for default admin user..."
 python -c "
 import asyncio
@@ -79,6 +82,7 @@ async def seed_admin():
 
 asyncio.run(seed_admin())
 "
+fi
 
 # Seed test data only when explicitly requested
 if [ "${SEED_ON_STARTUP:-false}" = "true" ]; then

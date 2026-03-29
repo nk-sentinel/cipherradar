@@ -37,6 +37,7 @@ services:
       CBOM_REDIS_URL: redis://redis:6379
       CBOM_JWT_SECRET_KEY: dev-secret-change-in-production
       CBOM_DEBUG: "true"
+      SKIP_DEFAULT_ADMIN: "true"
     depends_on:
       db:
         condition: service_healthy
