@@ -10,7 +10,7 @@ import uuid
 from datetime import UTC, datetime
 
 import bcrypt as _bcrypt_lib
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from app.auth.jwt import JWTError, compute_fingerprint, create_access_token, create_refresh_token, decode_token
@@ -140,7 +140,7 @@ async def login(body: LoginRequest, request: Request) -> Response:
 
 
 @router.post("/refresh")
-async def refresh(request: Request, body: RefreshRequest | None = None) -> Response:
+async def refresh(request: Request) -> Response:
     """Exchange a valid refresh token for a new access + refresh token pair.
 
     Reads refresh token from httpOnly cookie (preferred) or request body (legacy).
@@ -148,8 +148,12 @@ async def refresh(request: Request, body: RefreshRequest | None = None) -> Respo
     """
     # Read refresh token: prefer httpOnly cookie, fall back to body
     refresh_token = request.cookies.get("cipherradar_refresh")
-    if not refresh_token and body and body.refresh_token:
-        refresh_token = body.refresh_token
+    if not refresh_token:
+        try:
+            raw_body = await request.json()
+            refresh_token = raw_body.get("refreshToken") or raw_body.get("refresh_token")
+        except Exception:
+            pass
     if not refresh_token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token provided")
 
