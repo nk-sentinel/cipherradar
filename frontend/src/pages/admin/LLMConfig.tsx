@@ -131,6 +131,8 @@ function LLMConfigContent(): React.ReactElement {
   }
 
   const isDisabled = config.provider === 'disabled';
+  const privacy = config.privacy ?? { consentRequired: true, stripComments: false, anonymizeVariables: false };
+  const temperature = config.temperature ?? 0.2;
 
   return (
     <div>
@@ -242,7 +244,7 @@ function LLMConfigContent(): React.ReactElement {
           {/* Temperature */}
           <div style={{ marginBottom: '12px' }}>
             <label className="field-label" htmlFor="llm-temperature">
-              Temperature: {config.temperature.toFixed(1)}
+              Temperature: {temperature.toFixed(1)}
             </label>
             <input
               id="llm-temperature"
@@ -250,7 +252,7 @@ function LLMConfigContent(): React.ReactElement {
               min="0"
               max="1"
               step="0.1"
-              value={config.temperature}
+              value={temperature}
               onChange={(e) => updateField('temperature', parseFloat(e.target.value))}
               style={{ width: '100%' }}
             />
@@ -271,7 +273,7 @@ function LLMConfigContent(): React.ReactElement {
               type="number"
               min={256}
               max={128000}
-              value={config.maxTokens}
+              value={config.maxTokens ?? 4096}
               onChange={(e) => updateField('maxTokens', parseInt(e.target.value, 10) || 4096)}
             />
           </div>
@@ -310,7 +312,7 @@ function LLMConfigContent(): React.ReactElement {
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-1)' }}>
               <input
                 type="checkbox"
-                checked={config.privacy.consentRequired}
+                checked={privacy.consentRequired}
                 onChange={(e) => updatePrivacy('consentRequired', e.target.checked)}
               />
               Require user consent before sending code to LLM
@@ -319,7 +321,7 @@ function LLMConfigContent(): React.ReactElement {
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-1)' }}>
               <input
                 type="checkbox"
-                checked={config.privacy.stripComments}
+                checked={privacy.stripComments}
                 onChange={(e) => updatePrivacy('stripComments', e.target.checked)}
               />
               Strip comments from code before sending
@@ -328,7 +330,7 @@ function LLMConfigContent(): React.ReactElement {
             <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: 'var(--text-1)' }}>
               <input
                 type="checkbox"
-                checked={config.privacy.anonymizeVariables}
+                checked={privacy.anonymizeVariables}
                 onChange={(e) => updatePrivacy('anonymizeVariables', e.target.checked)}
               />
               Anonymize variable and function names

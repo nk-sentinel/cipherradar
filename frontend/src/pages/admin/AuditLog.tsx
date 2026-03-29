@@ -221,18 +221,44 @@ function AuditLogContent(): React.ReactElement {
 
   if (isLoading && !data) {
     return (
-      <div className="card">
-        <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>Loading...</p>
+      <div>
+        <h1
+          style={{
+            fontSize: '18px',
+            fontWeight: 700,
+            textTransform: 'var(--tt)' as React.CSSProperties['textTransform'],
+            letterSpacing: '0.04em',
+            marginBottom: '20px',
+          }}
+        >
+          Audit Log
+        </h1>
+        <div className="card">
+          <p style={{ color: 'var(--text-2)', fontSize: '13px' }}>Loading...</p>
+        </div>
       </div>
     );
   }
 
   if (error && !data) {
     return (
-      <div className="card">
-        <p style={{ color: 'var(--red)', fontSize: '13px' }}>
-          Failed to load audit log.
-        </p>
+      <div>
+        <h1
+          style={{
+            fontSize: '18px',
+            fontWeight: 700,
+            textTransform: 'var(--tt)' as React.CSSProperties['textTransform'],
+            letterSpacing: '0.04em',
+            marginBottom: '20px',
+          }}
+        >
+          Audit Log
+        </h1>
+        <div className="card">
+          <p style={{ color: 'var(--red)', fontSize: '13px' }}>
+            Failed to load audit log.
+          </p>
+        </div>
       </div>
     );
   }

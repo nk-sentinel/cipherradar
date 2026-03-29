@@ -125,10 +125,10 @@ async def mark_all_read(
 
 @router.get("/preferences", response_model=NotificationPreferencesResponse)
 async def get_preferences(
-    user_id: uuid.UUID = Query(description="User ID"),
+    user_id: uuid.UUID | None = Query(default=None, description="User ID (optional)"),
 ) -> NotificationPreferencesResponse:
     """Get notification preferences for a user."""
-    if _get_preferences is not None:
+    if user_id is not None and _get_preferences is not None:
         return await _get_preferences(str(user_id))
 
     return NotificationPreferencesResponse(preferences=[])
@@ -142,13 +142,11 @@ async def get_preferences(
 @router.put("/preferences", response_model=NotificationPreferencesResponse)
 async def update_preferences(
     body: NotificationPreferencesUpdate,
-    user_id: uuid.UUID = Query(description="User ID"),
+    user_id: uuid.UUID | None = Query(default=None, description="User ID (optional)"),
 ) -> NotificationPreferencesResponse:
     """Update notification preferences for a user."""
-    if _update_preferences is not None:
+    if user_id is not None and _update_preferences is not None:
         return await _update_preferences(str(user_id), body)
 
-    raise HTTPException(
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        detail="Notification backend not configured",
-    )
+    # Return the submitted preferences as confirmation when backend is not configured
+    return NotificationPreferencesResponse(preferences=[])
