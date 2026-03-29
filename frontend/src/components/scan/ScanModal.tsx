@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ScanSourceTabs, type SourceType } from './ScanSourceTabs';
 import { useScanTrigger } from '@/api/hooks/useScanTrigger';
+import { useRepositories } from '@/api/hooks/useRepositories';
 
 interface ScanModalProps {
   context: 'dashboard' | 'project-row' | 'project-overview';
@@ -33,6 +34,7 @@ export function ScanModal({
   const [projectInput, setProjectInput] = useState(projectId ?? '');
   const [expanded, setExpanded] = useState(false);
 
+  const { data: projects } = useRepositories();
   const triggerMutation = useScanTrigger();
 
   const isSimplified = context === 'project-overview' && !expanded;
@@ -115,18 +117,16 @@ export function ScanModal({
           </div>
         )}
 
-        {/* Project input for dashboard context */}
+        {/* Project selector for dashboard context */}
         {context === 'dashboard' && (
           <div style={{ marginBottom: '12px' }}>
             <label style={{ fontSize: '11px', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>
-              Project ID
+              Project
             </label>
-            <input
+            <select
               data-testid="project-id-input"
-              type="text"
               value={projectInput}
               onChange={(e) => setProjectInput(e.target.value)}
-              placeholder="Enter project ID..."
               style={{
                 width: '100%',
                 padding: '6px 10px',
@@ -136,7 +136,12 @@ export function ScanModal({
                 border: '1px solid var(--border)',
                 borderRadius: 'var(--radius)',
               }}
-            />
+            >
+              <option value="">Select a project...</option>
+              {(Array.isArray(projects) ? projects : []).map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
           </div>
         )}
 
@@ -316,7 +321,7 @@ export function ScanModal({
             data-testid="scan-submit"
             className="btn btn-accent"
             onClick={handleSubmit}
-            disabled={triggerMutation.isPending}
+            disabled={triggerMutation.isPending || (context === 'dashboard' && !projectInput)}
             type="button"
           >
             {triggerMutation.isPending ? 'Starting...' : 'Start Scan'}

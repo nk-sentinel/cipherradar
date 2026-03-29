@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/auth.tsx';
 import { useGroups, useGroupDetail, useCreateGroup, type Group } from '@/api/hooks/useGroups.ts';
 import { useOrgSettings } from '@/api/hooks/useAdmin.ts';
 import { AccessibleTable } from '@/components/ui/AccessibleTable.tsx';
+import { JiraConfigSection } from '@/components/settings/JiraConfigSection.tsx';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -267,6 +268,14 @@ function GroupDetailDrawer({
                   ))}
                 </div>
               )}
+            </div>
+
+            {/* Jira Integration (D18) */}
+            <div style={{ marginTop: '16px' }}>
+              <h4 style={{ fontSize: '12px', fontWeight: 600, marginBottom: '8px' }}>
+                Jira Integration
+              </h4>
+              <JiraConfigSection scopeType="group" scopeId={groupId} />
             </div>
           </>
         )}

@@ -159,6 +159,8 @@ export function PolicyRules(): React.ReactElement {
   const { toast } = useToast();
   const auth = useAuth();
   const isOrgAdmin = auth.user?.role === 'org-admin';
+  const canEdit = auth.user?.role === 'org-admin' || auth.user?.role === 'security-manager';
+  const canLock = auth.user?.role === 'org-admin';
 
   const [rules, setRules] = useState<PolicyRule[]>(() => mergeRulesWithPolicy(undefined));
   const [timeWindow, setTimeWindow] = useState<TimeWindow>('90d');
@@ -322,6 +324,8 @@ export function PolicyRules(): React.ReactElement {
                   showWarning={showWarning}
                   timeWindow={timeWindow}
                   isOrgAdmin={isOrgAdmin}
+                  canEdit={canEdit}
+                  canLock={canLock}
                   onToggleRule={toggleRule}
                   onToggleExpand={toggleExpand}
                   onChangeSeverity={changeSeverity}
@@ -353,6 +357,8 @@ interface RuleRowProps {
   showWarning: boolean;
   timeWindow: TimeWindow;
   isOrgAdmin: boolean;
+  canEdit: boolean;
+  canLock: boolean;
   onToggleRule: (id: string) => void;
   onToggleExpand: (id: string) => void;
   onChangeSeverity: (id: string, severity: PolicySeverity) => void;
@@ -367,6 +373,8 @@ function RuleRow({
   showWarning,
   timeWindow,
   isOrgAdmin,
+  canEdit,
+  canLock,
   onToggleRule,
   onToggleExpand,
   onChangeSeverity,
@@ -383,33 +391,40 @@ function RuleRow({
         <td>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {/* Lock icon (D26) — OA only */}
-            <button
-              data-testid={`lock-${rule.id}`}
-              title={
-                rule.locked
-                  ? isOrgAdmin
-                    ? 'Click to unlock'
-                    : 'Locked by Org Admin'
-                  : isOrgAdmin
-                    ? 'Click to lock'
-                    : 'Unlocked'
-              }
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: isOrgAdmin ? 'pointer' : 'default',
-                fontSize: '12px',
-                padding: '0 2px',
-                color: rule.locked ? 'var(--orange)' : 'var(--text-4)',
-                opacity: isOrgAdmin ? 1 : 0.5,
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleLock(rule.id);
-              }}
-            >
-              {rule.locked ? '\uD83D\uDD12' : '\uD83D\uDD13'}
-            </button>
+            {canLock && (
+              <button
+                data-testid={`lock-${rule.id}`}
+                title={rule.locked ? 'Click to unlock' : 'Click to lock'}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  padding: '0 2px',
+                  color: rule.locked ? 'var(--orange)' : 'var(--text-4)',
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleLock(rule.id);
+                }}
+              >
+                {rule.locked ? '\uD83D\uDD12' : '\uD83D\uDD13'}
+              </button>
+            )}
+            {!canLock && rule.locked && (
+              <span
+                data-testid={`lock-${rule.id}`}
+                title="Locked by Org Admin"
+                style={{
+                  fontSize: '12px',
+                  padding: '0 2px',
+                  color: 'var(--orange)',
+                  opacity: 0.5,
+                }}
+              >
+                {'\uD83D\uDD12'}
+              </span>
+            )}
 
             <span style={{ fontSize: '10px', color: 'var(--text-3)' }}>
               {isExpanded ? '\u25BC' : '\u25B6'}
@@ -485,7 +500,7 @@ function RuleRow({
               e.stopPropagation();
               onChangeSeverity(rule.id, e.target.value as PolicySeverity);
             }}
-            disabled={rule.locked && !isOrgAdmin}
+            disabled={!canEdit || (rule.locked && !isOrgAdmin)}
             data-testid={`severity-select-${rule.id}`}
             aria-label={`Severity for ${rule.name}`}
           >
@@ -507,7 +522,7 @@ function RuleRow({
               e.stopPropagation();
               onChangeScope(rule.id, e.target.value as PolicyScope);
             }}
-            disabled={rule.locked && !isOrgAdmin}
+            disabled={!canEdit || (rule.locked && !isOrgAdmin)}
             data-testid={`scope-select-${rule.id}`}
             aria-label={`Scope for ${rule.name}`}
           >
@@ -537,7 +552,7 @@ function RuleRow({
               e.stopPropagation();
               onToggleRule(rule.id);
             }}
-            disabled={rule.locked && !isOrgAdmin}
+            disabled={!canEdit || (rule.locked && !isOrgAdmin)}
             style={{ fontSize: '11px', padding: '4px 10px' }}
           >
             {rule.enabled ? 'Enabled' : 'Disabled'}
