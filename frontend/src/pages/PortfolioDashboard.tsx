@@ -90,6 +90,59 @@ export function PortfolioDashboard(): React.ReactElement {
     );
   }
 
+  // Fresh org — no projects or findings yet. Show welcome state.
+  const isEmpty = (summary.totalRepos ?? 0) === 0 && (summary.totalFindings ?? 0) === 0;
+  if (isEmpty) {
+    return (
+      <div>
+        <h1 style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '0.04em', marginBottom: '24px' }}>Dashboard</h1>
+        <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔐</div>
+          <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '8px', color: 'var(--text-0)' }}>
+            Welcome to CipherRadar
+          </h2>
+          <p style={{ color: 'var(--text-2)', fontSize: '14px', maxWidth: '480px', margin: '0 auto 24px', lineHeight: 1.6 }}>
+            Get started by connecting your code repositories. Once you import projects
+            and run your first scan, your cryptographic findings and compliance posture
+            will appear here.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              className="btn btn-primary"
+              onClick={() => void navigate({ to: '/admin/integrations' })}
+              style={{ fontSize: '13px', padding: '8px 20px' }}
+            >
+              Connect a Git Provider
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => void navigate({ to: '/repos' })}
+              style={{ fontSize: '13px', padding: '8px 20px' }}
+            >
+              Import Projects
+            </button>
+            <button
+              className="btn btn-outline"
+              onClick={() => void navigate({ to: '/admin/settings' })}
+              style={{ fontSize: '13px', padding: '8px 20px' }}
+            >
+              Configure Settings
+            </button>
+          </div>
+          <div style={{ marginTop: '32px', padding: '16px', background: 'var(--bg-2)', borderRadius: '8px', maxWidth: '400px', margin: '32px auto 0' }}>
+            <p style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px' }}>Quick start:</p>
+            <div style={{ fontSize: '12px', color: 'var(--text-1)', textAlign: 'left', lineHeight: 1.8 }}>
+              <div>1. Connect your GitHub, GitLab, or Bitbucket account</div>
+              <div>2. Import repositories as projects</div>
+              <div>3. Run your first cryptographic scan</div>
+              <div>4. Review findings and compliance posture</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const barData = (summary.severityDistribution ?? []).map((s) => ({
     name: SEVERITY_LABELS[s.severity],
     count: s.count,
