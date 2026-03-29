@@ -376,39 +376,39 @@ export function PortfolioDashboard(): React.ReactElement {
             </tr>
           </thead>
           <tbody>
-            {(summary.topRiskRepos ?? []).map((repo) => (
+            {((summary.topRiskRepos ?? (summary as unknown as Record<string, unknown[]>).heatMap ?? []) as unknown as Record<string, unknown>[]).map((repo) => (
               <tr
-                key={repo.repoId}
+                key={String(repo.repoId ?? repo.projectId ?? '')}
                 className="clickable"
                 onClick={() =>
                   void navigate({
                     to: '/repos/$repoId/overview',
-                    params: { repoId: repo.repoId },
+                    params: { repoId: String(repo.repoId ?? repo.projectId ?? '') },
                   })
                 }
               >
                 <td>
-                  <strong>{repo.repoName}</strong>
+                  <strong>{String(repo.repoName ?? repo.projectName ?? '')}</strong>
                 </td>
-                <td>{repo.provider}</td>
-                <td>{repo.findings}</td>
+                <td>{String(repo.provider ?? '—')}</td>
+                <td>{String(repo.findings ?? (Number(repo.critical ?? 0) + Number(repo.high ?? 0) + Number(repo.medium ?? 0) + Number(repo.low ?? 0)))}</td>
                 <td>
                   <span
                     className={cn(
                       'badge',
-                      repo.critical > 0 ? 'b-crit' : 'b-safe',
+                      Number(repo.critical ?? 0) > 0 ? 'b-crit' : 'b-safe',
                     )}
                   >
-                    {repo.critical}
+                    {String(repo.critical ?? 0)}
                   </span>
                 </td>
-                <td style={{ color: quantumRiskColor(repo.quantumRisk) }}>
-                  {repo.quantumRisk}
+                <td style={{ color: quantumRiskColor(Number(repo.quantumRisk ?? 0)) }}>
+                  {String(repo.quantumRisk ?? '—')}
                 </td>
-                <td style={{ color: complianceColor(repo.compliancePercent) }}>
-                  {repo.compliancePercent}%
+                <td style={{ color: complianceColor(Number(repo.compliancePercent ?? 0)) }}>
+                  {String(repo.compliancePercent ?? '—')}%
                 </td>
-                <td>{repo.lastScan}</td>
+                <td>{String(repo.lastScan ?? '—')}</td>
               </tr>
             ))}
           </tbody>
