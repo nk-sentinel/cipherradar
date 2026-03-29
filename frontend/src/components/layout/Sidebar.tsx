@@ -92,7 +92,7 @@ export function Sidebar(): React.ReactElement {
 
   return (
     <nav className="sidebar">
-      <div className="logo">
+      <Link to="/" className="logo" style={{ textDecoration: 'none', color: 'inherit' }}>
         <svg viewBox="0 0 32 32" fill="none" width="28" height="28">
           <path
             d="M16 2L28 9V23L16 30L4 23V9L16 2Z"
@@ -112,7 +112,7 @@ export function Sidebar(): React.ReactElement {
           <span className="logo-text">CipherRadar</span>
           <span className="logo-sub">CBOM Platform</span>
         </div>
-      </div>
+      </Link>
 
       <OrgSwitcher />
 
