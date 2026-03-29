@@ -409,12 +409,15 @@ async def list_integrations(
     ]
 
     # Fetch connected tokens from DB
-    stmt = sa_select(IntegrationToken).where(
-        IntegrationToken.org_id == uuid.UUID(user.org_id),
-        IntegrationToken.status == "active",
-    )
-    result = await session.execute(stmt)
-    tokens = {t.provider: t for t in result.scalars().all()}
+    try:
+        stmt = sa_select(IntegrationToken).where(
+            IntegrationToken.org_id == uuid.UUID(user.org_id),
+            IntegrationToken.revoked_at.is_(None),
+        )
+        result = await session.execute(stmt)
+        tokens = {t.provider: t for t in result.scalars().all()}
+    except Exception:
+        tokens = {}
 
     items = []
     for provider_type, label in PROVIDERS:
@@ -425,7 +428,7 @@ async def list_integrations(
             label=label,
             status="connected" if token else "disconnected",
             connected_at=token.created_at.isoformat() if token and token.created_at else None,
-            detail=token.base_url if token and hasattr(token, 'base_url') else None,
+            detail=token.scope if token else None,
         ))
 
     return IntegrationList(items=items)
