@@ -26,6 +26,7 @@ from app.api.v1 import (
     deptrack,
     finding_requests,
     finding_status,
+    graph,
     health,
     hndl,
     integrations,
@@ -142,6 +143,7 @@ def create_app(*, include_lifespan: bool = True) -> FastAPI:
 
     # Routers
     app.include_router(health.router, prefix="/api/v1")
+    app.include_router(graph.router, prefix="/api/v1")
     app.include_router(scans.router, prefix="/api/v1")
     app.include_router(auth.router, prefix="/api/v1")
     app.include_router(cbom.router, prefix="/api/v1")
