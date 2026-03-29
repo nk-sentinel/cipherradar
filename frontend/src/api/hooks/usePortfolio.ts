@@ -49,11 +49,22 @@ export function useHeatMap() {
     queryFn: async () => {
       try {
         const data = await apiClient<HeatMapData>('/portfolio/heatmap');
-        // The API returns heatMap (array) or repos (array) depending on version.
-        // Accept either shape from the real API.
-        const heatMapArray = (data as unknown as Record<string, unknown>).heatMap ?? data?.repos;
+        // The API may return { groups: [...] }, { heatMap: [...] }, or { repos: [...] }.
+        // Normalise to { repos: [...] } for the frontend.
+        const raw = data as unknown as Record<string, unknown>;
+        const heatMapArray = raw.groups ?? raw.heatMap ?? raw.repos;
         if (data && Array.isArray(heatMapArray)) {
-          return { ...data, repos: heatMapArray as HeatMapData['repos'] };
+          // Map group-shaped items to the HeatMapCell shape the frontend expects
+          const repos = (heatMapArray as Record<string, unknown>[]).map((item, idx) => ({
+            repoId: (item.id as string) ?? `group-${String(idx)}`,
+            repoName: (item.name as string) ?? '',
+            critical: (item.criticalCount as number) ?? (item.critical as number) ?? 0,
+            high: (item.highCount as number) ?? (item.high as number) ?? 0,
+            medium: (item.mediumCount as number) ?? (item.medium as number) ?? 0,
+            low: (item.lowCount as number) ?? (item.low as number) ?? 0,
+            info: (item.infoCount as number) ?? (item.info as number) ?? 0,
+          }));
+          return { repos } as HeatMapData;
         }
       } catch (err) {
         if (!import.meta.env.DEV) throw err;

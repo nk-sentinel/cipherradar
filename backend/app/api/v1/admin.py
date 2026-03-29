@@ -170,29 +170,35 @@ async def list_groups(
     session: AsyncSession = Depends(get_session),
 ) -> dict:
     """List all groups in the organisation."""
-    try:
-        result = await session.execute(
-            text(
-                "SELECT id, name, description, created_at FROM groups "
-                "WHERE org_id = :org_id ORDER BY name"
-            ),
-            {"org_id": user.org_id},
-        )
-        rows = result.fetchall()
-        items = []
-        for row in rows:
-            items.append({
-                "id": str(row[0]),
-                "name": row[1],
-                "description": row[2] or "",
-                "projectCount": 0,
-                "memberCount": 0,
-                "createdAt": row[3].isoformat() if row[3] else "",
-            })
-        return {"items": items, "total": len(items)}
-    except Exception:
-        logger.debug("Groups table not available, returning empty list")
-        return {"items": [], "total": 0}
+    from sqlalchemy import select, func
+    from app.models.project import Group, Project
+    from app.models.user_group import UserGroup
+
+    stmt = select(Group).where(Group.org_id == uuid.UUID(user.org_id))
+    result = await session.execute(stmt)
+    groups = result.scalars().all()
+
+    items = []
+    for g in groups:
+        # Count projects in this group
+        count_stmt = select(func.count()).select_from(Project).where(Project.group_id == g.id)
+        count_result = await session.execute(count_stmt)
+        project_count = count_result.scalar() or 0
+
+        # Count members in this group
+        member_stmt = select(func.count()).select_from(UserGroup).where(UserGroup.group_id == g.id)
+        member_result = await session.execute(member_stmt)
+        member_count = member_result.scalar() or 0
+
+        items.append({
+            "id": str(g.id),
+            "name": g.name,
+            "projectCount": project_count,
+            "memberCount": member_count,
+            "createdAt": g.created_at.isoformat() if g.created_at else None,
+        })
+
+    return {"items": items, "total": len(items)}
 
 
 @router.get("/groups/{group_id}")
@@ -201,33 +207,39 @@ async def get_group_detail(
     user: AuthenticatedUser = Depends(_admin_dep),
     session: AsyncSession = Depends(get_session),
 ) -> dict:
-    """Get detail for a single group (stub)."""
-    try:
-        result = await session.execute(
-            text(
-                "SELECT id, name, description, created_at FROM groups "
-                "WHERE id = :group_id AND org_id = :org_id"
-            ),
-            {"group_id": str(group_id), "org_id": user.org_id},
-        )
-        row = result.fetchone()
-        if row is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
-        return {
-            "id": str(row[0]),
-            "name": row[1],
-            "description": row[2] or "",
-            "projectCount": 0,
-            "memberCount": 0,
-            "createdAt": row[3].isoformat() if row[3] else "",
-            "members": [],
-            "projects": [],
-        }
-    except HTTPException:
-        raise
-    except Exception:
-        logger.debug("Groups table not available, returning 404")
+    """Get detail for a single group."""
+    from sqlalchemy import select, func
+    from app.models.project import Group, Project
+    from app.models.user_group import UserGroup
+
+    stmt = select(Group).where(
+        Group.id == group_id,
+        Group.org_id == uuid.UUID(user.org_id),
+    )
+    result = await session.execute(stmt)
+    g = result.scalar_one_or_none()
+    if g is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Group not found")
+
+    # Count projects
+    count_stmt = select(func.count()).select_from(Project).where(Project.group_id == g.id)
+    count_result = await session.execute(count_stmt)
+    project_count = count_result.scalar() or 0
+
+    # Count members
+    member_stmt = select(func.count()).select_from(UserGroup).where(UserGroup.group_id == g.id)
+    member_result = await session.execute(member_stmt)
+    member_count = member_result.scalar() or 0
+
+    return {
+        "id": str(g.id),
+        "name": g.name,
+        "projectCount": project_count,
+        "memberCount": member_count,
+        "createdAt": g.created_at.isoformat() if g.created_at else "",
+        "members": [],
+        "projects": [],
+    }
 
 
 @router.post("/groups", status_code=201)
@@ -240,39 +252,27 @@ async def create_group(
     body = await request.json()
     new_id = uuid.uuid4()
     now = datetime.now(UTC)
-    try:
-        await session.execute(
-            text(
-                "INSERT INTO groups (id, name, description, org_id, created_at) "
-                "VALUES (:id, :name, :description, :org_id, :created_at)"
-            ),
-            {
-                "id": new_id,
-                "name": body.get("name", ""),
-                "description": body.get("description", ""),
-                "org_id": user.org_id,
-                "created_at": now,
-            },
-        )
-        await session.commit()
-        return {
-            "id": str(new_id),
+    await session.execute(
+        text(
+            "INSERT INTO groups (id, name, org_id, created_at, updated_at) "
+            "VALUES (:id, :name, :org_id, :created_at, :updated_at)"
+        ),
+        {
+            "id": new_id,
             "name": body.get("name", ""),
-            "description": body.get("description", ""),
-            "projectCount": 0,
-            "memberCount": 0,
-            "createdAt": now.isoformat(),
-        }
-    except Exception:
-        logger.debug("Groups table not available, returning stub response")
-        return {
-            "id": str(new_id),
-            "name": body.get("name", ""),
-            "description": body.get("description", ""),
-            "projectCount": 0,
-            "memberCount": 0,
-            "createdAt": now.isoformat(),
-        }
+            "org_id": user.org_id,
+            "created_at": now,
+            "updated_at": now,
+        },
+    )
+    await session.commit()
+    return {
+        "id": str(new_id),
+        "name": body.get("name", ""),
+        "projectCount": 0,
+        "memberCount": 0,
+        "createdAt": now.isoformat(),
+    }
 
 
 # ---------------------------------------------------------------------------
