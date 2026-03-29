@@ -38,6 +38,7 @@ export function ScanModal({
   const triggerMutation = useScanTrigger();
 
   const isSimplified = context === 'project-overview' && !expanded;
+  const hasProject = !!(projectId ?? projectInput);
 
   function handleSubmit() {
     const resolvedProjectId = projectId ?? projectInput;
@@ -156,6 +157,7 @@ export function ScanModal({
                 data-testid="branch-selector"
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
+                disabled={!hasProject}
                 style={{
                   width: '100%',
                   padding: '6px 10px',
@@ -164,11 +166,12 @@ export function ScanModal({
                   color: 'var(--text-1)',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius)',
+                  opacity: hasProject ? 1 : 0.5,
                 }}
               >
-                {BRANCHES.map((b) => (
+                {hasProject ? BRANCHES.map((b) => (
                   <option key={b} value={b}>{b}</option>
-                ))}
+                )) : <option value="">Select a project first</option>}
               </select>
             </div>
 
@@ -180,6 +183,7 @@ export function ScanModal({
                 data-testid="policy-selector"
                 value={policyId}
                 onChange={(e) => setPolicyId(e.target.value)}
+                disabled={!hasProject}
                 style={{
                   width: '100%',
                   padding: '6px 10px',
@@ -188,6 +192,7 @@ export function ScanModal({
                   color: 'var(--text-1)',
                   border: '1px solid var(--border)',
                   borderRadius: 'var(--radius)',
+                  opacity: hasProject ? 1 : 0.5,
                 }}
               >
                 {POLICIES.map((p) => (
@@ -221,6 +226,7 @@ export function ScanModal({
                     data-testid="branch-selector"
                     value={branch}
                     onChange={(e) => setBranch(e.target.value)}
+                    disabled={!hasProject}
                     style={{
                       width: '100%',
                       padding: '6px 10px',
@@ -229,11 +235,12 @@ export function ScanModal({
                       color: 'var(--text-1)',
                       border: '1px solid var(--border)',
                       borderRadius: 'var(--radius)',
+                      opacity: hasProject ? 1 : 0.5,
                     }}
                   >
-                    {BRANCHES.map((b) => (
+                    {hasProject ? BRANCHES.map((b) => (
                       <option key={b} value={b}>{b}</option>
-                    ))}
+                    )) : <option value="">Select a project first</option>}
                   </select>
                 </div>
 
