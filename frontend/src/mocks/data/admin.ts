@@ -93,7 +93,7 @@ export const MOCK_ORG_SETTINGS: OrgSettings = {
   defaultScanConfig: {
     autoScan: true,
     scanOnPr: true,
-    policyFile: 'policy.cbom.yml',
+    policyFile: 'policy.cradar.yml',
     failOnSeverity: 'high',
   },
   labels: {

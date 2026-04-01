@@ -177,7 +177,7 @@ function OrgSettingsContent(): React.ReactElement {
                 className="input"
                 value={policyFile}
                 onChange={(e) => setPolicyFile(e.target.value)}
-                placeholder="policy.cbom.yml"
+                placeholder="policy.cradar.yml"
               />
             </div>
             <div className="field">

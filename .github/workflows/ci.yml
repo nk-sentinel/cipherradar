@@ -54,6 +54,7 @@ jobs:
       - name: Build cradar
         working-directory: cli
         run: |
+          go generate ./internal/rules
           go build -o cradar ./cmd/cradar
           ./cradar version
 
@@ -83,3 +84,16 @@ jobs:
             exit 1
           fi
           echo "No duplicate rule IDs"
+
+      - name: Verify embedded rules are in sync
+        run: |
+          # Compare source-of-truth rules against CLI embedded copy
+          DIFF=$(diff -rq scanner/rules/ cli/internal/rules/data/ 2>&1) || true
+          if [ -n "$DIFF" ]; then
+            echo "::error::Embedded rules are out of sync with scanner/rules/"
+            echo "$DIFF"
+            echo ""
+            echo "Fix: cd cli && go generate ./internal/rules && commit the updated data/ files"
+            exit 1
+          fi
+          echo "Embedded rules are in sync"

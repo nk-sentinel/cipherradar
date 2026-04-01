@@ -65,7 +65,7 @@ class TestGetSettings:
                 "default_scan_config": {
                     "auto_scan": True,
                     "scan_on_pr": True,
-                    "policy_file": "policy.cbom.yml",
+                    "policy_file": "policy.cradar.yml",
                     "fail_on_severity": "high",
                 }
             },
@@ -86,7 +86,7 @@ class TestGetSettings:
         assert body["plan"] == "enterprise"
         assert body["defaultScanConfig"]["autoScan"] is True
         assert body["defaultScanConfig"]["scanOnPr"] is True
-        assert body["defaultScanConfig"]["policyFile"] == "policy.cbom.yml"
+        assert body["defaultScanConfig"]["policyFile"] == "policy.cradar.yml"
         assert body["defaultScanConfig"]["failOnSeverity"] == "high"
 
         app.dependency_overrides.clear()

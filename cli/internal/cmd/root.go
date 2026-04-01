@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"github.com/nk-sentinel/cipherradar/cli/internal/output"
 	"github.com/spf13/cobra"
 )
 
@@ -17,5 +18,6 @@ func init() {
 
 // Execute runs the root command.
 func Execute() error {
+	output.AppVersion = Version
 	return rootCmd.Execute()
 }

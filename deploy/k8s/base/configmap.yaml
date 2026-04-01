@@ -6,5 +6,5 @@ metadata:
   labels:
     app.kubernetes.io/name: cipherradar
 data:
-  CBOM_DATABASE_URL: "postgresql+asyncpg://postgres:$(CBOM_DB_PASSWORD)@cipherradar-postgresql:5432/cipherradar"
-  CBOM_REDIS_URL: "redis://cipherradar-redis:6379"
+  CRADAR_DATABASE_URL: "postgresql+asyncpg://postgres:$(CRADAR_DB_PASSWORD)@cipherradar-postgresql:5432/cipherradar"
+  CRADAR_REDIS_URL: "redis://cipherradar-redis:6379"

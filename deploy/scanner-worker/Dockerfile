@@ -1,7 +1,9 @@
 FROM golang:latest AS cli-builder
 WORKDIR /build
-COPY cli/ .
-RUN go build -o /cradar ./cmd/cradar
+COPY cli/ cli/
+COPY scanner/rules/ scanner/rules/
+WORKDIR /build/cli
+RUN go generate ./internal/rules && go build -o /cradar ./cmd/cradar
 
 FROM python:3.12-slim
 WORKDIR /app

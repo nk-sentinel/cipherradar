@@ -1,7 +1,10 @@
 """Taskiq worker for executing scans.
 
-In production this will shell out to the ``cbom`` CLI binary
+In production this will shell out to the ``cradar`` CLI binary
 and stream results back into the database.
+
+The ``broker`` object at module level is the Taskiq broker that the
+worker process imports. Tasks are decorated with ``@broker.task``.
 """
 
 from __future__ import annotations
@@ -9,10 +12,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from sqlalchemy import select
+from taskiq import AsyncBroker
+from taskiq_redis import ListQueueBroker
 
 from app.db.session import get_session
 from app.models.scan import Scan, ScanStatus
@@ -22,6 +28,13 @@ if TYPE_CHECKING:
     import uuid
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Taskiq broker — this is what the CMD references as scan_worker:broker
+# ---------------------------------------------------------------------------
+
+_redis_url = os.environ.get("CRADAR_REDIS_URL", "redis://localhost:6379")
+broker: AsyncBroker = ListQueueBroker(url=_redis_url)
 
 # Per-project concurrency limit: max concurrent scans per project
 MAX_CONCURRENT_SCANS_PER_PROJECT = 2
@@ -73,6 +86,7 @@ async def deduplicate_scan(project_id: uuid.UUID, commit_sha: str | None) -> uui
     return None
 
 
+@broker.task
 async def run_scan(scan_id: uuid.UUID) -> None:
     """Execute a scan with per-project concurrency limiting.
 

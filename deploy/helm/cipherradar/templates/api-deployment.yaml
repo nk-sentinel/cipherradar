@@ -30,12 +30,12 @@ spec:
               containerPort: 8000
               protocol: TCP
           env:
-            - name: CBOM_DB_PASSWORD
+            - name: CRADAR_DB_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.jwt.existingSecret | default (include "cipherradar.secretName" .) }}
                   key: db-password
-            - name: CBOM_JWT_SECRET_KEY
+            - name: CRADAR_JWT_SECRET_KEY
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.jwt.existingSecret | default (include "cipherradar.secretName" .) }}

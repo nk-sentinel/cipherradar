@@ -4,7 +4,7 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     """Application settings loaded from environment variables.
 
-    All variables are prefixed with CBOM_ (e.g. CBOM_DATABASE_URL).
+    All variables are prefixed with CRADAR_ (e.g. CRADAR_DATABASE_URL).
     """
 
     # Database
@@ -48,7 +48,7 @@ class Settings(BaseSettings):
     jira_client_secret: str = ""
     jira_redirect_uri: str = ""
 
-    model_config = {"env_prefix": "CBOM_"}
+    model_config = {"env_prefix": "CRADAR_"}
 
 
 settings = Settings()

@@ -6,11 +6,11 @@ metadata:
   labels:
     {{- include "cipherradar.labels" . | nindent 4 }}
 data:
-  CBOM_REDIS_URL: {{ include "cipherradar.redisUrl" . | quote }}
-  CBOM_DATABASE_URL: {{ include "cipherradar.databaseUrl" . | quote }}
+  CRADAR_REDIS_URL: {{ include "cipherradar.redisUrl" . | quote }}
+  CRADAR_DATABASE_URL: {{ include "cipherradar.databaseUrl" . | quote }}
   {{- if .Values.externalS3.endpoint }}
-  CBOM_S3_ENDPOINT: {{ .Values.externalS3.endpoint | quote }}
+  CRADAR_S3_ENDPOINT: {{ .Values.externalS3.endpoint | quote }}
   {{- end }}
   {{- if .Values.externalS3.bucket }}
-  CBOM_S3_BUCKET: {{ .Values.externalS3.bucket | quote }}
+  CRADAR_S3_BUCKET: {{ .Values.externalS3.bucket | quote }}
   {{- end }}

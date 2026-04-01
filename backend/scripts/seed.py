@@ -30,7 +30,7 @@ import bcrypt
 DATABASE_URL = os.environ.get(
     "SEED_DATABASE_URL",
     os.environ.get(
-        "CBOM_DATABASE_URL",
+        "CRADAR_DATABASE_URL",
         "postgresql+asyncpg://postgres:postgres@localhost:5433/cipherradar",
     ),
 )

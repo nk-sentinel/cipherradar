@@ -72,3 +72,18 @@ rules:
           var $R = Random();
           ...
           $R.nextDouble()
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-dart-crypto-library-import
+    message: Cryptographic package import detected in Dart.
+    severity: INFO
+    languages: [dart]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: import 'package:crypto/$X';
+      - pattern: import 'package:pointycastle/$X';

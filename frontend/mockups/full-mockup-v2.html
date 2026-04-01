@@ -716,12 +716,12 @@ tr.clickable{cursor:pointer}
           <div class="card-title">Connect CLI to Dashboard</div>
           <div class="code" style="font-size:11px">
             <div style="color:var(--text-4)"># Generate an API key in Settings &gt; API Keys, then:</div>
-            <div style="margin-top:4px">export CBOM_API_KEY="your-api-key-here"</div>
-            <div>export CBOM_API_URL="https://cipherradar.yourcompany.com/api/v1"</div>
+            <div style="margin-top:4px">export CRADAR_API_KEY="your-api-key-here"</div>
+            <div>export CRADAR_API_URL="https://cipherradar.yourcompany.com/api/v1"</div>
             <div style="margin-top:8px;color:var(--text-4)"># Scan and upload results to dashboard</div>
-            <div>cbom scan . --format cyclonedx-json --output cbom.json</div>
-            <div>curl -X POST $CBOM_API_URL/scans \</div>
-            <div>&nbsp;&nbsp;-H "Authorization: Bearer $CBOM_API_KEY" \</div>
+            <div>cradar scan . --format cyclonedx-json --output cbom.json</div>
+            <div>curl -X POST $CRADAR_API_URL/scans \</div>
+            <div>&nbsp;&nbsp;-H "Authorization: Bearer $CRADAR_API_KEY" \</div>
             <div>&nbsp;&nbsp;-F "cbom=@cbom.json"</div>
           </div>
         </div>
@@ -736,7 +736,7 @@ tr.clickable{cursor:pointer}
             <div>&nbsp;&nbsp;with:</div>
             <div>&nbsp;&nbsp;&nbsp;&nbsp;format: cyclonedx-json</div>
             <div>&nbsp;&nbsp;&nbsp;&nbsp;upload-sarif: 'true'</div>
-            <div>&nbsp;&nbsp;&nbsp;&nbsp;policy: policy.cbom.yml</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;policy: policy.cradar.yml</div>
             <div>&nbsp;&nbsp;&nbsp;&nbsp;fail-on: high</div>
           </div>
         </div>

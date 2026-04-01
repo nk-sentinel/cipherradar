@@ -74,3 +74,20 @@ rules:
       - pattern: MD5_Update(...)
       - pattern: MD5_Final(...)
       - pattern: MD5(...)
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-cpp-crypto-library-import
+    message: Cryptographic library include detected in C/C++.
+    severity: INFO
+    languages: [cpp]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: |
+          #include <openssl/$X>
+      - pattern: |
+          #include <sodium.h>

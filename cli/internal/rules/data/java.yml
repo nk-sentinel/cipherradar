@@ -104,3 +104,157 @@ rules:
       confidence: high
       quantum-relevant: false
     pattern: Cipher.getInstance("=~/.*ECB.*/")
+
+  - id: cbom-java-ec-curve-from-ecgenparameterspec
+    message: >
+      EC key generation with named curve detected via ECGenParameterSpec.
+      The curve parameter determines the key strength and quantum vulnerability.
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          $KPG = KeyPairGenerator.getInstance("EC");
+          ...
+          $KPG.initialize(new ECGenParameterSpec("$CURVE"));
+      - pattern: |
+          KeyPairGenerator $KPG = KeyPairGenerator.getInstance("EC");
+          ...
+          $KPG.initialize(new ECGenParameterSpec("$CURVE"));
+      - pattern: |
+          $KPG.initialize(new ECGenParameterSpec("$CURVE"));
+
+  # ── CBOM Inventory Rules (not vulnerability detection) ──
+
+  - id: cbom-java-crypto-library-import
+    message: >
+      Cryptographic library import detected. This library is part of the
+      project's cryptographic supply chain.
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: import org.bouncycastle.$...;
+      - pattern: import javax.crypto.$...;
+      - pattern: import java.security.$...;
+      - pattern: import javax.net.ssl.$...;
+
+  - id: cbom-java-kdf-to-cipher-chain
+    message: >
+      Key derivation chain detected: password-based key derivation feeds
+      into cipher initialization. CBOM links KDF to cipher usage.
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: key-derivation-function
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          SecretKeyFactory $F = SecretKeyFactory.getInstance("$ALGO");
+          ...
+          $KEY = $F.generateSecret($SPEC);
+          ...
+          $CIPHER.init($MODE, $KEY);
+
+  - id: cbom-java-tls-version-enforcement
+    message: >
+      TLS version enforcement detected. CBOM records which protocol
+      versions are explicitly permitted.
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          SSLContext $CTX = SSLContext.getInstance("$VERSION");
+          ...
+          $CTX.init($KM, $TM, $RANDOM);
+
+  - id: cbom-java-keygen-to-cipher
+    message: >
+      Key generation flows into cipher initialization. CBOM links key
+      creation to key consumption.
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: related-crypto-material
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          KeyGenerator $KG = KeyGenerator.getInstance("$ALGO");
+          ...
+          $KEY = $KG.generateKey();
+          ...
+          $CIPHER.init($MODE, $KEY);
+
+  - id: cbom-java-config-driven-algorithm
+    message: >
+      Cryptographic algorithm name loaded from configuration and passed
+      to crypto API. CBOM tracks configuration-driven crypto.
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $ALGO = $PROPS.getProperty("$KEY");
+          ...
+          Cipher.getInstance($ALGO);
+      - pattern: |
+          $ALGO = System.getenv("$KEY");
+          ...
+          Cipher.getInstance($ALGO);
+
+  - id: cbom-java-cert-to-tls-context
+    message: >
+      Certificate loaded and used in TLS context. CBOM links certificate
+      assets to protocol configuration.
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: certificate
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          KeyStore $KS = KeyStore.getInstance("$TYPE");
+          ...
+          $KS.load($INPUT, $PASS);
+          ...
+          TrustManagerFactory $TMF = TrustManagerFactory.getInstance("$ALGO");
+          ...
+          $TMF.init($KS);
+
+  - id: cbom-java-crypto-provider-registration
+    message: >
+      Cryptographic provider registered. This changes which implementation
+      backs subsequent crypto operations.
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: Security.addProvider(new $PROVIDER());
+      - pattern: Security.insertProviderAt(new $PROVIDER(), $POS);

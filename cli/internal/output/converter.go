@@ -321,12 +321,19 @@ type Tool struct {
 
 // Component represents a CycloneDX component with cryptoProperties.
 type Component struct {
-	Type             string                       `json:"type"`
-	BOMRef           string                       `json:"bom-ref,omitempty"`
-	Name             string                       `json:"name"`
-	Description      string                       `json:"description,omitempty"`
+	Type             string                        `json:"type"`
+	BOMRef           string                        `json:"bom-ref,omitempty"`
+	Name             string                        `json:"name"`
+	Description      string                        `json:"description,omitempty"`
 	CryptoProperties *cyclonedx17.CryptoProperties `json:"cryptoProperties,omitempty"`
-	Evidence         *Evidence                    `json:"evidence,omitempty"`
+	Properties       []Property                    `json:"properties,omitempty"`
+	Evidence         *Evidence                     `json:"evidence,omitempty"`
+}
+
+// Property represents a CycloneDX name-value property.
+type Property struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
 }
 
 // Evidence captures where a component was detected.
@@ -340,8 +347,10 @@ type Occurrence struct {
 	Line     int    `json:"line,omitempty"`
 }
 
-// cipherRadarVersion is the version string embedded in BOM metadata.
-const cipherRadarVersion = "0.1.0"
+// AppVersion is the version string embedded in BOM metadata.
+// Set by cmd package at init time from ldflags-injected Version.
+// Defaults to "dev" for local builds.
+var AppVersion = "dev"
 
 // generateUUID4 produces a random UUID v4 string.
 func generateUUID4() string {
@@ -365,7 +374,7 @@ func ConvertScanResult(result *types.ScanResult) *BOM {
 			Tools: []Tool{
 				{
 					Name:    "CipherRadar",
-					Version: cipherRadarVersion,
+					Version: AppVersion,
 					Vendor:  "nk-sentinel",
 				},
 			},
@@ -405,7 +414,32 @@ func convertFinding(f *types.Finding) Component {
 
 	cp := convertCryptoProperties(f)
 	comp.CryptoProperties = cp
+
+	// Add finding metadata as CycloneDX properties
+	comp.Properties = buildFindingProperties(f)
+
 	return comp
+}
+
+// buildFindingProperties creates CycloneDX properties from finding metadata.
+func buildFindingProperties(f *types.Finding) []Property {
+	props := []Property{
+		{Name: "severity", Value: string(f.Severity)},
+		{Name: "confidence", Value: string(f.Confidence)},
+	}
+	if f.RuleID != "" {
+		props = append(props, Property{Name: "ruleId", Value: f.RuleID})
+	}
+	if f.Properties.QuantumStatus != "" {
+		props = append(props, Property{Name: "quantumStatus", Value: string(f.Properties.QuantumStatus)})
+	}
+	if f.Fingerprint != "" {
+		props = append(props, Property{Name: "fingerprint", Value: f.Fingerprint})
+	}
+	if f.Pass > 0 {
+		props = append(props, Property{Name: "detectionPass", Value: fmt.Sprintf("%d", f.Pass)})
+	}
+	return props
 }
 
 // convertCryptoProperties builds CycloneDX 1.7 cryptoProperties from a Finding.

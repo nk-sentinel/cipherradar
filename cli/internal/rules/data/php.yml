@@ -51,3 +51,31 @@ rules:
       - pattern: mcrypt_create_iv(...)
       - pattern: mcrypt_get_iv_size(...)
       - pattern: mcrypt_module_open(...)
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-php-deprecated-crypto
+    message: Deprecated mcrypt library used. Removed since PHP 7.2.
+    severity: WARNING
+    languages: [php]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: mcrypt_encrypt(...)
+      - pattern: mcrypt_decrypt(...)
+
+  - id: cbom-php-password-hash-inventory
+    message: Password hashing function detected in PHP.
+    severity: INFO
+    languages: [php]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: password_hash($PASSWORD, $ALGO)
+      - pattern: password_hash($PASSWORD, $ALGO, $OPTIONS)

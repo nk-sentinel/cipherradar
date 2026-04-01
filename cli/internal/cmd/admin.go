@@ -31,7 +31,7 @@ database access and then pipe the SQL output to psql.`,
 
 func init() {
 	adminResetPasswordCmd.Flags().String("email", "", "email address of the user to reset (required)")
-	adminResetPasswordCmd.Flags().String("database-url", "", "PostgreSQL connection string (default: from CBOM_DATABASE_URL env)")
+	adminResetPasswordCmd.Flags().String("database-url", "", "PostgreSQL connection string (default: from CRADAR_DATABASE_URL env)")
 	_ = adminResetPasswordCmd.MarkFlagRequired("email")
 
 	adminCmd.AddCommand(adminResetPasswordCmd)
@@ -55,7 +55,7 @@ func runAdminResetPassword(cmd *cobra.Command, args []string) error {
 
 	dbURL, _ := cmd.Flags().GetString("database-url")
 	if dbURL == "" {
-		dbURL = os.Getenv("CBOM_DATABASE_URL")
+		dbURL = os.Getenv("CRADAR_DATABASE_URL")
 	}
 
 	// Generate temporary password

@@ -45,7 +45,7 @@ func ConvertToSARIF(result *types.ScanResult) *SARIFDocument {
 				Tool: SARIFTool{
 					Driver: SARIFDriver{
 						Name:           "CipherRadar",
-						Version:        cipherRadarVersion,
+						Version:        AppVersion,
 						InformationURI: "https://github.com/nk-sentinel/cipherradar",
 						Rules:          rules,
 					},

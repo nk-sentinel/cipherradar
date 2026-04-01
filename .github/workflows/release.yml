@@ -23,14 +23,16 @@ jobs:
             goos: darwin
             goarch: arm64
             opengrep_asset: opengrep-core_osx_aarch64.tar.gz
-          - os: macos-14
+          # macos-13 is the last Intel (x86_64) GitHub-hosted runner.
+          # macos-14+ are Apple Silicon — CGO cross-compile to amd64 breaks.
+          - os: macos-13
             goos: darwin
             goarch: amd64
             opengrep_asset: opengrep-core_osx_x86_64.tar.gz
           - os: windows-latest
             goos: windows
             goarch: amd64
-            opengrep_asset: ""  # OpenGrep may not have Windows builds
+            opengrep_asset: ""  # OpenGrep does not publish Windows binaries
           # NOTE: linux/arm64 requires a self-hosted ARM runner or
           # ubuntu-24.04-arm64 (GitHub-hosted ARM, if available).
           # Skipped for v1.0 — add when ARM runner is available.
@@ -38,6 +40,17 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Validate VERSION matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          FILE_VERSION="$(cat VERSION | tr -d '[:space:]')"
+          echo "Tag: ${TAG_VERSION}, VERSION file: ${FILE_VERSION}"
+          if [ "$TAG_VERSION" != "$FILE_VERSION" ]; then
+            echo "::error::VERSION file (${FILE_VERSION}) does not match tag (${TAG_VERSION}). Update VERSION before tagging."
+            exit 1
+          fi
+        shell: bash
 
       - uses: actions/setup-go@v5
         with:
@@ -76,10 +89,23 @@ jobs:
         if: matrix.opengrep_asset != ''
         run: |
           OPENGREP_VERSION="v1.16.5"
+          DOWNLOAD_URL="https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/${{ matrix.opengrep_asset }}"
+          echo "Downloading OpenGrep from: ${DOWNLOAD_URL}"
           mkdir -p dist/opengrep
-          curl -sL "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/${{ matrix.opengrep_asset }}" | \
-            tar -xz -C dist/opengrep/ 2>/dev/null || \
-            echo "Warning: OpenGrep not available for this platform"
+          curl -fSL --retry 3 -o /tmp/opengrep.tar.gz "${DOWNLOAD_URL}"
+          tar -xzf /tmp/opengrep.tar.gz -C dist/opengrep/
+          echo "=== Extracted OpenGrep contents ==="
+          find dist/opengrep/ -type f | head -20
+          # Locate the actual binary (tarball structure varies by platform)
+          OPENGREP_BIN=$(find dist/opengrep/ -type f \( -name 'opengrep-core' -o -name 'opengrep' \) | head -1)
+          if [ -z "$OPENGREP_BIN" ]; then
+            echo "::error::OpenGrep binary not found after extraction for ${{ matrix.goos }}/${{ matrix.goarch }}"
+            exit 1
+          fi
+          # Normalize: move to a known location
+          mv "$OPENGREP_BIN" dist/opengrep/opengrep-bin
+          chmod +x dist/opengrep/opengrep-bin
+          echo "OpenGrep binary: dist/opengrep/opengrep-bin ($(du -h dist/opengrep/opengrep-bin | cut -f1))"
         shell: bash
 
       - name: Package cradar (lightweight)
@@ -96,25 +122,45 @@ jobs:
           fi
         shell: bash
 
-      - name: Package cradar-full (with OpenGrep + YARA-X)
+      - name: Package cradar-full (with OpenGrep)
+        if: matrix.opengrep_asset != ''
         run: |
           mkdir -p dist/cradar-full-pkg
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
           cp dist/cradar${EXT} dist/cradar-full-pkg/
-          # Bundle OpenGrep if available
-          if [ -f dist/opengrep/opengrep-core ]; then
-            cp dist/opengrep/opengrep-core dist/cradar-full-pkg/opengrep
+
+          # Bundle OpenGrep — must exist since this step only runs when opengrep_asset is set
+          if [ -f dist/opengrep/opengrep-bin ]; then
+            cp dist/opengrep/opengrep-bin dist/cradar-full-pkg/opengrep
             chmod +x dist/cradar-full-pkg/opengrep
-          elif [ -f dist/opengrep/opengrep ]; then
-            cp dist/opengrep/opengrep dist/cradar-full-pkg/
-          fi
-          cd dist/cradar-full-pkg
-          if [ "${{ matrix.goos }}" = "windows" ]; then
-            7z a "../cradar-full_${GITHUB_REF_NAME#v}_${{ matrix.goos }}_${{ matrix.goarch }}.zip" .
+            echo "Bundled OpenGrep into cradar-full"
           else
-            tar czf "../cradar-full_${GITHUB_REF_NAME#v}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" .
+            echo "::error::OpenGrep binary not found for ${{ matrix.goos }}/${{ matrix.goarch }}"
+            exit 1
           fi
+
+          # Verify full package contents
+          echo "=== cradar-full package contents ==="
+          ls -lh dist/cradar-full-pkg/
+
+          cd dist/cradar-full-pkg
+          tar czf "../cradar-full_${GITHUB_REF_NAME#v}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz" .
+        shell: bash
+
+      - name: Verify archive sizes
+        if: matrix.opengrep_asset != ''
+        run: |
+          echo "=== Archive sizes ==="
+          ls -lh dist/cradar_* dist/cradar-full_*
+          SLIM_SIZE=$(stat -f%z dist/cradar_${GITHUB_REF_NAME#v}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz 2>/dev/null || stat -c%s dist/cradar_${GITHUB_REF_NAME#v}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz)
+          FULL_SIZE=$(stat -f%z dist/cradar-full_${GITHUB_REF_NAME#v}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz 2>/dev/null || stat -c%s dist/cradar-full_${GITHUB_REF_NAME#v}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz)
+          echo "Slim: ${SLIM_SIZE} bytes, Full: ${FULL_SIZE} bytes"
+          if [ "$FULL_SIZE" -le "$SLIM_SIZE" ]; then
+            echo "::error::cradar-full archive ($FULL_SIZE) is not larger than slim ($SLIM_SIZE) — OpenGrep not bundled correctly"
+            exit 1
+          fi
+          echo "Size check passed: full is $(( FULL_SIZE - SLIM_SIZE )) bytes larger"
         shell: bash
 
       - name: Upload artifacts
@@ -161,10 +207,9 @@ jobs:
             | Platform | Lightweight | Full (+ OpenGrep) |
             |---|---|---|
             | Linux x86_64 | `cradar_*_linux_amd64.tar.gz` | `cradar-full_*_linux_amd64.tar.gz` |
-            | Linux ARM64 | `cradar_*_linux_arm64.tar.gz` | `cradar-full_*_linux_arm64.tar.gz` |
             | macOS ARM64 | `cradar_*_darwin_arm64.tar.gz` | `cradar-full_*_darwin_arm64.tar.gz` |
             | macOS x86_64 | `cradar_*_darwin_amd64.tar.gz` | `cradar-full_*_darwin_amd64.tar.gz` |
-            | Windows x86_64 | `cradar_*_windows_amd64.zip` | `cradar-full_*_windows_amd64.zip` |
+            | Windows x86_64 | `cradar_*_windows_amd64.zip` | — (use `cradar install-tools`) |
 
             ### Quick Start
             ```bash

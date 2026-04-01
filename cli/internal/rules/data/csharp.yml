@@ -53,3 +53,31 @@ rules:
     patterns:
       - pattern: $AES.Mode = CipherMode.ECB
       - pattern: $ALGO.Mode = CipherMode.ECB
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-csharp-crypto-library-import
+    message: Cryptographic library import detected in C# source.
+    severity: INFO
+    languages: [csharp]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: using System.Security.Cryptography;
+      - pattern: using System.Net.Security;
+
+  - id: cbom-csharp-password-hash-inventory
+    message: Password hashing detected in C#.
+    severity: INFO
+    languages: [csharp]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: new Rfc2898DeriveBytes($PASSWORD, $SALT, $ITERATIONS)
+      - pattern: new Rfc2898DeriveBytes($PASSWORD, $SALT, $ITERATIONS, $HASH)

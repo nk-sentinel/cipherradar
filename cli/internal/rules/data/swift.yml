@@ -69,3 +69,18 @@ rules:
       - pattern: arc4random()
       - pattern: arc4random_uniform(...)
       - pattern: arc4random_buf(...)
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-swift-crypto-library-import
+    message: Cryptographic framework import detected in Swift.
+    severity: INFO
+    languages: [swift]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: import CryptoKit
+      - pattern: import CommonCrypto

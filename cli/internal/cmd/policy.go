@@ -24,7 +24,7 @@ var policyCheckCmd = &cobra.Command{
 }
 
 func init() {
-	policyCheckCmd.Flags().StringP("policy", "p", "policy.cbom.yml", "path to policy file")
+	policyCheckCmd.Flags().StringP("policy", "p", "policy.cradar.yml", "path to policy file")
 	policyCheckCmd.Flags().String("fail-on", "critical", "minimum severity that causes a non-zero exit")
 
 	policyCmd.AddCommand(policyCheckCmd)

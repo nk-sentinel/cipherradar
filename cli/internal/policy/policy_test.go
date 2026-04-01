@@ -25,7 +25,7 @@ func testDataDir(t *testing.T) string {
 // --- LoadPolicy tests ---
 
 func TestLoadPolicy_SampleFile(t *testing.T) {
-	path := filepath.Join(testDataDir(t), "sample-policy.cbom.yml")
+	path := filepath.Join(testDataDir(t), "sample-policy.cradar.yml")
 	config, err := LoadPolicy(path)
 	if err != nil {
 		t.Fatalf("LoadPolicy(%q) returned error: %v", path, err)

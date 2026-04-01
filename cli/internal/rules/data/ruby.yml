@@ -66,3 +66,30 @@ rules:
           $HTTP.verify_mode = OpenSSL::SSL::VERIFY_NONE
       - pattern: |
           $OBJ.ssl_context.verify_mode = OpenSSL::SSL::VERIFY_NONE
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-ruby-crypto-library-import
+    message: Cryptographic library require detected in Ruby.
+    severity: INFO
+    languages: [ruby]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: require 'openssl'
+      - pattern: require 'bcrypt'
+      - pattern: require 'digest'
+
+  - id: cbom-ruby-password-hash-inventory
+    message: Password hashing detected in Ruby.
+    severity: INFO
+    languages: [ruby]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    pattern: BCrypt::Password.create($PASSWORD)

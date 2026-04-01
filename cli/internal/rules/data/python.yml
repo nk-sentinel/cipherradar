@@ -96,3 +96,151 @@ rules:
       - pattern: random.random()
       - pattern: random.randint(...)
       - pattern: random.choice(...)
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-python-crypto-library-import
+    message: >
+      Cryptographic library import detected. Part of the project's
+      cryptographic supply chain inventory.
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: from cryptography import $...
+      - pattern: from cryptography.hazmat import $...
+      - pattern: import hashlib
+      - pattern: import hmac
+      - pattern: import ssl
+      - pattern: from Crypto import $...
+      - pattern: from nacl import $...
+
+  - id: cbom-python-deprecated-crypto-import
+    message: >
+      PyCrypto import detected. PyCrypto is unmaintained — consider
+      migrating to pyca/cryptography or PyCryptodome.
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: from Crypto.Cipher import $...
+      - pattern: from Crypto.PublicKey import $...
+      - pattern: from Crypto.Hash import $...
+
+  - id: cbom-python-kdf-to-cipher-chain
+    message: >
+      Key derivation chain: KDF output used as cipher key. CBOM links
+      KDF parameters to cipher usage.
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: key-derivation-function
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $KEY = PBKDF2HMAC(...).derive($PASSWORD)
+          ...
+          Cipher(algorithms.$ALGO($KEY), ...)
+      - pattern: |
+          $KEY = Scrypt(...).derive($PASSWORD)
+          ...
+          Cipher(algorithms.$ALGO($KEY), ...)
+
+  - id: cbom-python-tls-version-enforcement
+    message: >
+      TLS version enforcement detected via minimum_version setting.
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $CTX = ssl.SSLContext(...)
+          ...
+          $CTX.minimum_version = ssl.TLSVersion.$VERSION
+
+  - id: cbom-python-config-driven-algorithm
+    message: >
+      Algorithm name from environment used in crypto operation.
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      confidence: medium
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $ALGO = os.environ.get("$KEY")
+          ...
+          hashlib.new($ALGO, ...)
+      - pattern: |
+          $ALGO = os.getenv("$KEY")
+          ...
+          hashlib.new($ALGO, ...)
+
+  - id: cbom-python-cert-to-tls-context
+    message: >
+      Certificate loaded into SSL context. CBOM links certificate file
+      to TLS configuration.
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: certificate
+      confidence: high
+      quantum-relevant: true
+    patterns:
+      - pattern: |
+          $CTX = ssl.SSLContext(...)
+          ...
+          $CTX.load_cert_chain("$CERTFILE", ...)
+      - pattern: |
+          $CTX = ssl.SSLContext(...)
+          ...
+          $CTX.load_verify_locations("$CAFILE")
+
+  - id: cbom-python-cert-validation-chain
+    message: >
+      Certificate validation configuration detected. CBOM records
+      verification mode for compliance.
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: certificate
+      confidence: high
+      quantum-relevant: false
+    patterns:
+      - pattern: |
+          $CTX = ssl.SSLContext(...)
+          ...
+          $CTX.verify_mode = ssl.CERT_REQUIRED
+
+  - id: cbom-python-password-hash-inventory
+    message: >
+      Password hashing function detected. CBOM inventories the algorithm
+      and cost parameters for credential storage.
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: bcrypt.hashpw($PASSWORD, bcrypt.gensalt($ROUNDS))
+      - pattern: bcrypt.hashpw($PASSWORD, bcrypt.gensalt())

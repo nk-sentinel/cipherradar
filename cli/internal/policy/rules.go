@@ -1,6 +1,6 @@
 package policy
 
-// PolicyConfig represents a parsed policy.cbom.yml file.
+// PolicyConfig represents a parsed policy.cradar.yml file.
 type PolicyConfig struct {
 	Rules []Rule `yaml:"rules" json:"rules"`
 }

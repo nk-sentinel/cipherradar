@@ -220,17 +220,17 @@ export function Downloads(): React.ReactElement {
               # Generate an API key in Settings &gt; API Keys, then:
             </div>
             <div style={{ marginTop: '4px' }}>
-              export CBOM_API_KEY=&quot;your-api-key-here&quot;
+              export CRADAR_API_KEY=&quot;your-api-key-here&quot;
             </div>
             <div>
-              export CBOM_API_URL=&quot;https://cipherradar.yourcompany.com/api/v1&quot;
+              export CRADAR_API_URL=&quot;https://cipherradar.yourcompany.com/api/v1&quot;
             </div>
             <div style={{ marginTop: '8px', color: 'var(--text-4)' }}>
               # Scan and upload results
             </div>
-            <div>cbom scan . --format cyclonedx-json --output cbom.json</div>
-            <div>curl -X POST $CBOM_API_URL/scans \</div>
-            <div>&nbsp;&nbsp;-H &quot;Authorization: Bearer $CBOM_API_KEY&quot; \</div>
+            <div>cradar scan . --format cyclonedx-json --output cbom.json</div>
+            <div>curl -X POST $CRADAR_API_URL/scans \</div>
+            <div>&nbsp;&nbsp;-H &quot;Authorization: Bearer $CRADAR_API_KEY&quot; \</div>
             <div>&nbsp;&nbsp;-F &quot;cbom=@cbom.json&quot;</div>
           </div>
         </div>
@@ -246,7 +246,7 @@ export function Downloads(): React.ReactElement {
             <div>&nbsp;&nbsp;with:</div>
             <div>&nbsp;&nbsp;&nbsp;&nbsp;format: cyclonedx-json</div>
             <div>&nbsp;&nbsp;&nbsp;&nbsp;upload-sarif: &apos;true&apos;</div>
-            <div>&nbsp;&nbsp;&nbsp;&nbsp;policy: policy.cbom.yml</div>
+            <div>&nbsp;&nbsp;&nbsp;&nbsp;policy: policy.cradar.yml</div>
             <div>&nbsp;&nbsp;&nbsp;&nbsp;fail-on: high</div>
           </div>
         </div>

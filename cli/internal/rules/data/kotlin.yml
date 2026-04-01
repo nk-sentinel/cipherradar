@@ -53,3 +53,20 @@ rules:
       confidence: high
       quantum-relevant: false
     pattern: Cipher.getInstance("=~/.*ECB.*/")
+
+  # ── CBOM Inventory Rules ──
+
+  - id: cbom-kotlin-crypto-library-import
+    message: Cryptographic library import detected in Kotlin source.
+    severity: INFO
+    languages: [kotlin]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      confidence: high
+      quantum-relevant: false
+    pattern-either:
+      - pattern: import org.bouncycastle.$...
+      - pattern: import javax.crypto.$...
+      - pattern: import java.security.$...
+      - pattern: import javax.net.ssl.$...

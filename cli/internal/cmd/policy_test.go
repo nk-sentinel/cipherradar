@@ -23,7 +23,7 @@ func policyTestDataDir(t *testing.T) string {
 func TestPolicyCheck_LoadAndEvaluate(t *testing.T) {
 	dataDir := policyTestDataDir(t)
 	cbomPath := filepath.Join(dataDir, "test-cbom.json")
-	policyPath := filepath.Join(dataDir, "sample-policy.cbom.yml")
+	policyPath := filepath.Join(dataDir, "sample-policy.cradar.yml")
 
 	// Load the CBOM.
 	findings, err := policy.LoadCBOM(cbomPath)

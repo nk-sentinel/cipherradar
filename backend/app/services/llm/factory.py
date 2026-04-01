@@ -18,7 +18,7 @@ def create_llm_provider(provider_name: str | None = None) -> LLMProvider:
         from app.services.llm.anthropic_provider import AnthropicProvider
 
         if not settings.llm_anthropic_api_key:
-            msg = "CBOM_LLM_ANTHROPIC_API_KEY is not configured"
+            msg = "CRADAR_LLM_ANTHROPIC_API_KEY is not configured"
             raise ValueError(msg)
         return AnthropicProvider(
             api_key=settings.llm_anthropic_api_key,
@@ -29,7 +29,7 @@ def create_llm_provider(provider_name: str | None = None) -> LLMProvider:
         from app.services.llm.openai_provider import OpenAIProvider
 
         if not settings.llm_openai_api_key:
-            msg = "CBOM_LLM_OPENAI_API_KEY is not configured"
+            msg = "CRADAR_LLM_OPENAI_API_KEY is not configured"
             raise ValueError(msg)
         return OpenAIProvider(
             api_key=settings.llm_openai_api_key,
@@ -45,7 +45,7 @@ def create_llm_provider(provider_name: str | None = None) -> LLMProvider:
         )
 
     if name == "none":
-        msg = "LLM provider is disabled (CBOM_LLM_PROVIDER=none). Set a provider to use remediation."
+        msg = "LLM provider is disabled (CRADAR_LLM_PROVIDER=none). Set a provider to use remediation."
         raise ValueError(msg)
 
     msg = f"Unknown LLM provider: {name!r}. Supported: anthropic, openai, ollama"

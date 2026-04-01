@@ -33,10 +33,10 @@ services:
       dockerfile: backend/Dockerfile
     ports: ["8001:8000"]
     environment:
-      CBOM_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/cipherradar
-      CBOM_REDIS_URL: redis://redis:6379
-      CBOM_JWT_SECRET_KEY: dev-secret-change-in-production
-      CBOM_DEBUG: "true"
+      CRADAR_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/cipherradar
+      CRADAR_REDIS_URL: redis://redis:6379
+      CRADAR_JWT_SECRET_KEY: dev-secret-change-in-production
+      CRADAR_DEBUG: "true"
       SKIP_DEFAULT_ADMIN: "true"
     depends_on:
       db:
@@ -59,11 +59,11 @@ services:
       context: ..
       dockerfile: deploy/scanner-worker/Dockerfile
     environment:
-      CBOM_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/cipherradar
-      CBOM_REDIS_URL: redis://redis:6379
-      CBOM_JWT_SECRET_KEY: dev-secret-change-in-production
+      CRADAR_DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/cipherradar
+      CRADAR_REDIS_URL: redis://redis:6379
+      CRADAR_JWT_SECRET_KEY: dev-secret-change-in-production
       CRADAR_SIGNING_ENABLED: "true"
-      CBOM_DEBUG: "true"
+      CRADAR_DEBUG: "true"
     volumes:
       # Mount locally-built cradar binary for fast iteration
       - ../cli/cradar:/usr/local/bin/cradar:ro
