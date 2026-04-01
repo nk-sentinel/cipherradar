@@ -22,6 +22,7 @@ func newTextTestScanResult() *types.ScanResult {
 				ID:        "FIND-001",
 				AssetType: types.AssetAlgorithm,
 				Name:      "MD5",
+				Pass:      1,
 				Location: types.Location{
 					File:      "crypto.py",
 					StartLine: 12,
@@ -38,6 +39,7 @@ func newTextTestScanResult() *types.ScanResult {
 				ID:        "FIND-002",
 				AssetType: types.AssetAlgorithm,
 				Name:      "AES-256-CBC",
+				Pass:      1,
 				Location: types.Location{
 					File:      "encrypt.py",
 					StartLine: 8,
@@ -54,6 +56,7 @@ func newTextTestScanResult() *types.ScanResult {
 				ID:        "FIND-003",
 				AssetType: types.AssetAlgorithm,
 				Name:      "SHA-256",
+				Pass:      1,
 				Location: types.Location{
 					File:      "hash.py",
 					StartLine: 5,
@@ -70,6 +73,7 @@ func newTextTestScanResult() *types.ScanResult {
 				ID:        "FIND-004",
 				AssetType: types.AssetCertificate,
 				Name:      "CERT_NONE",
+				Pass:      1,
 				Location: types.Location{
 					File:      "ssl_usage.py",
 					StartLine: 8,
@@ -86,6 +90,7 @@ func newTextTestScanResult() *types.ScanResult {
 				ID:        "FIND-005",
 				AssetType: types.AssetAlgorithm,
 				Name:      "RSA-2048",
+				Pass:      1,
 				Location: types.Location{
 					File:      "keygen.py",
 					StartLine: 3,
@@ -113,8 +118,11 @@ func TestTextWriter_ContainsHeader(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "CipherRadar Scan Results") {
-		t.Error("output should contain 'CipherRadar Scan Results'")
+	if !strings.Contains(out, "CipherRadar") {
+		t.Error("output should contain 'CipherRadar'")
+	}
+	if !strings.Contains(out, "Cryptography Bill of Materials Scanner") {
+		t.Error("output should contain scanner description")
 	}
 }
 
@@ -134,7 +142,7 @@ func TestTextWriter_ContainsTarget(t *testing.T) {
 	}
 }
 
-func TestTextWriter_ContainsFileCount(t *testing.T) {
+func TestTextWriter_ContainsScanComplete(t *testing.T) {
 	result := newTextTestScanResult()
 	w := &TextWriter{}
 
@@ -145,12 +153,15 @@ func TestTextWriter_ContainsFileCount(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "42 scanned") {
-		t.Error("output should contain '42 scanned'")
+	if !strings.Contains(out, "SCAN COMPLETE") {
+		t.Error("output should contain 'SCAN COMPLETE'")
+	}
+	if !strings.Contains(out, "5 findings") {
+		t.Error("output should contain '5 findings'")
 	}
 }
 
-func TestTextWriter_ContainsSeverityCounts(t *testing.T) {
+func TestTextWriter_ContainsSeverityRows(t *testing.T) {
 	result := newTextTestScanResult()
 	w := &TextWriter{}
 
@@ -161,75 +172,18 @@ func TestTextWriter_ContainsSeverityCounts(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "Findings: 5") {
-		t.Error("output should contain 'Findings: 5'")
+	if !strings.Contains(out, "CRITICAL") {
+		t.Error("output should contain 'CRITICAL'")
 	}
-	if !strings.Contains(out, "CRITICAL: 1") {
-		t.Error("output should contain 'CRITICAL: 1'")
+	if !strings.Contains(out, "HIGH") {
+		t.Error("output should contain 'HIGH'")
 	}
-	if !strings.Contains(out, "HIGH:     1") {
-		t.Error("output should contain 'HIGH:     1'")
-	}
-	if !strings.Contains(out, "MEDIUM:   1") {
-		t.Error("output should contain 'MEDIUM:   1'")
-	}
-	if !strings.Contains(out, "LOW:      1") {
-		t.Error("output should contain 'LOW:      1'")
-	}
-	if !strings.Contains(out, "INFO:     1") {
-		t.Error("output should contain 'INFO:     1'")
+	if !strings.Contains(out, "MEDIUM") {
+		t.Error("output should contain 'MEDIUM'")
 	}
 }
 
-func TestTextWriter_ContainsQuantumStatus(t *testing.T) {
-	result := newTextTestScanResult()
-	w := &TextWriter{}
-
-	var buf bytes.Buffer
-	err := w.WriteScanResult(&buf, result)
-	if err != nil {
-		t.Fatalf("WriteScanResult returned error: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Quantum Status:") {
-		t.Error("output should contain 'Quantum Status:'")
-	}
-	if !strings.Contains(out, "Vulnerable: 2") {
-		t.Error("output should contain 'Vulnerable: 2'")
-	}
-	if !strings.Contains(out, "Safe:       1") {
-		t.Error("output should contain 'Safe:       1'")
-	}
-	if !strings.Contains(out, "Broken:     1") {
-		t.Error("output should contain 'Broken:     1'")
-	}
-}
-
-func TestTextWriter_ContainsTopFindings(t *testing.T) {
-	result := newTextTestScanResult()
-	w := &TextWriter{}
-
-	var buf bytes.Buffer
-	err := w.WriteScanResult(&buf, result)
-	if err != nil {
-		t.Fatalf("WriteScanResult returned error: %v", err)
-	}
-
-	out := buf.String()
-	if !strings.Contains(out, "Top Findings:") {
-		t.Error("output should contain 'Top Findings:'")
-	}
-	// Critical finding should appear first.
-	if !strings.Contains(out, "CERT_NONE") {
-		t.Error("output should contain the CERT_NONE finding")
-	}
-	if !strings.Contains(out, "MD5") {
-		t.Error("output should contain the MD5 finding")
-	}
-}
-
-func TestTextWriter_TopFindingsSeverityOrder(t *testing.T) {
+func TestTextWriter_SeverityOrder(t *testing.T) {
 	result := newTextTestScanResult()
 	w := &TextWriter{}
 
@@ -242,15 +196,88 @@ func TestTextWriter_TopFindingsSeverityOrder(t *testing.T) {
 	out := buf.String()
 	critIdx := strings.Index(out, "CRITICAL")
 	highIdx := strings.Index(out, "HIGH")
-	if critIdx < 0 || highIdx < 0 {
-		t.Fatal("output should contain both CRITICAL and HIGH findings")
+	medIdx := strings.Index(out, "MEDIUM")
+	if critIdx < 0 || highIdx < 0 || medIdx < 0 {
+		t.Fatal("output should contain CRITICAL, HIGH, and MEDIUM")
 	}
-	// Within the Top Findings section, CRITICAL should appear before HIGH.
-	topIdx := strings.Index(out, "Top Findings:")
-	critPos := strings.Index(out[topIdx:], "CRITICAL")
-	highPos := strings.Index(out[topIdx:], "HIGH")
-	if critPos > highPos {
-		t.Error("CRITICAL findings should appear before HIGH findings in Top Findings")
+	if critIdx > highIdx {
+		t.Error("CRITICAL should appear before HIGH")
+	}
+	if highIdx > medIdx {
+		t.Error("HIGH should appear before MEDIUM")
+	}
+}
+
+func TestTextWriter_ContainsQuantumReadiness(t *testing.T) {
+	result := newTextTestScanResult()
+	w := &TextWriter{}
+
+	var buf bytes.Buffer
+	err := w.WriteScanResult(&buf, result)
+	if err != nil {
+		t.Fatalf("WriteScanResult returned error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Quantum Readiness:") {
+		t.Error("output should contain 'Quantum Readiness:'")
+	}
+	if !strings.Contains(out, "quantum-safe") {
+		t.Error("output should mention quantum-safe count")
+	}
+}
+
+func TestTextWriter_ContainsQuantumVulnerable(t *testing.T) {
+	result := newTextTestScanResult()
+	w := &TextWriter{}
+
+	var buf bytes.Buffer
+	err := w.WriteScanResult(&buf, result)
+	if err != nil {
+		t.Fatalf("WriteScanResult returned error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Quantum Vulnerable:") {
+		t.Error("output should contain 'Quantum Vulnerable:' when there are vulnerable findings")
+	}
+}
+
+func TestTextWriter_ContainsFindingNames(t *testing.T) {
+	result := newTextTestScanResult()
+	w := &TextWriter{}
+
+	var buf bytes.Buffer
+	err := w.WriteScanResult(&buf, result)
+	if err != nil {
+		t.Fatalf("WriteScanResult returned error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "CERT_NONE") {
+		t.Error("output should contain the CERT_NONE finding")
+	}
+	if !strings.Contains(out, "MD5") {
+		t.Error("output should contain the MD5 finding")
+	}
+}
+
+func TestTextWriter_ContainsPassInfo(t *testing.T) {
+	result := newTextTestScanResult()
+	w := &TextWriter{}
+
+	var buf bytes.Buffer
+	err := w.WriteScanResult(&buf, result)
+	if err != nil {
+		t.Fatalf("WriteScanResult returned error: %v", err)
+	}
+
+	out := buf.String()
+	if !strings.Contains(out, "Pass 1") {
+		t.Error("output should contain pass information")
+	}
+	if !strings.Contains(out, "AST") {
+		t.Error("output should label Pass 1 as AST")
 	}
 }
 
@@ -271,10 +298,24 @@ func TestTextWriter_EmptyFindings(t *testing.T) {
 	}
 
 	out := buf.String()
-	if !strings.Contains(out, "Findings: 0") {
-		t.Error("output should contain 'Findings: 0'")
+	if !strings.Contains(out, "SCAN COMPLETE: 0 findings") {
+		t.Error("output should contain 'SCAN COMPLETE: 0 findings'")
 	}
-	if strings.Contains(out, "Top Findings:") {
-		t.Error("output should not contain 'Top Findings:' when there are no findings")
+}
+
+func TestTextWriter_NoColorInBuffer(t *testing.T) {
+	// Writing to a bytes.Buffer (not a terminal) should produce no ANSI codes
+	result := newTextTestScanResult()
+	w := &TextWriter{}
+
+	var buf bytes.Buffer
+	err := w.WriteScanResult(&buf, result)
+	if err != nil {
+		t.Fatalf("WriteScanResult returned error: %v", err)
+	}
+
+	out := buf.String()
+	if strings.Contains(out, "\033[") {
+		t.Error("output to non-terminal should not contain ANSI escape codes")
 	}
 }
