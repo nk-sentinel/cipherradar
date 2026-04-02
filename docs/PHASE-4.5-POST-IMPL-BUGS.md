@@ -64,6 +64,20 @@
 - **Issue:** Migration `007_phase45_schema.py` cannot run via `alembic upgrade head` because the alembic version table was out of sync. Columns applied manually via ALTER TABLE.
 - **Fix needed:** Stamp alembic at 007 after manual columns applied, or fix migration to be idempotent.
 
+### BUG-CACHE-001: Portfolio Cache Returns Stale Data After DB Changes
+- **Status:** MITIGATED (caching disabled, proper fix needed)
+- **Severity:** HIGH
+- **Component:** `backend/app/services/portfolio_service.py`
+- **Issue:** Portfolio summary/compliance/quantum results cached in Redis with 300s TTL. When underlying data changes (seed, scan complete, new project), cache returns stale results including zeros. Extremely misleading — dashboard shows "no data" when DB has 437 findings.
+- **Mitigation:** Set `PORTFOLIO_CACHE_TTL = 0` to disable caching. Queries are fast on indexed columns.
+- **Proper fix needed:** Implement cache invalidation — bust portfolio cache keys when:
+  - Scan completes (new findings)
+  - Project created/deleted
+  - Finding status changes
+  - Approach: event-driven invalidation via `redis.delete(f"portfolio:{user_id}:*")` in the relevant service methods, or use a version counter in the cache key that bumps on writes.
+
+---
+
 ### BUG-004: Scan Queue Endpoint Returns 500 (Sidebar Polling)
 - **Status:** RESOLVED (2026-04-16) — was a downstream symptom of BUG-016 + BUG-012
 - **Severity:** MEDIUM

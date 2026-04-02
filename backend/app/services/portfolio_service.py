@@ -35,7 +35,12 @@ from app.services.compliance_service import (
 logger = logging.getLogger(__name__)
 
 # Cache TTL: 5 minutes for portfolio aggregations
-PORTFOLIO_CACHE_TTL = 300
+# TODO: Re-enable caching with proper invalidation (bust on scan complete,
+# project create/delete, finding status change). Current caching causes stale
+# data — empty results cached before seed data exists, scan results not visible
+# until TTL expires. See docs/PHASE-4.5-POST-IMPL-BUGS.md for details.
+# When re-enabling: use cache-aside with version key or event-driven invalidation.
+PORTFOLIO_CACHE_TTL = 0  # Disabled — queries are fast on indexed columns
 
 # Severity weights for risk scoring
 _SEVERITY_WEIGHTS: dict[str, float] = {
@@ -59,6 +64,8 @@ _ALL_FRAMEWORKS = [
 
 async def _get_cached(key: str) -> dict | None:
     """Retrieve a cached portfolio result."""
+    if PORTFOLIO_CACHE_TTL <= 0:
+        return None  # caching disabled
     redis = get_redis()
     if redis is None:
         return None
@@ -73,6 +80,8 @@ async def _get_cached(key: str) -> dict | None:
 
 async def _set_cached(key: str, data: dict) -> None:
     """Store a portfolio result in cache."""
+    if PORTFOLIO_CACHE_TTL <= 0:
+        return  # caching disabled
     redis = get_redis()
     if redis is None:
         return
