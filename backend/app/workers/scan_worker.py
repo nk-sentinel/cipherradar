@@ -13,8 +13,8 @@ import asyncio
 import json
 import logging
 import os
-from datetime import UTC, datetime
 import uuid
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from taskiq import AsyncBroker
