@@ -23,7 +23,7 @@ const (
 	OpenGrepBaseURL = "https://github.com/opengrep/opengrep/releases/download"
 
 	// YARAXVersion is the pinned YARA-X release to install.
-	YARAXVersion = "v0.12.0"
+	YARAXVersion = "v1.14.0"
 
 	// YARAXBaseURL is the GitHub Releases base URL for YARA-X.
 	YARAXBaseURL = "https://github.com/VirusTotal/yara-x/releases/download"
@@ -144,7 +144,12 @@ func InstallYARAX(toolsDir string) error {
 		return fmt.Errorf("unsupported OS: %s", goos)
 	}
 
-	filename := fmt.Sprintf("yr-%s-%s.tar.gz", YARAXVersion, target)
+	// YARA-X archives use .gz (gzipped tar) for unix, .zip for windows.
+	ext := "gz"
+	if goos == "windows" {
+		ext = "zip"
+	}
+	filename := fmt.Sprintf("yara-x-%s-%s.%s", YARAXVersion, target, ext)
 	url := fmt.Sprintf("%s/%s/%s", YARAXBaseURL, YARAXVersion, filename)
 
 	if err := os.MkdirAll(toolsDir, 0755); err != nil {
@@ -180,8 +185,22 @@ func InstallYARAX(toolsDir string) error {
 	}
 	tmpFile.Close()
 
-	if err := extractBinaryFromTarGz(tmpPath, destPath, "yr"); err != nil {
-		return fmt.Errorf("extracting YARA-X: %w", err)
+	if goos == "windows" {
+		// Windows archives are zip files containing yr.exe.
+		extractDir := filepath.Join(toolsDir, "yarax-extract")
+		defer os.RemoveAll(extractDir)
+		if err := extractZip(tmpPath, extractDir); err != nil {
+			return fmt.Errorf("extracting YARA-X zip: %w", err)
+		}
+		yrExe := filepath.Join(extractDir, "yr.exe")
+		if err := os.Rename(yrExe, destPath+".exe"); err != nil {
+			return fmt.Errorf("moving yr.exe: %w", err)
+		}
+	} else {
+		// Unix archives are gzipped tars containing a single 'yr' binary.
+		if err := extractBinaryFromTarGz(tmpPath, destPath, "yr"); err != nil {
+			return fmt.Errorf("extracting YARA-X: %w", err)
+		}
 	}
 
 	if err := os.Chmod(destPath, 0755); err != nil {

@@ -20,16 +20,22 @@ jobs:
             goarch: amd64
             opengrep_asset: opengrep-core_linux_x86.tar.gz
             opengrep_format: tar.gz
+            yarax_asset: yara-x-v1.14.0-x86_64-unknown-linux-gnu.gz
+            yarax_format: gz
           - os: macos-latest
             goos: darwin
             goarch: arm64
             opengrep_asset: opengrep-core_osx_aarch64.tar.gz
             opengrep_format: tar.gz
+            yarax_asset: yara-x-v1.14.0-aarch64-apple-darwin.gz
+            yarax_format: gz
           - os: windows-latest
             goos: windows
             goarch: amd64
             opengrep_asset: opengrep-core_windows_x86.zip
             opengrep_format: zip
+            yarax_asset: yara-x-v1.14.0-x86_64-pc-windows-msvc.zip
+            yarax_format: zip
           # NOTE: macos-13 (Intel) runners are deprecated by GitHub.
           # darwin/amd64 dropped until a cross-compile or self-hosted solution is available.
           # NOTE: linux/arm64 requires a self-hosted ARM runner — skipped for v0.1.
@@ -112,6 +118,33 @@ jobs:
           echo "OpenGrep binary: dist/opengrep/opengrep-bin ($(du -h dist/opengrep/opengrep-bin | cut -f1))"
         shell: bash
 
+      - name: Download YARA-X for cradar-full
+        if: matrix.yarax_asset != ''
+        run: |
+          YARAX_VERSION="v1.14.0"
+          DOWNLOAD_URL="https://github.com/VirusTotal/yara-x/releases/download/${YARAX_VERSION}/${{ matrix.yarax_asset }}"
+          echo "Downloading YARA-X from: ${DOWNLOAD_URL}"
+          mkdir -p dist/yarax
+          curl -fSL --retry 3 -o /tmp/yarax-archive "${DOWNLOAD_URL}"
+          if [ "${{ matrix.yarax_format }}" = "zip" ]; then
+            unzip -o /tmp/yarax-archive -d dist/yarax/
+          else
+            # YARA-X .gz archives are gzipped tars containing the 'yr' binary
+            gunzip -c /tmp/yarax-archive | tar -xf - -C dist/yarax/
+          fi
+          echo "=== Extracted YARA-X contents ==="
+          find dist/yarax/ -type f | head -20
+          # Locate the yr binary
+          YARAX_BIN=$(find dist/yarax/ -type f \( -name 'yr' -o -name 'yr.exe' \) | head -1)
+          if [ -z "$YARAX_BIN" ]; then
+            echo "::error::YARA-X binary not found after extraction for ${{ matrix.goos }}/${{ matrix.goarch }}"
+            exit 1
+          fi
+          mv "$YARAX_BIN" dist/yarax/yr-bin
+          chmod +x dist/yarax/yr-bin
+          echo "YARA-X binary: dist/yarax/yr-bin ($(du -h dist/yarax/yr-bin | cut -f1))"
+        shell: bash
+
       - name: Package cradar (lightweight)
         run: |
           mkdir -p dist/cradar-pkg
@@ -146,6 +179,19 @@ jobs:
           else
             echo "::error::OpenGrep binary not found for ${{ matrix.goos }}/${{ matrix.goarch }}"
             exit 1
+          fi
+
+          # Bundle YARA-X
+          if [ -f dist/yarax/yr-bin ]; then
+            YREXT=""
+            if [ "${{ matrix.goos }}" = "windows" ]; then YREXT=".exe"; fi
+            cp dist/yarax/yr-bin dist/cradar-full-pkg/yr${YREXT}
+            if [ "${{ matrix.goos }}" != "windows" ]; then
+              chmod +x dist/cradar-full-pkg/yr
+            fi
+            echo "Bundled YARA-X into cradar-full"
+          else
+            echo "::warning::YARA-X binary not found — cradar-full will not include binary scanning"
           fi
 
           # Verify full package contents
@@ -218,7 +264,7 @@ jobs:
 
             ### Downloads
 
-            | Platform | Lightweight | Full (+ OpenGrep) |
+            | Platform | Lightweight | Full (+ OpenGrep + YARA-X) |
             |---|---|---|
             | Linux x86_64 | `cradar_*_linux_amd64.tar.gz` | `cradar-full_*_linux_amd64.tar.gz` |
             | macOS ARM64 | `cradar_*_darwin_arm64.tar.gz` | `cradar-full_*_darwin_arm64.tar.gz` |
@@ -235,13 +281,13 @@ jobs:
             # Generate CycloneDX 1.7 CBOM
             ./cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate
 
-            # Install OpenGrep for Pass 2 taint analysis (if using lightweight)
+            # Install OpenGrep + YARA-X (if using lightweight)
             ./cradar install-tools
             ```
 
             ### What's Included
             - **cradar** (lightweight, ~15 MB): 2-pass scanner (tree-sitter + OpenGrep), 12+ languages, CycloneDX 1.7 output
-            - **cradar-full** (~50 MB): Same binary + OpenGrep pre-bundled for air-gapped environments
+            - **cradar-full** (~55 MB): Same binary + OpenGrep + YARA-X pre-bundled for air-gapped environments
 
             See [CHANGELOG](https://github.com/nk-sentinel/cipherradar/blob/main/CHANGELOG.md) for full details.
           files: |
