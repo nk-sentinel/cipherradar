@@ -278,7 +278,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 				}
 				lg.Error("schema_validation", attrs...)
 			}
-			return fmt.Errorf("schema validation failed with %d errors", len(valResult.Errors))
+			return ExitErrorf(ExitConfig, "schema validation failed with %d errors", len(valResult.Errors))
 		}
 		fmt.Fprintln(os.Stderr, "CycloneDX 1.7 schema validation PASSED")
 		lg.Info("schema_validation_passed")
@@ -504,23 +504,63 @@ var scanSeverityRank = map[types.Severity]int{
 
 // checkFailOn returns an error if any finding meets or exceeds the given
 // severity threshold.
+// checkFailOn aggregates every finding at or above the --fail-on threshold
+// and returns a single grouped ExitError listing per-severity counts plus
+// the first 5 offenders as concrete examples. Earlier versions stopped at
+// the first hit, silently dropping the remaining offenders — confusing on
+// large codebases where the user wants the full picture in one pass.
 func checkFailOn(findings []types.Finding, failOn string) error {
 	threshold, ok := scanSeverityRank[types.Severity(strings.ToLower(failOn))]
 	if !ok {
-		return fmt.Errorf("invalid --fail-on severity: %q (valid: critical, high, medium, low, info)", failOn)
+		return ExitErrorf(ExitConfig, "invalid --fail-on severity: %q (valid: critical, high, medium, low, info)", failOn)
 	}
 
+	type offender struct {
+		name     string
+		severity types.Severity
+		location string
+	}
+	var hits []offender
+	countBySeverity := map[types.Severity]int{}
 	for _, f := range findings {
 		rank, ok := scanSeverityRank[f.Severity]
 		if !ok {
 			continue
 		}
-		if rank >= threshold {
-			return fmt.Errorf("scan failed: finding %q has severity %s (fail-on threshold: %s)",
-				f.Name, f.Severity, failOn)
+		if rank < threshold {
+			continue
+		}
+		countBySeverity[f.Severity]++
+		hits = append(hits, offender{
+			name:     f.Name,
+			severity: f.Severity,
+			location: fmt.Sprintf("%s:%d", f.Location.File, f.Location.StartLine),
+		})
+	}
+	if len(hits) == 0 {
+		return nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("scan failed: %d finding(s) at or above %s", len(hits), failOn))
+	// Per-severity counts in fixed order so output is stable.
+	for _, s := range []types.Severity{types.SeverityCritical, types.SeverityHigh, types.SeverityMedium, types.SeverityLow} {
+		if n := countBySeverity[s]; n > 0 {
+			sb.WriteString(fmt.Sprintf(" [%s: %d]", s, n))
 		}
 	}
-	return nil
+	sb.WriteString("\n  examples:")
+	shown := hits
+	if len(shown) > 5 {
+		shown = shown[:5]
+	}
+	for _, o := range shown {
+		sb.WriteString(fmt.Sprintf("\n    - %s (%s) at %s", o.name, o.severity, o.location))
+	}
+	if len(hits) > 5 {
+		sb.WriteString(fmt.Sprintf("\n    ... %d more", len(hits)-5))
+	}
+	return &ExitError{Code: ExitFindings, Err: fmt.Errorf("%s", sb.String())}
 }
 
 // buildFilterOptions resolves rule-lifecycle filter flags + .cradar.yml
