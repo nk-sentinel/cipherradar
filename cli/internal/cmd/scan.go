@@ -14,6 +14,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
 	"github.com/nk-sentinel/cipherradar/cli/internal/push"
+	"github.com/nk-sentinel/cipherradar/cli/internal/rulefilter"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
@@ -51,6 +52,17 @@ func init() {
 
 	// Container image scanning.
 	scanCmd.Flags().String("container", "", "scan a container image (reference or local .tar path)")
+
+	// Rule lifecycle + category filter flags (docs/cli-improvements-plan.md item 1).
+	scanCmd.Flags().StringSlice("category", nil, "limit findings to categories (inventory, security); repeatable")
+	scanCmd.Flags().Bool("only-inventory", false, "shortcut for --category inventory")
+	scanCmd.Flags().Bool("only-security", false, "shortcut for --category security")
+	scanCmd.Flags().StringSlice("rules", nil, "explicit allowlist of rule IDs; overrides the default set")
+	scanCmd.Flags().StringSlice("disable-rule", nil, "rule IDs to exclude; repeatable; trumps other include flags")
+	scanCmd.Flags().StringSlice("include-rule", nil, "per-rule opt-in; repeatable; bypasses maturity and noise gates")
+	scanCmd.Flags().Bool("include-experimental", false, "include rules marked maturity:experimental")
+	scanCmd.Flags().Bool("include-noisy", false, "include rules marked noise_risk:high")
+	scanCmd.Flags().Bool("include-deprecated", false, "silence the deprecation warning for maturity:deprecated rules")
 
 	// Push flags (ADR-025).
 	scanCmd.Flags().Bool("push", false, "upload scan results to CipherRadar portal after scan")
@@ -159,6 +171,17 @@ func runScan(cmd *cobra.Command, args []string) error {
 		lang := fingerprint.LanguageFromPath(result.Findings[i].Location.File)
 		fingerprint.ComputeFingerprint(&result.Findings[i], lang)
 	}
+
+	// Apply rule-lifecycle and category filters (Phase C). Must run AFTER
+	// fingerprinting so baselined suppression (Phase D) gets stable IDs, and
+	// BEFORE output writers so every format sees the same kept set.
+	filterOpts, err := buildFilterOptions(cmd)
+	if err != nil {
+		return err
+	}
+	kept, filterStats := rulefilter.Apply(result.Findings, filterOpts)
+	result.Findings = kept
+	rulefilter.WarnDeprecated(cmd.ErrOrStderr(), filterStats, filterOpts.IncludeDeprecated)
 
 	// Get the output format.
 	format, _ := cmd.Flags().GetString("format")
@@ -386,6 +409,101 @@ func checkFailOn(findings []types.Finding, failOn string) error {
 		}
 	}
 	return nil
+}
+
+// buildFilterOptions resolves rule-lifecycle filter flags + .cradar.yml
+// defaults into rulefilter.Options. Precedence: CLI flag (if Changed) >
+// .cradar.yml rule_filters > defaults.
+//
+// --only-inventory and --only-security are sugar over --category:
+//   - both set (or neither) → no category restriction
+//   - only one → that single category
+func buildFilterOptions(cmd *cobra.Command) (rulefilter.Options, error) {
+	cfg := &config.Config{}
+	if configPath, _ := cmd.Flags().GetString("config"); configPath != "" {
+		loaded, err := config.LoadConfig(configPath)
+		if err != nil {
+			// Non-fatal — filters still work with flag-only input.
+			fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: rule filter: could not load %s: %v\n", configPath, err)
+		} else if loaded != nil {
+			cfg = loaded
+		}
+	}
+
+	opts := rulefilter.Options{}
+	if cfg.RuleFilters != nil {
+		rf := cfg.RuleFilters
+		opts.Categories = toCategories(rf.Categories)
+		opts.Rules = append([]string(nil), rf.Rules...)
+		opts.DisabledRules = append([]string(nil), rf.DisabledRules...)
+		opts.IncludeRules = append([]string(nil), rf.IncludeRules...)
+		opts.IncludeExperimental = rf.IncludeExperimental
+		opts.IncludeNoisy = rf.IncludeNoisy
+		opts.IncludeDeprecated = rf.IncludeDeprecated
+	}
+
+	// CLI flags override config. Only overwrite when flag was explicitly set
+	// (Changed) so that an unset flag doesn't clobber a config value.
+	if cmd.Flag("category").Changed {
+		cats, _ := cmd.Flags().GetStringSlice("category")
+		opts.Categories = toCategories(cats)
+	}
+	onlyInv, _ := cmd.Flags().GetBool("only-inventory")
+	onlySec, _ := cmd.Flags().GetBool("only-security")
+	if onlyInv && !onlySec {
+		opts.Categories = []types.Category{types.CategoryInventory}
+	} else if onlySec && !onlyInv {
+		opts.Categories = []types.Category{types.CategorySecurity}
+	}
+	// Both/neither → leave Categories as-is (both or unrestricted).
+
+	if cmd.Flag("rules").Changed {
+		v, _ := cmd.Flags().GetStringSlice("rules")
+		opts.Rules = v
+	}
+	if cmd.Flag("disable-rule").Changed {
+		v, _ := cmd.Flags().GetStringSlice("disable-rule")
+		opts.DisabledRules = v
+	}
+	if cmd.Flag("include-rule").Changed {
+		v, _ := cmd.Flags().GetStringSlice("include-rule")
+		opts.IncludeRules = v
+	}
+	if cmd.Flag("include-experimental").Changed {
+		opts.IncludeExperimental, _ = cmd.Flags().GetBool("include-experimental")
+	}
+	if cmd.Flag("include-noisy").Changed {
+		opts.IncludeNoisy, _ = cmd.Flags().GetBool("include-noisy")
+	}
+	if cmd.Flag("include-deprecated").Changed {
+		opts.IncludeDeprecated, _ = cmd.Flags().GetBool("include-deprecated")
+	}
+
+	// Validate category values so a typo fails loudly instead of silently
+	// dropping all findings.
+	for _, c := range opts.Categories {
+		if c != types.CategoryInventory && c != types.CategorySecurity {
+			return rulefilter.Options{}, fmt.Errorf("invalid --category value %q (valid: inventory, security)", c)
+		}
+	}
+	return opts, nil
+}
+
+// toCategories converts raw string values to types.Category. Unknown strings
+// are passed through so validation can flag them; empty entries are dropped.
+func toCategories(xs []string) []types.Category {
+	if len(xs) == 0 {
+		return nil
+	}
+	out := make([]types.Category, 0, len(xs))
+	for _, s := range xs {
+		s = strings.TrimSpace(strings.ToLower(s))
+		if s == "" {
+			continue
+		}
+		out = append(out, types.Category(s))
+	}
+	return out
 }
 
 // syncCustomRules attempts to download custom rules from the portal before
