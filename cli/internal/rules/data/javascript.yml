@@ -10,6 +10,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           $KEY = "..."
@@ -28,6 +31,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           $IV = Buffer.from("...")
@@ -49,6 +55,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: jwt.sign($PAYLOAD, "...", ...)
       - pattern: |
@@ -67,6 +76,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: crypto.createHmac($ALGO, "...")
       - pattern: |
@@ -85,6 +97,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: low
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern: Math.random()
 
   # ── CBOM Inventory Rules ──
@@ -99,6 +114,9 @@ rules:
       cbom-asset-type: library
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: const $X = require('crypto')
       - pattern: const $X = require('node-forge')
@@ -118,6 +136,9 @@ rules:
       cbom-asset-type: library
       confidence: medium
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: const $X = require('crypto-js')
       - pattern: import $X from 'crypto-js'
@@ -132,6 +153,9 @@ rules:
       cbom-asset-type: key-derivation-function
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $KEY = crypto.pbkdf2Sync($PASSWORD, $SALT, $ITER, $LEN, $HASH)
@@ -152,6 +176,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: medium
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $ALGO = process.env.$KEY

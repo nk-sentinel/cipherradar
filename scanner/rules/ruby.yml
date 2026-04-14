@@ -11,6 +11,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: true
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           $CIPHER = OpenSSL::Cipher.new(...)
@@ -36,6 +39,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: Digest::MD5.hexdigest(...)
       - pattern: Digest::MD5.digest(...)
@@ -57,6 +63,9 @@ rules:
       cbom-asset-type: protocol
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $CTX = OpenSSL::SSL::SSLContext.new
@@ -78,6 +87,9 @@ rules:
       cbom-asset-type: library
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: require 'openssl'
       - pattern: require 'bcrypt'
@@ -92,4 +104,7 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern: BCrypt::Password.create($PASSWORD)

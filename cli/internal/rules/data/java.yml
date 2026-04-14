@@ -11,6 +11,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           byte[] $KEY = new byte[] { ... };
@@ -32,6 +35,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           byte[] $IV = new byte[] { ... };
@@ -51,6 +57,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: medium
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern: |
       Random $R = new Random(...);
       ...
@@ -67,6 +76,9 @@ rules:
       cbom-asset-type: certificate
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern: |
       new X509TrustManager() {
         ...
@@ -85,6 +97,9 @@ rules:
       cbom-asset-type: protocol
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern: |
       new HostnameVerifier() {
         ...
@@ -103,6 +118,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern: Cipher.getInstance("=~/.*ECB.*/")
 
   - id: cbom-java-ec-curve-from-ecgenparameterspec
@@ -116,6 +134,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $KPG = KeyPairGenerator.getInstance("EC");
@@ -141,6 +162,9 @@ rules:
       cbom-asset-type: library
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: import org.bouncycastle.$...;
       - pattern: import javax.crypto.$...;
@@ -158,6 +182,9 @@ rules:
       cbom-asset-type: key-derivation-function
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           SecretKeyFactory $F = SecretKeyFactory.getInstance("$ALGO");
@@ -177,6 +204,9 @@ rules:
       cbom-asset-type: protocol
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           SSLContext $CTX = SSLContext.getInstance("$VERSION");
@@ -194,6 +224,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           KeyGenerator $KG = KeyGenerator.getInstance("$ALGO");
@@ -213,6 +246,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: medium
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $ALGO = $PROPS.getProperty("$KEY");
@@ -234,6 +270,9 @@ rules:
       cbom-asset-type: certificate
       confidence: high
       quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           KeyStore $KS = KeyStore.getInstance("$TYPE");
@@ -255,6 +294,9 @@ rules:
       cbom-asset-type: library
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: Security.addProvider(new $PROVIDER());
       - pattern: Security.insertProviderAt(new $PROVIDER(), $POS);
