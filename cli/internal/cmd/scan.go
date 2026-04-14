@@ -39,8 +39,8 @@ exclusive with the directory path argument.`,
 }
 
 func init() {
-	scanCmd.Flags().StringP("output", "o", "", "output file path")
-	scanCmd.Flags().StringP("format", "f", "cyclonedx-json", "output format (cyclonedx-json, sarif, text, pdf)")
+	scanCmd.Flags().StringSliceP("output", "o", nil, "output file path (repeatable; format inferred from file extension, e.g. .json/.sarif/.pdf/.sonar.json/.cbom.json)")
+	scanCmd.Flags().StringP("format", "f", "", "output format when writing to stdout or overriding extension dispatch (cyclonedx-json, sarif, text, pdf, sonarqube-generic)")
 	scanCmd.Flags().String("severity", "low", "minimum severity level to report")
 	scanCmd.Flags().String("passes", "1,2", "comma-separated list of scan passes to run (1=AST, 2=OpenGrep)")
 	scanCmd.Flags().String("branch", "", "git branch to scan (for git URLs)")
@@ -224,33 +224,34 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Get the output format.
-	format, _ := cmd.Flags().GetString("format")
-	writer, err := output.WriterFactory(format)
+	// Resolve output destinations (ADR-037: repeatable --output).
+	// Precedence for each destination's format: extension dispatch >
+	// --format override (applied when exactly one output and --format set) >
+	// cfg.default_format > built-in fallback ("cyclonedx-json").
+	explicitFormat, _ := cmd.Flags().GetString("format")
+	outputPaths, _ := cmd.Flags().GetStringSlice("output")
+	cfgFormat := ""
+	if scanCfg != nil {
+		cfgFormat = scanCfg.Format
+	}
+
+	formats, err := writeOutputs(cmd, result, outputPaths, explicitFormat, cfgFormat)
 	if err != nil {
 		return err
 	}
 
-	// Determine output destination.
-	outputPath, _ := cmd.Flags().GetString("output")
-	dest := cmd.OutOrStdout()
-	if outputPath != "" {
-		f, err := os.Create(outputPath)
-		if err != nil {
-			return fmt.Errorf("cannot create output file: %w", err)
-		}
-		defer f.Close()
-		dest = f
-	}
-
-	// Write the output.
-	if err := writer.WriteScanResult(dest, result); err != nil {
-		return fmt.Errorf("writing output: %w", err)
-	}
-
-	// Validate output against CycloneDX 1.7 schema if requested.
+	// Validate output against CycloneDX 1.7 schema if requested. Runs once
+	// regardless of sink count — validation is format-independent and only
+	// meaningful when at least one destination produced cyclonedx-json.
 	validate, _ := cmd.Flags().GetBool("validate")
-	if validate && format == "cyclonedx-json" {
+	producedCycloneDX := false
+	for _, f := range formats {
+		if f == "cyclonedx-json" {
+			producedCycloneDX = true
+			break
+		}
+	}
+	if validate && producedCycloneDX {
 		bom := output.ConvertScanResult(result)
 		jsonBytes, err := json.MarshalIndent(bom, "", "  ")
 		if err != nil {
@@ -320,6 +321,68 @@ func firstArg(args []string) string {
 		return ""
 	}
 	return args[0]
+}
+
+// writeOutputs resolves every destination (stdout or file) to a format and
+// writes the scan result. With no --output paths, writes once to stdout in
+// explicit/cfg/fallback order. With paths, each path's format is inferred
+// from its extension; --format is only honored when there is exactly one
+// output (otherwise it's ambiguous which file it applies to).
+//
+// Returns the resolved format for each destination so callers can decide
+// whether schema validation is applicable.
+func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, explicitFormat, cfgFormat string) ([]string, error) {
+	const fallback = "cyclonedx-json"
+
+	if len(paths) == 0 {
+		fmtName := output.ResolveOutputFormat("", explicitFormat, cfgFormat, fallback)
+		if err := output.ValidateFormat(fmtName); err != nil {
+			return nil, ExitErrorf(ExitConfig, "%v", err)
+		}
+		w, err := output.WriterFactory(fmtName)
+		if err != nil {
+			return nil, err
+		}
+		if err := w.WriteScanResult(cmd.OutOrStdout(), result); err != nil {
+			return nil, fmt.Errorf("writing output: %w", err)
+		}
+		return []string{fmtName}, nil
+	}
+
+	// --format only applies to a single output; ambiguous with multiple sinks.
+	perPathExplicit := ""
+	if len(paths) == 1 {
+		perPathExplicit = explicitFormat
+	} else if explicitFormat != "" {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"WARNING: --format %q ignored: multiple --output paths provided, format is inferred per file extension\n",
+			explicitFormat)
+	}
+
+	formats := make([]string, 0, len(paths))
+	for _, p := range paths {
+		fmtName := output.ResolveOutputFormat(p, perPathExplicit, cfgFormat, fallback)
+		if err := output.ValidateFormat(fmtName); err != nil {
+			return nil, ExitErrorf(ExitConfig, "%v (path: %s)", err, p)
+		}
+		w, err := output.WriterFactory(fmtName)
+		if err != nil {
+			return nil, err
+		}
+		f, err := os.Create(p)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create output file %s: %w", p, err)
+		}
+		if err := w.WriteScanResult(f, result); err != nil {
+			f.Close()
+			return nil, fmt.Errorf("writing %s: %w", p, err)
+		}
+		if err := f.Close(); err != nil {
+			return nil, fmt.Errorf("closing %s: %w", p, err)
+		}
+		formats = append(formats, fmtName)
+	}
+	return formats, nil
 }
 
 // formatUserMessage renders a ValidationError for the human-facing stderr
