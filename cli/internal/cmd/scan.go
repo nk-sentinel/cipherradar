@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/baseline"
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/container"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
@@ -63,6 +64,11 @@ func init() {
 	scanCmd.Flags().Bool("include-experimental", false, "include rules marked maturity:experimental")
 	scanCmd.Flags().Bool("include-noisy", false, "include rules marked noise_risk:high")
 	scanCmd.Flags().Bool("include-deprecated", false, "silence the deprecation warning for maturity:deprecated rules")
+
+	// Baseline suppression flags (docs/cli-improvements-plan.md item 1).
+	scanCmd.Flags().String("baseline-file", baseline.DefaultFile, "path to the baseline file used for suppression")
+	scanCmd.Flags().Bool("no-baseline", false, "ignore the baseline file for this run")
+	scanCmd.Flags().Bool("update-baseline", false, "rewrite the baseline file from this run's security findings")
 
 	// Push flags (ADR-025).
 	scanCmd.Flags().Bool("push", false, "upload scan results to CipherRadar portal after scan")
@@ -182,6 +188,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 	kept, filterStats := rulefilter.Apply(result.Findings, filterOpts)
 	result.Findings = kept
 	rulefilter.WarnDeprecated(cmd.ErrOrStderr(), filterStats, filterOpts.IncludeDeprecated)
+
+	// Apply baseline suppression (Phase D). Runs after filter+fingerprint so
+	// every downstream writer and the --fail-on gate see the same reduced
+	// set. --update-baseline rewrites the file from the post-filter security
+	// findings and exits the gate early; --no-baseline skips suppression.
+	if err := applyBaseline(cmd, result); err != nil {
+		return err
+	}
 
 	// Get the output format.
 	format, _ := cmd.Flags().GetString("format")
@@ -504,6 +518,58 @@ func toCategories(xs []string) []types.Category {
 		out = append(out, types.Category(s))
 	}
 	return out
+}
+
+// applyBaseline handles baseline load/apply/update for a scan run. On success
+// it mutates result.Findings to the kept subset (removing any suppressed
+// security finding). --update-baseline rewrites the baseline from this run's
+// eligible findings; --no-baseline short-circuits suppression. Stale entries
+// and suppression counts are reported on stderr so CI logs surface drift.
+func applyBaseline(cmd *cobra.Command, result *types.ScanResult) error {
+	path, _ := cmd.Flags().GetString("baseline-file")
+	noBaseline, _ := cmd.Flags().GetBool("no-baseline")
+	update, _ := cmd.Flags().GetBool("update-baseline")
+
+	if update {
+		b, skipped := baseline.BuildFromSecurityFindings(result.Findings, Version)
+		if err := baseline.Save(path, b); err != nil {
+			return fmt.Errorf("writing baseline: %w", err)
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"Baseline written to %s: %d fingerprint(s)", path, len(b.Fingerprints))
+		if skipped > 0 {
+			fmt.Fprintf(cmd.ErrOrStderr(),
+				" (%d finding(s) skipped — missing fingerprint)", skipped)
+		}
+		fmt.Fprintln(cmd.ErrOrStderr())
+		return nil
+	}
+
+	if noBaseline {
+		return nil
+	}
+
+	b, err := baseline.Load(path)
+	if err != nil {
+		return err
+	}
+	if b == nil {
+		return nil
+	}
+
+	res := baseline.Apply(result.Findings, b)
+	result.Findings = res.Kept
+
+	if res.SuppressedCount > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"Baseline suppressed %d finding(s) (from %s)\n", res.SuppressedCount, path)
+	}
+	if len(res.Stale) > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"Baseline has %d stale entry(ies) — code may have been fixed or rules removed. Run with --update-baseline to clean up.\n",
+			len(res.Stale))
+	}
+	return nil
 }
 
 // syncCustomRules attempts to download custom rules from the portal before
