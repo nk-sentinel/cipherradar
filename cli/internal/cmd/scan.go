@@ -40,7 +40,7 @@ exclusive with the directory path argument.`,
 
 func init() {
 	scanCmd.Flags().StringSliceP("output", "o", nil, "output file path (repeatable; format inferred from file extension, e.g. .json/.sarif/.pdf/.sonar.json/.cbom.json)")
-	scanCmd.Flags().StringP("format", "f", "", "output format when writing to stdout or overriding extension dispatch (cyclonedx-json, sarif, text, pdf, sonarqube-generic)")
+	scanCmd.Flags().StringP("format", "f", "", "output format when writing to stdout or overriding extension dispatch (cyclonedx-json, sarif, text, table, pdf, sonarqube-generic)")
 	scanCmd.Flags().String("severity", "low", "minimum severity level to report")
 	scanCmd.Flags().String("passes", "1,2", "comma-separated list of scan passes to run (1=AST, 2=OpenGrep)")
 	scanCmd.Flags().String("branch", "", "git branch to scan (for git URLs)")
@@ -332,10 +332,14 @@ func firstArg(args []string) string {
 // Returns the resolved format for each destination so callers can decide
 // whether schema validation is applicable.
 func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, explicitFormat, cfgFormat string) ([]string, error) {
-	const fallback = "cyclonedx-json"
+	// File sinks always fall back to cyclonedx-json (the canonical CBOM
+	// artifact). Stdout falls back to text-on-TTY / cyclonedx-json-on-pipe
+	// so `cradar scan ./app` prints a readable summary in a terminal and
+	// writes valid JSON when redirected.
+	const fileFallback = "cyclonedx-json"
 
 	if len(paths) == 0 {
-		fmtName := output.ResolveOutputFormat("", explicitFormat, cfgFormat, fallback)
+		fmtName := output.ResolveOutputFormat("", explicitFormat, cfgFormat, output.DefaultStdoutFormat())
 		if err := output.ValidateFormat(fmtName); err != nil {
 			return nil, ExitErrorf(ExitConfig, "%v", err)
 		}
@@ -361,7 +365,7 @@ func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, 
 
 	formats := make([]string, 0, len(paths))
 	for _, p := range paths {
-		fmtName := output.ResolveOutputFormat(p, perPathExplicit, cfgFormat, fallback)
+		fmtName := output.ResolveOutputFormat(p, perPathExplicit, cfgFormat, fileFallback)
 		if err := output.ValidateFormat(fmtName); err != nil {
 			return nil, ExitErrorf(ExitConfig, "%v (path: %s)", err, p)
 		}

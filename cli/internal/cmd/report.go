@@ -21,7 +21,7 @@ var reportCmd = &cobra.Command{
 
 func init() {
 	reportCmd.Flags().StringP("output", "o", "", "output file path (format inferred from extension when set)")
-	reportCmd.Flags().StringP("format", "f", "", "output format override (cyclonedx-json, sarif, text, pdf, sonarqube-generic); default pdf when unset and no extension")
+	reportCmd.Flags().StringP("format", "f", "", "output format override (cyclonedx-json, sarif, text, table, pdf, sonarqube-generic); default pdf when unset and no extension")
 
 	rootCmd.AddCommand(reportCmd)
 }
