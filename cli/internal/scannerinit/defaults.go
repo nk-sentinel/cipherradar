@@ -4,11 +4,13 @@
 package scannerinit
 
 import (
+	cradarConfig "github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/binary"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/cpp"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/csharp"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/custom"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/dart"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/golang"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/java"
@@ -51,5 +53,22 @@ func DefaultRegistry() *scanner.Registry {
 	// Universal scanners (run on every file regardless of extension)
 	r.RegisterUniversal(regex.New())
 
+	return r
+}
+
+// DefaultRegistryWithConfig returns a registry seeded with the built-in
+// scanners plus a CustomScanner when cfg declares any custom_wrappers
+// (ADR-025 configuration extension). The CustomScanner is registered as a
+// Universal so it sees every file — its own language gate filters matches.
+// When cfg is nil or declares no wrappers, behavior is identical to
+// DefaultRegistry.
+func DefaultRegistryWithConfig(cfg *cradarConfig.Config) *scanner.Registry {
+	r := DefaultRegistry()
+	if cfg == nil || len(cfg.CustomWrappers) == 0 {
+		return r
+	}
+	if cs := custom.New(cfg.CustomWrappers); cs != nil {
+		r.RegisterUniversal(cs)
+	}
 	return r
 }

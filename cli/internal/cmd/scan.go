@@ -118,8 +118,19 @@ func runScan(cmd *cobra.Command, args []string) error {
 		StagedOnly: stagedOnly,
 	}
 
-	// Create scanner registry with all built-in scanners.
-	registry := scannerinit.DefaultRegistry()
+	// Load .cradar.yml (optional) so custom_wrappers can seed the registry
+	// with a CustomScanner. A missing / malformed config is a warning, not a
+	// fatal — the default registry still works.
+	scanCfg := loadScanConfig(cmd)
+
+	// Create scanner registry with all built-in scanners + any user-defined
+	// custom wrappers from config.
+	registry := scannerinit.DefaultRegistryWithConfig(scanCfg)
+	if scanCfg != nil && len(scanCfg.CustomWrappers) > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"Registered %d custom wrapper(s) from .cradar.yml\n",
+			len(scanCfg.CustomWrappers))
+	}
 
 	var result *types.ScanResult
 
@@ -518,6 +529,24 @@ func toCategories(xs []string) []types.Category {
 		out = append(out, types.Category(s))
 	}
 	return out
+}
+
+// loadScanConfig reads .cradar.yml (path from --config) for scan-time uses
+// — currently custom_wrappers seeding. Returns nil when no config path is
+// set or the file cannot be read; a nil return short-circuits all config-
+// driven features without surfacing an error (config is always optional).
+func loadScanConfig(cmd *cobra.Command) *config.Config {
+	configPath, _ := cmd.Flags().GetString("config")
+	if configPath == "" {
+		return nil
+	}
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"WARNING: could not load config %s: %v\n", configPath, err)
+		return nil
+	}
+	return cfg
 }
 
 // applyBaseline handles baseline load/apply/update for a scan run. On success
