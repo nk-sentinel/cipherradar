@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/baseline"
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
@@ -81,6 +83,9 @@ func init() {
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
+	startedAt := time.Now()
+	lg := logger()
+
 	containerRef, _ := cmd.Flags().GetString("container")
 
 	// Validate mutually exclusive arguments: --container vs path.
@@ -90,6 +95,17 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if containerRef == "" && len(args) == 0 {
 		return fmt.Errorf("either a path argument or --container flag is required")
 	}
+
+	// Record scan root for path-redaction of absolute paths in log records.
+	if len(args) > 0 {
+		if abs, absErr := filepath.Abs(args[0]); absErr == nil {
+			lg.SetScanRoot(abs)
+		}
+	}
+	lg.Info("scan started",
+		"container", containerRef,
+		"path", firstArg(args),
+	)
 
 	// Auto-sync custom rules from portal if api_url is configured (D27).
 	syncCustomRules(cmd)
@@ -248,11 +264,24 @@ func runScan(cmd *cobra.Command, args []string) error {
 		if !valResult.Valid {
 			fmt.Fprintf(os.Stderr, "CycloneDX 1.7 schema validation FAILED:\n")
 			for _, e := range valResult.Errors {
-				fmt.Fprintf(os.Stderr, "  %s: %s\n", e.Path, e.Message)
+				fmt.Fprintf(os.Stderr, "  %s: %s\n", e.Path, formatUserMessage(e))
+				attrs := []any{
+					"pointer", e.Path,
+					"message", e.Message,
+					"keyword", e.Keyword,
+				}
+				if e.Actual != "" {
+					attrs = append(attrs, "actual", e.Actual)
+				}
+				if len(e.Expected) > 0 {
+					attrs = append(attrs, "expected", e.Expected)
+				}
+				lg.Error("schema_validation", attrs...)
 			}
 			return fmt.Errorf("schema validation failed with %d errors", len(valResult.Errors))
 		}
 		fmt.Fprintln(os.Stderr, "CycloneDX 1.7 schema validation PASSED")
+		lg.Info("schema_validation_passed")
 	}
 
 	// Push scan results to portal if --push is set (ADR-025).
@@ -267,11 +296,69 @@ func runScan(cmd *cobra.Command, args []string) error {
 	failOn, _ := cmd.Flags().GetString("fail-on")
 	if failOn != "" {
 		if err := checkFailOn(result.Findings, failOn); err != nil {
+			lg.Warn("fail-on triggered",
+				"failOn", failOn,
+				"findings", len(result.Findings),
+				"elapsed_ms", time.Since(startedAt).Milliseconds(),
+			)
 			return err
 		}
 	}
 
+	lg.Info("scan complete",
+		"findings", len(result.Findings),
+		"errors", len(result.Errors),
+		"elapsed_ms", time.Since(startedAt).Milliseconds(),
+	)
 	return nil
+}
+
+// firstArg returns the first positional argument or an empty string. Used
+// to keep log records stable even when args is empty (e.g. --container mode).
+func firstArg(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return args[0]
+}
+
+// formatUserMessage renders a ValidationError for the human-facing stderr
+// line. When the underlying schema error exposes enum/const/required hints
+// we append them so the message is actionable ("expected one of [aes, rsa,
+// ...]; got concatkdf") rather than a bare "does not match schema".
+func formatUserMessage(e validation.ValidationError) string {
+	base := e.Message
+	switch e.Keyword {
+	case "enum":
+		if len(e.Expected) > 0 {
+			return fmt.Sprintf("%s (expected one of [%s]; got %s)",
+				base, strings.Join(trimForMessage(e.Expected, 8), ", "), e.Actual)
+		}
+	case "const":
+		if len(e.Expected) > 0 {
+			return fmt.Sprintf("%s (expected %s; got %s)", base, e.Expected[0], e.Actual)
+		}
+	case "type":
+		if len(e.Expected) > 0 {
+			return fmt.Sprintf("%s (expected type %s; got %s)",
+				base, strings.Join(e.Expected, "|"), e.Actual)
+		}
+	case "required":
+		if len(e.Expected) > 0 {
+			return fmt.Sprintf("%s (missing: %s)", base, strings.Join(e.Expected, ", "))
+		}
+	}
+	return base
+}
+
+func trimForMessage(s []string, maxN int) []string {
+	if len(s) <= maxN {
+		return s
+	}
+	out := make([]string, 0, maxN+1)
+	out = append(out, s[:maxN]...)
+	out = append(out, fmt.Sprintf("... %d more", len(s)-maxN))
+	return out
 }
 
 // runPush uploads scan results to the CipherRadar portal.
