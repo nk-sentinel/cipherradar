@@ -83,6 +83,52 @@ func TestIncludeSource_DefaultOff(t *testing.T) {
 	}
 }
 
+// TestRedaction_LogNeverContainsAbsolutePath exercises the full write path:
+// a caller deliberately tries to sneak an absolute path into a log record
+// via a structured attribute by using RedactPath first. The on-disk log
+// must not contain the original absolute prefix.
+func TestRedaction_LogNeverContainsAbsolutePath(t *testing.T) {
+	defer resetForTest(t)
+	dir := t.TempDir()
+	lg, err := Init(Config{LogDir: dir, Now: time.Now(), PID: 1})
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	lg.SetScanRoot("/home/user/secret-project")
+	abs := "/home/user/secret-project/src/keys.go"
+	lg.Info("finding", "file", lg.RedactPath(abs))
+	_ = lg.Close()
+
+	data, err := os.ReadFile(lg.Path())
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	if strings.Contains(string(data), "/home/user/secret-project") {
+		t.Errorf("absolute scan-root leaked into log record:\n%s", data)
+	}
+	if !strings.Contains(string(data), "src/keys.go") {
+		t.Errorf("redacted relative path missing from log:\n%s", data)
+	}
+}
+
+// TestRedaction_OutsideRootIsPreserved guards against RedactPath silently
+// rewriting paths that are NOT under the scan root (e.g. /etc/passwd,
+// system binaries, user home). Rewriting those would make the log
+// misleading — we want the absolute path preserved.
+func TestRedaction_OutsideRootIsPreserved(t *testing.T) {
+	defer resetForTest(t)
+	lg, err := Init(Config{LogDir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	lg.SetScanRoot("/home/user/proj")
+	for _, p := range []string{"/etc/passwd", "/usr/bin/sh", "/tmp/foo"} {
+		if got := lg.RedactPath(p); got != p {
+			t.Errorf("RedactPath(%q) rewrote to %q; must be preserved", p, got)
+		}
+	}
+}
+
 func TestPruneOld_KeepsLastN(t *testing.T) {
 	defer resetForTest(t)
 	dir := t.TempDir()
