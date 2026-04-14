@@ -5,6 +5,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
 	"github.com/nk-sentinel/cipherradar/cli/internal/policy"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -19,8 +20,8 @@ var reportCmd = &cobra.Command{
 }
 
 func init() {
-	reportCmd.Flags().StringP("output", "o", "", "output file path")
-	reportCmd.Flags().StringP("format", "f", "pdf", "output format (cyclonedx-json, sarif, text, pdf)")
+	reportCmd.Flags().StringP("output", "o", "", "output file path (format inferred from extension when set)")
+	reportCmd.Flags().StringP("format", "f", "", "output format override (cyclonedx-json, sarif, text, pdf, sonarqube-generic); default pdf when unset and no extension")
 
 	rootCmd.AddCommand(reportCmd)
 }
@@ -43,15 +44,29 @@ func runReport(cmd *cobra.Command, args []string) error {
 		EndTime:   now,
 	}
 
-	// Get the output writer for the requested format.
-	format, _ := cmd.Flags().GetString("format")
+	// Resolve format: --format override > file-extension dispatch >
+	// .cradar.yml default_format > "pdf" fallback. Report's default is pdf
+	// (rather than scan's cyclonedx-json) because reports are typically the
+	// human-readable artifact handed off.
+	explicitFormat, _ := cmd.Flags().GetString("format")
+	outputPath, _ := cmd.Flags().GetString("output")
+
+	cfgFormat := ""
+	if cfgPath, _ := cmd.Flags().GetString("config"); cfgPath != "" {
+		if cfg, err := config.LoadConfig(cfgPath); err == nil && cfg != nil {
+			cfgFormat = cfg.Format
+		}
+	}
+
+	format := output.ResolveOutputFormat(outputPath, explicitFormat, cfgFormat, "pdf")
+	if err := output.ValidateFormat(format); err != nil {
+		return ExitErrorf(ExitConfig, "%v", err)
+	}
 	writer, err := output.WriterFactory(format)
 	if err != nil {
 		return err
 	}
 
-	// Determine output destination.
-	outputPath, _ := cmd.Flags().GetString("output")
 	if outputPath == "" {
 		outputPath = "report." + formatExtension(format)
 	}
@@ -71,6 +86,8 @@ func runReport(cmd *cobra.Command, args []string) error {
 }
 
 // formatExtension returns the file extension for a given output format.
+// Used only when no --output path is supplied and the report needs a
+// sensible default filename.
 func formatExtension(format string) string {
 	switch format {
 	case "cyclonedx-json":
@@ -79,6 +96,8 @@ func formatExtension(format string) string {
 		return "sarif"
 	case "text":
 		return "txt"
+	case "sonarqube-generic":
+		return "sonar.json"
 	default:
 		return format
 	}
