@@ -38,10 +38,18 @@ type opengrepExtra struct {
 }
 
 // opengrepMetadata holds CBOM-specific metadata from rule annotations.
+//
+// DefaultEnabled uses *bool so we can distinguish "unset" (nil) from
+// "explicitly false". Portal-synced rules pre-dating this field are treated
+// as default_enabled: true (see mapDefaultEnabled).
 type opengrepMetadata struct {
 	CbomAssetType   string `json:"cbom-asset-type"`
 	Confidence      string `json:"confidence"`
 	QuantumRelevant bool   `json:"quantum-relevant"`
+	Category        string `json:"category"`
+	Maturity        string `json:"maturity"`
+	NoiseRisk       string `json:"noise_risk"`
+	DefaultEnabled  *bool  `json:"default_enabled"`
 }
 
 // opengrepError represents an error reported by OpenGrep.
@@ -65,12 +73,16 @@ func ParseResults(jsonData []byte) ([]types.Finding, error) {
 	findings := make([]types.Finding, 0, len(output.Results))
 	for _, r := range output.Results {
 		f := types.Finding{
-			RuleID:     r.CheckID,
-			Pass:       2,
-			Description: r.Extra.Message,
-			Severity:   mapSeverity(r.Extra.Severity),
-			Confidence: mapConfidence(r.Extra.Metadata.Confidence),
-			AssetType:  mapAssetType(r.Extra.Metadata.CbomAssetType),
+			RuleID:         r.CheckID,
+			Pass:           2,
+			Description:    r.Extra.Message,
+			Severity:       mapSeverity(r.Extra.Severity),
+			Confidence:     mapConfidence(r.Extra.Metadata.Confidence),
+			AssetType:      mapAssetType(r.Extra.Metadata.CbomAssetType),
+			Category:       mapCategory(r.Extra.Metadata.Category),
+			Maturity:       mapMaturity(r.Extra.Metadata.Maturity),
+			NoiseRisk:      mapNoiseRisk(r.Extra.Metadata.NoiseRisk),
+			DefaultEnabled: mapDefaultEnabled(r.Extra.Metadata.DefaultEnabled),
 			Location: types.Location{
 				File:      r.Path,
 				StartLine: r.Start.Line,
@@ -135,6 +147,60 @@ func mapAssetType(s string) types.AssetType {
 		}
 		return types.AssetAlgorithm
 	}
+}
+
+// mapCategory maps the YAML "category" field to a types.Category. An unset or
+// unrecognized value defaults to CategorySecurity (conservative: include in
+// default scan). Rule authors should set this explicitly.
+func mapCategory(s string) types.Category {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "inventory":
+		return types.CategoryInventory
+	case "security":
+		return types.CategorySecurity
+	default:
+		return types.CategorySecurity
+	}
+}
+
+// mapMaturity maps the YAML "maturity" field to a types.Maturity. An unset or
+// unrecognized value defaults to MaturityStable (forward-compat: portal-synced
+// rules pre-dating this field are treated as stable production rules).
+func mapMaturity(s string) types.Maturity {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "experimental":
+		return types.MaturityExperimental
+	case "stable":
+		return types.MaturityStable
+	case "deprecated":
+		return types.MaturityDeprecated
+	default:
+		return types.MaturityStable
+	}
+}
+
+// mapNoiseRisk maps the YAML "noise_risk" field to a types.NoiseRisk. An unset
+// or unrecognized value defaults to NoiseRiskLow.
+func mapNoiseRisk(s string) types.NoiseRisk {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "low":
+		return types.NoiseRiskLow
+	case "med", "medium":
+		return types.NoiseRiskMedium
+	case "high":
+		return types.NoiseRiskHigh
+	default:
+		return types.NoiseRiskLow
+	}
+}
+
+// mapDefaultEnabled maps the YAML "default_enabled" field to a bool. nil (unset)
+// maps to true for forward-compat with rules authored before this field existed.
+func mapDefaultEnabled(b *bool) bool {
+	if b == nil {
+		return true
+	}
+	return *b
 }
 
 // deriveNameFromCheckID attempts to extract a human-readable name from the check_id.
