@@ -26,6 +26,8 @@ func WriterFactory(format string) (Writer, error) {
 		return &SARIFWriter{}, nil
 	case "text":
 		return &TextWriter{}, nil
+	case "table":
+		return &TableWriter{}, nil
 	case "pdf":
 		return &PDFWriter{}, nil
 	case "sonarqube-generic":

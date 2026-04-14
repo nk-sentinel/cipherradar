@@ -46,6 +46,7 @@ func SupportedFormats() []string {
 		"cyclonedx-json",
 		"sarif",
 		"text",
+		"table",
 		"pdf",
 		"sonarqube-generic",
 	}
