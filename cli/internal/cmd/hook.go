@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -41,12 +42,23 @@ var hookUninstallCmd = &cobra.Command{
 }
 
 func init() {
-	hookInstallCmd.Flags().Bool("global", false, "install as git global hook")
-	hookUninstallCmd.Flags().Bool("global", false, "uninstall git global hook")
+	// --global means "apply to the git global hooksPath" on both install
+	// and uninstall, so declare once via a shared helper rather than
+	// maintaining parallel definitions that can drift.
+	addGlobalFlag(hookInstallCmd, "install as git global hook")
+	addGlobalFlag(hookUninstallCmd, "uninstall git global hook")
 
 	hookCmd.AddCommand(hookInstallCmd)
 	hookCmd.AddCommand(hookUninstallCmd)
 	rootCmd.AddCommand(hookCmd)
+}
+
+// addGlobalFlag registers the --global flag with a command-specific help
+// string. Factored out so the flag name / default value live in one
+// place; if we ever rename or change the default, only this helper needs
+// updating.
+func addGlobalFlag(c *cobra.Command, help string) {
+	c.Flags().Bool("global", false, help)
 }
 
 // runHookInstall installs the CipherRadar pre-commit hook.
@@ -172,21 +184,7 @@ func findGitDir() (string, error) {
 
 // containsMarker returns true if the content contains the CipherRadar hook marker.
 func containsMarker(content []byte) bool {
-	return len(content) > 0 && contains(string(content), hookMarker)
-}
-
-// contains is a simple string-contains check.
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(string(content), hookMarker)
 }
 
 // setGlobalHooksPath sets git's global core.hooksPath to the given directory.
