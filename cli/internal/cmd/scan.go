@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -175,15 +176,25 @@ func runScan(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("scan failed: %w", err)
 		}
 
-		// Run Pass 2 (OpenGrep taint analysis) if requested.
+		// Run Pass 2 (OpenGrep taint analysis) if requested. When the user
+		// explicitly asked for pass 2 (via --deep or --passes) we hard-fail
+		// with ExitToolMissing if opengrep isn't installed — the user
+		// configured a check that can't actually run, and a soft skip would
+		// silently downgrade the scan. When pass 2 is only running because
+		// it's in the default set, we keep the legacy soft-skip behaviour.
 		if containsPass(passes, 2) {
 			rulesDir, _ := cmd.Flags().GetString("rules-dir")
 			if rulesDir == "" {
 				rulesDir = os.Getenv("CRADAR_RULES_DIR")
 			}
 
-			pass2Findings, pass2Err := runPass2(targetPath, rulesDir)
+			pass2Required := cmd.Flag("deep").Changed || cmd.Flag("passes").Changed
+			pass2Findings, pass2Err := runPass2(targetPath, rulesDir, pass2Required)
 			if pass2Err != nil {
+				var ee *ExitError
+				if errors.As(pass2Err, &ee) {
+					return pass2Err
+				}
 				result.Errors = append(result.Errors, types.ScanError{
 					File:    "",
 					Message: fmt.Sprintf("Pass 2 error: %v", pass2Err),
@@ -519,11 +530,18 @@ func containsPass(passes []int, pass int) bool {
 }
 
 // runPass2 runs OpenGrep Pass 2 analysis if the binary is available.
-// Returns nil findings (not an error) if OpenGrep is not installed.
-// If no rules directory is specified, uses embedded rules extracted to a temp dir.
-func runPass2(target string, rulesDir string) ([]types.Finding, error) {
+// When required=true and OpenGrep is missing, returns an ExitToolMissing
+// error so CI distinguishes "tool not installed" (exit 4) from "findings
+// above threshold" (exit 1). When required=false, emits the legacy
+// warning and returns nil findings so default scans still work without
+// opengrep installed.
+func runPass2(target, rulesDir string, required bool) ([]types.Finding, error) {
 	runner := opengrep.NewRunner()
 	if runner == nil || !runner.Available() {
+		if required {
+			return nil, ExitErrorf(ExitToolMissing,
+				"Pass 2 requires opengrep, which was not found on PATH. Run 'cradar install-tools' or use the cradar-full binary.")
+		}
 		fmt.Fprintln(os.Stderr, "Pass 2 skipped — opengrep not found. Run 'cradar install-tools' or use cradar-full.")
 		return nil, nil
 	}
