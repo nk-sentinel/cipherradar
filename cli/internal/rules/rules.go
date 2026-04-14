@@ -48,6 +48,13 @@ func ExtractToTempDir() (string, error) {
 	return tmpDir, nil
 }
 
+// ReadFile returns the raw YAML content for a single embedded rule file
+// by base name (e.g. "python.yml"). Useful for callers that need to parse
+// rule metadata without extracting every file to disk.
+func ReadFile(name string) ([]byte, error) {
+	return rulesFS.ReadFile(filepath.Join("data", name))
+}
+
 // RuleFiles returns the names of all embedded rule files.
 func RuleFiles() ([]string, error) {
 	entries, err := rulesFS.ReadDir("data")
