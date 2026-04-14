@@ -48,6 +48,7 @@ When a decision changes, the original ADR is kept and marked **Superseded**, and
 | [ADR-034](decisions/ADR-034-finding-identity-matching.md) | Finding Identity & Cross-Scan Matching — Normalized code fingerprint | Accepted | 2026-03-26 | D14, D15, D16, D21, D28, `cli/internal/scanner/`, `backend/app/services/` |
 | [ADR-035](decisions/ADR-035-rule-lifecycle-and-deprecation-policy.md) | Rule Lifecycle & Deprecation Policy — category/maturity/default_enabled/noise_risk | Accepted | 2026-04-15 | `cli/internal/rulefilter/`, `cli/internal/explain/`, `scanner/rules/` |
 | [ADR-036](decisions/ADR-036-structured-logging-and-exit-codes.md) | Structured Logging, Redaction Defaults, Exit-Code Contract | Accepted | 2026-04-15 | `cli/pkg/log/`, `cli/internal/cmd/exitcode.go`, `cli/internal/validation/validator.go` |
+| [ADR-037](decisions/ADR-037-multi-output-and-format-dispatch.md) | Multi-Output Sinks, Extension Dispatch, TTY-Aware Defaults | Accepted | 2026-04-15 | `cli/internal/output/dispatch.go`, `cli/internal/output/table.go`, `cli/internal/cmd/scan.go`, `cli/internal/cmd/report.go` |
 
 ---
 
