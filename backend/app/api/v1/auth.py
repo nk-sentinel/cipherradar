@@ -92,8 +92,9 @@ async def login(body: LoginRequest, request: Request) -> Response:
     role_enum = Role(role) if role in Role.__members__.values() else Role.DEVELOPER
     scopes = [str(s) for s in ROLE_DEFAULT_SCOPES.get(role_enum, [])]
 
-    # Compute client fingerprint for token binding
-    client_ip = request.client.host if request.client else "unknown"
+    # Compute client fingerprint for token binding (use X-Forwarded-For behind proxies)
+    forwarded_for = request.headers.get("x-forwarded-for")
+    client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "unknown")
     user_agent = request.headers.get("user-agent", "unknown")
     fgp = compute_fingerprint(user_agent, client_ip)
 
@@ -174,8 +175,9 @@ async def refresh(request: Request) -> Response:
     role_enum = Role(role) if role in Role.__members__.values() else Role.DEVELOPER
     scopes = [str(s) for s in ROLE_DEFAULT_SCOPES.get(role_enum, [])]
 
-    # Compute fingerprint for new access token
-    client_ip = request.client.host if request.client else "unknown"
+    # Compute fingerprint for new access token (use X-Forwarded-For behind proxies)
+    forwarded_for = request.headers.get("x-forwarded-for")
+    client_ip = forwarded_for.split(",")[0].strip() if forwarded_for else (request.client.host if request.client else "unknown")
     user_agent = request.headers.get("user-agent", "unknown")
     fgp = compute_fingerprint(user_agent, client_ip)
 

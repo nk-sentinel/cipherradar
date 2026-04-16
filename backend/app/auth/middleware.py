@@ -122,10 +122,18 @@ async def get_current_user(
         )
 
     # Verify token fingerprint (anti-hijacking)
+    # Disabled when CRADAR_FINGERPRINT_ENABLED=false (recommended behind reverse proxies)
+    from app.config import settings as _settings
+
     token_fgp = payload.get("fgp")
-    if token_fgp:
+    if token_fgp and _settings.fingerprint_enabled:
         from app.auth.jwt import compute_fingerprint
-        client_ip = request.client.host if request.client else "unknown"
+        # Prefer X-Forwarded-For (set by reverse proxies) over direct client IP
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            client_ip = forwarded_for.split(",")[0].strip()
+        else:
+            client_ip = request.client.host if request.client else "unknown"
         user_agent = request.headers.get("user-agent", "unknown")
         expected_fgp = compute_fingerprint(user_agent, client_ip)
         if token_fgp != expected_fgp:

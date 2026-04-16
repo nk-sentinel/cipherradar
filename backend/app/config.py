@@ -19,6 +19,9 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 15
     jwt_refresh_token_expire_days: int = 7
 
+    # Security
+    fingerprint_enabled: bool = True  # Disable behind reverse proxies in dev
+
     # App
     app_name: str = "CipherRadar"
     debug: bool = False
