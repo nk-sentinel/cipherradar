@@ -8,6 +8,18 @@
 
 ## HIGH Priority
 
+### BUG-016: Refresh token drops identity claims → broken sessions silently stick
+- **Status:** RESOLVED (2026-04-16)
+- **Severity:** HIGH
+- **Component:** `backend/app/auth/jwt.py`, `backend/app/api/v1/auth.py`
+- **Issue:** `create_refresh_token()` stored only `sub` + `type`. When `/auth/refresh` read `payload.get("org_id", "")`, it always got `""` and minted a new access token with empty `org_id`. The global 401 handler we shipped earlier never triggered because the backend, faced with an empty org claim, returned 403 (`require_role` → "Missing organisation context") or 500 (`uuid.UUID("")`) instead of 401. Users stayed logged in but every page was broken.
+- **Evidence (live logs 2026-04-16):** five synchronised 401s → silent refresh → retries returned 403 on `/admin/settings`/`/requests` and 500 on `/scans`.
+- **Fix:**
+  1. `create_refresh_token` accepts and embeds `role`, `scopes`, `org_id`, `assignment_level`, `assigned_group_id`, `assigned_project_ids`.
+  2. `login` and the refresh-rotation path in `refresh` pass all claims through.
+  3. `refresh` rejects payloads missing `org_id` with 401 "Refresh token missing tenant context — please log in again", so pre-deploy tokens force re-login and the global 401 handler kicks in cleanly.
+- **Verified:** login → refresh → `/auth/me` / `/scans` round-trip all return 200 with a non-empty org_id.
+
 ### BUG-001: Scanner Worker Crash Loop
 - **Status:** RESOLVED (2026-04-10)
 - **Severity:** HIGH
@@ -53,12 +65,13 @@
 - **Fix needed:** Stamp alembic at 007 after manual columns applied, or fix migration to be idempotent.
 
 ### BUG-004: Scan Queue Endpoint Returns 500 (Sidebar Polling)
-- **Status:** OPEN
+- **Status:** RESOLVED (2026-04-16) — was a downstream symptom of BUG-016 + BUG-012
 - **Severity:** MEDIUM
 - **Component:** `backend/app/api/v1/scans.py`
 - **Error:** `GET /api/v1/scans?status=running&page=1&perPage=1` returns 500
-- **Impact:** Sidebar polls every 10s for running scan count. 50+ console errors per minute; floods browser console.
-- **Root cause:** Scan list_scans endpoint crashes on query param handling (perPage vs per_page, missing column handling). May also be hitting BUG-012 (`uuid.UUID(user.org_id)` raises ValueError).
+- **Impact:** Sidebar polled every 10s, floods browser console.
+- **Root cause:** The endpoint was calling `uuid.UUID(user.org_id)` on tokens minted by `/auth/refresh`, which had `org_id=""` because refresh tokens never carried the claim (see BUG-016). Fixed together with BUG-012 by the `required_org_uuid` helper plus the refresh-token fix.
+- **Fix:** See BUG-016 and BUG-012.
 
 ### BUG-005: Auth Session Fragility
 - **Status:** RESOLVED (2026-04-15)
@@ -92,18 +105,16 @@
 - **Fix needed:** Replace `useUserOrgs()` with `useGroups()`; rebind selected value to `groupId` field on import payload.
 
 ### BUG-012: Bare `uuid.UUID(user.org_id)` causes 500s on bad sessions
-- **Status:** OPEN
+- **Status:** RESOLVED (2026-04-16)
 - **Severity:** MEDIUM
-- **Component:** Backend, ~14 files / ~50 call sites
-- **Issue:** When a JWT carries a malformed or empty `org_id` (e.g. stale token from before an org migration), endpoints calling `uuid.UUID(user.org_id)` raise `ValueError: badly formed hexadecimal UUID string` and return 500 with a stack trace instead of a clean 401/403.
-- **Affected files:** `api/v1/admin.py`, `api/v1/projects.py`, `api/v1/scans.py`, `api/v1/jira.py`, `api/v1/finding_requests.py`, `api/v1/scan_schedule.py`, `api/v1/scan_provenance.py`, `api/v1/rule_analytics.py`, `api/v1/graph.py`, `api/v1/artifact_registries.py`, plus services: `finding_status_service.py`, `custom_rule_service.py`, `scan_provenance_service.py`, `llm_config_service.py`, `integration_service.py`, `group_service.py`, `finding_request_service.py`
-- **Fix needed (Fix B blueprint):**
-  1. Add `org_uuid: uuid.UUID | None` and `user_uuid: uuid.UUID` attributes on `AuthenticatedUser` (`backend/app/auth/middleware.py`)
-  2. Parse and validate in `__init__`; mark invalid as None
-  3. In `get_current_user()`, raise 401 if `user_uuid is None`
-  4. Add `required_org_uuid` property that raises 403 when missing
-  5. Replace all 50 call sites with `user.required_org_uuid` / `user.user_uuid`
-- **Workaround:** Logout / re-login to get a fresh JWT.
+- **Component:** Backend, 21 files / ~30 live call sites
+- **Issue:** When a JWT carried a malformed or empty `org_id`, endpoints calling `uuid.UUID(user.org_id)` raised `ValueError` and returned 500 instead of a clean 401/403.
+- **Fix:**
+  1. `AuthenticatedUser.__init__` now computes `user_uuid` / `org_uuid` via `_try_uuid()` (None on parse failure).
+  2. `required_org_uuid` property raises 403 "Missing organisation context" when tenant claim is absent.
+  3. `get_current_user` rejects tokens with an unparseable subject as 401.
+  4. All 30 call sites replaced — `uuid.UUID(user.org_id)` → `user.required_org_uuid`, `uuid.UUID(actor.user_id)` → `actor.user_uuid`, etc.
+- **Combined with BUG-016**, this removes every path where a broken session surfaced as a 500.
 
 ### BUG-014: Seed script crash on `trigger_type` column
 - **Status:** RESOLVED (2026-04-10)
