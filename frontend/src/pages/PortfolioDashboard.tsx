@@ -444,15 +444,15 @@ export function PortfolioDashboard(): React.ReactElement {
                   <strong>{String(repo.repoName ?? repo.projectName ?? '')}</strong>
                 </td>
                 <td>{String(repo.provider ?? '—')}</td>
-                <td>{String(repo.findings ?? (Number(repo.critical ?? 0) + Number(repo.high ?? 0) + Number(repo.medium ?? 0) + Number(repo.low ?? 0)))}</td>
+                <td>{String(repo.findings ?? repo.totalFindings ?? (Number(repo.critical ?? 0) + Number(repo.high ?? 0) + Number(repo.medium ?? 0) + Number(repo.low ?? 0)))}</td>
                 <td>
                   <span
                     className={cn(
                       'badge',
-                      Number(repo.critical ?? 0) > 0 ? 'b-crit' : 'b-safe',
+                      Number(repo.critical ?? repo.criticalCount ?? 0) > 0 ? 'b-crit' : 'b-safe',
                     )}
                   >
-                    {String(repo.critical ?? 0)}
+                    {String(repo.critical ?? repo.criticalCount ?? 0)}
                   </span>
                 </td>
                 <td style={{ color: quantumRiskColor(Number(repo.quantumRisk ?? 0)) }}>

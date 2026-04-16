@@ -56,8 +56,8 @@ export function useHeatMap() {
         if (data && Array.isArray(heatMapArray)) {
           // Map group-shaped or repo-shaped items to HeatMapCell shape
           const repos = (heatMapArray as Record<string, unknown>[]).map((item, idx) => ({
-            repoId: (item.repoId as string) ?? (item.id as string) ?? `group-${String(idx)}`,
-            repoName: (item.repoName as string) ?? (item.name as string) ?? '',
+            repoId: (item.repoId as string) ?? (item.projectId as string) ?? (item.id as string) ?? `group-${String(idx)}`,
+            repoName: (item.repoName as string) ?? (item.projectName as string) ?? (item.name as string) ?? '',
             critical: (item.critical as number) ?? (item.criticalCount as number) ?? 0,
             high: (item.high as number) ?? (item.highCount as number) ?? 0,
             medium: (item.medium as number) ?? (item.mediumCount as number) ?? 0,

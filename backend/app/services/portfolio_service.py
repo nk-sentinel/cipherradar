@@ -4,12 +4,14 @@ import json
 import logging
 import uuid
 from collections import Counter
+from datetime import UTC, datetime
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.finding import Finding
 from app.models.project import Project
+from app.models.scan import Scan
 from app.schemas.portfolio import (
     FrameworkScore,
     HeatMapEntry,
@@ -18,6 +20,7 @@ from app.schemas.portfolio import (
     PortfolioQuantum,
     PortfolioSummary,
     QuantumCategory,
+    SeverityCount,
     TopRepo,
 )
 from app.services.cache_service import get_redis
@@ -40,6 +43,7 @@ _SEVERITY_WEIGHTS: dict[str, float] = {
     "high": 7.0,
     "medium": 4.0,
     "low": 1.0,
+    "info": 0.0,
 }
 
 # All 6 compliance frameworks (4 scored + 2 checklist-based treated as pseudo-scores)
@@ -99,6 +103,24 @@ async def invalidate_portfolio_cache(user_id: str) -> None:
         logger.warning("Redis cache invalidation failed for user %s", user_id, exc_info=True)
 
 
+def _relative_time(dt: datetime) -> str:
+    """Convert a datetime to a human-readable relative string."""
+    now = datetime.now(UTC)
+    dt_aware = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt
+    delta = now - dt_aware
+    seconds = int(delta.total_seconds())
+    if seconds < 60:
+        return f"{seconds}s ago"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}m ago"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}h ago"
+    days = hours // 24
+    return f"{days}d ago"
+
+
 async def get_portfolio_summary(
     session: AsyncSession,
     project_ids: list[uuid.UUID],
@@ -114,19 +136,22 @@ async def get_portfolio_summary(
         result = PortfolioSummary(
             total_repos=0,
             total_findings=0,
-            quantum_readiness_pct=100.0,
             heat_map=[],
-            top_riskiest_repos=[],
+            top_risk_repos=[],
         )
         await _set_cached(cache_key, result.model_dump())
         return result
 
-    # Fetch project names
-    proj_stmt = select(Project.id, Project.name).where(Project.id.in_(project_ids))
+    # Fetch project names + providers
+    proj_stmt = select(Project.id, Project.name, Project.provider).where(
+        Project.id.in_(project_ids)
+    )
     proj_result = await session.execute(proj_stmt)
-    project_map: dict[uuid.UUID, str] = {row[0]: row[1] for row in proj_result.fetchall()}
+    proj_rows = proj_result.fetchall()
+    project_map: dict[uuid.UUID, str] = {row[0]: row[1] for row in proj_rows}
+    project_provider: dict[uuid.UUID, str] = {row[0]: row[2] or "" for row in proj_rows}
 
-    # Severity counts per project using statement-level timeout
+    # Severity counts per project
     severity_stmt = (
         select(
             Finding.project_id,
@@ -140,20 +165,41 @@ async def get_portfolio_summary(
     severity_result = await session.execute(severity_stmt)
     severity_rows = severity_result.fetchall()
 
-    # Build heat map and per-project counts
+    # Build per-project severity maps
+    sev_keys = ("critical", "high", "medium", "low", "info")
     project_severity: dict[uuid.UUID, dict[str, int]] = {}
     total_findings = 0
+    severity_totals: dict[str, int] = {s: 0 for s in sev_keys}
+
     for row in severity_rows:
         pid, sev, cnt = row[0], row[1].lower(), row[2]
         total_findings += cnt
         if pid not in project_severity:
-            project_severity[pid] = {"critical": 0, "high": 0, "medium": 0, "low": 0}
+            project_severity[pid] = {s: 0 for s in sev_keys}
         if sev in project_severity[pid]:
             project_severity[pid][sev] += cnt
+        if sev in severity_totals:
+            severity_totals[sev] += cnt
 
+    # Severity distribution for the bar chart
+    severity_distribution = [
+        SeverityCount(severity=s, count=severity_totals[s]) for s in sev_keys
+    ]
+
+    # Critical + high totals
+    critical_plus_high = severity_totals["critical"] + severity_totals["high"]
+
+    # Affected repos (repos with at least one critical or high finding)
+    affected_repos = sum(
+        1
+        for sevs in project_severity.values()
+        if sevs["critical"] > 0 or sevs["high"] > 0
+    )
+
+    # Heat map entries (per-repo, all 5 severity levels)
     heat_map: list[HeatMapEntry] = []
     for pid in project_map:
-        sevs = project_severity.get(pid, {"critical": 0, "high": 0, "medium": 0, "low": 0})
+        sevs = project_severity.get(pid, {s: 0 for s in sev_keys})
         heat_map.append(
             HeatMapEntry(
                 project_id=str(pid),
@@ -162,10 +208,11 @@ async def get_portfolio_summary(
                 high=sevs["high"],
                 medium=sevs["medium"],
                 low=sevs["low"],
+                info=sevs["info"],
             )
         )
 
-    # Quantum readiness: count quantum-safe findings vs total
+    # Quantum readiness
     quantum_stmt = (
         select(
             Finding.quantum_status,
@@ -176,30 +223,125 @@ async def get_portfolio_summary(
     )
     quantum_result = await session.execute(quantum_stmt)
     quantum_rows = quantum_result.fetchall()
+
     safe_count = 0
+    vulnerable_count = 0
     for row in quantum_rows:
-        status = row[0].lower() if row[0] else ""
+        status = (row[0] or "").lower()
         if status in ("safe", "quantum-safe"):
             safe_count += row[1]
-    quantum_readiness_pct = round(100.0 * safe_count / total_findings, 1) if total_findings > 0 else 100.0
+        elif status in ("vulnerable", "quantum-vulnerable", "broken"):
+            vulnerable_count += row[1]
 
-    # Top 10 riskiest repos by weighted score
+    quantum_readiness_pct = (
+        round(100.0 * safe_count / total_findings, 1) if total_findings > 0 else 100.0
+    )
+    quantum_exposed_pct = (
+        round(100.0 * vulnerable_count / total_findings, 1)
+        if total_findings > 0
+        else 0.0
+    )
+
+    # Per-project quantum vulnerability counts (for top repos)
+    quantum_per_project_stmt = (
+        select(
+            Finding.project_id,
+            func.count().label("cnt"),
+        )
+        .where(
+            Finding.project_id.in_(project_ids),
+            Finding.quantum_status.in_(["vulnerable", "broken"]),
+        )
+        .group_by(Finding.project_id)
+    )
+    qpp_result = await session.execute(quantum_per_project_stmt)
+    quantum_per_project: dict[uuid.UUID, int] = {
+        row[0]: row[1] for row in qpp_result.fetchall()
+    }
+
+    # Last scan time per project
+    last_scan_stmt = (
+        select(
+            Scan.project_id,
+            func.max(Scan.completed_at).label("last_completed"),
+        )
+        .where(Scan.project_id.in_(project_ids))
+        .group_by(Scan.project_id)
+    )
+    last_scan_result = await session.execute(last_scan_stmt)
+    last_scan_map: dict[uuid.UUID, datetime] = {}
+    global_last_scan: datetime | None = None
+    for row in last_scan_result.fetchall():
+        if row[1] is not None:
+            last_scan_map[row[0]] = row[1]
+            if global_last_scan is None or row[1] > global_last_scan:
+                global_last_scan = row[1]
+
+    # Compliance: quick avg across NIST framework for summary card
+    compliance_svc = ComplianceService()
+    compliance_scores: list[float] = []
+    # Load findings for compliance evaluation
+    findings_stmt = select(Finding).where(Finding.project_id.in_(project_ids))
+    findings_result = await session.execute(findings_stmt)
+    all_findings = list(findings_result.scalars().all())
+    project_findings: dict[uuid.UUID, list[Finding]] = {}
+    for f in all_findings:
+        project_findings.setdefault(f.project_id, []).append(f)
+
+    for pid in project_ids:
+        findings = project_findings.get(pid, [])
+        if not findings:
+            continue
+        try:
+            report = await compliance_svc.evaluate_nist_800_131a(findings)
+            compliance_scores.append(report.score)
+        except Exception:
+            pass
+
+    compliance_avg = (
+        round(sum(compliance_scores) / len(compliance_scores), 1)
+        if compliance_scores
+        else 0.0
+    )
+
+    # Per-project compliance for top repos
+    compliance_per_project: dict[uuid.UUID, float] = {}
+    for pid in project_ids:
+        findings = project_findings.get(pid, [])
+        if not findings:
+            continue
+        try:
+            report = await compliance_svc.evaluate_nist_800_131a(findings)
+            compliance_per_project[pid] = round(report.score, 1)
+        except Exception:
+            pass
+
+    # Top 10 riskiest repos
     top_repos: list[TopRepo] = []
     for pid, sevs in project_severity.items():
-        risk_score = (
-            sevs["critical"] * _SEVERITY_WEIGHTS["critical"]
-            + sevs["high"] * _SEVERITY_WEIGHTS["high"]
-            + sevs["medium"] * _SEVERITY_WEIGHTS["medium"]
-            + sevs["low"] * _SEVERITY_WEIGHTS["low"]
+        total_proj_findings = sum(sevs.values())
+        risk_score = sum(
+            sevs[s] * _SEVERITY_WEIGHTS[s] for s in sev_keys
         )
+        qv = quantum_per_project.get(pid, 0)
+        quantum_risk = (
+            round(100.0 * qv / total_proj_findings, 1)
+            if total_proj_findings > 0
+            else 0.0
+        )
+        ls = last_scan_map.get(pid)
         top_repos.append(
             TopRepo(
                 project_id=str(pid),
                 project_name=project_map.get(pid, ""),
-                total_findings=sum(sevs.values()),
+                total_findings=total_proj_findings,
                 critical_count=sevs["critical"],
                 high_count=sevs["high"],
                 risk_score=round(risk_score, 1),
+                provider=project_provider.get(pid, ""),
+                quantum_risk=quantum_risk,
+                compliance_percent=compliance_per_project.get(pid, 0.0),
+                last_scan=_relative_time(ls) if ls else None,
             )
         )
     top_repos.sort(key=lambda r: r.risk_score, reverse=True)
@@ -208,9 +350,17 @@ async def get_portfolio_summary(
     result = PortfolioSummary(
         total_repos=len(project_map),
         total_findings=total_findings,
-        quantum_readiness_pct=quantum_readiness_pct,
+        critical_plus_high=critical_plus_high,
+        affected_repos=affected_repos,
+        quantum_exposed=vulnerable_count,
+        quantum_exposed_percent=quantum_exposed_pct,
+        quantum_readiness_percent=quantum_readiness_pct,
+        compliance_avg=compliance_avg,
+        compliance_framework="NIST 800-131A",
+        last_scan_time=_relative_time(global_last_scan) if global_last_scan else None,
+        severity_distribution=severity_distribution,
         heat_map=heat_map,
-        top_riskiest_repos=top_repos,
+        top_risk_repos=top_repos,
     )
     await _set_cached(cache_key, result.model_dump())
     return result

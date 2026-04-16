@@ -11,6 +11,7 @@ from app.models.finding import Finding
 from app.models.project import Project
 from app.schemas.base import CamelCaseModel
 from app.schemas.portfolio import (
+    HeatMapEntry,
     PortfolioCompliance,
     PortfolioQuantum,
     PortfolioSummary,
@@ -24,23 +25,15 @@ from app.services.portfolio_service import (
 
 
 # ---------------------------------------------------------------------------
-# Heatmap schemas
+# Heatmap schemas (repo-level, all 5 severity levels)
 # ---------------------------------------------------------------------------
 
 
-class HeatmapGroup(CamelCaseModel):
-    """A single group entry in the heatmap response."""
-
-    name: str
-    project_count: int = Field(ge=0, default=0)
-    critical_count: int = Field(ge=0, default=0)
-    high_count: int = Field(ge=0, default=0)
-
-
 class HeatmapResponse(CamelCaseModel):
-    """Portfolio heatmap: groups with project and severity counts."""
+    """Portfolio heatmap: per-repo severity breakdown."""
 
-    groups: list[HeatmapGroup]
+    repos: list[HeatMapEntry]
+
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -89,76 +82,50 @@ async def portfolio_heatmap(
     user: AuthenticatedUser = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> HeatmapResponse:
-    """Portfolio heatmap: group-level aggregation of project counts and severity.
+    """Portfolio heatmap: per-repo severity breakdown (all 5 levels).
 
-    Returns a list of groups with the number of projects and critical/high
-    finding counts for each. Group-scoped to the authenticated user.
+    Returns repos with critical/high/medium/low/info counts.
+    Group-scoped to the authenticated user.
     """
     project_ids = await get_accessible_project_ids(session, user)
 
     if not project_ids:
-        return HeatmapResponse(groups=[])
+        return HeatmapResponse(repos=[])
 
-    # Get projects with their group info
-    from app.models.project import Group
-
+    # Per-repo severity counts
+    sev_keys = ("critical", "high", "medium", "low", "info")
     proj_stmt = (
         select(
-            Group.name.label("group_name"),
-            func.count(Project.id.distinct()).label("project_count"),
-            func.coalesce(
-                func.sum(case((Finding.severity == "critical", 1), else_=0)),
-                0,
-            ).label("critical_count"),
-            func.coalesce(
-                func.sum(case((Finding.severity == "high", 1), else_=0)),
-                0,
-            ).label("high_count"),
+            Project.id,
+            Project.name,
+            *[
+                func.coalesce(
+                    func.sum(case((Finding.severity == sev, 1), else_=0)),
+                    0,
+                ).label(f"{sev}_count")
+                for sev in sev_keys
+            ],
         )
         .select_from(Project)
-        .join(Group, Project.group_id == Group.id)
         .outerjoin(Finding, Finding.project_id == Project.id)
         .where(Project.id.in_(project_ids))
-        .group_by(Group.name)
+        .group_by(Project.id, Project.name)
     )
 
-    try:
-        result = await session.execute(proj_stmt)
-        rows = result.fetchall()
-    except Exception:
-        # Fallback: simpler query without finding aggregation
-        simple_stmt = (
-            select(
-                Group.name.label("group_name"),
-                func.count(Project.id.distinct()).label("project_count"),
-            )
-            .select_from(Project)
-            .join(Group, Project.group_id == Group.id)
-            .where(Project.id.in_(project_ids))
-            .group_by(Group.name)
-        )
-        result = await session.execute(simple_stmt)
-        rows = result.fetchall()
-        return HeatmapResponse(
-            groups=[
-                HeatmapGroup(
-                    name=row.group_name,
-                    project_count=row.project_count,
-                    critical_count=0,
-                    high_count=0,
-                )
-                for row in rows
-            ]
-        )
+    result = await session.execute(proj_stmt)
+    rows = result.fetchall()
 
-    return HeatmapResponse(
-        groups=[
-            HeatmapGroup(
-                name=row.group_name,
-                project_count=row.project_count,
-                critical_count=int(row.critical_count),
-                high_count=int(row.high_count),
-            )
-            for row in rows
-        ]
-    )
+    repos = [
+        HeatMapEntry(
+            project_id=str(row[0]),
+            project_name=row[1],
+            critical=int(row[2]),
+            high=int(row[3]),
+            medium=int(row[4]),
+            low=int(row[5]),
+            info=int(row[6]),
+        )
+        for row in rows
+    ]
+
+    return HeatmapResponse(repos=repos)
