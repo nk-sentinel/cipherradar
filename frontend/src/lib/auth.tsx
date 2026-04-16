@@ -25,26 +25,26 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-// Store JWT in memory (not localStorage) for security
-let memoryToken: string | null = null;
+/**
+ * Restore session atomically from sessionStorage.
+ * Returns both token and user so they are always in sync.
+ */
+function restoreSession(): { token: string | null; user: User | null } {
+  const storedToken = sessionStorage.getItem('cipherradar-token');
+  const storedUser = sessionStorage.getItem('cipherradar-user');
+  if (storedToken && storedUser) {
+    try {
+      return { token: storedToken, user: JSON.parse(storedUser) as User };
+    } catch {
+      return { token: null, user: null };
+    }
+  }
+  return { token: null, user: null };
+}
 
 export function AuthProvider({ children }: { children: ReactNode }): React.ReactElement {
-  const [user, setUser] = useState<User | null>(() => {
-    // Restore session from sessionStorage (tab-scoped)
-    const stored = sessionStorage.getItem('cipherradar-token');
-    const storedUser = sessionStorage.getItem('cipherradar-user');
-    if (stored && storedUser) {
-      memoryToken = stored;
-      try {
-        return JSON.parse(storedUser) as User;
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
-
-  const [token, setToken] = useState<string | null>(memoryToken);
+  // Restore both token and user atomically — no race between separate useState calls
+  const [session, setSession] = useState(restoreSession);
 
   const login = useCallback(async (email: string, _password: string): Promise<void> => {
     const response = await fetch('/api/v1/auth/login', {
@@ -102,32 +102,28 @@ export function AuthProvider({ children }: { children: ReactNode }): React.React
       userInfo = { name, email, role, initials };
     }
 
-    memoryToken = accessToken;
-    setToken(accessToken);
-    setUser(userInfo);
     sessionStorage.setItem('cipherradar-token', accessToken);
     sessionStorage.setItem('cipherradar-user', JSON.stringify(userInfo));
+    setSession({ token: accessToken, user: userInfo });
   }, []);
 
   const logout = useCallback((): void => {
     // Clear httpOnly refresh cookie via backend
     fetch('/api/v1/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => {});
-    memoryToken = null;
-    setToken(null);
-    setUser(null);
     sessionStorage.removeItem('cipherradar-token');
     sessionStorage.removeItem('cipherradar-user');
+    setSession({ token: null, user: null });
   }, []);
 
   const value = useMemo(
     (): AuthContextValue => ({
-      user,
-      token,
-      isAuthenticated: !!token && !!user,
+      user: session.user,
+      token: session.token,
+      isAuthenticated: !!session.token && !!session.user,
       login,
       logout,
     }),
-    [user, token, login, logout],
+    [session, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
