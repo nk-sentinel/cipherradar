@@ -28,7 +28,7 @@ async def get_graph(
     Nodes = unique algorithm/protocol/certificate findings.
     Links = findings in the same file or project.
     """
-    stmt = select(Finding).where(Finding.org_id == uuid.UUID(user.org_id)).limit(500)
+    stmt = select(Finding).where(Finding.org_id == user.required_org_uuid).limit(500)
     result = await session.execute(stmt)
     findings = result.scalars().all()
 

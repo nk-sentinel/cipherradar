@@ -146,7 +146,7 @@ async def get_group_jira_config(
 ) -> JiraConfigResponse:
     """Get Jira configuration for a group. RBAC: OA, SM, SE, TM."""
     config = await jira_config_service.resolve_config(
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         session=session,
         group_id=group_id,
     )
@@ -187,7 +187,7 @@ async def save_group_jira_config(
     config = await jira_config_service.save_config(
         scope_type="group",
         scope_id=group_id,
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         config_data=body.model_dump(),
         session=session,
     )
@@ -220,7 +220,7 @@ async def get_project_jira_config(
 ) -> JiraConfigResponse:
     """Get Jira configuration for a project (with group fallback)."""
     config = await jira_config_service.resolve_config(
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         session=session,
         project_id=project_id,
     )
@@ -261,7 +261,7 @@ async def save_project_jira_config(
     config = await jira_config_service.save_config(
         scope_type="project",
         scope_id=project_id,
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         config_data=body.model_dump(),
         session=session,
     )

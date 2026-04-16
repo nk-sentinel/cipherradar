@@ -93,7 +93,7 @@ async def list_scans(
                 pass
 
     # Base query scoped to user's org
-    base = select(Scan).where(Scan.org_id == uuid.UUID(user.org_id))
+    base = select(Scan).where(Scan.org_id == user.required_org_uuid)
 
     # Apply filters
     if status is not None:
@@ -192,8 +192,8 @@ async def rerun_scan(
     # Audit log
     await audit_service.log(
         action_type="scan.rerun",
-        user_id=uuid.UUID(user.user_id),
-        org_id=uuid.UUID(user.org_id),
+        user_id=user.user_uuid,
+        org_id=user.required_org_uuid,
         resource_type="scan",
         resource_id=new_scan.id,
         details={

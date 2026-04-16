@@ -100,7 +100,7 @@ class LLMConfigService:
             cfg = existing
         else:
             cfg = LLMConfig(
-                org_id=_uuid.UUID(actor.org_id),
+                org_id=actor.required_org_uuid,
                 provider=provider.lower(),
                 model=model,
                 api_key_encrypted=api_key,
@@ -114,8 +114,8 @@ class LLMConfigService:
 
         await audit_service.log(
             action_type="llm_config.updated",
-            user_id=_uuid.UUID(actor.user_id),
-            org_id=_uuid.UUID(actor.org_id),
+            user_id=actor.user_uuid,
+            org_id=actor.required_org_uuid,
             resource_type="llm_config",
             resource_id=cfg.id,
             details={"provider": provider, "model": model},

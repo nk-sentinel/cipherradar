@@ -221,7 +221,7 @@ class PolicyService:
         if existing:
             existing.action = action
             existing.reason = reason
-            existing.created_by = _uuid.UUID(actor.user_id)
+            existing.created_by = actor.user_uuid
         else:
             override = PolicyOverride(
                 org_id=_uuid.UUID(org_id),
@@ -231,7 +231,7 @@ class PolicyService:
                 rule_id=rule_id,
                 action=action,
                 reason=reason,
-                created_by=_uuid.UUID(actor.user_id),
+                created_by=actor.user_uuid,
             )
             session.add(override)
 
@@ -239,7 +239,7 @@ class PolicyService:
 
         await audit_service.log(
             action_type="policy.updated",
-            user_id=_uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=_uuid.UUID(org_id),
             resource_type="policy",
             details={

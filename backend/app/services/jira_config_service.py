@@ -209,7 +209,7 @@ class JiraConfigService:
         # Audit log
         await audit_service.log(
             action_type="finding.jira_issue_created",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=org_id,
             resource_type="finding",
             resource_id=finding_id,

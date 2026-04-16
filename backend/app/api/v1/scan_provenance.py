@@ -95,7 +95,7 @@ async def get_environments(
 ) -> list[EnvironmentStageResponse]:
     """List all configured environment stages for the org."""
     return await scan_provenance_service.get_environments(
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         session=session,
     )
 
@@ -112,7 +112,7 @@ async def update_environments(
 ) -> list[EnvironmentStageResponse]:
     """Replace all environment stages for the org."""
     result = await scan_provenance_service.save_environments(
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         stages=body,
         actor=user,
         session=session,

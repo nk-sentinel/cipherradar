@@ -44,7 +44,7 @@ async def list_registries(
 ) -> list[RegistryResponse]:
     """List all artifact registries for the org."""
     return await artifact_registry_service.list_registries(
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         session=session,
     )
 
@@ -62,7 +62,7 @@ async def get_registry(
     """Get a single artifact registry by ID."""
     return await artifact_registry_service.get_registry(
         registry_id=registry_id,
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         session=session,
     )
 
@@ -85,7 +85,7 @@ async def create_registry(
 ) -> RegistryResponse:
     """Create a new artifact registry. RBAC: Org Admin only."""
     result = await artifact_registry_service.create_registry(
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         data=body,
         actor=user,
         session=session,
@@ -112,7 +112,7 @@ async def update_registry(
     """Update an artifact registry. RBAC: Org Admin only."""
     result = await artifact_registry_service.update_registry(
         registry_id=registry_id,
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         data=body,
         actor=user,
         session=session,
@@ -141,7 +141,7 @@ async def delete_registry(
     """Delete an artifact registry. RBAC: Org Admin only."""
     await artifact_registry_service.delete_registry(
         registry_id=registry_id,
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         actor=user,
         session=session,
     )
@@ -173,6 +173,6 @@ async def test_registry_connection(
     """Test connectivity to a registry."""
     return await artifact_registry_service.test_connection(
         registry_id=registry_id,
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         session=session,
     )

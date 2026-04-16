@@ -11,6 +11,7 @@ Multi-tenant enforcement:
 
 from __future__ import annotations
 
+import uuid
 from typing import TYPE_CHECKING, Any
 
 from fastapi import Depends, HTTPException, Request, status
@@ -21,6 +22,16 @@ from app.auth.jwt import JWTError, decode_token
 
 if TYPE_CHECKING:
     from app.auth.roles import Role
+
+
+def _try_uuid(value: str | None) -> uuid.UUID | None:
+    """Parse a UUID string, returning None if the value is missing or malformed."""
+    if not value:
+        return None
+    try:
+        return uuid.UUID(value)
+    except (ValueError, TypeError):
+        return None
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -53,6 +64,8 @@ class AuthenticatedUser:
         "assignment_level",
         "assigned_group_id",
         "assigned_project_ids",
+        "user_uuid",
+        "org_uuid",
     )
 
     def __init__(
@@ -75,6 +88,26 @@ class AuthenticatedUser:
         self.assignment_level = assignment_level
         self.assigned_group_id = assigned_group_id
         self.assigned_project_ids = assigned_project_ids or []
+        # Parsed UUID attributes — populated once, never raise at access time.
+        # user_uuid is validated in get_current_user(); None here triggers 401.
+        # org_uuid is None when the token lacks tenant context; callers that
+        # need it must use required_org_uuid (raises 403) instead.
+        self.user_uuid: uuid.UUID | None = _try_uuid(user_id)
+        self.org_uuid: uuid.UUID | None = _try_uuid(org_id)
+
+    @property
+    def required_org_uuid(self) -> uuid.UUID:
+        """Return the org UUID, raising 403 if the token has no valid tenant context.
+
+        Use this instead of ``uuid.UUID(user.org_id)`` at every call site that
+        needs to filter or insert rows scoped to the caller's org.
+        """
+        if self.org_uuid is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Missing organisation context",
+            )
+        return self.org_uuid
 
 
 # ---------------------------------------------------------------------------
@@ -143,7 +176,7 @@ async def get_current_user(
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-    return AuthenticatedUser(
+    authed = AuthenticatedUser(
         user_id=payload["sub"],
         org_id=payload.get("org_id", ""),
         role=payload.get("role", ""),
@@ -152,6 +185,15 @@ async def get_current_user(
         assigned_group_id=payload.get("assigned_group_id"),
         assigned_project_ids=payload.get("assigned_project_ids", []),
     )
+    # Reject tokens whose subject is not a valid UUID — such tokens can only
+    # come from a corrupted signer or a migration gap. Treat as unauthenticated.
+    if authed.user_uuid is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token subject",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return authed
 
 
 # ---------------------------------------------------------------------------

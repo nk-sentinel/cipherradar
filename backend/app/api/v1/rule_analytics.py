@@ -42,7 +42,7 @@ async def get_rule_analytics(
     return await rule_analytics_service.get_rule_analytics(
         rule_id=rule_id,
         time_window=time_window,
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         session=session,
     )
 
@@ -64,7 +64,7 @@ async def get_rules_summary(
 ) -> list[RuleSummary]:
     """Get summary analytics for all rules. RBAC: OA, SM, SE."""
     return await rule_analytics_service.get_rules_summary(
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         time_window=time_window,
         session=session,
     )

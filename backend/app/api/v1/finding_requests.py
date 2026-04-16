@@ -109,7 +109,7 @@ async def list_requests(
         extra={"extra_fields": {"user_id": user.user_id, "org_id": user.org_id}},
     )
     result = await finding_request_service.list_requests(
-        org_id=uuid.UUID(user.org_id),
+        org_id=user.required_org_uuid,
         actor=user,
         page=page,
         per_page=per_page,

@@ -174,7 +174,7 @@ async def list_groups(
     from app.models.project import Group, Project
     from app.models.user_group import UserGroup
 
-    stmt = select(Group).where(Group.org_id == uuid.UUID(user.org_id))
+    stmt = select(Group).where(Group.org_id == user.required_org_uuid)
     result = await session.execute(stmt)
     groups = result.scalars().all()
 
@@ -214,7 +214,7 @@ async def get_group_detail(
 
     stmt = select(Group).where(
         Group.id == group_id,
-        Group.org_id == uuid.UUID(user.org_id),
+        Group.org_id == user.required_org_uuid,
     )
     result = await session.execute(stmt)
     g = result.scalar_one_or_none()
@@ -411,7 +411,7 @@ async def list_integrations(
     # Fetch connected tokens from DB
     try:
         stmt = sa_select(IntegrationToken).where(
-            IntegrationToken.org_id == uuid.UUID(user.org_id),
+            IntegrationToken.org_id == user.required_org_uuid,
             IntegrationToken.revoked_at.is_(None),
         )
         result = await session.execute(stmt)

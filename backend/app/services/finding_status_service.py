@@ -157,7 +157,7 @@ class FindingStatusService:
         history = FindingStatusHistory(
             org_id=finding.org_id,
             finding_id=finding.id,
-            changed_by=uuid.UUID(actor.user_id),
+            changed_by=actor.user_uuid,
             old_status=old_status,
             new_status=new_status,
             reason=reason,
@@ -167,7 +167,7 @@ class FindingStatusService:
         # Audit log
         await audit_service.log(
             action_type="finding.status_change",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=finding.org_id,
             resource_type="finding",
             resource_id=finding.id,
@@ -241,7 +241,7 @@ class FindingStatusService:
             history = FindingStatusHistory(
                 org_id=finding.org_id,
                 finding_id=finding.id,
-                changed_by=uuid.UUID(actor.user_id),
+                changed_by=actor.user_uuid,
                 old_status=old_status,
                 new_status="in_review",
                 reason="Auto-transitioned on assignment",
@@ -263,7 +263,7 @@ class FindingStatusService:
         # Audit log
         await audit_service.log(
             action_type="finding.assigned",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=finding.org_id,
             resource_type="finding",
             resource_id=finding.id,
@@ -297,7 +297,7 @@ class FindingStatusService:
         """Load a finding, ensuring it exists and belongs to the actor's org."""
         stmt = select(Finding).where(
             Finding.id == finding_id,
-            Finding.org_id == uuid.UUID(actor.org_id),
+            Finding.org_id == actor.required_org_uuid,
         )
         result = await session.execute(stmt)
         finding = result.scalar_one_or_none()

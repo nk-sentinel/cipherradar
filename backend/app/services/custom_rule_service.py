@@ -101,7 +101,7 @@ class CustomRuleService:
                 raise ValueError(msg)
 
         rule = CustomRule(
-            org_id=_uuid.UUID(actor.org_id),
+            org_id=actor.required_org_uuid,
             name=name,
             description=description,
             language=language.lower(),
@@ -109,15 +109,15 @@ class CustomRuleService:
             pattern=pattern,
             severity=severity,
             enabled=True,
-            created_by=_uuid.UUID(actor.user_id),
+            created_by=actor.user_uuid,
         )
         session.add(rule)
         await session.flush()
 
         await audit_service.log(
             action_type="custom_rule.created",
-            user_id=_uuid.UUID(actor.user_id),
-            org_id=_uuid.UUID(actor.org_id),
+            user_id=actor.user_uuid,
+            org_id=actor.required_org_uuid,
             resource_type="custom_rule",
             resource_id=rule.id,
             details={"name": name, "language": language, "pattern_type": pattern_type},
@@ -163,8 +163,8 @@ class CustomRuleService:
 
         await audit_service.log(
             action_type="custom_rule.updated",
-            user_id=_uuid.UUID(actor.user_id),
-            org_id=_uuid.UUID(actor.org_id),
+            user_id=actor.user_uuid,
+            org_id=actor.required_org_uuid,
             resource_type="custom_rule",
             resource_id=rule.id,
             details={"name": rule.name},
@@ -188,8 +188,8 @@ class CustomRuleService:
 
         await audit_service.log(
             action_type="custom_rule.deleted",
-            user_id=_uuid.UUID(actor.user_id),
-            org_id=_uuid.UUID(actor.org_id),
+            user_id=actor.user_uuid,
+            org_id=actor.required_org_uuid,
             resource_type="custom_rule",
             resource_id=rule_id,
             details={"name": rule.name},
@@ -213,7 +213,7 @@ class CustomRuleService:
             raise ValueError(msg)
 
         rule = CustomRule(
-            org_id=_uuid.UUID(actor.org_id),
+            org_id=actor.required_org_uuid,
             name=f"{template['name']} (custom)",
             description=f"Forked from built-in: {builtin_id}. {template['description']}",
             language=template["language"],
@@ -221,15 +221,15 @@ class CustomRuleService:
             pattern=template["pattern"],
             severity=template["severity"],
             enabled=True,
-            created_by=_uuid.UUID(actor.user_id),
+            created_by=actor.user_uuid,
         )
         session.add(rule)
         await session.flush()
 
         await audit_service.log(
             action_type="custom_rule.forked",
-            user_id=_uuid.UUID(actor.user_id),
-            org_id=_uuid.UUID(actor.org_id),
+            user_id=actor.user_uuid,
+            org_id=actor.required_org_uuid,
             resource_type="custom_rule",
             resource_id=rule.id,
             details={"parent_rule": builtin_id, "name": rule.name},
@@ -278,7 +278,7 @@ class CustomRuleService:
     ) -> list[dict]:
         """List custom rules with optional filters."""
         stmt = select(CustomRule).where(
-            CustomRule.org_id == _uuid.UUID(actor.org_id),
+            CustomRule.org_id == actor.required_org_uuid,
         )
         if language:
             stmt = stmt.where(CustomRule.language == language.lower())
@@ -303,7 +303,7 @@ class CustomRuleService:
         stmt = (
             select(CustomRule)
             .where(
-                CustomRule.org_id == _uuid.UUID(actor.org_id),
+                CustomRule.org_id == actor.required_org_uuid,
                 CustomRule.updated_at > since,
             )
             .order_by(CustomRule.updated_at.asc())

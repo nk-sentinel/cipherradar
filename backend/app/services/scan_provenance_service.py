@@ -120,14 +120,14 @@ class ScanProvenanceService:
         # Promote scan
         scan.environment = to_env
         scan.promoted_at = datetime.now(timezone.utc)
-        scan.promoted_by = uuid.UUID(actor.user_id)
+        scan.promoted_by = actor.user_uuid
         await session.flush()
 
         # Audit log
         await audit_service.log(
             action_type="scan.promote",
-            user_id=uuid.UUID(actor.user_id),
-            org_id=uuid.UUID(actor.org_id),
+            user_id=actor.user_uuid,
+            org_id=actor.required_org_uuid,
             resource_type="scan",
             resource_id=scan_id,
             details={
@@ -211,7 +211,7 @@ class ScanProvenanceService:
         # Audit
         await audit_service.log(
             action_type="environments.update",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=org_id,
             resource_type="environment_stage",
             details={"count": len(stages), "names": [s.name for s in stages]},

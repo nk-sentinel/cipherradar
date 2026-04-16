@@ -63,8 +63,8 @@ async def update_project_schedule(
         project_id=project_id,
         cron_expr=cron_expr,
         tz=body.timezone,
-        actor_id=uuid.UUID(user.user_id),
-        org_id=uuid.UUID(user.org_id),
+        actor_id=user.user_uuid,
+        org_id=user.required_org_uuid,
         session=session,
     )
     await session.commit()
@@ -134,8 +134,8 @@ async def update_group_schedule(
         group_id=group_id,
         cron_expr=cron_expr,
         tz=body.timezone,
-        actor_id=uuid.UUID(user.user_id),
-        org_id=uuid.UUID(user.org_id),
+        actor_id=user.user_uuid,
+        org_id=user.required_org_uuid,
         session=session,
     )
     await session.commit()

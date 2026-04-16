@@ -94,10 +94,10 @@ async def get_accessible_project_ids(
     Returns:
         List of project UUIDs the user may access.
     """
-    if not user.org_id:
+    if user.org_uuid is None:
         return []
 
-    org_uuid = uuid.UUID(user.org_id)
+    org_uuid = user.org_uuid
 
     # Org-level assignment: return all projects in the org
     if user.assignment_level == "org":

@@ -98,7 +98,7 @@ class ArtifactRegistryService:
 
         await audit_service.log(
             action_type="registry.create",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=org_id,
             resource_type="artifact_registry",
             resource_id=registry.id,
@@ -148,7 +148,7 @@ class ArtifactRegistryService:
 
         await audit_service.log(
             action_type="registry.update",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=org_id,
             resource_type="artifact_registry",
             resource_id=registry_id,
@@ -177,7 +177,7 @@ class ArtifactRegistryService:
 
         await audit_service.log(
             action_type="registry.delete",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=org_id,
             resource_type="artifact_registry",
             resource_id=registry_id,

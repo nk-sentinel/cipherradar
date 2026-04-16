@@ -63,7 +63,7 @@ async def list_projects(
     session: AsyncSession = Depends(get_session),
 ) -> ProjectListResponse:
     """List all projects for the authenticated user's organisation (paginated)."""
-    org_id = uuid.UUID(user.org_id)
+    org_id = user.required_org_uuid
 
     # Count total projects in org
     count_stmt = (
@@ -153,7 +153,7 @@ async def get_project(
     session: AsyncSession = Depends(get_session),
 ) -> ProjectResponse:
     """Get a single project by ID (must belong to the user's org)."""
-    org_id = uuid.UUID(user.org_id)
+    org_id = user.required_org_uuid
 
     stmt = select(Project).where(Project.id == project_id, Project.org_id == org_id)
     result = await session.execute(stmt)

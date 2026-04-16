@@ -79,8 +79,8 @@ class IntegrationService:
         token_prefix = token[:8] + "..." if len(token) > 8 else token
 
         integration = IntegrationToken(
-            org_id=_uuid.UUID(actor.org_id),
-            user_id=_uuid.UUID(actor.user_id),
+            org_id=actor.required_org_uuid,
+            user_id=actor.user_uuid,
             provider=provider,
             token_encrypted=token,  # Phase 4.5: raw storage
             scope=None,
@@ -91,8 +91,8 @@ class IntegrationService:
 
         await audit_service.log(
             action_type="integration.connected",
-            user_id=_uuid.UUID(actor.user_id),
-            org_id=_uuid.UUID(actor.org_id),
+            user_id=actor.user_uuid,
+            org_id=actor.required_org_uuid,
             resource_type="integration",
             resource_id=integration.id,
             details={"provider": provider, "token_prefix": token_prefix},
@@ -118,7 +118,7 @@ class IntegrationService:
         stmt = (
             select(IntegrationToken)
             .where(
-                IntegrationToken.org_id == _uuid.UUID(actor.org_id),
+                IntegrationToken.org_id == actor.required_org_uuid,
                 IntegrationToken.provider == provider.lower(),
                 IntegrationToken.revoked_at.is_(None),
             )
@@ -137,8 +137,8 @@ class IntegrationService:
 
         await audit_service.log(
             action_type="integration.disconnected",
-            user_id=_uuid.UUID(actor.user_id),
-            org_id=_uuid.UUID(actor.org_id),
+            user_id=actor.user_uuid,
+            org_id=actor.required_org_uuid,
             resource_type="integration",
             resource_id=token.id,
             details={"provider": provider},
@@ -159,7 +159,7 @@ class IntegrationService:
         stmt = (
             select(IntegrationToken)
             .where(
-                IntegrationToken.org_id == _uuid.UUID(actor.org_id),
+                IntegrationToken.org_id == actor.required_org_uuid,
                 IntegrationToken.provider == provider.lower(),
                 IntegrationToken.revoked_at.is_(None),
             )
@@ -204,7 +204,7 @@ class IntegrationService:
         stmt = (
             select(IntegrationToken)
             .where(
-                IntegrationToken.org_id == _uuid.UUID(actor.org_id),
+                IntegrationToken.org_id == actor.required_org_uuid,
                 IntegrationToken.provider == provider.lower(),
                 IntegrationToken.revoked_at.is_(None),
             )
@@ -234,7 +234,7 @@ class IntegrationService:
         for repo in repos:
             project = Project(
                 group_id=group_id,
-                org_id=_uuid.UUID(actor.org_id),
+                org_id=actor.required_org_uuid,
                 name=repo["name"],
                 git_url=repo.get("url"),
                 provider=provider.lower(),
@@ -246,8 +246,8 @@ class IntegrationService:
 
         await audit_service.log(
             action_type="integration.repos_imported",
-            user_id=_uuid.UUID(actor.user_id),
-            org_id=_uuid.UUID(actor.org_id),
+            user_id=actor.user_uuid,
+            org_id=actor.required_org_uuid,
             resource_type="integration",
             details={"provider": provider, "count": imported, "repos": [r["name"] for r in repos]},
             session=session,

@@ -81,7 +81,7 @@ class FindingRequestService:
         request = FindingRequest(
             org_id=finding.org_id,
             finding_id=finding.id,
-            requested_by=uuid.UUID(actor.user_id),
+            requested_by=actor.user_uuid,
             request_type=request_type,
             status="pending",
             justification=justification,
@@ -90,7 +90,7 @@ class FindingRequestService:
 
         await audit_service.log(
             action_type="finding.request_created",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=finding.org_id,
             resource_type="finding_request",
             resource_id=finding.id,
@@ -169,7 +169,7 @@ class FindingRequestService:
 
         # Update request
         request.status = "approved"
-        request.reviewed_by = uuid.UUID(actor.user_id)
+        request.reviewed_by = actor.user_uuid
         request.reviewed_at = datetime.now(timezone.utc)
 
         # Update finding status
@@ -184,7 +184,7 @@ class FindingRequestService:
                 history = FindingStatusHistory(
                     org_id=request.org_id,
                     finding_id=finding.id,
-                    changed_by=uuid.UUID(actor.user_id),
+                    changed_by=actor.user_uuid,
                     old_status=old_status,
                     new_status=new_status,
                     reason=f"Approved {request.request_type} request",
@@ -193,7 +193,7 @@ class FindingRequestService:
 
         await audit_service.log(
             action_type="finding.request_approved",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=request.org_id,
             resource_type="finding_request",
             resource_id=request.id,
@@ -238,12 +238,12 @@ class FindingRequestService:
 
         request.status = "rejected"
         request.review_note = reason
-        request.reviewed_by = uuid.UUID(actor.user_id)
+        request.reviewed_by = actor.user_uuid
         request.reviewed_at = datetime.now(timezone.utc)
 
         await audit_service.log(
             action_type="finding.request_rejected",
-            user_id=uuid.UUID(actor.user_id),
+            user_id=actor.user_uuid,
             org_id=request.org_id,
             resource_type="finding_request",
             resource_id=request.id,
@@ -278,7 +278,7 @@ class FindingRequestService:
         """Load a finding ensuring it exists and belongs to actor's org."""
         stmt = select(Finding).where(
             Finding.id == finding_id,
-            Finding.org_id == uuid.UUID(actor.org_id),
+            Finding.org_id == actor.required_org_uuid,
         )
         result = await session.execute(stmt)
         finding = result.scalar_one_or_none()
@@ -306,7 +306,7 @@ class FindingRequestService:
         """Load a request ensuring it exists and belongs to actor's org."""
         stmt = select(FindingRequest).where(
             FindingRequest.id == request_id,
-            FindingRequest.org_id == uuid.UUID(actor.org_id),
+            FindingRequest.org_id == actor.required_org_uuid,
         )
         result = await session.execute(stmt)
         request = result.scalar_one_or_none()
