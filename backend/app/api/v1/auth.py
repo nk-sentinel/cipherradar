@@ -105,7 +105,12 @@ async def login(body: LoginRequest, request: Request) -> Response:
         org_id=user.get("org_id", ""),
         fingerprint=fgp,
     )
-    refresh_token = create_refresh_token(user_id=str(user["id"]))
+    refresh_token = create_refresh_token(
+        user_id=str(user["id"]),
+        role=role,
+        scopes=scopes,
+        org_id=user.get("org_id", ""),
+    )
 
     logger.info(
         "Login successful",
@@ -169,11 +174,29 @@ async def refresh(request: Request) -> Response:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token type")
 
     user_id = payload["sub"]
+    org_id = payload.get("org_id", "")
 
-    # Re-read role from DB if possible, otherwise use stored role
-    role = payload.get("role", "developer")
+    # Reject refresh tokens that lack tenant context — older tokens minted
+    # before this fix never embedded org_id and would produce broken access
+    # tokens. Forcing re-login lets the global 401 handler clear the session.
+    if not org_id:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token missing tenant context — please log in again",
+        )
+
+    role = payload.get("role") or "developer"
     role_enum = Role(role) if role in Role.__members__.values() else Role.DEVELOPER
-    scopes = [str(s) for s in ROLE_DEFAULT_SCOPES.get(role_enum, [])]
+    # Prefer scopes embedded in the refresh token, fall back to role defaults
+    scopes_raw = payload.get("scopes")
+    scopes = (
+        [str(s) for s in scopes_raw]
+        if isinstance(scopes_raw, list) and scopes_raw
+        else [str(s) for s in ROLE_DEFAULT_SCOPES.get(role_enum, [])]
+    )
+    assignment_level = payload.get("assignment_level", "org")
+    assigned_group_id = payload.get("assigned_group_id")
+    assigned_project_ids = payload.get("assigned_project_ids", [])
 
     # Compute fingerprint for new access token (use X-Forwarded-For behind proxies)
     forwarded_for = request.headers.get("x-forwarded-for")
@@ -183,10 +206,21 @@ async def refresh(request: Request) -> Response:
 
     access_token = create_access_token(
         user_id=user_id, role=role, scopes=scopes,
-        org_id=payload.get("org_id", ""),
+        org_id=org_id,
+        assignment_level=assignment_level,
+        assigned_group_id=assigned_group_id,
+        assigned_project_ids=assigned_project_ids,
         fingerprint=fgp,
     )
-    new_refresh = create_refresh_token(user_id=user_id)
+    new_refresh = create_refresh_token(
+        user_id=user_id,
+        role=role,
+        scopes=scopes,
+        org_id=org_id,
+        assignment_level=assignment_level,
+        assigned_group_id=assigned_group_id,
+        assigned_project_ids=assigned_project_ids,
+    )
 
     logger.info("Token refreshed", extra={"extra_fields": {"user_id": user_id}})
 

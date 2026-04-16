@@ -85,25 +85,35 @@ def create_access_token(
 def create_refresh_token(
     user_id: str,
     *,
+    role: str = "",
+    scopes: list[str] | None = None,
+    org_id: str = "",
+    assignment_level: str = "org",
+    assigned_group_id: str | None = None,
+    assigned_project_ids: list[str] | None = None,
     expires_delta: timedelta | None = None,
 ) -> str:
     """Create a long-lived refresh token.
 
-    Args:
-        user_id: UUID of the authenticated user (stored as ``sub``).
-        expires_delta: Override the default 7-day expiry.
-
-    Returns:
-        Encoded JWT string.
+    Carries the same identity claims as the access token so that
+    ``/auth/refresh`` can mint equivalent access tokens without a DB lookup.
     """
     now = datetime.now(UTC)
     expire = now + (expires_delta or timedelta(days=settings.jwt_refresh_token_expire_days))
     payload: dict[str, Any] = {
         "sub": user_id,
         "type": "refresh",
+        "role": role,
+        "scopes": scopes or [],
+        "org_id": org_id,
+        "assignment_level": assignment_level,
         "iat": now,
         "exp": expire,
     }
+    if assigned_group_id:
+        payload["assigned_group_id"] = assigned_group_id
+    if assigned_project_ids:
+        payload["assigned_project_ids"] = assigned_project_ids
     return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
