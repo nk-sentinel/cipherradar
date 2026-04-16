@@ -42,6 +42,7 @@ frontend/.env.*.local
 .env
 .env.*
 !.env.example
+!.env.homelab.example
 *.pem
 *.key
 *.p12

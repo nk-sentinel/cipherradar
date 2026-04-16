@@ -1,0 +1,86 @@
+# CipherRadar — Homelab Dev Deployment
+#
+# Uses shared postgres-dev and redis-dev containers on the homelab.
+# No database or cache services are started by this compose file.
+#
+# Prerequisites:
+#   - postgres-dev container running on dev-network (postgres:16-alpine)
+#   - redis-dev container running on dev-network (redis:7-alpine, auth enabled)
+#   - Database "cipherradar_dev" and user "cipherradar_dev" already exist
+#
+# Usage:
+#   cp deploy/.env.homelab.example deploy/.env.homelab
+#   # edit .env.homelab with actual passwords
+#   docker compose -f deploy/docker-compose.homelab.yml up --build
+#
+# Note: TimescaleDB hypertables are NOT used at runtime — they are optional
+# performance optimizations (commented out in migrations). Plain PostgreSQL works.
+
+name: cipherradar
+
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
+    container_name: cipherradar-api
+    restart: unless-stopped
+    ports:
+      - "8001:8000"
+    environment:
+      CRADAR_DATABASE_URL: "postgresql+asyncpg://${CR_DB_USER:-cipherradar_dev}:${CR_DB_PASSWORD}@postgres-dev:5432/${CR_DB_NAME:-cipherradar_dev}"
+      CRADAR_REDIS_URL: "redis://:${CR_REDIS_PASSWORD}@redis-dev:6379/0"
+      CRADAR_JWT_SECRET_KEY: "${CR_JWT_SECRET:-change-me-in-production}"
+      CRADAR_DEBUG: "true"
+      CRADAR_FINGERPRINT_ENABLED: "false"
+      SKIP_DEFAULT_ADMIN: "${CR_SKIP_ADMIN:-false}"
+      SEED_ON_STARTUP: "${CR_SEED_DATA:-false}"
+    networks:
+      - dev-network
+    healthcheck:
+      test: ["CMD-SHELL", "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/v1/health\")'"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  frontend:
+    build:
+      context: ../frontend
+      dockerfile: Dockerfile
+    container_name: cipherradar-frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.cipherradar.rule=Host(`cipherradar.shadow-lab.org`)"
+      - "traefik.http.routers.cipherradar.entrypoints=web"
+      - "traefik.http.services.cipherradar.loadbalancer.server.port=3000"
+    networks:
+      - dev-network
+      - proxy
+    depends_on:
+      api:
+        condition: service_healthy
+
+  scanner-worker:
+    build:
+      context: ..
+      dockerfile: deploy/scanner-worker/Dockerfile
+    container_name: cipherradar-worker
+    restart: unless-stopped
+    environment:
+      CRADAR_DATABASE_URL: "postgresql+asyncpg://${CR_DB_USER:-cipherradar_dev}:${CR_DB_PASSWORD}@postgres-dev:5432/${CR_DB_NAME:-cipherradar_dev}"
+      CRADAR_REDIS_URL: "redis://:${CR_REDIS_PASSWORD}@redis-dev:6379/0"
+      CRADAR_JWT_SECRET_KEY: "${CR_JWT_SECRET:-change-me-in-production}"
+      CRADAR_SIGNING_ENABLED: "true"
+      CRADAR_DEBUG: "true"
+    networks:
+      - dev-network
+
+networks:
+  dev-network:
+    external: true
+  proxy:
+    external: true
