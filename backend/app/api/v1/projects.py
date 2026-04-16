@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.middleware import AuthenticatedUser, get_current_user
 from app.db.session import get_session
 from app.models.organisation import Organisation
-from app.models.project import Project
+from app.models.project import Group, Project
 from app.models.scan import Scan, ScanStatus
 from app.schemas.base import CamelCaseModel
 from app.schemas.scan import ScanListResponse, ScanResponse
@@ -30,7 +30,9 @@ class ProjectResponse(CamelCaseModel):
     name: str
     type: str = "repository"
     group_id: uuid.UUID
+    group_name: str | None = None
     org_id: uuid.UUID
+    org_path: str | None = None
     git_url: str | None = None
     provider: str | None = None
     last_scan_at: datetime | None = None
@@ -84,6 +86,15 @@ async def list_projects(
     result = await session.execute(stmt)
     projects = result.scalars().all()
 
+    # Prefetch group names
+    group_ids = {p.group_id for p in projects}
+    group_map: dict[uuid.UUID, str] = {}
+    if group_ids:
+        grp_result = await session.execute(
+            select(Group.id, Group.name).where(Group.id.in_(group_ids))
+        )
+        group_map = {row[0]: row[1] for row in grp_result.fetchall()}
+
     # For each project, get latest scan date and total findings count
     items: list[ProjectResponse] = []
     for p in projects:
@@ -105,13 +116,16 @@ async def list_projects(
         findings_result = await session.execute(findings_stmt)
         findings_count = findings_result.scalar_one()
 
+        grp_name = group_map.get(p.group_id)
         items.append(
             ProjectResponse(
                 id=p.id,
                 name=p.name,
                 type=p.type,
                 group_id=p.group_id,
+                group_name=grp_name,
                 org_id=p.org_id,
+                org_path=f"{grp_name}/{p.name}" if grp_name else p.name,
                 git_url=p.git_url,
                 provider=p.provider,
                 last_scan_at=last_scan_at,
@@ -124,6 +138,66 @@ async def list_projects(
         total=total,
         page=page,
         per_page=per_page,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /projects/{project_id} — single project detail
+# ---------------------------------------------------------------------------
+
+
+@router.get("/projects/{project_id}", response_model=ProjectResponse)
+async def get_project(
+    project_id: uuid.UUID,
+    user: AuthenticatedUser = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ProjectResponse:
+    """Get a single project by ID (must belong to the user's org)."""
+    org_id = uuid.UUID(user.org_id)
+
+    stmt = select(Project).where(Project.id == project_id, Project.org_id == org_id)
+    result = await session.execute(stmt)
+    project = result.scalar_one_or_none()
+
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # Group name
+    grp_result = await session.execute(
+        select(Group.name).where(Group.id == project.group_id)
+    )
+    grp_name = grp_result.scalar_one_or_none()
+
+    # Latest scan date
+    last_scan_stmt = (
+        select(func.max(Scan.completed_at))
+        .where(Scan.project_id == project.id)
+        .where(Scan.status == ScanStatus.COMPLETED)
+    )
+    last_scan_at = (await session.execute(last_scan_stmt)).scalar_one_or_none()
+
+    # Findings count
+    from app.models.finding import Finding
+
+    findings_stmt = (
+        select(func.count())
+        .select_from(Finding)
+        .where(Finding.project_id == project.id)
+    )
+    findings_count = (await session.execute(findings_stmt)).scalar_one()
+
+    return ProjectResponse(
+        id=project.id,
+        name=project.name,
+        type=project.type,
+        group_id=project.group_id,
+        group_name=grp_name,
+        org_id=project.org_id,
+        org_path=f"{grp_name}/{project.name}" if grp_name else project.name,
+        git_url=project.git_url,
+        provider=project.provider,
+        last_scan_at=last_scan_at,
+        findings_count=findings_count,
     )
 
 

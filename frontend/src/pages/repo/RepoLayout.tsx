@@ -28,20 +28,12 @@ export const CONSOLIDATED_TABS: SubTab[] = [
 
 export function RepoLayout(): React.ReactElement {
   const { repoId } = useParams({ strict: false }) as { repoId: string };
-  const { data: repo } = useRepository(repoId);
+  useRepository(repoId); // prefetch for child components
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
 
-  const repoName = repo?.name ?? repoId;
-
   return (
     <div>
-      <div className="breadcrumb">
-        <Link to="/repos">Projects</Link>
-        <span>/</span>
-        <strong>{repoName}</strong>
-      </div>
-
       <div className="sub-tabs">
         {CONSOLIDATED_TABS.map((tab) => {
           const tabPath = `/repos/${repoId}/${tab.path}`;

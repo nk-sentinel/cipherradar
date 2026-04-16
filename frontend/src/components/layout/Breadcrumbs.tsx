@@ -96,6 +96,15 @@ export function buildBreadcrumbs(pathname: string, context: BuildContext): Bread
       });
     }
 
+    // Level 5: Sub-item (e.g. /repos/{id}/scans/{scanId})
+    if (parts.length >= 4) {
+      const subId = parts[3] ?? '';
+      segments.push({
+        label: subId.length > 8 ? `${subId.slice(0, 8)}…` : subId,
+        to: pathname,
+      });
+    }
+
     return segments;
   }
 
@@ -143,7 +152,7 @@ function extractGroupName(orgPath?: string): string | undefined {
 /**
  * Hook that derives breadcrumb segments from the current route.
  */
-export function useBreadcrumbs(): BreadcrumbSegment[] {
+export function useBreadcrumbs(): { pathname: string; segments: BreadcrumbSegment[] } {
   const routerState = useRouterState();
   const pathname = routerState.location.pathname;
   const params = useParams({ strict: false }) as { repoId?: string };
@@ -157,12 +166,14 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
   const repoName = repoId ? repo?.name : undefined;
   const groupName = repoId ? extractGroupName(repo?.orgPath) : undefined;
 
-  return buildBreadcrumbs(pathname, {
+  const segments = buildBreadcrumbs(pathname, {
     repoId,
     repoName,
     orgName,
     groupName,
   });
+
+  return { pathname, segments };
 }
 
 /**
@@ -171,14 +182,17 @@ export function useBreadcrumbs(): BreadcrumbSegment[] {
  * Each segment is clickable.
  */
 export function Breadcrumbs(): React.ReactElement {
-  const segments = useBreadcrumbs();
+  const { pathname, segments } = useBreadcrumbs();
 
   if (segments.length === 0) {
     return <div data-testid="breadcrumbs" />;
   }
 
+  // key={pathname} forces React to fully unmount/remount the <nav> on every
+  // route change, guaranteeing no stale breadcrumb spans accumulate.
   return (
     <nav
+      key={pathname}
       data-testid="breadcrumbs"
       aria-label="Breadcrumbs"
       style={{
@@ -192,7 +206,7 @@ export function Breadcrumbs(): React.ReactElement {
       {segments.map((segment, index) => {
         const isLast = index === segments.length - 1;
         return (
-          <span key={segment.to} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span key={`${index}-${segment.to}`} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {index > 0 && (
               <span style={{ color: 'var(--text-4)', fontSize: '10px' }}>/</span>
             )}
