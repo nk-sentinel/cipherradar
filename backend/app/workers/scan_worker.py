@@ -14,7 +14,7 @@ import json
 import logging
 import os
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+import uuid
 
 from sqlalchemy import select
 from taskiq import AsyncBroker
@@ -23,9 +23,6 @@ from taskiq_redis import ListQueueBroker
 from app.db.session import get_session
 from app.models.scan import Scan, ScanStatus
 from app.services.attestation_service import _signing_enabled, attestation_service
-
-if TYPE_CHECKING:
-    import uuid
 
 logger = logging.getLogger(__name__)
 

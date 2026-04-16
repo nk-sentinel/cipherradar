@@ -690,11 +690,11 @@ async def seed_database() -> None:
             await conn.execute(
                 """INSERT INTO scans (id, project_id, org_id, status, branch, commit_sha,
                                       started_at, completed_at, findings_count,
-                                      trigger_type, environment, triggered_by,
+                                      environment,
                                       created_at, updated_at)
-                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, $9, $10, $11, $7, $8)""",
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 0, $9, $7, $8)""",
                 scan_id, pid, org_id, scan_status, branch, commit, started, completed,
-                trigger, env, trig_by,
+                env,
             )
             scan_count += 1
 
