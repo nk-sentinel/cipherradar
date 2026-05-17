@@ -4,12 +4,193 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 )
+
+// helperAPIServer serves a GitHub-API-shaped release response at /api and the
+// matching binary at /assets/bin. Digest is computed from body.
+func helperAPIServer(t *testing.T, body []byte, assetName string) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	var srvURL string
+	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
+		sum := sha256.Sum256(body)
+		resp := map[string]any{
+			"assets": []map[string]any{
+				{
+					"name":                 assetName,
+					"browser_download_url": srvURL + "/assets/bin",
+					"digest":               "sha256:" + hex.EncodeToString(sum[:]),
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	mux.HandleFunc("/assets/bin", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(body)
+	})
+	srv := httptest.NewTLSServer(mux)
+	srvURL = srv.URL
+	return srv
+}
+
+func TestFetchReleaseAsset_ParsesDigest(t *testing.T) {
+	srv := helperAPIServer(t, []byte("payload"), "opengrep_manylinux_x86")
+	defer srv.Close()
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = srv.Client().Transport
+	defer func() { http.DefaultTransport = origTransport }()
+
+	url, digest, err := fetchReleaseAsset(srv.URL+"/api", "opengrep_manylinux_x86")
+	if err != nil {
+		t.Fatalf("fetchReleaseAsset: %v", err)
+	}
+	want := sha256.Sum256([]byte("payload"))
+	if digest != hex.EncodeToString(want[:]) {
+		t.Errorf("digest = %q want %q", digest, hex.EncodeToString(want[:]))
+	}
+	if !strings.HasSuffix(url, "/assets/bin") {
+		t.Errorf("download URL = %q, want suffix /assets/bin", url)
+	}
+}
+
+func TestFetchReleaseAsset_RejectsNonHTTPS(t *testing.T) {
+	_, _, err := fetchReleaseAsset("http://example.com/api", "x")
+	if err == nil || !strings.Contains(err.Error(), "non-HTTPS") {
+		t.Errorf("expected non-HTTPS rejection, got %v", err)
+	}
+}
+
+func TestFetchReleaseAsset_MissingAssetIsError(t *testing.T) {
+	srv := helperAPIServer(t, []byte("p"), "actually-present")
+	defer srv.Close()
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = srv.Client().Transport
+	defer func() { http.DefaultTransport = origTransport }()
+
+	_, _, err := fetchReleaseAsset(srv.URL+"/api", "not-in-release")
+	if err == nil || !strings.Contains(err.Error(), "not found") {
+		t.Errorf("expected 'not found' error, got %v", err)
+	}
+}
+
+func TestFetchReleaseAsset_MalformedDigestRejected(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"assets": []map[string]any{
+				{"name": "x", "browser_download_url": "https://example/x", "digest": "md5:abcd"},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	srv := httptest.NewTLSServer(mux)
+	defer srv.Close()
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = srv.Client().Transport
+	defer func() { http.DefaultTransport = origTransport }()
+
+	_, _, err := fetchReleaseAsset(srv.URL+"/api", "x")
+	if err == nil || !strings.Contains(err.Error(), "unexpected digest format") {
+		t.Errorf("expected digest format rejection, got %v", err)
+	}
+}
+
+func TestDownloadToTemp_StreamsAndPlacesFile(t *testing.T) {
+	srv := helperAPIServer(t, []byte("payload"), "x")
+	defer srv.Close()
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = srv.Client().Transport
+	defer func() { http.DefaultTransport = origTransport }()
+
+	dir := t.TempDir()
+	path, err := downloadToTemp(srv.URL+"/assets/bin", dir, "test-*")
+	if err != nil {
+		t.Fatalf("downloadToTemp: %v", err)
+	}
+	defer os.Remove(path)
+
+	got, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(got) != "payload" {
+		t.Errorf("body = %q want %q", got, "payload")
+	}
+	if filepath.Dir(path) != dir {
+		t.Errorf("temp file should be inside %q, got %q", dir, path)
+	}
+}
+
+func TestInstaller_ChecksumMismatchRejected(t *testing.T) {
+	// API advertises digest of "different" but serves "payload".
+	body := []byte("payload")
+	wrongSum := sha256.Sum256([]byte("different"))
+	mux := http.NewServeMux()
+	var srvURL string
+	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"assets": []map[string]any{
+				{
+					"name":                 "x",
+					"browser_download_url": srvURL + "/assets/bin",
+					"digest":               "sha256:" + hex.EncodeToString(wrongSum[:]),
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	mux.HandleFunc("/assets/bin", func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write(body) })
+	srv := httptest.NewTLSServer(mux)
+	defer srv.Close()
+	srvURL = srv.URL
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = srv.Client().Transport
+	defer func() { http.DefaultTransport = origTransport }()
+
+	url, digest, err := fetchReleaseAsset(srv.URL+"/api", "x")
+	if err != nil {
+		t.Fatalf("fetchReleaseAsset: %v", err)
+	}
+	tmp := t.TempDir()
+	path, err := downloadToTemp(url, tmp, "test-*")
+	if err != nil {
+		t.Fatalf("downloadToTemp: %v", err)
+	}
+	defer os.Remove(path)
+
+	if err := VerifySHA256(path, digest); err == nil {
+		t.Fatal("expected checksum mismatch, got nil")
+	}
+}
+
+func TestOpenGrepAsset_PlatformNaming(t *testing.T) {
+	// Check the platform mapping for the current host.
+	asset, err := openGrepAsset()
+	if err != nil {
+		t.Skip("unsupported platform for asset mapping")
+	}
+	switch {
+	case goos() == "linux" && goarch() == "amd64":
+		if asset != "opengrep_manylinux_x86" {
+			t.Errorf("linux/amd64 asset = %q, want opengrep_manylinux_x86", asset)
+		}
+	case goos() == "darwin" && goarch() == "arm64":
+		if asset != "opengrep_osx_arm64" {
+			t.Errorf("darwin/arm64 asset = %q, want opengrep_osx_arm64 (NOT aarch64)", asset)
+		}
+	}
+}
 
 func TestDefaultToolsDirEndsWithCradarTools(t *testing.T) {
 	dir := DefaultToolsDir()
