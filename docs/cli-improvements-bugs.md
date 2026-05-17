@@ -395,7 +395,7 @@ group), then 1 + 2 + 4 as a follow-up CLI-polish PR.
 | 1 | FIXED | 530f487 |
 | 2 | FIXED | 5af9364 |
 | 3 | FIXED | 7747905 |
-| 4 | FIXED (hint added) | 3b80373 |
+| 4 | FIXED post-rc2 (categorization completed; hint kept as defensive fallback) | cdbc3fc |
 | 5 | FIXED (GitHub API digest verification) | 4111521 |
 | 6 | FIXED (cradar hardening) | 2fafb02 |
 | 7 | OUT OF SCOPE for rc2 (rule rewrites deferred) | — |
