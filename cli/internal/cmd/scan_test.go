@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 )
 
 func TestParsePasses(t *testing.T) {
@@ -206,5 +208,28 @@ func TestScanCommand_BadCategoryExitsConfigError(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "bogus") {
 		t.Errorf("error should mention the bad value: %v", err)
+	}
+}
+
+func TestScanCommand_OnlyInventoryHintWhenPass2Skipped(t *testing.T) {
+	// Only meaningful when opengrep is absent — otherwise pass 2 would run.
+	if opengrep.NewRunner() != nil {
+		t.Skip("opengrep is installed; this test requires it absent")
+	}
+
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "a.py"), []byte("x = 1\n"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", tmpDir, "--only-inventory"})
+
+	_ = rootCmd.Execute()
+
+	if !strings.Contains(buf.String(), "inventory rules require Pass 2") {
+		t.Errorf("expected --only-inventory hint in output, got:\n%s", buf.String())
 	}
 }

@@ -151,6 +151,11 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 	var result *types.ScanResult
 
+	// Tracks whether pass 2 actually executed (vs being skipped because
+	// opengrep was absent and not required). Bug 4 uses this to emit a
+	// hint when --only-inventory matches 0 findings.
+	pass2Ran := false
+
 	if containerRef != "" {
 		// Container image scanning mode.
 		result, err = container.ScanImage(containerRef, registry, passes)
@@ -190,6 +195,7 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 			pass2Required := cmd.Flag("deep").Changed || cmd.Flag("passes").Changed
 			pass2Findings, pass2Err := runPass2(targetPath, rulesDir, pass2Required)
+			pass2Ran = pass2Err != nil || pass2Findings != nil
 			if pass2Err != nil {
 				var ee *ExitError
 				if errors.As(pass2Err, &ee) {
@@ -226,6 +232,22 @@ func runScan(cmd *cobra.Command, args []string) error {
 	kept, filterStats := rulefilter.Apply(result.Findings, filterOpts)
 	result.Findings = kept
 	rulefilter.WarnDeprecated(cmd.ErrOrStderr(), filterStats, filterOpts.IncludeDeprecated)
+
+	// Bug 4: --only-inventory with no pass 2 deterministically returns 0
+	// because pass-1 AST findings don't carry rule-derived categories.
+	// Surface the cause so users don't think the flag is broken.
+	onlyInv, _ := cmd.Flags().GetBool("only-inventory")
+	categories, _ := cmd.Flags().GetStringSlice("category")
+	invRequested := onlyInv
+	for _, c := range categories {
+		if strings.EqualFold(c, "inventory") {
+			invRequested = true
+		}
+	}
+	if invRequested && !pass2Ran && len(result.Findings) == 0 {
+		fmt.Fprintln(cmd.ErrOrStderr(),
+			"Note: inventory filter matched 0 findings; inventory rules require Pass 2 (run 'cradar install-tools' or pass --passes 1,2).")
+	}
 
 	// Apply baseline suppression (Phase D). Runs after filter+fingerprint so
 	// every downstream writer and the --fail-on gate see the same reduced
