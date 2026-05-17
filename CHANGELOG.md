@@ -4,6 +4,35 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.2.0-rc.2 — 2026-05-18
+
+### Bug fixes
+
+- **Critical:** Pass 2 silently produced 0 findings when any rule file
+  in the rules directory failed to load — restored via per-file
+  pre-validation, skip-and-warn for broken files, and surfaced
+  `output.Errors` from opengrep. (Bug 6)
+- **High:** `cradar scan` on a missing or non-directory path no
+  longer returns exit 0 + empty CycloneDX — now exits 3 with a
+  specific message. (Bug 1)
+- **High:** `cradar install-tools` fixed for linux/amd64 (was 404 on
+  every fresh install) and now verifies SHA-256 of downloaded
+  binaries against the GitHub Releases API `digest` field. See
+  ADR-038. (Bug 5)
+- **Medium:** OpenGrep findings' `RuleID` no longer carries the
+  directory-derived namespace prefix; `--rules` and `--disable-rule`
+  match opengrep findings correctly. (Bug 8)
+- **Medium:** `--category bogus` now returns exit 3 (was exit 1).
+  (Bug 2)
+- **Low:** `--only-inventory` matched 0 findings without pass 2 emits
+  a one-line hint pointing at `install-tools`. (Bug 4)
+- **Low:** `--debug` and `--log-include-source` now produce
+  per-scanner lifecycle events and per-finding emit events; source
+  snippets are included only when the flag is set, truncated at 200
+  chars. (Bug 3)
+
+---
+
 ## 0.2.0-rc.1 — CLI Improvements Prerelease (2026-04-15)
 
 First prerelease cut from `feature/cli-improvements`. Groups four
