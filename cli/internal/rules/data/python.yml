@@ -78,20 +78,22 @@ rules:
       maturity: stable
       default_enabled: true
       noise_risk: low
-    patterns:
-      - pattern: hashlib.pbkdf2_hmac(..., ..., ..., iterations=$N)
-        metavariable-comparison:
-          metavariable: $N
-          comparison: $N < 100000
-      - pattern: |
-          PBKDF2HMAC(
-            ...,
-            iterations=$N,
-            ...
-          )
-        metavariable-comparison:
-          metavariable: $N
-          comparison: $N < 100000
+    pattern-either:
+      - patterns:
+          - pattern: hashlib.pbkdf2_hmac(..., ..., ..., iterations=$N)
+          - metavariable-comparison:
+              metavariable: $N
+              comparison: $N < 100000
+      - patterns:
+          - pattern: |
+              PBKDF2HMAC(
+                ...,
+                iterations=$N,
+                ...
+              )
+          - metavariable-comparison:
+              metavariable: $N
+              comparison: $N < 100000
 
   - id: cbom-python-random-for-crypto
     message: >
@@ -129,13 +131,14 @@ rules:
       default_enabled: true
       noise_risk: low
     pattern-either:
-      - pattern: from cryptography import $...
-      - pattern: from cryptography.hazmat import $...
+      - pattern: from cryptography import $X
+      - pattern: from cryptography.hazmat.primitives import $X
+      - pattern: from cryptography.hazmat.backends import $X
       - pattern: import hashlib
       - pattern: import hmac
       - pattern: import ssl
-      - pattern: from Crypto import $...
-      - pattern: from nacl import $...
+      - pattern: from Crypto import $X
+      - pattern: from nacl import $X
 
   - id: cbom-python-deprecated-crypto-import
     message: >
@@ -151,10 +154,10 @@ rules:
       maturity: stable
       default_enabled: true
       noise_risk: low
-    patterns:
-      - pattern: from Crypto.Cipher import $...
-      - pattern: from Crypto.PublicKey import $...
-      - pattern: from Crypto.Hash import $...
+    pattern-either:
+      - pattern: from Crypto.Cipher import $X
+      - pattern: from Crypto.PublicKey import $X
+      - pattern: from Crypto.Hash import $X
 
   - id: cbom-python-kdf-to-cipher-chain
     message: >
