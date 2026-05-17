@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -178,5 +179,32 @@ func TestScanCommand_PushFlagRegistered(t *testing.T) {
 	pushFlag := scanCmd.Flags().Lookup("push")
 	if pushFlag != nil && pushFlag.DefValue != "false" {
 		t.Errorf("--push default = %q, want %q", pushFlag.DefValue, "false")
+	}
+}
+
+func TestScanCommand_BadCategoryExitsConfigError(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "a.py"), []byte("x = 1\n"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", tmpDir, "--category", "bogus"})
+
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid --category, got nil")
+	}
+	var ee *ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != ExitConfig {
+		t.Errorf("expected ExitConfig (%d), got %d", ExitConfig, ee.Code)
+	}
+	if !strings.Contains(err.Error(), "bogus") {
+		t.Errorf("error should mention the bad value: %v", err)
 	}
 }

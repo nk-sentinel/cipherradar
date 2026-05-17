@@ -720,7 +720,7 @@ func buildFilterOptions(cmd *cobra.Command) (rulefilter.Options, error) {
 	// dropping all findings.
 	for _, c := range opts.Categories {
 		if c != types.CategoryInventory && c != types.CategorySecurity {
-			return rulefilter.Options{}, fmt.Errorf("invalid --category value %q (valid: inventory, security)", c)
+			return rulefilter.Options{}, ExitErrorf(ExitConfig, "invalid --category value %q (valid: inventory, security)", c)
 		}
 	}
 	return opts, nil
