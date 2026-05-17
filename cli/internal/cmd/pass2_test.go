@@ -4,18 +4,20 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 )
 
-// These tests assume opengrep is not installed in the test environment.
-// If a future CI image bundles opengrep, both tests will be skipped
-// rather than give false positives.
+// These tests exercise the missing-opengrep path. They auto-skip when
+// opengrep is discoverable so dev machines with the binary installed
+// don't see false failures.
 
 func TestRunPass2_MissingAndNotRequired_SoftSkip(t *testing.T) {
+	if opengrep.NewRunner() != nil {
+		t.Skip("opengrep is installed; this test requires it absent")
+	}
 	findings, err := runPass2(t.TempDir(), "", false)
 	if err != nil {
-		if strings.Contains(err.Error(), "opengrep") {
-			t.Skip("opengrep is installed; skipping missing-tool test")
-		}
 		t.Fatalf("expected nil error on soft skip, got: %v", err)
 	}
 	if findings != nil {
@@ -24,9 +26,12 @@ func TestRunPass2_MissingAndNotRequired_SoftSkip(t *testing.T) {
 }
 
 func TestRunPass2_MissingAndRequired_ExitToolMissing(t *testing.T) {
+	if opengrep.NewRunner() != nil {
+		t.Skip("opengrep is installed; this test requires it absent")
+	}
 	_, err := runPass2(t.TempDir(), "", true)
 	if err == nil {
-		t.Skip("opengrep is installed; skipping missing-tool test")
+		t.Fatal("expected ExitToolMissing error, got nil")
 	}
 	var ee *ExitError
 	if !errors.As(err, &ee) {

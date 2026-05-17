@@ -17,8 +17,10 @@ func TestParsePasses(t *testing.T) {
 	}{
 		{"1", []int{1}, false},
 		{"1,2", []int{1, 2}, false},
-		{"1,2,3", []int{1, 2, 3}, false},
-		{"1, 2, 3", []int{1, 2, 3}, false},
+		{"1, 2", []int{1, 2}, false},
+		// Pass 3 removed per ADR-033 (Joern dropped, all patterns covered by OpenGrep).
+		{"1,2,3", nil, true},
+		{"3", nil, true},
 		{"", nil, true},
 		{"0", nil, true},
 		{"4", nil, true},
@@ -115,11 +117,14 @@ h = hashlib.sha256(b"hello")
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "CipherRadar Scan Results") {
-		t.Error("text output should contain 'CipherRadar Scan Results'")
+	if !strings.Contains(output, "CipherRadar") {
+		t.Error("text output should contain 'CipherRadar' in the header")
 	}
-	if !strings.Contains(output, "1 scanned") {
-		t.Error("text output should mention 1 file scanned")
+	if !strings.Contains(output, "SCAN COMPLETE") {
+		t.Error("text output should contain 'SCAN COMPLETE' banner")
+	}
+	if !strings.Contains(output, "Python") {
+		t.Error("text output should list Python in language breakdown")
 	}
 }
 

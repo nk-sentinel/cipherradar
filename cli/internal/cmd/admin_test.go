@@ -33,13 +33,11 @@ func TestAdminCmdExists(t *testing.T) {
 
 func TestAdminResetPasswordOutput(t *testing.T) {
 	buf := new(bytes.Buffer)
-	cmd := adminResetPasswordCmd
-	cmd.SetOut(buf)
-	cmd.SetErr(buf)
+	rootCmd.SetOut(buf)
+	rootCmd.SetErr(buf)
+	rootCmd.SetArgs([]string{"admin", "reset-password", "--email", "admin@example.com"})
 
-	// Run with email flag
-	cmd.SetArgs([]string{"--email", "admin@example.com"})
-	err := cmd.Execute()
+	err := rootCmd.Execute()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
