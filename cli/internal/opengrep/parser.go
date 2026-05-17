@@ -72,8 +72,9 @@ func ParseResults(jsonData []byte) ([]types.Finding, error) {
 
 	findings := make([]types.Finding, 0, len(output.Results))
 	for _, r := range output.Results {
+		canonicalID := stripCheckIDNamespace(r.CheckID)
 		f := types.Finding{
-			RuleID:         r.CheckID,
+			RuleID:         canonicalID,
 			Pass:           2,
 			Description:    r.Extra.Message,
 			Severity:       mapSeverity(r.Extra.Severity),
@@ -94,7 +95,7 @@ func ParseResults(jsonData []byte) ([]types.Finding, error) {
 		}
 
 		// Derive a name from the check_id if possible.
-		f.Name = deriveNameFromCheckID(r.CheckID)
+		f.Name = deriveNameFromCheckID(canonicalID)
 
 		findings = append(findings, f)
 	}
@@ -203,12 +204,44 @@ func mapDefaultEnabled(b *bool) bool {
 	return *b
 }
 
+// stripCheckIDNamespace removes the directory-derived namespace prefix that
+// OpenGrep adds when invoked with --config <dir>. The check_id format is
+// "<dot.separated.namespace>.cbom-<lang>-<id>"; real rule IDs use dashes
+// (no dots), so taking everything after the last dot is safe.
+//
+// When OpenGrep is invoked with per-file --config <file>, the prefix is
+// absent and this is a no-op.
+func stripCheckIDNamespace(checkID string) string {
+	if i := strings.LastIndex(checkID, "."); i >= 0 {
+		return checkID[i+1:]
+	}
+	return checkID
+}
+
 // deriveNameFromCheckID attempts to extract a human-readable name from the check_id.
 // For example, "cbom-python-hardcoded-key" becomes "hardcoded-key".
+//
+// Per-language prefixes are listed longest-first so the bare "cbom-" fallback
+// only matches when no language prefix applies.
 func deriveNameFromCheckID(checkID string) string {
 	// Strip common prefixes.
 	name := checkID
-	for _, prefix := range []string{"cbom-python-", "cbom-java-", "cbom-javascript-", "cbom-js-", "cbom-"} {
+	for _, prefix := range []string{
+		"cbom-javascript-",
+		"cbom-python-",
+		"cbom-kotlin-",
+		"cbom-swift-",
+		"cbom-java-",
+		"cbom-ruby-",
+		"cbom-rust-",
+		"cbom-dart-",
+		"cbom-csharp-",
+		"cbom-cpp-",
+		"cbom-php-",
+		"cbom-js-",
+		"cbom-go-",
+		"cbom-",
+	} {
 		if strings.HasPrefix(name, prefix) {
 			name = strings.TrimPrefix(name, prefix)
 			break

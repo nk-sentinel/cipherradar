@@ -521,3 +521,53 @@ func TestDeriveNameFromCheckID(t *testing.T) {
 		}
 	}
 }
+
+func TestParseResults_StripsNamespacePrefix(t *testing.T) {
+	cases := []struct {
+		name       string
+		inputCheck string
+		wantRuleID string
+		wantName   string
+	}{
+		{
+			name:       "dir-namespaced ID is stripped",
+			inputCheck: "tmp.clean-rules.cbom-js-crypto-library-import",
+			wantRuleID: "cbom-js-crypto-library-import",
+			wantName:   "crypto-library-import",
+		},
+		{
+			name:       "deep namespace is stripped to the last dot",
+			inputCheck: "scanner.rules.javascript.cbom-js-hardcoded-jwt-secret",
+			wantRuleID: "cbom-js-hardcoded-jwt-secret",
+			wantName:   "hardcoded-jwt-secret",
+		},
+		{
+			name:       "bare ID is unchanged",
+			inputCheck: "cbom-go-weak-rand",
+			wantRuleID: "cbom-go-weak-rand",
+			wantName:   "weak-rand",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := []byte(`{"results":[{
+				"check_id":"` + tc.inputCheck + `",
+				"path":"x.go","start":{"line":1,"col":1},"end":{"line":1,"col":1},
+				"extra":{"message":"m","severity":"INFO","metadata":{},"lines":""}
+			}],"errors":[]}`)
+			findings, err := ParseResults(payload)
+			if err != nil {
+				t.Fatalf("ParseResults: %v", err)
+			}
+			if len(findings) != 1 {
+				t.Fatalf("expected 1 finding, got %d", len(findings))
+			}
+			if findings[0].RuleID != tc.wantRuleID {
+				t.Errorf("RuleID = %q, want %q", findings[0].RuleID, tc.wantRuleID)
+			}
+			if findings[0].Name != tc.wantName {
+				t.Errorf("Name = %q, want %q", findings[0].Name, tc.wantName)
+			}
+		})
+	}
+}
