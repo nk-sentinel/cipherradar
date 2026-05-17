@@ -3,6 +3,7 @@ package opengrep
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -265,4 +266,121 @@ func TestLoadableRuleFiles_BatchValidate_SameSetAsPerFile(t *testing.T) {
 	if !brokenSeen {
 		t.Errorf("broken/bad-schema.yml should be in skipped set, got skipped=%v", skipped)
 	}
+}
+
+func TestStripANSI(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"", ""},
+		{"plain text", "plain text"},
+		// Bare SGR foreground
+		{"\x1b[33mWARNING\x1b[0m", "WARNING"},
+		// Multiple sequences on one line
+		{"\x1b[1m[\x1b[33mWARN\x1b[0m]\x1b[0m: msg", "[WARN]: msg"},
+		// 256-color extended SGR
+		{"\x1b[38;5;208morange\x1b[0m", "orange"},
+		// Only CSI codes
+		{"\x1b[2K\x1b[1G", ""},
+	}
+	for _, tc := range cases {
+		if got := stripANSI(tc.in); got != tc.want {
+			t.Errorf("stripANSI(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestParseValidateBrokenFiles_SingleBroken(t *testing.T) {
+	// Realistic opengrep v1.16.5 output for one broken rule, with ANSI codes.
+	output := "" +
+		"[00.04][\x1b[33mWARNING\x1b[0m]: invalid rule scanner.rules.cbom-go-weak-rand, /abs/path/scanner/rules/go.yml:66:5: Expected object with only one entry -- did you forget a hyphen?\n" +
+		"\n"
+	got := parseValidateBrokenFiles(output)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 broken file, got %d: %v", len(got), got)
+	}
+	// Path is normalized to absolute by parseValidateBrokenFiles; on a real
+	// system filepath.Abs(...) of an absolute path returns it unchanged.
+	const wantPath = "/abs/path/scanner/rules/go.yml"
+	reason, ok := got[wantPath]
+	if !ok {
+		t.Fatalf("expected key %q in map, got keys: %v", wantPath, mapKeys(got))
+	}
+	if !strings.Contains(reason, "Expected object") {
+		t.Errorf("reason should preserve message, got %q", reason)
+	}
+}
+
+func TestParseValidateBrokenFiles_MultipleBrokenDedupedByFile(t *testing.T) {
+	// Two bad rules in the same file; only first reason recorded.
+	output := "" +
+		"[WARNING]: invalid rule scanner.rules.first, /abs/scanner/rules/dart.yml:2:4: First failure reason\n" +
+		"[WARNING]: invalid rule scanner.rules.second, /abs/scanner/rules/dart.yml:15:8: Second failure reason\n" +
+		"[WARNING]: invalid rule scanner.rules.kotlin-bad, /abs/scanner/rules/kotlin.yml:81:17: Invalid pattern for Kotlin\n"
+	got := parseValidateBrokenFiles(output)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 unique broken files, got %d: %v", len(got), got)
+	}
+	if r := got["/abs/scanner/rules/dart.yml"]; !strings.Contains(r, "First failure") {
+		t.Errorf("first-seen reason should win for dart.yml, got %q", r)
+	}
+	if _, ok := got["/abs/scanner/rules/kotlin.yml"]; !ok {
+		t.Errorf("kotlin.yml should be in broken set, got %v", mapKeys(got))
+	}
+}
+
+func TestParseValidateBrokenFiles_IgnoresNonMatchingLines(t *testing.T) {
+	// Real opengrep output mixes status text, table rows, and chardet warnings.
+	output := "" +
+		"chardet warning: foo\n" +
+		"\n" +
+		"┌─────────────┐\n" +
+		"│ Scan Status │\n" +
+		"└─────────────┘\n" +
+		"  Scanning 12 files tracked by git with 6 Code rules:\n" +
+		"\n" +
+		"[WARNING]: invalid rule x.y.z, /abs/scanner/rules/python.yml:10:1: you need at least one positive term\n" +
+		"Configuration is invalid - found 0 fatal errors, 10 skippable error(s), and 69 rule(s).\n"
+	got := parseValidateBrokenFiles(output)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 broken file, got %d: %v", len(got), got)
+	}
+	if _, ok := got["/abs/scanner/rules/python.yml"]; !ok {
+		t.Errorf("python.yml should be the lone broken file, got %v", mapKeys(got))
+	}
+}
+
+func TestParseValidateBrokenFiles_NoBrokenReturnsEmpty(t *testing.T) {
+	output := "" +
+		"Scanning 5 files tracked by git with 4 Code rules:\n" +
+		"Configuration is valid.\n"
+	got := parseValidateBrokenFiles(output)
+	if len(got) != 0 {
+		t.Errorf("expected empty map, got %v", got)
+	}
+}
+
+func TestParseValidateBrokenFiles_HandlesANSIInsideMatch(t *testing.T) {
+	// Some opengrep paths include color codes around segments of the message.
+	output := "[\x1b[33mWARNING\x1b[0m]: invalid rule cbom.foo, /abs/r.yml:1:1: \x1b[31merror\x1b[0m text follows\n"
+	got := parseValidateBrokenFiles(output)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 broken file, got %d", len(got))
+	}
+	// Reason should be ANSI-stripped (parseValidateBrokenFiles calls stripANSI before regex).
+	for _, reason := range got {
+		if strings.Contains(reason, "\x1b") {
+			t.Errorf("reason should not contain ANSI codes: %q", reason)
+		}
+	}
+}
+
+// mapKeys returns the keys of a map[string]string for test diagnostics.
+func mapKeys(m map[string]string) []string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }
