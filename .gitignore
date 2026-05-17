@@ -47,6 +47,9 @@ frontend/.env.*.local
 *.key
 *.p12
 *.pfx
+# Synthetic test fixtures only — generated, never contain real secrets.
+!cli/testdata/**/*.pem
+!cli/testdata/**/*.key
 
 # ── Docker / deployment ───────────────────────────────────────
 deploy/.env

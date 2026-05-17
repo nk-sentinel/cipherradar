@@ -11,6 +11,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: true
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           $KEY = "...";
@@ -30,6 +33,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: md5(...)
 
@@ -45,6 +51,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: mcrypt_encrypt(...)
       - pattern: mcrypt_decrypt(...)
@@ -63,6 +72,9 @@ rules:
       cbom-asset-type: library
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: mcrypt_encrypt(...)
       - pattern: mcrypt_decrypt(...)
@@ -76,6 +88,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: password_hash($PASSWORD, $ALGO)
       - pattern: password_hash($PASSWORD, $ALGO, $OPTIONS)

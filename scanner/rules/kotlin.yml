@@ -11,6 +11,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           val $KEY = byteArrayOf(...)
@@ -32,6 +35,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           val $IV = byteArrayOf(...)
@@ -52,6 +58,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern: Cipher.getInstance("=~/.*ECB.*/")
 
   # ── CBOM Inventory Rules ──
@@ -65,6 +74,9 @@ rules:
       cbom-asset-type: library
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: import org.bouncycastle.$...
       - pattern: import javax.crypto.$...

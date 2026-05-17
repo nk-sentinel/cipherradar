@@ -25,6 +25,29 @@ type Config struct {
 	Passes []int `yaml:"passes"`
 	// CustomWrappers defines custom crypto wrapper functions to detect during scanning.
 	CustomWrappers []CustomWrapper `yaml:"custom_wrappers"`
+	// RuleFilters supplies defaults for rule-lifecycle filter flags. CLI
+	// flags always override these values. See docs/cli-improvements-plan.md.
+	RuleFilters *RuleFilters `yaml:"rule_filters,omitempty"`
+}
+
+// RuleFilters mirrors the CLI rule-lifecycle filter flags as config defaults.
+// Any field set here is used when the corresponding CLI flag is unset.
+// CLI flags always win when both are provided.
+type RuleFilters struct {
+	// Categories limits findings to the named categories (inventory|security).
+	Categories []string `yaml:"categories,omitempty"`
+	// Rules is an explicit allowlist of rule ids (overrides default set).
+	Rules []string `yaml:"rules,omitempty"`
+	// DisabledRules removes specific rule ids regardless of maturity/category.
+	DisabledRules []string `yaml:"disabled_rules,omitempty"`
+	// IncludeRules opts-in specific rule ids that are otherwise gated off.
+	IncludeRules []string `yaml:"include_rules,omitempty"`
+	// IncludeExperimental brings maturity:experimental rules back.
+	IncludeExperimental bool `yaml:"include_experimental,omitempty"`
+	// IncludeNoisy brings noise_risk:high rules back.
+	IncludeNoisy bool `yaml:"include_noisy,omitempty"`
+	// IncludeDeprecated silences the deprecation warning (rule still runs).
+	IncludeDeprecated bool `yaml:"include_deprecated,omitempty"`
 }
 
 // CustomWrapper defines a custom cryptographic wrapper function that the

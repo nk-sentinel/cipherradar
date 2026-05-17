@@ -1,0 +1,122 @@
+package output
+
+import (
+	"fmt"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// DefaultStdoutFormat returns the format to use when the caller has not
+// specified one and the output is going to stdout. TTY users get the
+// human "text" summary; a piped/redirected stdout gets machine-readable
+// "cyclonedx-json" so `cradar scan ./app > out.json` Just Works. The
+// NO_COLOR / FORCE_COLOR envs are deliberately not honored here — they
+// control coloring, not format choice.
+func DefaultStdoutFormat() string {
+	if isTerminal(os.Stdout) {
+		return "text"
+	}
+	return "cyclonedx-json"
+}
+
+// IsTerminal reports whether w is an interactive TTY. Exposed so callers
+// outside this package can make the same dispatch decision without
+// re-implementing the stat check.
+func IsTerminal(w io.Writer) bool {
+	if f, ok := w.(*os.File); ok {
+		return isTerminal(f)
+	}
+	return false
+}
+
+func isTerminal(f *os.File) bool {
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
+// FormatFromPath returns the registered output format implied by a file
+// name's extension. Unknown extensions return an empty string; callers
+// should fall back to the `--format` flag or the built-in default.
+//
+// `.sonar.json` is handled before `.json` so SonarQube reports don't get
+// mis-dispatched to the CycloneDX writer.
+func FormatFromPath(path string) string {
+	if path == "" {
+		return ""
+	}
+	lower := strings.ToLower(path)
+	base := strings.ToLower(filepath.Base(lower))
+	switch {
+	case strings.HasSuffix(base, ".sonar.json"):
+		return "sonarqube-generic"
+	case strings.HasSuffix(base, ".cbom.json"),
+		strings.HasSuffix(base, ".cdx.json"),
+		strings.HasSuffix(base, ".cyclonedx.json"):
+		return "cyclonedx-json"
+	}
+	switch filepath.Ext(lower) {
+	case ".json":
+		return "cyclonedx-json"
+	case ".sarif":
+		return "sarif"
+	case ".pdf":
+		return "pdf"
+	case ".txt", ".text":
+		return "text"
+	}
+	return ""
+}
+
+// SupportedFormats lists every writer WriterFactory can build. Used by
+// help text so additions stay in sync.
+func SupportedFormats() []string {
+	return []string{
+		"cyclonedx-json",
+		"sarif",
+		"text",
+		"table",
+		"pdf",
+		"sonarqube-generic",
+	}
+}
+
+// ResolveOutputFormat decides which format a given output file should use
+// following the documented precedence order:
+//
+//   1. Explicit format override from the caller (e.g. `--format` when
+//      there is exactly one output sink).
+//   2. File extension dispatch (`cbom.json` → cyclonedx-json, etc.).
+//   3. Config-file default (`cfg.Format` from .cradar.yml).
+//   4. Built-in fallback.
+//
+// An empty return value means the caller should error out.
+func ResolveOutputFormat(path, explicit, cfgDefault, fallback string) string {
+	if explicit != "" {
+		return explicit
+	}
+	if f := FormatFromPath(path); f != "" {
+		return f
+	}
+	if cfgDefault != "" {
+		return cfgDefault
+	}
+	return fallback
+}
+
+// ValidateFormat returns an error if fmtName is not a registered writer.
+// Kept separate from WriterFactory so callers can validate configuration
+// without having to instantiate a writer.
+func ValidateFormat(fmtName string) error {
+	for _, f := range SupportedFormats() {
+		if f == fmtName {
+			return nil
+		}
+	}
+	return fmt.Errorf("unsupported output format: %q (supported: %s)",
+		fmtName, strings.Join(SupportedFormats(), ", "))
+}

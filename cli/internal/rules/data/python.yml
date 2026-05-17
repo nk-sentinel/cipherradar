@@ -11,6 +11,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           $KEY = b"..."
@@ -32,6 +35,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           $IV = b"..."
@@ -53,6 +59,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: false
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     pattern: hmac.new(b"...", ...)
 
   - id: cbom-python-weak-pbkdf2-iterations
@@ -66,6 +75,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: medium
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: hashlib.pbkdf2_hmac(..., ..., ..., iterations=$N)
         metavariable-comparison:
@@ -92,6 +104,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: medium
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: random.random()
       - pattern: random.randint(...)
@@ -110,6 +125,9 @@ rules:
       cbom-asset-type: library
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: from cryptography import $...
       - pattern: from cryptography.hazmat import $...
@@ -130,6 +148,9 @@ rules:
       cbom-asset-type: library
       confidence: medium
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: from Crypto.Cipher import $...
       - pattern: from Crypto.PublicKey import $...
@@ -146,6 +167,9 @@ rules:
       cbom-asset-type: key-derivation-function
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $KEY = PBKDF2HMAC(...).derive($PASSWORD)
@@ -166,6 +190,9 @@ rules:
       cbom-asset-type: protocol
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $CTX = ssl.SSLContext(...)
@@ -182,6 +209,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: medium
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $ALGO = os.environ.get("$KEY")
@@ -203,6 +233,9 @@ rules:
       cbom-asset-type: certificate
       confidence: high
       quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $CTX = ssl.SSLContext(...)
@@ -224,6 +257,9 @@ rules:
       cbom-asset-type: certificate
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: |
           $CTX = ssl.SSLContext(...)
@@ -241,6 +277,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: bcrypt.hashpw($PASSWORD, bcrypt.gensalt($ROUNDS))
       - pattern: bcrypt.hashpw($PASSWORD, bcrypt.gensalt())

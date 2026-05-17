@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -96,12 +95,16 @@ func runPolicyCheck(cmd *cobra.Command, args []string) error {
 	// Print results.
 	printPolicyReport(report, config, cbomPath, policyPath, totalRules)
 
-	// Determine exit code.
+	// Exit-code contract (ADR-036): 1 on any fail, 2 on warn-only, 0 on pass.
+	// Return typed errors so deferred cleanup in Execute runs and main.go
+	// maps the code.
 	if adjustedFailCount > 0 {
-		os.Exit(1)
+		return NewExitError(ExitFindings,
+			fmt.Sprintf("policy check failed: %d violation(s) at or above %s", adjustedFailCount, failOn))
 	}
 	if adjustedWarnCount > 0 {
-		os.Exit(2)
+		return NewExitError(ExitWarnings,
+			fmt.Sprintf("policy check warnings: %d violation(s) below %s", adjustedWarnCount, failOn))
 	}
 
 	return nil

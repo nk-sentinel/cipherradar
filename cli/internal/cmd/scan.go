@@ -2,18 +2,23 @@ package cmd
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/baseline"
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/container"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
 	"github.com/nk-sentinel/cipherradar/cli/internal/push"
+	"github.com/nk-sentinel/cipherradar/cli/internal/rulefilter"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
@@ -35,8 +40,8 @@ exclusive with the directory path argument.`,
 }
 
 func init() {
-	scanCmd.Flags().StringP("output", "o", "", "output file path")
-	scanCmd.Flags().StringP("format", "f", "cyclonedx-json", "output format (cyclonedx-json, sarif, text, pdf)")
+	scanCmd.Flags().StringSliceP("output", "o", nil, "output file path (repeatable; format inferred from file extension, e.g. .json/.sarif/.pdf/.sonar.json/.cbom.json)")
+	scanCmd.Flags().StringP("format", "f", "", "output format when writing to stdout or overriding extension dispatch (cyclonedx-json, sarif, text, table, pdf, sonarqube-generic)")
 	scanCmd.Flags().String("severity", "low", "minimum severity level to report")
 	scanCmd.Flags().String("passes", "1,2", "comma-separated list of scan passes to run (1=AST, 2=OpenGrep)")
 	scanCmd.Flags().String("branch", "", "git branch to scan (for git URLs)")
@@ -52,6 +57,22 @@ func init() {
 	// Container image scanning.
 	scanCmd.Flags().String("container", "", "scan a container image (reference or local .tar path)")
 
+	// Rule lifecycle + category filter flags (docs/cli-improvements-plan.md item 1).
+	scanCmd.Flags().StringSlice("category", nil, "limit findings to categories (inventory, security); repeatable")
+	scanCmd.Flags().Bool("only-inventory", false, "shortcut for --category inventory")
+	scanCmd.Flags().Bool("only-security", false, "shortcut for --category security")
+	scanCmd.Flags().StringSlice("rules", nil, "explicit allowlist of rule IDs; overrides the default set")
+	scanCmd.Flags().StringSlice("disable-rule", nil, "rule IDs to exclude; repeatable; trumps other include flags")
+	scanCmd.Flags().StringSlice("include-rule", nil, "per-rule opt-in; repeatable; bypasses maturity and noise gates")
+	scanCmd.Flags().Bool("include-experimental", false, "include rules marked maturity:experimental")
+	scanCmd.Flags().Bool("include-noisy", false, "include rules marked noise_risk:high")
+	scanCmd.Flags().Bool("include-deprecated", false, "silence the deprecation warning for maturity:deprecated rules")
+
+	// Baseline suppression flags (docs/cli-improvements-plan.md item 1).
+	scanCmd.Flags().String("baseline-file", baseline.DefaultFile, "path to the baseline file used for suppression")
+	scanCmd.Flags().Bool("no-baseline", false, "ignore the baseline file for this run")
+	scanCmd.Flags().Bool("update-baseline", false, "rewrite the baseline file from this run's security findings")
+
 	// Push flags (ADR-025).
 	scanCmd.Flags().Bool("push", false, "upload scan results to CipherRadar portal after scan")
 	scanCmd.Flags().String("project", "", "project name for portal upload (required with --push)")
@@ -63,6 +84,9 @@ func init() {
 }
 
 func runScan(cmd *cobra.Command, args []string) error {
+	startedAt := time.Now()
+	lg := logger()
+
 	containerRef, _ := cmd.Flags().GetString("container")
 
 	// Validate mutually exclusive arguments: --container vs path.
@@ -72,6 +96,17 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if containerRef == "" && len(args) == 0 {
 		return fmt.Errorf("either a path argument or --container flag is required")
 	}
+
+	// Record scan root for path-redaction of absolute paths in log records.
+	if len(args) > 0 {
+		if abs, absErr := filepath.Abs(args[0]); absErr == nil {
+			lg.SetScanRoot(abs)
+		}
+	}
+	lg.Info("scan started",
+		"container", containerRef,
+		"path", firstArg(args),
+	)
 
 	// Auto-sync custom rules from portal if api_url is configured (D27).
 	syncCustomRules(cmd)
@@ -100,10 +135,26 @@ func runScan(cmd *cobra.Command, args []string) error {
 		StagedOnly: stagedOnly,
 	}
 
-	// Create scanner registry with all built-in scanners.
-	registry := scannerinit.DefaultRegistry()
+	// Load .cradar.yml (optional) so custom_wrappers can seed the registry
+	// with a CustomScanner. A missing / malformed config is a warning, not a
+	// fatal — the default registry still works.
+	scanCfg := loadScanConfig(cmd)
+
+	// Create scanner registry with all built-in scanners + any user-defined
+	// custom wrappers from config.
+	registry := scannerinit.DefaultRegistryWithConfig(scanCfg)
+	if scanCfg != nil && len(scanCfg.CustomWrappers) > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"Registered %d custom wrapper(s) from .cradar.yml\n",
+			len(scanCfg.CustomWrappers))
+	}
 
 	var result *types.ScanResult
+
+	// Tracks whether pass 2 actually executed (vs being skipped because
+	// opengrep was absent and not required). Bug 4 uses this to emit a
+	// hint when --only-inventory matches 0 findings.
+	pass2Ran := false
 
 	if containerRef != "" {
 		// Container image scanning mode.
@@ -114,6 +165,20 @@ func runScan(cmd *cobra.Command, args []string) error {
 	} else {
 		// Directory scanning mode.
 		targetPath := args[0]
+
+		// Bug 1: validate target exists and is a directory before walking.
+		// Without this, a typo'd path returned exit 0 + empty CBOM, masking
+		// broken CI configurations.
+		info, statErr := os.Stat(targetPath)
+		if statErr != nil {
+			if os.IsNotExist(statErr) {
+				return ExitErrorf(ExitConfig, "scan path does not exist: %s", targetPath)
+			}
+			return ExitErrorf(ExitConfig, "cannot stat scan path %s: %v", targetPath, statErr)
+		}
+		if !info.IsDir() {
+			return ExitErrorf(ExitConfig, "scan path is not a directory: %s", targetPath)
+		}
 
 		// If --staged-only, resolve staged file list from git.
 		if scanOpts.StagedOnly {
@@ -130,15 +195,26 @@ func runScan(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("scan failed: %w", err)
 		}
 
-		// Run Pass 2 (OpenGrep taint analysis) if requested.
+		// Run Pass 2 (OpenGrep taint analysis) if requested. When the user
+		// explicitly asked for pass 2 (via --deep or --passes) we hard-fail
+		// with ExitToolMissing if opengrep isn't installed — the user
+		// configured a check that can't actually run, and a soft skip would
+		// silently downgrade the scan. When pass 2 is only running because
+		// it's in the default set, we keep the legacy soft-skip behaviour.
 		if containsPass(passes, 2) {
 			rulesDir, _ := cmd.Flags().GetString("rules-dir")
 			if rulesDir == "" {
 				rulesDir = os.Getenv("CRADAR_RULES_DIR")
 			}
 
-			pass2Findings, pass2Err := runPass2(targetPath, rulesDir)
+			pass2Required := cmd.Flag("deep").Changed || cmd.Flag("passes").Changed
+			pass2Findings, pass2Err := runPass2(targetPath, rulesDir, pass2Required)
+			pass2Ran = pass2Err != nil || pass2Findings != nil
 			if pass2Err != nil {
+				var ee *ExitError
+				if errors.As(pass2Err, &ee) {
+					return pass2Err
+				}
 				result.Errors = append(result.Errors, types.ScanError{
 					File:    "",
 					Message: fmt.Sprintf("Pass 2 error: %v", pass2Err),
@@ -160,33 +236,69 @@ func runScan(cmd *cobra.Command, args []string) error {
 		fingerprint.ComputeFingerprint(&result.Findings[i], lang)
 	}
 
-	// Get the output format.
-	format, _ := cmd.Flags().GetString("format")
-	writer, err := output.WriterFactory(format)
+	// Apply rule-lifecycle and category filters (Phase C). Must run AFTER
+	// fingerprinting so baselined suppression (Phase D) gets stable IDs, and
+	// BEFORE output writers so every format sees the same kept set.
+	filterOpts, err := buildFilterOptions(cmd)
+	if err != nil {
+		return err
+	}
+	kept, filterStats := rulefilter.Apply(result.Findings, filterOpts)
+	result.Findings = kept
+	rulefilter.WarnDeprecated(cmd.ErrOrStderr(), filterStats, filterOpts.IncludeDeprecated)
+
+	// Bug 4: --only-inventory with no pass 2 deterministically returns 0
+	// because pass-1 AST findings don't carry rule-derived categories.
+	// Surface the cause so users don't think the flag is broken.
+	onlyInv, _ := cmd.Flags().GetBool("only-inventory")
+	categories, _ := cmd.Flags().GetStringSlice("category")
+	invRequested := onlyInv
+	for _, c := range categories {
+		if strings.EqualFold(c, "inventory") {
+			invRequested = true
+		}
+	}
+	if invRequested && !pass2Ran && len(result.Findings) == 0 {
+		fmt.Fprintln(cmd.ErrOrStderr(),
+			"Note: inventory filter matched 0 findings; inventory rules require Pass 2 (run 'cradar install-tools' or pass --passes 1,2).")
+	}
+
+	// Apply baseline suppression (Phase D). Runs after filter+fingerprint so
+	// every downstream writer and the --fail-on gate see the same reduced
+	// set. --update-baseline rewrites the file from the post-filter security
+	// findings and exits the gate early; --no-baseline skips suppression.
+	if err := applyBaseline(cmd, result); err != nil {
+		return err
+	}
+
+	// Resolve output destinations (ADR-037: repeatable --output).
+	// Precedence for each destination's format: extension dispatch >
+	// --format override (applied when exactly one output and --format set) >
+	// cfg.default_format > built-in fallback ("cyclonedx-json").
+	explicitFormat, _ := cmd.Flags().GetString("format")
+	outputPaths, _ := cmd.Flags().GetStringSlice("output")
+	cfgFormat := ""
+	if scanCfg != nil {
+		cfgFormat = scanCfg.Format
+	}
+
+	formats, err := writeOutputs(cmd, result, outputPaths, explicitFormat, cfgFormat)
 	if err != nil {
 		return err
 	}
 
-	// Determine output destination.
-	outputPath, _ := cmd.Flags().GetString("output")
-	dest := cmd.OutOrStdout()
-	if outputPath != "" {
-		f, err := os.Create(outputPath)
-		if err != nil {
-			return fmt.Errorf("cannot create output file: %w", err)
-		}
-		defer f.Close()
-		dest = f
-	}
-
-	// Write the output.
-	if err := writer.WriteScanResult(dest, result); err != nil {
-		return fmt.Errorf("writing output: %w", err)
-	}
-
-	// Validate output against CycloneDX 1.7 schema if requested.
+	// Validate output against CycloneDX 1.7 schema if requested. Runs once
+	// regardless of sink count — validation is format-independent and only
+	// meaningful when at least one destination produced cyclonedx-json.
 	validate, _ := cmd.Flags().GetBool("validate")
-	if validate && format == "cyclonedx-json" {
+	producedCycloneDX := false
+	for _, f := range formats {
+		if f == "cyclonedx-json" {
+			producedCycloneDX = true
+			break
+		}
+	}
+	if validate && producedCycloneDX {
 		bom := output.ConvertScanResult(result)
 		jsonBytes, err := json.MarshalIndent(bom, "", "  ")
 		if err != nil {
@@ -200,11 +312,24 @@ func runScan(cmd *cobra.Command, args []string) error {
 		if !valResult.Valid {
 			fmt.Fprintf(os.Stderr, "CycloneDX 1.7 schema validation FAILED:\n")
 			for _, e := range valResult.Errors {
-				fmt.Fprintf(os.Stderr, "  %s: %s\n", e.Path, e.Message)
+				fmt.Fprintf(os.Stderr, "  %s: %s\n", e.Path, formatUserMessage(e))
+				attrs := []any{
+					"pointer", e.Path,
+					"message", e.Message,
+					"keyword", e.Keyword,
+				}
+				if e.Actual != "" {
+					attrs = append(attrs, "actual", e.Actual)
+				}
+				if len(e.Expected) > 0 {
+					attrs = append(attrs, "expected", e.Expected)
+				}
+				lg.Error("schema_validation", attrs...)
 			}
-			return fmt.Errorf("schema validation failed with %d errors", len(valResult.Errors))
+			return ExitErrorf(ExitConfig, "schema validation failed with %d errors", len(valResult.Errors))
 		}
 		fmt.Fprintln(os.Stderr, "CycloneDX 1.7 schema validation PASSED")
+		lg.Info("schema_validation_passed")
 	}
 
 	// Push scan results to portal if --push is set (ADR-025).
@@ -219,11 +344,135 @@ func runScan(cmd *cobra.Command, args []string) error {
 	failOn, _ := cmd.Flags().GetString("fail-on")
 	if failOn != "" {
 		if err := checkFailOn(result.Findings, failOn); err != nil {
+			lg.Warn("fail-on triggered",
+				"failOn", failOn,
+				"findings", len(result.Findings),
+				"elapsed_ms", time.Since(startedAt).Milliseconds(),
+			)
 			return err
 		}
 	}
 
+	lg.Info("scan complete",
+		"findings", len(result.Findings),
+		"errors", len(result.Errors),
+		"elapsed_ms", time.Since(startedAt).Milliseconds(),
+	)
 	return nil
+}
+
+// firstArg returns the first positional argument or an empty string. Used
+// to keep log records stable even when args is empty (e.g. --container mode).
+func firstArg(args []string) string {
+	if len(args) == 0 {
+		return ""
+	}
+	return args[0]
+}
+
+// writeOutputs resolves every destination (stdout or file) to a format and
+// writes the scan result. With no --output paths, writes once to stdout in
+// explicit/cfg/fallback order. With paths, each path's format is inferred
+// from its extension; --format is only honored when there is exactly one
+// output (otherwise it's ambiguous which file it applies to).
+//
+// Returns the resolved format for each destination so callers can decide
+// whether schema validation is applicable.
+func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, explicitFormat, cfgFormat string) ([]string, error) {
+	// File sinks always fall back to cyclonedx-json (the canonical CBOM
+	// artifact). Stdout falls back to text-on-TTY / cyclonedx-json-on-pipe
+	// so `cradar scan ./app` prints a readable summary in a terminal and
+	// writes valid JSON when redirected.
+	const fileFallback = "cyclonedx-json"
+
+	if len(paths) == 0 {
+		fmtName := output.ResolveOutputFormat("", explicitFormat, cfgFormat, output.DefaultStdoutFormat())
+		if err := output.ValidateFormat(fmtName); err != nil {
+			return nil, ExitErrorf(ExitConfig, "%v", err)
+		}
+		w, err := output.WriterFactory(fmtName)
+		if err != nil {
+			return nil, err
+		}
+		if err := w.WriteScanResult(cmd.OutOrStdout(), result); err != nil {
+			return nil, fmt.Errorf("writing output: %w", err)
+		}
+		return []string{fmtName}, nil
+	}
+
+	// --format only applies to a single output; ambiguous with multiple sinks.
+	perPathExplicit := ""
+	if len(paths) == 1 {
+		perPathExplicit = explicitFormat
+	} else if explicitFormat != "" {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"WARNING: --format %q ignored: multiple --output paths provided, format is inferred per file extension\n",
+			explicitFormat)
+	}
+
+	formats := make([]string, 0, len(paths))
+	for _, p := range paths {
+		fmtName := output.ResolveOutputFormat(p, perPathExplicit, cfgFormat, fileFallback)
+		if err := output.ValidateFormat(fmtName); err != nil {
+			return nil, ExitErrorf(ExitConfig, "%v (path: %s)", err, p)
+		}
+		w, err := output.WriterFactory(fmtName)
+		if err != nil {
+			return nil, err
+		}
+		f, err := os.Create(p)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create output file %s: %w", p, err)
+		}
+		if err := w.WriteScanResult(f, result); err != nil {
+			f.Close()
+			return nil, fmt.Errorf("writing %s: %w", p, err)
+		}
+		if err := f.Close(); err != nil {
+			return nil, fmt.Errorf("closing %s: %w", p, err)
+		}
+		formats = append(formats, fmtName)
+	}
+	return formats, nil
+}
+
+// formatUserMessage renders a ValidationError for the human-facing stderr
+// line. When the underlying schema error exposes enum/const/required hints
+// we append them so the message is actionable ("expected one of [aes, rsa,
+// ...]; got concatkdf") rather than a bare "does not match schema".
+func formatUserMessage(e validation.ValidationError) string {
+	base := e.Message
+	switch e.Keyword {
+	case "enum":
+		if len(e.Expected) > 0 {
+			return fmt.Sprintf("%s (expected one of [%s]; got %s)",
+				base, strings.Join(trimForMessage(e.Expected, 8), ", "), e.Actual)
+		}
+	case "const":
+		if len(e.Expected) > 0 {
+			return fmt.Sprintf("%s (expected %s; got %s)", base, e.Expected[0], e.Actual)
+		}
+	case "type":
+		if len(e.Expected) > 0 {
+			return fmt.Sprintf("%s (expected type %s; got %s)",
+				base, strings.Join(e.Expected, "|"), e.Actual)
+		}
+	case "required":
+		if len(e.Expected) > 0 {
+			return fmt.Sprintf("%s (missing: %s)", base, strings.Join(e.Expected, ", "))
+		}
+	}
+	return base
+}
+
+func trimForMessage(s []string, maxN int) []string {
+	if len(s) <= maxN {
+		return s
+	}
+	out := make([]string, 0, maxN+1)
+	out = append(out, s[:maxN]...)
+	out = append(out, fmt.Sprintf("... %d more", len(s)-maxN))
+	return out
 }
 
 // runPush uploads scan results to the CipherRadar portal.
@@ -317,11 +566,18 @@ func containsPass(passes []int, pass int) bool {
 }
 
 // runPass2 runs OpenGrep Pass 2 analysis if the binary is available.
-// Returns nil findings (not an error) if OpenGrep is not installed.
-// If no rules directory is specified, uses embedded rules extracted to a temp dir.
-func runPass2(target string, rulesDir string) ([]types.Finding, error) {
+// When required=true and OpenGrep is missing, returns an ExitToolMissing
+// error so CI distinguishes "tool not installed" (exit 4) from "findings
+// above threshold" (exit 1). When required=false, emits the legacy
+// warning and returns nil findings so default scans still work without
+// opengrep installed.
+func runPass2(target, rulesDir string, required bool) ([]types.Finding, error) {
 	runner := opengrep.NewRunner()
 	if runner == nil || !runner.Available() {
+		if required {
+			return nil, ExitErrorf(ExitToolMissing,
+				"Pass 2 requires opengrep, which was not found on PATH. Run 'cradar install-tools' or use the cradar-full binary.")
+		}
 		fmt.Fprintln(os.Stderr, "Pass 2 skipped — opengrep not found. Run 'cradar install-tools' or use cradar-full.")
 		return nil, nil
 	}
@@ -369,21 +625,226 @@ var scanSeverityRank = map[types.Severity]int{
 
 // checkFailOn returns an error if any finding meets or exceeds the given
 // severity threshold.
+// checkFailOn aggregates every finding at or above the --fail-on threshold
+// and returns a single grouped ExitError listing per-severity counts plus
+// the first 5 offenders as concrete examples. Earlier versions stopped at
+// the first hit, silently dropping the remaining offenders — confusing on
+// large codebases where the user wants the full picture in one pass.
 func checkFailOn(findings []types.Finding, failOn string) error {
 	threshold, ok := scanSeverityRank[types.Severity(strings.ToLower(failOn))]
 	if !ok {
-		return fmt.Errorf("invalid --fail-on severity: %q (valid: critical, high, medium, low, info)", failOn)
+		return ExitErrorf(ExitConfig, "invalid --fail-on severity: %q (valid: critical, high, medium, low, info)", failOn)
 	}
 
+	type offender struct {
+		name     string
+		severity types.Severity
+		location string
+	}
+	var hits []offender
+	countBySeverity := map[types.Severity]int{}
 	for _, f := range findings {
 		rank, ok := scanSeverityRank[f.Severity]
 		if !ok {
 			continue
 		}
-		if rank >= threshold {
-			return fmt.Errorf("scan failed: finding %q has severity %s (fail-on threshold: %s)",
-				f.Name, f.Severity, failOn)
+		if rank < threshold {
+			continue
 		}
+		countBySeverity[f.Severity]++
+		hits = append(hits, offender{
+			name:     f.Name,
+			severity: f.Severity,
+			location: fmt.Sprintf("%s:%d", f.Location.File, f.Location.StartLine),
+		})
+	}
+	if len(hits) == 0 {
+		return nil
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("scan failed: %d finding(s) at or above %s", len(hits), failOn))
+	// Per-severity counts in fixed order so output is stable.
+	for _, s := range []types.Severity{types.SeverityCritical, types.SeverityHigh, types.SeverityMedium, types.SeverityLow} {
+		if n := countBySeverity[s]; n > 0 {
+			sb.WriteString(fmt.Sprintf(" [%s: %d]", s, n))
+		}
+	}
+	sb.WriteString("\n  examples:")
+	shown := hits
+	if len(shown) > 5 {
+		shown = shown[:5]
+	}
+	for _, o := range shown {
+		sb.WriteString(fmt.Sprintf("\n    - %s (%s) at %s", o.name, o.severity, o.location))
+	}
+	if len(hits) > 5 {
+		sb.WriteString(fmt.Sprintf("\n    ... %d more", len(hits)-5))
+	}
+	return &ExitError{Code: ExitFindings, Err: fmt.Errorf("%s", sb.String())}
+}
+
+// buildFilterOptions resolves rule-lifecycle filter flags + .cradar.yml
+// defaults into rulefilter.Options. Precedence: CLI flag (if Changed) >
+// .cradar.yml rule_filters > defaults.
+//
+// --only-inventory and --only-security are sugar over --category:
+//   - both set (or neither) → no category restriction
+//   - only one → that single category
+func buildFilterOptions(cmd *cobra.Command) (rulefilter.Options, error) {
+	cfg := &config.Config{}
+	if configPath, _ := cmd.Flags().GetString("config"); configPath != "" {
+		loaded, err := config.LoadConfig(configPath)
+		if err != nil {
+			// Non-fatal — filters still work with flag-only input.
+			fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: rule filter: could not load %s: %v\n", configPath, err)
+		} else if loaded != nil {
+			cfg = loaded
+		}
+	}
+
+	opts := rulefilter.Options{}
+	if cfg.RuleFilters != nil {
+		rf := cfg.RuleFilters
+		opts.Categories = toCategories(rf.Categories)
+		opts.Rules = append([]string(nil), rf.Rules...)
+		opts.DisabledRules = append([]string(nil), rf.DisabledRules...)
+		opts.IncludeRules = append([]string(nil), rf.IncludeRules...)
+		opts.IncludeExperimental = rf.IncludeExperimental
+		opts.IncludeNoisy = rf.IncludeNoisy
+		opts.IncludeDeprecated = rf.IncludeDeprecated
+	}
+
+	// CLI flags override config. Only overwrite when flag was explicitly set
+	// (Changed) so that an unset flag doesn't clobber a config value.
+	if cmd.Flag("category").Changed {
+		cats, _ := cmd.Flags().GetStringSlice("category")
+		opts.Categories = toCategories(cats)
+	}
+	onlyInv, _ := cmd.Flags().GetBool("only-inventory")
+	onlySec, _ := cmd.Flags().GetBool("only-security")
+	if onlyInv && !onlySec {
+		opts.Categories = []types.Category{types.CategoryInventory}
+	} else if onlySec && !onlyInv {
+		opts.Categories = []types.Category{types.CategorySecurity}
+	}
+	// Both/neither → leave Categories as-is (both or unrestricted).
+
+	if cmd.Flag("rules").Changed {
+		v, _ := cmd.Flags().GetStringSlice("rules")
+		opts.Rules = v
+	}
+	if cmd.Flag("disable-rule").Changed {
+		v, _ := cmd.Flags().GetStringSlice("disable-rule")
+		opts.DisabledRules = v
+	}
+	if cmd.Flag("include-rule").Changed {
+		v, _ := cmd.Flags().GetStringSlice("include-rule")
+		opts.IncludeRules = v
+	}
+	if cmd.Flag("include-experimental").Changed {
+		opts.IncludeExperimental, _ = cmd.Flags().GetBool("include-experimental")
+	}
+	if cmd.Flag("include-noisy").Changed {
+		opts.IncludeNoisy, _ = cmd.Flags().GetBool("include-noisy")
+	}
+	if cmd.Flag("include-deprecated").Changed {
+		opts.IncludeDeprecated, _ = cmd.Flags().GetBool("include-deprecated")
+	}
+
+	// Validate category values so a typo fails loudly instead of silently
+	// dropping all findings.
+	for _, c := range opts.Categories {
+		if c != types.CategoryInventory && c != types.CategorySecurity {
+			return rulefilter.Options{}, ExitErrorf(ExitConfig, "invalid --category value %q (valid: inventory, security)", c)
+		}
+	}
+	return opts, nil
+}
+
+// toCategories converts raw string values to types.Category. Unknown strings
+// are passed through so validation can flag them; empty entries are dropped.
+func toCategories(xs []string) []types.Category {
+	if len(xs) == 0 {
+		return nil
+	}
+	out := make([]types.Category, 0, len(xs))
+	for _, s := range xs {
+		s = strings.TrimSpace(strings.ToLower(s))
+		if s == "" {
+			continue
+		}
+		out = append(out, types.Category(s))
+	}
+	return out
+}
+
+// loadScanConfig reads .cradar.yml (path from --config) for scan-time uses
+// — currently custom_wrappers seeding. Returns nil when no config path is
+// set or the file cannot be read; a nil return short-circuits all config-
+// driven features without surfacing an error (config is always optional).
+func loadScanConfig(cmd *cobra.Command) *config.Config {
+	configPath, _ := cmd.Flags().GetString("config")
+	if configPath == "" {
+		return nil
+	}
+	cfg, err := config.LoadConfig(configPath)
+	if err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"WARNING: could not load config %s: %v\n", configPath, err)
+		return nil
+	}
+	return cfg
+}
+
+// applyBaseline handles baseline load/apply/update for a scan run. On success
+// it mutates result.Findings to the kept subset (removing any suppressed
+// security finding). --update-baseline rewrites the baseline from this run's
+// eligible findings; --no-baseline short-circuits suppression. Stale entries
+// and suppression counts are reported on stderr so CI logs surface drift.
+func applyBaseline(cmd *cobra.Command, result *types.ScanResult) error {
+	path, _ := cmd.Flags().GetString("baseline-file")
+	noBaseline, _ := cmd.Flags().GetBool("no-baseline")
+	update, _ := cmd.Flags().GetBool("update-baseline")
+
+	if update {
+		b, skipped := baseline.BuildFromSecurityFindings(result.Findings, Version)
+		if err := baseline.Save(path, b); err != nil {
+			return fmt.Errorf("writing baseline: %w", err)
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"Baseline written to %s: %d fingerprint(s)", path, len(b.Fingerprints))
+		if skipped > 0 {
+			fmt.Fprintf(cmd.ErrOrStderr(),
+				" (%d finding(s) skipped — missing fingerprint)", skipped)
+		}
+		fmt.Fprintln(cmd.ErrOrStderr())
+		return nil
+	}
+
+	if noBaseline {
+		return nil
+	}
+
+	b, err := baseline.Load(path)
+	if err != nil {
+		return err
+	}
+	if b == nil {
+		return nil
+	}
+
+	res := baseline.Apply(result.Findings, b)
+	result.Findings = res.Kept
+
+	if res.SuppressedCount > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"Baseline suppressed %d finding(s) (from %s)\n", res.SuppressedCount, path)
+	}
+	if len(res.Stale) > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"Baseline has %d stale entry(ies) — code may have been fixed or rules removed. Run with --update-baseline to clean up.\n",
+			len(res.Stale))
 	}
 	return nil
 }

@@ -11,6 +11,9 @@ rules:
       cbom-asset-type: related-crypto-material
       confidence: high
       quantum-relevant: true
+      maturity: experimental
+      default_enabled: false
+      noise_risk: high
     patterns:
       - pattern: |
           unsigned char $KEY[] = { ... };
@@ -41,6 +44,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: medium
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: rand()
       - pattern: srand(...)
@@ -61,6 +67,9 @@ rules:
       cbom-asset-type: algorithm
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     patterns:
       - pattern: DES_set_key(...)
       - pattern: DES_set_key_checked(...)
@@ -86,6 +95,9 @@ rules:
       cbom-asset-type: library
       confidence: high
       quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
     pattern-either:
       - pattern: |
           #include <openssl/$X>

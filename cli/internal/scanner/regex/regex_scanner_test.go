@@ -57,10 +57,15 @@ func TestPEMDetection(t *testing.T) {
 		}
 	}
 
-	// Verify confidence is always LOW for regex scanner
+	// Header-based findings should be LOW confidence. Parsed X.509 certs
+	// (rule cbom-regex-pem-certificate-parsed) are HIGH because parsing
+	// succeeded — exclude those from this assertion.
 	for _, f := range findings {
+		if strings.HasSuffix(f.RuleID, "-parsed") || strings.HasSuffix(f.RuleID, "-parse") {
+			continue
+		}
 		if f.Confidence != types.ConfidenceLow {
-			t.Errorf("expected LOW confidence for finding %q, got %s", f.Name, f.Confidence)
+			t.Errorf("expected LOW confidence for finding %q (rule %s), got %s", f.Name, f.RuleID, f.Confidence)
 		}
 	}
 

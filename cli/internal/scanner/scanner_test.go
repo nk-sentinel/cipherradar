@@ -3,6 +3,7 @@ package scanner
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -336,13 +337,17 @@ func TestScanDirUniversalSkippedWhenLanguageScannerExists(t *testing.T) {
 }
 
 // recordingMockScanner wraps a mockScanner and records which files it is called with.
+// The mutex makes appends safe when ScanDir invokes scanners across goroutines.
 type recordingMockScanner struct {
 	*mockScanner
 	calls *[]string
+	mu    sync.Mutex
 }
 
 func (r *recordingMockScanner) ScanFile(path string, content []byte) ([]types.Finding, error) {
+	r.mu.Lock()
 	*r.calls = append(*r.calls, path)
+	r.mu.Unlock()
 	return r.mockScanner.ScanFile(path, content)
 }
 

@@ -4,6 +4,98 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.2.0-rc.2 — 2026-05-18
+
+### Bug fixes
+
+- **Critical:** Pass 2 silently produced 0 findings when any rule file
+  in the rules directory failed to load — restored via per-file
+  pre-validation, skip-and-warn for broken files, and surfaced
+  `output.Errors` from opengrep. (Bug 6)
+- **High:** `cradar scan` on a missing or non-directory path no
+  longer returns exit 0 + empty CycloneDX — now exits 3 with a
+  specific message. (Bug 1)
+- **High:** `cradar install-tools` fixed for linux/amd64 (was 404 on
+  every fresh install) and now verifies SHA-256 of downloaded
+  binaries against the GitHub Releases API `digest` field. See
+  ADR-038. (Bug 5)
+- **Medium:** OpenGrep findings' `RuleID` no longer carries the
+  directory-derived namespace prefix; `--rules` and `--disable-rule`
+  match opengrep findings correctly. (Bug 8)
+- **Medium:** `--category bogus` now returns exit 3 (was exit 1).
+  (Bug 2)
+- **Low:** `--only-inventory` matched 0 findings without pass 2 emits
+  a one-line hint pointing at `install-tools`. (Bug 4)
+- **Low:** `--debug` and `--log-include-source` now produce
+  per-scanner lifecycle events and per-finding emit events; source
+  snippets are included only when the flag is set, truncated at 200
+  chars. (Bug 3)
+
+---
+
+## 0.2.0-rc.1 — CLI Improvements Prerelease (2026-04-15)
+
+First prerelease cut from `feature/cli-improvements`. Groups four
+workstream items delivered against `docs/cli-improvements-plan.md`.
+
+### Added
+- **Rule lifecycle + category filters + baseline** (item 1, ADR-035):
+  `--category`, `--only-inventory`, `--only-security`, `--rules`,
+  `--disable-rule`, `--include-rule`, `--include-experimental`,
+  `--include-noisy`, `--include-deprecated`. `.cradar-baseline.json`
+  with `--update-baseline` / `--no-baseline`. New `cradar rules list`
+  and `cradar rules explain` subcommands.
+- **Structured logging + validator enrichment** (item 2, ADR-036):
+  `cli/pkg/log` (stdlib `log/slog`), per-run JSONL at
+  `~/.cradar/logs/cradar-<ts>-<pid>.log.jsonl`, retention cap of 10,
+  path redaction against scan root. Flags: `--verbose`, `--debug`,
+  `--quiet`, `--log-file`, `--log-format`, `--log-include-source`.
+  Validator now surfaces keyword / actual / expected per leaf error.
+- **Exit-code contract** (ADR-036): typed `ExitError` with documented
+  codes 0 (clean), 1 (findings at/above `--fail-on`), 2 (warnings),
+  3 (config/schema error), 4 (required tool missing). `--fail-on`
+  now aggregates every offender instead of stopping at the first.
+- **Multi-output formats** (item 3, ADR-037): `--output` is
+  repeatable; format inferred from file extension (`.cbom.json`,
+  `.cdx.json`, `.cyclonedx.json`, `.sonar.json`, `.sarif`, `.pdf`,
+  `.txt`). New `table` writer for row-level findings. TTY-aware
+  stdout default (text on terminal, cyclonedx-json on pipe).
+  `.cradar.yml` `default_format` is finally honored.
+- **Quick-wins bundle** (item 4): `cradar completion` for
+  bash/zsh/fish/powershell. `cradar init` scaffolds `.cradar.yml`
+  and `policy.cradar.yml` with commented defaults (supports `--force`
+  and `--dir`). `--deep` / `--passes 2` now exits code 4 when
+  opengrep is missing, matching the exit-code contract.
+
+### Changed
+- Custom wrappers configured via `.cradar.yml` `custom_wrappers:` are
+  finally registered in `scannerinit/defaults.go` (previously a silent
+  no-op).
+- Schema validator walks the full `jsonschema.ValidationError.Causes`
+  tree and emits only leaf errors with JSON Pointer paths.
+- Default scan no longer runs the ~9 `hardcoded-*` rule family (moved
+  to `maturity: experimental`, `default_enabled: false`); opt in via
+  `--include-experimental --include-noisy`.
+
+### Fixed
+- `--verbose` flag now actually does something (was dead-declared on
+  `rootCmd` with no reader).
+- `os.Exit` calls in `policy.go` replaced with typed exits so deferred
+  cleanup (temp dirs, log flushes) runs on failure.
+- Single-argument `--output` no longer silently drops later `-o`
+  values; the flag is now a proper `StringSlice`.
+
+### Removed
+- `contains` / `searchString` hand-rolled helpers in `hook.go`;
+  replaced with `strings.Contains`.
+
+### ADRs
+- [ADR-035](docs/decisions/ADR-035-rule-lifecycle-and-deprecation-policy.md) — Rule Lifecycle & Deprecation Policy.
+- [ADR-036](docs/decisions/ADR-036-structured-logging-and-exit-codes.md) — Structured Logging, Redaction Defaults, Exit-Code Contract.
+- [ADR-037](docs/decisions/ADR-037-multi-output-and-format-dispatch.md) — Multi-Output Sinks, Extension Dispatch, TTY-Aware Defaults.
+
+---
+
 ## Phase 4 — Differentiation (Complete — 2026-03-22)
 
 ### Workstream A — CLI: Binary Scanning + Pre-commit Hook + Custom Source/Sink Config (Go)

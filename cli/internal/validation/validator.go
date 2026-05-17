@@ -3,9 +3,11 @@ package validation
 import (
 	"embed"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/santhosh-tekuri/jsonschema/v6"
+	"github.com/santhosh-tekuri/jsonschema/v6/kind"
 )
 
 //go:embed schema/bom-1.7.schema.json
@@ -31,10 +33,16 @@ type ValidationResult struct {
 	Errors []ValidationError
 }
 
-// ValidationError captures a single schema validation issue.
+// ValidationError captures a single schema validation issue. Expected/Actual
+// are filled in when the underlying jsonschema error kind exposes them —
+// currently Enum, Const, and Type — so consumers can surface actionable
+// messages like "expected one of [aes, rsa, ...]; got concatkdf".
 type ValidationError struct {
-	Path    string
-	Message string
+	Path     string
+	Message  string
+	Keyword  string   // "enum", "const", "type", "required", etc.
+	Actual   string   // JSON-encoded rendering of the offending value
+	Expected []string // allowed values (for enum/type), single entry for const
 }
 
 // compiledSchema is lazily initialized on first use.
@@ -107,29 +115,87 @@ func ValidateCycloneDXJSON(jsonData []byte) (*ValidationResult, error) {
 	}, nil
 }
 
-// collectErrors flattens a ValidationError tree into a list of ValidationError structs.
+// collectErrors walks a ValidationError tree and returns only leaf errors
+// (nodes with no Causes). Each leaf is enriched with keyword/expected/actual
+// when the underlying kind exposes them — for Enum, Const, and Type errors
+// this produces actionable output like "expected one of [aes, rsa, ...]".
 func collectErrors(verr *jsonschema.ValidationError) []ValidationError {
-	basic := verr.BasicOutput()
-	var errors []ValidationError
-	for _, unit := range basic.Errors {
-		if unit.Error == nil {
-			continue
-		}
-		path := unit.InstanceLocation
-		if path == "" {
-			path = "/"
-		}
-		errors = append(errors, ValidationError{
-			Path:    path,
-			Message: unit.Error.String(),
-		})
-	}
-	// If no leaf errors found, use the top-level error message.
-	if len(errors) == 0 {
-		errors = append(errors, ValidationError{
+	var out []ValidationError
+	walkCauses(verr, &out)
+	if len(out) == 0 {
+		out = append(out, ValidationError{
 			Path:    "/",
 			Message: verr.Error(),
 		})
 	}
-	return errors
+	// Sort deterministically so test output is stable.
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Path != out[j].Path {
+			return out[i].Path < out[j].Path
+		}
+		return out[i].Keyword < out[j].Keyword
+	})
+	return out
+}
+
+func walkCauses(e *jsonschema.ValidationError, out *[]ValidationError) {
+	if e == nil {
+		return
+	}
+	if len(e.Causes) == 0 {
+		*out = append(*out, convertLeaf(e))
+		return
+	}
+	for _, c := range e.Causes {
+		walkCauses(c, out)
+	}
+}
+
+func convertLeaf(e *jsonschema.ValidationError) ValidationError {
+	path := "/" + strings.Join(e.InstanceLocation, "/")
+	if len(e.InstanceLocation) == 0 {
+		path = "/"
+	}
+	ve := ValidationError{
+		Path:    path,
+		Message: e.Error(),
+	}
+	switch k := e.ErrorKind.(type) {
+	case *kind.Enum:
+		ve.Keyword = "enum"
+		ve.Actual = renderValue(k.Got)
+		for _, v := range k.Want {
+			ve.Expected = append(ve.Expected, renderValue(v))
+		}
+	case *kind.Const:
+		ve.Keyword = "const"
+		ve.Actual = renderValue(k.Got)
+		ve.Expected = []string{renderValue(k.Want)}
+	case *kind.Type:
+		ve.Keyword = "type"
+		ve.Actual = k.Got
+		ve.Expected = append(ve.Expected, k.Want...)
+	case *kind.Required:
+		ve.Keyword = "required"
+		ve.Expected = append(ve.Expected, k.Missing...)
+	case *kind.Format:
+		ve.Keyword = "format"
+		ve.Expected = []string{k.Want}
+		ve.Actual = renderValue(k.Got)
+	case *kind.AdditionalProperties:
+		ve.Keyword = "additionalProperties"
+		ve.Actual = strings.Join(k.Properties, ",")
+	}
+	return ve
+}
+
+func renderValue(v any) string {
+	switch t := v.(type) {
+	case nil:
+		return "null"
+	case string:
+		return t
+	default:
+		return fmt.Sprintf("%v", t)
+	}
 }

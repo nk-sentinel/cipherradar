@@ -1,0 +1,10 @@
+rules:
+  - id: cbom-fixture-broken
+    pattern: |
+      something(...)
+    # 'message' is required by the schema — its absence triggers
+    # InvalidRuleSchemaError when opengrep validates this file.
+    languages: [python]
+    severity: WARNING
+    metadata:
+      category: security

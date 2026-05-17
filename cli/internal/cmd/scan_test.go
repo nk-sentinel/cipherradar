@@ -3,10 +3,13 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 )
 
 func TestParsePasses(t *testing.T) {
@@ -17,8 +20,10 @@ func TestParsePasses(t *testing.T) {
 	}{
 		{"1", []int{1}, false},
 		{"1,2", []int{1, 2}, false},
-		{"1,2,3", []int{1, 2, 3}, false},
-		{"1, 2, 3", []int{1, 2, 3}, false},
+		{"1, 2", []int{1, 2}, false},
+		// Pass 3 removed per ADR-033 (Joern dropped, all patterns covered by OpenGrep).
+		{"1,2,3", nil, true},
+		{"3", nil, true},
 		{"", nil, true},
 		{"0", nil, true},
 		{"4", nil, true},
@@ -115,11 +120,14 @@ h = hashlib.sha256(b"hello")
 	}
 
 	output := buf.String()
-	if !strings.Contains(output, "CipherRadar Scan Results") {
-		t.Error("text output should contain 'CipherRadar Scan Results'")
+	if !strings.Contains(output, "CipherRadar") {
+		t.Error("text output should contain 'CipherRadar' in the header")
 	}
-	if !strings.Contains(output, "1 scanned") {
-		t.Error("text output should mention 1 file scanned")
+	if !strings.Contains(output, "SCAN COMPLETE") {
+		t.Error("text output should contain 'SCAN COMPLETE' banner")
+	}
+	if !strings.Contains(output, "Python") {
+		t.Error("text output should list Python in language breakdown")
 	}
 }
 
@@ -173,5 +181,105 @@ func TestScanCommand_PushFlagRegistered(t *testing.T) {
 	pushFlag := scanCmd.Flags().Lookup("push")
 	if pushFlag != nil && pushFlag.DefValue != "false" {
 		t.Errorf("--push default = %q, want %q", pushFlag.DefValue, "false")
+	}
+}
+
+func TestScanCommand_BadCategoryExitsConfigError(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "a.py"), []byte("x = 1\n"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", tmpDir, "--category", "bogus"})
+
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for invalid --category, got nil")
+	}
+	var ee *ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != ExitConfig {
+		t.Errorf("expected ExitConfig (%d), got %d", ExitConfig, ee.Code)
+	}
+	if !strings.Contains(err.Error(), "bogus") {
+		t.Errorf("error should mention the bad value: %v", err)
+	}
+}
+
+func TestScanCommand_OnlyInventoryHintWhenPass2Skipped(t *testing.T) {
+	// Only meaningful when opengrep is absent — otherwise pass 2 would run.
+	if opengrep.NewRunner() != nil {
+		t.Skip("opengrep is installed; this test requires it absent")
+	}
+
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "a.py"), []byte("x = 1\n"), 0644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", tmpDir, "--only-inventory"})
+
+	_ = rootCmd.Execute()
+
+	if !strings.Contains(buf.String(), "inventory rules require Pass 2") {
+		t.Errorf("expected --only-inventory hint in output, got:\n%s", buf.String())
+	}
+}
+
+func TestScanCommand_MissingPathExitsConfigError(t *testing.T) {
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", "/tmp/does-not-exist-" + t.Name()})
+
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for missing path, got nil")
+	}
+	var ee *ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != ExitConfig {
+		t.Errorf("expected ExitConfig (%d), got %d", ExitConfig, ee.Code)
+	}
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("error should explain missing path: %v", err)
+	}
+}
+
+func TestScanCommand_NonDirectoryPathExitsConfigError(t *testing.T) {
+	tmp := t.TempDir()
+	filePath := filepath.Join(tmp, "a-file.txt")
+	if err := os.WriteFile(filePath, []byte("x"), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", filePath})
+
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for non-directory path, got nil")
+	}
+	var ee *ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != ExitConfig {
+		t.Errorf("expected ExitConfig (%d), got %d", ExitConfig, ee.Code)
+	}
+	if !strings.Contains(err.Error(), "not a directory") {
+		t.Errorf("error should mention 'not a directory': %v", err)
 	}
 }

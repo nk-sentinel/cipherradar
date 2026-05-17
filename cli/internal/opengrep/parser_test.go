@@ -1,6 +1,7 @@
 package opengrep
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -313,6 +314,193 @@ func TestMapAssetType(t *testing.T) {
 	}
 }
 
+// sampleLifecycleJSON exercises the lifecycle metadata fields: category,
+// maturity, default_enabled, noise_risk. Three results cover:
+//   - full lifecycle metadata set (inventory, stable, low, true)
+//   - experimental + noisy + default-off
+//   - metadata fully absent (exercises forward-compat defaults)
+const sampleLifecycleJSON = `{
+  "results": [
+    {
+      "check_id": "cbom-python-rsa-inventory",
+      "path": "app/crypto.py",
+      "start": {"line": 1, "col": 1},
+      "end": {"line": 1, "col": 10},
+      "extra": {
+        "message": "RSA key generation",
+        "severity": "INFO",
+        "metadata": {
+          "cbom-asset-type": "algorithm",
+          "category": "inventory",
+          "maturity": "stable",
+          "default_enabled": true,
+          "noise_risk": "low"
+        }
+      }
+    },
+    {
+      "check_id": "cbom-python-hardcoded-key-cipher",
+      "path": "app/secrets.py",
+      "start": {"line": 5, "col": 1},
+      "end": {"line": 5, "col": 20},
+      "extra": {
+        "message": "Hardcoded key",
+        "severity": "WARNING",
+        "metadata": {
+          "cbom-asset-type": "related-crypto-material",
+          "category": "security",
+          "maturity": "experimental",
+          "default_enabled": false,
+          "noise_risk": "high"
+        }
+      }
+    },
+    {
+      "check_id": "cbom-legacy-rule-no-lifecycle",
+      "path": "legacy/old.py",
+      "start": {"line": 1, "col": 1},
+      "end": {"line": 1, "col": 5},
+      "extra": {
+        "message": "Legacy rule missing lifecycle metadata",
+        "severity": "INFO",
+        "metadata": {
+          "cbom-asset-type": "algorithm"
+        }
+      }
+    }
+  ],
+  "errors": []
+}`
+
+func TestParseResultsLifecycleMetadata(t *testing.T) {
+	findings, err := ParseResults([]byte(sampleLifecycleJSON))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(findings) != 3 {
+		t.Fatalf("expected 3 findings, got %d", len(findings))
+	}
+
+	// Result 0: full lifecycle metadata, inventory/stable/low/enabled.
+	if findings[0].Category != types.CategoryInventory {
+		t.Errorf("findings[0].Category = %q, want %q", findings[0].Category, types.CategoryInventory)
+	}
+	if findings[0].Maturity != types.MaturityStable {
+		t.Errorf("findings[0].Maturity = %q, want %q", findings[0].Maturity, types.MaturityStable)
+	}
+	if findings[0].NoiseRisk != types.NoiseRiskLow {
+		t.Errorf("findings[0].NoiseRisk = %q, want %q", findings[0].NoiseRisk, types.NoiseRiskLow)
+	}
+	if !findings[0].DefaultEnabled {
+		t.Errorf("findings[0].DefaultEnabled = false, want true")
+	}
+
+	// Result 1: experimental / noisy / default-off.
+	if findings[1].Category != types.CategorySecurity {
+		t.Errorf("findings[1].Category = %q, want %q", findings[1].Category, types.CategorySecurity)
+	}
+	if findings[1].Maturity != types.MaturityExperimental {
+		t.Errorf("findings[1].Maturity = %q, want %q", findings[1].Maturity, types.MaturityExperimental)
+	}
+	if findings[1].NoiseRisk != types.NoiseRiskHigh {
+		t.Errorf("findings[1].NoiseRisk = %q, want %q", findings[1].NoiseRisk, types.NoiseRiskHigh)
+	}
+	if findings[1].DefaultEnabled {
+		t.Errorf("findings[1].DefaultEnabled = true, want false")
+	}
+
+	// Result 2: lifecycle metadata absent — defaults should apply.
+	// Unset category → security (conservative).
+	// Unset maturity → stable (forward-compat).
+	// Unset noise_risk → low.
+	// Unset default_enabled → true (forward-compat).
+	if findings[2].Category != types.CategorySecurity {
+		t.Errorf("findings[2].Category (default) = %q, want %q", findings[2].Category, types.CategorySecurity)
+	}
+	if findings[2].Maturity != types.MaturityStable {
+		t.Errorf("findings[2].Maturity (default) = %q, want %q", findings[2].Maturity, types.MaturityStable)
+	}
+	if findings[2].NoiseRisk != types.NoiseRiskLow {
+		t.Errorf("findings[2].NoiseRisk (default) = %q, want %q", findings[2].NoiseRisk, types.NoiseRiskLow)
+	}
+	if !findings[2].DefaultEnabled {
+		t.Errorf("findings[2].DefaultEnabled (default) = false, want true")
+	}
+}
+
+func TestMapCategory(t *testing.T) {
+	tests := []struct {
+		input string
+		want  types.Category
+	}{
+		{"inventory", types.CategoryInventory},
+		{"INVENTORY", types.CategoryInventory},
+		{" inventory ", types.CategoryInventory},
+		{"security", types.CategorySecurity},
+		{"", types.CategorySecurity},
+		{"bogus", types.CategorySecurity},
+	}
+	for _, tc := range tests {
+		if got := mapCategory(tc.input); got != tc.want {
+			t.Errorf("mapCategory(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestMapMaturity(t *testing.T) {
+	tests := []struct {
+		input string
+		want  types.Maturity
+	}{
+		{"experimental", types.MaturityExperimental},
+		{"stable", types.MaturityStable},
+		{"deprecated", types.MaturityDeprecated},
+		{"", types.MaturityStable},
+		{"bogus", types.MaturityStable},
+	}
+	for _, tc := range tests {
+		if got := mapMaturity(tc.input); got != tc.want {
+			t.Errorf("mapMaturity(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestMapNoiseRisk(t *testing.T) {
+	tests := []struct {
+		input string
+		want  types.NoiseRisk
+	}{
+		{"low", types.NoiseRiskLow},
+		{"med", types.NoiseRiskMedium},
+		{"medium", types.NoiseRiskMedium},
+		{"high", types.NoiseRiskHigh},
+		{"", types.NoiseRiskLow},
+		{"bogus", types.NoiseRiskLow},
+	}
+	for _, tc := range tests {
+		if got := mapNoiseRisk(tc.input); got != tc.want {
+			t.Errorf("mapNoiseRisk(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+}
+
+func TestMapDefaultEnabled(t *testing.T) {
+	tr, fl := true, false
+	tests := []struct {
+		input *bool
+		want  bool
+	}{
+		{nil, true}, // unset → default true (forward-compat)
+		{&tr, true},
+		{&fl, false},
+	}
+	for i, tc := range tests {
+		if got := mapDefaultEnabled(tc.input); got != tc.want {
+			t.Errorf("case %d: mapDefaultEnabled() = %v, want %v", i, got, tc.want)
+		}
+	}
+}
+
 func TestDeriveNameFromCheckID(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -332,5 +520,94 @@ func TestDeriveNameFromCheckID(t *testing.T) {
 		if got != tc.expected {
 			t.Errorf("deriveNameFromCheckID(%q) = %q, want %q", tc.input, got, tc.expected)
 		}
+	}
+}
+
+func TestParseResults_StripsNamespacePrefix(t *testing.T) {
+	cases := []struct {
+		name       string
+		inputCheck string
+		wantRuleID string
+		wantName   string
+	}{
+		{
+			name:       "dir-namespaced ID is stripped",
+			inputCheck: "tmp.clean-rules.cbom-js-crypto-library-import",
+			wantRuleID: "cbom-js-crypto-library-import",
+			wantName:   "crypto-library-import",
+		},
+		{
+			name:       "deep namespace is stripped to the last dot",
+			inputCheck: "scanner.rules.javascript.cbom-js-hardcoded-jwt-secret",
+			wantRuleID: "cbom-js-hardcoded-jwt-secret",
+			wantName:   "hardcoded-jwt-secret",
+		},
+		{
+			name:       "bare ID is unchanged",
+			inputCheck: "cbom-go-weak-rand",
+			wantRuleID: "cbom-go-weak-rand",
+			wantName:   "weak-rand",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			payload := []byte(`{"results":[{
+				"check_id":"` + tc.inputCheck + `",
+				"path":"x.go","start":{"line":1,"col":1},"end":{"line":1,"col":1},
+				"extra":{"message":"m","severity":"INFO","metadata":{},"lines":""}
+			}],"errors":[]}`)
+			findings, err := ParseResults(payload)
+			if err != nil {
+				t.Fatalf("ParseResults: %v", err)
+			}
+			if len(findings) != 1 {
+				t.Fatalf("expected 1 finding, got %d", len(findings))
+			}
+			if findings[0].RuleID != tc.wantRuleID {
+				t.Errorf("RuleID = %q, want %q", findings[0].RuleID, tc.wantRuleID)
+			}
+			if findings[0].Name != tc.wantName {
+				t.Errorf("Name = %q, want %q", findings[0].Name, tc.wantName)
+			}
+		})
+	}
+}
+
+func TestParseResults_SurfacesErrorsArray(t *testing.T) {
+	payload := []byte(`{
+		"results": [],
+		"errors": [
+			{"message": "InvalidRuleSchemaError in python.yml at line 86", "level": "ERROR"}
+		]
+	}`)
+	findings, err := ParseResults(payload)
+	if err == nil {
+		t.Fatal("expected error when results are empty but errors are present")
+	}
+	if findings != nil {
+		t.Errorf("expected nil findings, got %d", len(findings))
+	}
+	if !strings.Contains(err.Error(), "InvalidRuleSchemaError") {
+		t.Errorf("error should include opengrep error text: %v", err)
+	}
+}
+
+func TestParseResults_KeepsFindingsWhenErrorsAlsoPresent(t *testing.T) {
+	payload := []byte(`{
+		"results": [{
+			"check_id": "cbom-test-x",
+			"path": "x.go",
+			"start": {"line": 1, "col": 1},
+			"end": {"line": 1, "col": 1},
+			"extra": {"message": "m", "severity": "INFO", "metadata": {}, "lines": ""}
+		}],
+		"errors": [{"message": "warn-level non-fatal", "level": "WARN"}]
+	}`)
+	findings, err := ParseResults(payload)
+	if err != nil {
+		t.Fatalf("expected nil error (best-effort delivery), got: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Errorf("expected 1 finding, got %d", len(findings))
 	}
 }

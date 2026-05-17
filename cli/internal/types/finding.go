@@ -20,6 +20,16 @@ type Finding struct {
 	Description string `json:"description"`
 	// RuleID identifies which detection rule or pattern matched (e.g. "cbom-python-hashlib-md5").
 	RuleID string `json:"rule_id"`
+	// Category classifies the rule as inventory or security. Drives filtering
+	// and baseline scope (only security findings can be baselined).
+	Category Category `json:"category,omitempty"`
+	// Maturity indicates the rule's lifecycle state (experimental, stable, deprecated).
+	Maturity Maturity `json:"maturity,omitempty"`
+	// NoiseRisk is an informational tag describing expected false-positive rate.
+	NoiseRisk NoiseRisk `json:"noise_risk,omitempty"`
+	// DefaultEnabled echoes the rule's default_enabled flag. True means the
+	// rule ran because it's in the default set; false means it was opted in.
+	DefaultEnabled bool `json:"default_enabled,omitempty"`
 	// Pass indicates which scanner pass found this (1, 2, or 3).
 	Pass int `json:"pass"`
 	// Fingerprint is a stable identity hash for deduplication across scans (ADR-034).

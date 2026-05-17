@@ -1,0 +1,10 @@
+rules:
+  - id: cbom-fixture-md5
+    pattern: |
+      hashlib.md5(...)
+    message: "MD5 is broken"
+    languages: [python]
+    severity: WARNING
+    metadata:
+      cbom-asset-type: algorithm
+      category: security
