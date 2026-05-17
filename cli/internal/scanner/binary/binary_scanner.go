@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -51,6 +52,8 @@ func (s *BinaryScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 
 // scanBytes runs all crypto patterns against the given data and returns findings.
 // It is shared between the direct binary scanner and the archive handlers.
+// Findings are tagged with Category/Maturity via scanner.AnnotateFindings so
+// they're not silently dropped by --only-inventory / --only-security filters.
 func scanBytes(path string, data []byte) []types.Finding {
 	var findings []types.Finding
 
@@ -93,7 +96,7 @@ func scanBytes(path string, data []byte) []types.Finding {
 		})
 	}
 
-	return findings
+	return scanner.AnnotateFindings(findings)
 }
 
 // findPattern searches for at least minMatch consecutive bytes of pattern

@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -91,7 +92,7 @@ func (s *DockerfileScanner) ScanFile(path string, content []byte) ([]types.Findi
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // isDockerfile heuristically determines if a file is a Dockerfile.

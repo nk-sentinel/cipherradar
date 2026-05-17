@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -59,7 +60,7 @@ func (s *HttpdScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // scanSSLProtocol checks for weak protocols in the SSLProtocol directive.
