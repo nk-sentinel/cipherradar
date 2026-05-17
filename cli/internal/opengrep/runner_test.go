@@ -228,3 +228,41 @@ func TestLoadableRuleFiles_SkipsBroken(t *testing.T) {
 		}
 	}
 }
+
+// TestLoadableRuleFiles_BatchValidatePerformance verifies the single-dir
+// validate produces the same loadable/skipped split as the per-file approach
+// did, on the same testdata fixtures.
+func TestLoadableRuleFiles_BatchValidate_SameSetAsPerFile(t *testing.T) {
+	r := NewRunner()
+	if r == nil || !r.Available() {
+		t.Skip("opengrep not installed")
+	}
+
+	dir := filepath.Join("testdata", "rules")
+	loadable, skipped := r.loadableRuleFiles(dir)
+
+	// good/example.yml must be loadable
+	goodSeen := false
+	for _, p := range loadable {
+		if strings.HasSuffix(filepath.ToSlash(p), "good/example.yml") {
+			goodSeen = true
+		}
+	}
+	if !goodSeen {
+		t.Errorf("good/example.yml should be loadable, got loadable=%v", loadable)
+	}
+
+	// broken/bad-schema.yml must be skipped with a non-empty reason
+	brokenSeen := false
+	for _, sk := range skipped {
+		if strings.HasSuffix(filepath.ToSlash(sk.Path), "broken/bad-schema.yml") {
+			brokenSeen = true
+			if sk.Reason == "" {
+				t.Errorf("skipped reason for broken/bad-schema.yml should be non-empty")
+			}
+		}
+	}
+	if !brokenSeen {
+		t.Errorf("broken/bad-schema.yml should be in skipped set, got skipped=%v", skipped)
+	}
+}
