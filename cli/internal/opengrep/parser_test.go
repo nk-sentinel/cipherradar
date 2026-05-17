@@ -1,6 +1,7 @@
 package opengrep
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -569,5 +570,44 @@ func TestParseResults_StripsNamespacePrefix(t *testing.T) {
 				t.Errorf("Name = %q, want %q", findings[0].Name, tc.wantName)
 			}
 		})
+	}
+}
+
+func TestParseResults_SurfacesErrorsArray(t *testing.T) {
+	payload := []byte(`{
+		"results": [],
+		"errors": [
+			{"message": "InvalidRuleSchemaError in python.yml at line 86", "level": "ERROR"}
+		]
+	}`)
+	findings, err := ParseResults(payload)
+	if err == nil {
+		t.Fatal("expected error when results are empty but errors are present")
+	}
+	if findings != nil {
+		t.Errorf("expected nil findings, got %d", len(findings))
+	}
+	if !strings.Contains(err.Error(), "InvalidRuleSchemaError") {
+		t.Errorf("error should include opengrep error text: %v", err)
+	}
+}
+
+func TestParseResults_KeepsFindingsWhenErrorsAlsoPresent(t *testing.T) {
+	payload := []byte(`{
+		"results": [{
+			"check_id": "cbom-test-x",
+			"path": "x.go",
+			"start": {"line": 1, "col": 1},
+			"end": {"line": 1, "col": 1},
+			"extra": {"message": "m", "severity": "INFO", "metadata": {}, "lines": ""}
+		}],
+		"errors": [{"message": "warn-level non-fatal", "level": "WARN"}]
+	}`)
+	findings, err := ParseResults(payload)
+	if err != nil {
+		t.Fatalf("expected nil error (best-effort delivery), got: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Errorf("expected 1 finding, got %d", len(findings))
 	}
 }

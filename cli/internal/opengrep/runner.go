@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -78,34 +79,42 @@ func (r *Runner) BinaryPath() string {
 }
 
 // Scan runs OpenGrep against the target directory with the specified rules directory.
-// Returns findings from the OpenGrep JSON output.
+// Rule files that fail `opengrep validate` are skipped with a logged warning;
+// other rule files in the same directory still run. Returns an error when no
+// rule files are loadable, when opengrep itself fails to produce any output,
+// or when opengrep returns no results but reports errors (see Bug 6).
 func (r *Runner) Scan(target string, rulesDir string) ([]types.Finding, error) {
 	if r == nil || r.binaryPath == "" {
 		return nil, fmt.Errorf("opengrep binary not available")
 	}
-
 	if rulesDir == "" {
 		return nil, fmt.Errorf("rules directory not specified")
 	}
 
-	// Build the command: opengrep scan --config <rules-dir> --json --no-git-ignore <target>
-	args := []string{
-		"scan",
-		"--config", rulesDir,
-		"--json",
-		"--no-git-ignore",
-		target,
+	loadable, skipped := r.loadableRuleFiles(rulesDir)
+	for _, sk := range skipped {
+		// Surface which rule files were dropped so users see why pass 2
+		// coverage shrank instead of finding out via "0 findings, exit 0".
+		fmt.Fprintf(os.Stderr, "opengrep: skipping rule file %s: %s\n", sk.Path, firstLine(sk.Reason))
+	}
+	if len(loadable) == 0 {
+		return nil, fmt.Errorf("no loadable opengrep rule files in %s (skipped %d)", rulesDir, len(skipped))
 	}
 
-	cmd := exec.Command(r.binaryPath, args...)
+	args := []string{"scan", "--json", "--no-git-ignore"}
+	for _, p := range loadable {
+		args = append(args, "--config", p)
+	}
+	args = append(args, target)
 
+	cmd := exec.Command(r.binaryPath, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
-	// OpenGrep/Semgrep exits with code 1 when findings are present -- that is not an error.
-	// Only treat it as an error if there is no JSON output at all.
+	// OpenGrep exits 1 when findings are present — not an error. Treat as
+	// failure only when there is no JSON output at all.
 	if err != nil && stdout.Len() == 0 {
 		return nil, fmt.Errorf("opengrep execution failed: %w\nstderr: %s", err, stderr.String())
 	}
@@ -114,7 +123,6 @@ func (r *Runner) Scan(target string, rulesDir string) ([]types.Finding, error) {
 	if parseErr != nil {
 		return nil, fmt.Errorf("failed to parse opengrep output: %w", parseErr)
 	}
-
 	return findings, nil
 }
 
@@ -125,4 +133,58 @@ func isExecutable(path string) bool {
 		return false
 	}
 	return !info.IsDir() && info.Mode()&0111 != 0
+}
+
+// SkippedRule names a rule file that failed validation, paired with the
+// reason opengrep gave for refusing it.
+type SkippedRule struct {
+	Path   string
+	Reason string
+}
+
+// loadableRuleFiles walks rulesDir recursively, runs `opengrep validate`
+// against each *.yml file, and returns the set that load cleanly plus the
+// set that were rejected (with their reason).
+func (r *Runner) loadableRuleFiles(rulesDir string) (loadable []string, skipped []SkippedRule) {
+	if r == nil || r.binaryPath == "" {
+		return nil, nil
+	}
+	walkErr := filepath.Walk(rulesDir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			skipped = append(skipped, SkippedRule{Path: path, Reason: err.Error()})
+			return nil
+		}
+		if info.IsDir() || !strings.HasSuffix(info.Name(), ".yml") {
+			return nil
+		}
+		// opengrep validate <file> — positional arg, not --config.
+		cmd := exec.Command(r.binaryPath, "validate", path)
+		var stderr bytes.Buffer
+		cmd.Stderr = &stderr
+		if runErr := cmd.Run(); runErr != nil {
+			reason := strings.TrimSpace(stderr.String())
+			if reason == "" {
+				reason = runErr.Error()
+			}
+			skipped = append(skipped, SkippedRule{Path: path, Reason: reason})
+			return nil
+		}
+		loadable = append(loadable, path)
+		return nil
+	})
+	if walkErr != nil {
+		skipped = append(skipped, SkippedRule{Path: rulesDir, Reason: walkErr.Error()})
+	}
+	return loadable, skipped
+}
+
+// firstLine returns the first non-empty line of s for one-line log output.
+func firstLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			return line
+		}
+	}
+	return s
 }

@@ -3,6 +3,7 @@ package opengrep
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -190,5 +191,40 @@ func TestNewRunnerWithCBOMToolsDir(t *testing.T) {
 	}
 	if runner.BinaryPath() != execFile {
 		t.Errorf("expected binary path %s, got %s", execFile, runner.BinaryPath())
+	}
+}
+
+func TestLoadableRuleFiles_SkipsBroken(t *testing.T) {
+	r := NewRunner()
+	if r == nil || !r.Available() {
+		t.Skip("opengrep not installed; cannot exercise validate subprocess")
+	}
+
+	dir := filepath.Join("testdata", "rules")
+	loadable, skipped := r.loadableRuleFiles(dir)
+
+	if len(loadable) == 0 {
+		t.Fatal("expected at least one loadable rule file")
+	}
+	goodSeen := false
+	for _, p := range loadable {
+		if strings.HasSuffix(filepath.ToSlash(p), "good/example.yml") {
+			goodSeen = true
+		}
+		if strings.Contains(filepath.ToSlash(p), "broken/") {
+			t.Errorf("broken rule file should be excluded: %s", p)
+		}
+	}
+	if !goodSeen {
+		t.Errorf("good/example.yml should be loadable, loadable=%v", loadable)
+	}
+
+	if len(skipped) == 0 {
+		t.Errorf("expected at least one skipped rule file with reason")
+	}
+	for _, sk := range skipped {
+		if sk.Reason == "" {
+			t.Errorf("skipped rule file %s missing reason", sk.Path)
+		}
 	}
 }

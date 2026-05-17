@@ -70,6 +70,18 @@ func ParseResults(jsonData []byte) ([]types.Finding, error) {
 		return nil, fmt.Errorf("invalid opengrep JSON: %w", err)
 	}
 
+	// Bug 6: when opengrep refused to load any rules / scan any paths it
+	// returns results=[] and a populated errors[] — silently returning 0
+	// findings used to mask broken rule files. Surface the messages.
+	if len(output.Results) == 0 && len(output.Errors) > 0 {
+		msgs := make([]string, 0, len(output.Errors))
+		for _, e := range output.Errors {
+			msgs = append(msgs, e.Message)
+		}
+		return nil, fmt.Errorf("opengrep produced no results, %d errors: %s",
+			len(output.Errors), strings.Join(msgs, "; "))
+	}
+
 	findings := make([]types.Finding, 0, len(output.Results))
 	for _, r := range output.Results {
 		canonicalID := stripCheckIDNamespace(r.CheckID)
