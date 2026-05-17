@@ -78,7 +78,7 @@ func (s *JavaScanner) ScanFile(path string, content []byte) ([]types.Finding, er
 	ecFindings := s.detectECGenParameterSpec(root, path, content)
 	findings = append(findings, ecFindings...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.

@@ -79,7 +79,7 @@ func (s *RustScanner) ScanFile(path string, content []byte) ([]types.Finding, er
 	// Detect openssl crate usage
 	findings = append(findings, s.detectOpenSSLCrate(root, path, content, uses)...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.

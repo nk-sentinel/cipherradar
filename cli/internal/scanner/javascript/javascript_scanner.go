@@ -90,7 +90,7 @@ func (s *JSScanner) ScanFile(path string, content []byte) ([]types.Finding, erro
 	webCryptoFindings := s.detectWebCrypto(root, path, content, cp, lang)
 	findings = append(findings, webCryptoFindings...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.

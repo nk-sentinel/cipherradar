@@ -86,7 +86,7 @@ func (s *KotlinScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 	pbeFindings := s.detectPBEKeySpec(root, path, content, cp)
 	findings = append(findings, pbeFindings...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.

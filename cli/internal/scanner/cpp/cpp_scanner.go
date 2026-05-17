@@ -107,7 +107,7 @@ func (s *CppScanner) ScanFile(path string, content []byte) ([]types.Finding, err
 	// Detect mbedTLS usage
 	findings = append(findings, s.detectMbedTLS(root, path, content)...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.

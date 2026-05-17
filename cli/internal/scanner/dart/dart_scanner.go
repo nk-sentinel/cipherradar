@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -115,7 +116,7 @@ func (s *DartScanner) ScanFile(path string, content []byte) ([]types.Finding, er
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.

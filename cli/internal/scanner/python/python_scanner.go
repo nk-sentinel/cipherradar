@@ -87,7 +87,7 @@ func (s *PythonScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 	cryptoMACFindings := s.detectCryptoMACs(root, path, content)
 	findings = append(findings, cryptoMACFindings...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.

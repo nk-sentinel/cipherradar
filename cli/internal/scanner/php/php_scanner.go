@@ -77,7 +77,7 @@ func (s *PHPScanner) ScanFile(path string, content []byte) ([]types.Finding, err
 	// Detect mcrypt_* function calls (deprecated)
 	findings = append(findings, s.detectMcrypt(root, path, content, cp)...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.
