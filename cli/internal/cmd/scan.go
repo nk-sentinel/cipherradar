@@ -166,6 +166,20 @@ func runScan(cmd *cobra.Command, args []string) error {
 		// Directory scanning mode.
 		targetPath := args[0]
 
+		// Bug 1: validate target exists and is a directory before walking.
+		// Without this, a typo'd path returned exit 0 + empty CBOM, masking
+		// broken CI configurations.
+		info, statErr := os.Stat(targetPath)
+		if statErr != nil {
+			if os.IsNotExist(statErr) {
+				return ExitErrorf(ExitConfig, "scan path does not exist: %s", targetPath)
+			}
+			return ExitErrorf(ExitConfig, "cannot stat scan path %s: %v", targetPath, statErr)
+		}
+		if !info.IsDir() {
+			return ExitErrorf(ExitConfig, "scan path is not a directory: %s", targetPath)
+		}
+
 		// If --staged-only, resolve staged file list from git.
 		if scanOpts.StagedOnly {
 			stagedFiles, gitErr := getStagedFiles(targetPath)

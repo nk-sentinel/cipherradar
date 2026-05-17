@@ -233,3 +233,53 @@ func TestScanCommand_OnlyInventoryHintWhenPass2Skipped(t *testing.T) {
 		t.Errorf("expected --only-inventory hint in output, got:\n%s", buf.String())
 	}
 }
+
+func TestScanCommand_MissingPathExitsConfigError(t *testing.T) {
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", "/tmp/does-not-exist-" + t.Name()})
+
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for missing path, got nil")
+	}
+	var ee *ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != ExitConfig {
+		t.Errorf("expected ExitConfig (%d), got %d", ExitConfig, ee.Code)
+	}
+	if !strings.Contains(err.Error(), "does not exist") {
+		t.Errorf("error should explain missing path: %v", err)
+	}
+}
+
+func TestScanCommand_NonDirectoryPathExitsConfigError(t *testing.T) {
+	tmp := t.TempDir()
+	filePath := filepath.Join(tmp, "a-file.txt")
+	if err := os.WriteFile(filePath, []byte("x"), 0644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", filePath})
+
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for non-directory path, got nil")
+	}
+	var ee *ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != ExitConfig {
+		t.Errorf("expected ExitConfig (%d), got %d", ExitConfig, ee.Code)
+	}
+	if !strings.Contains(err.Error(), "not a directory") {
+		t.Errorf("error should mention 'not a directory': %v", err)
+	}
+}
