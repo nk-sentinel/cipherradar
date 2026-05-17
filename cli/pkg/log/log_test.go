@@ -177,3 +177,94 @@ func pad2(i int) string {
 }
 
 func itoa(i int) string { return string(rune('0'+i/10)) + string(rune('0'+i%10)) }
+
+func TestLogger_ScannerLifecycleEvents(t *testing.T) {
+	dir := t.TempDir()
+	Reset()
+	t.Cleanup(Reset)
+
+	lg, err := Init(Config{LogDir: dir, Level: LevelDebug, RunID: "test-run"})
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+
+	lg.ScannerStart("python", "/tmp/proj")
+	lg.ScannerComplete("python", 3, 12*time.Millisecond)
+	lg.FindingEmitted("python", "cbom-py-md5", "high", "/tmp/proj/a.py", "")
+
+	if err := lg.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	data, err := os.ReadFile(lg.Path())
+	if err != nil {
+		t.Fatalf("read log: %v", err)
+	}
+	got := string(data)
+	for _, want := range []string{
+		`"event":"scanner_start"`,
+		`"event":"scanner_complete"`,
+		`"event":"finding_emitted"`,
+		`"scanner":"python"`,
+		`"ruleID":"cbom-py-md5"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("log missing %q\n--- log ---\n%s", want, got)
+		}
+	}
+}
+
+func TestLogger_SourceFieldOmittedWhenIncludeSourceFalse(t *testing.T) {
+	dir := t.TempDir()
+	Reset()
+	t.Cleanup(Reset)
+
+	lg, err := Init(Config{LogDir: dir, Level: LevelDebug, IncludeSource: false, RunID: "test-run"})
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	lg.FindingEmitted("python", "cbom-py-md5", "high", "/tmp/proj/a.py", "hashlib.md5(secret)")
+	_ = lg.Close()
+
+	data, _ := os.ReadFile(lg.Path())
+	if strings.Contains(string(data), "hashlib.md5") {
+		t.Errorf("source snippet leaked when IncludeSource=false:\n%s", string(data))
+	}
+}
+
+func TestLogger_SourceFieldPopulatedWhenIncludeSourceTrue(t *testing.T) {
+	dir := t.TempDir()
+	Reset()
+	t.Cleanup(Reset)
+
+	lg, err := Init(Config{LogDir: dir, Level: LevelDebug, IncludeSource: true, RunID: "test-run"})
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	lg.FindingEmitted("python", "cbom-py-md5", "high", "/tmp/proj/a.py", "hashlib.md5(b'x')")
+	_ = lg.Close()
+
+	data, _ := os.ReadFile(lg.Path())
+	if !strings.Contains(string(data), "hashlib.md5") {
+		t.Errorf("source snippet should appear when IncludeSource=true:\n%s", string(data))
+	}
+}
+
+func TestLogger_SourceFieldTruncatedAt200Chars(t *testing.T) {
+	dir := t.TempDir()
+	Reset()
+	t.Cleanup(Reset)
+
+	lg, err := Init(Config{LogDir: dir, Level: LevelDebug, IncludeSource: true, RunID: "test-run"})
+	if err != nil {
+		t.Fatalf("Init: %v", err)
+	}
+	long := strings.Repeat("a", 500)
+	lg.FindingEmitted("python", "cbom-py-md5", "high", "/tmp/proj/a.py", long)
+	_ = lg.Close()
+
+	data, _ := os.ReadFile(lg.Path())
+	if strings.Contains(string(data), strings.Repeat("a", 250)) {
+		t.Errorf("source snippet was not truncated:\n%s", string(data))
+	}
+}

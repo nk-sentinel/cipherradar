@@ -272,6 +272,59 @@ func (lg *Logger) Info(msg string, args ...any)  { lg.slog.Info(msg, args...) }
 func (lg *Logger) Warn(msg string, args ...any)  { lg.slog.Warn(msg, args...) }
 func (lg *Logger) Error(msg string, args ...any) { lg.slog.Error(msg, args...) }
 
+// ScannerStart emits a structured event when a per-language scanner begins.
+// Use this in the per-pass dispatch loop so debug logs show ordering and
+// coverage.
+func (lg *Logger) ScannerStart(scanner, target string) {
+	if lg == nil || lg.slog == nil {
+		return
+	}
+	lg.slog.Debug("scanner_start",
+		"event", "scanner_start",
+		"scanner", scanner,
+		"target", lg.RedactPath(target),
+	)
+}
+
+// ScannerComplete emits a structured event when a per-language scanner
+// finishes a target. `findings` is the number of findings produced by
+// this scanner alone (not cumulative).
+func (lg *Logger) ScannerComplete(scanner string, findings int, duration time.Duration) {
+	if lg == nil || lg.slog == nil {
+		return
+	}
+	lg.slog.Debug("scanner_complete",
+		"event", "scanner_complete",
+		"scanner", scanner,
+		"findings", findings,
+		"duration_ms", duration.Milliseconds(),
+	)
+}
+
+// FindingEmitted emits a structured event for an individual finding. The
+// source snippet is included only when --log-include-source is set;
+// otherwise it is omitted. The snippet is truncated to 200 characters to
+// keep log lines bounded.
+func (lg *Logger) FindingEmitted(scanner, ruleID, severity, path, source string) {
+	if lg == nil || lg.slog == nil {
+		return
+	}
+	attrs := []any{
+		"event", "finding_emitted",
+		"scanner", scanner,
+		"ruleID", ruleID,
+		"severity", severity,
+		"path", lg.RedactPath(path),
+	}
+	if lg.IncludeSource() && source != "" {
+		if len(source) > 200 {
+			source = source[:200]
+		}
+		attrs = append(attrs, "source", source)
+	}
+	lg.slog.Debug("finding_emitted", attrs...)
+}
+
 // With returns a child logger with additional attributes. The child shares
 // the parent's file handle and scan root — closing it is a no-op.
 func (lg *Logger) With(args ...any) *Logger {

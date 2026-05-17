@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
+	logpkg "github.com/nk-sentinel/cipherradar/cli/pkg/log"
 )
 
 // isCycloneDXOrSARIF checks the first ~100 bytes of JSON content for signatures
@@ -204,15 +205,23 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 				var errs []types.ScanError
 				scanned := false
 
+				lg := logpkg.Get()
+
 				// Run extension-matched scanner
 				if job.scanner != nil {
+					scannerStart := time.Now()
+					lg.ScannerStart(job.scanner.Name(), job.relPath)
 					f, scanErr := job.scanner.ScanFile(job.relPath, job.content)
+					lg.ScannerComplete(job.scanner.Name(), len(f), time.Since(scannerStart))
 					if scanErr != nil {
 						errs = append(errs, types.ScanError{
 							File:    job.relPath,
 							Message: scanErr.Error(),
 						})
 					} else {
+						for _, fnd := range f {
+							lg.FindingEmitted(job.scanner.Name(), fnd.RuleID, string(fnd.Severity), fnd.Location.File, fnd.Location.Snippet)
+						}
 						findings = append(findings, f...)
 					}
 					scanned = true
@@ -221,13 +230,19 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 				// Run universal scanners only on files WITHOUT a language scanner.
 				if job.scanner == nil {
 					for _, us := range job.universals {
+						scannerStart := time.Now()
+						lg.ScannerStart(us.Name(), job.relPath)
 						f, scanErr := us.ScanFile(job.relPath, job.content)
+						lg.ScannerComplete(us.Name(), len(f), time.Since(scannerStart))
 						if scanErr != nil {
 							errs = append(errs, types.ScanError{
 								File:    job.relPath,
 								Message: scanErr.Error(),
 							})
 							continue
+						}
+						for _, fnd := range f {
+							lg.FindingEmitted(us.Name(), fnd.RuleID, string(fnd.Severity), fnd.Location.File, fnd.Location.Snippet)
 						}
 						findings = append(findings, f...)
 						scanned = true
