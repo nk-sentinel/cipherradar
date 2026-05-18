@@ -46,7 +46,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Validate VERSION matches tag
         run: |
@@ -59,9 +59,10 @@ jobs:
           fi
         shell: bash
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version: '1.22'
+          cache-dependency-path: cli/go.sum
 
       - name: Run tests
         working-directory: cli
@@ -115,20 +116,20 @@ jobs:
           mkdir -p dist/yarax
           curl -fSL --retry 3 -o /tmp/yarax-archive "${DOWNLOAD_URL}"
           if [ "${{ matrix.yarax_format }}" = "zip" ]; then
+            # Windows ships yr.exe inside a zip — extract and locate.
             unzip -o /tmp/yarax-archive -d dist/yarax/
+            YARAX_BIN=$(find dist/yarax/ -type f \( -name 'yr' -o -name 'yr.exe' \) | head -1)
+            if [ -z "$YARAX_BIN" ]; then
+              echo "::error::YARA-X binary not found in zip for ${{ matrix.goos }}/${{ matrix.goarch }}"
+              exit 1
+            fi
+            mv "$YARAX_BIN" dist/yarax/yr-bin
           else
-            # YARA-X .gz archives are gzipped tars containing the 'yr' binary
-            gunzip -c /tmp/yarax-archive | tar -xf - -C dist/yarax/
+            # YARA-X .gz files are SINGLE-FILE gzipped binaries (not gzipped tars).
+            # The prior `gunzip -c | tar -xf` pipeline always failed because tar
+            # got the raw binary content. Just gunzip into the destination.
+            gunzip -c /tmp/yarax-archive > dist/yarax/yr-bin
           fi
-          echo "=== Extracted YARA-X contents ==="
-          find dist/yarax/ -type f | head -20
-          # Locate the yr binary
-          YARAX_BIN=$(find dist/yarax/ -type f \( -name 'yr' -o -name 'yr.exe' \) | head -1)
-          if [ -z "$YARAX_BIN" ]; then
-            echo "::error::YARA-X binary not found after extraction for ${{ matrix.goos }}/${{ matrix.goarch }}"
-            exit 1
-          fi
-          mv "$YARAX_BIN" dist/yarax/yr-bin
           chmod +x dist/yarax/yr-bin
           echo "YARA-X binary: dist/yarax/yr-bin ($(du -h dist/yarax/yr-bin | cut -f1))"
         shell: bash
@@ -212,7 +213,7 @@ jobs:
         shell: bash
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: release-${{ matrix.goos }}-${{ matrix.goarch }}
           path: |
@@ -223,10 +224,10 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v6
         with:
           path: dist
           merge-multiple: true
