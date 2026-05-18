@@ -830,3 +830,293 @@ rules:
       - pattern: new ElGamalKeyPairGenerator(...)
       - pattern: new ElGamalKeyGenerationParameters(...)
       - pattern: new ElGamalParameters(...)
+
+  # ── Phase D1: Post-Quantum Cryptography (BouncyCastle PQC APIs) ──
+  #
+  # Covers the 14 PQC primitives tracked in v2 GT. Both NIST-standardized
+  # names (ML-KEM, ML-DSA) and the prior CRYSTALS submission names (Kyber,
+  # Dilithium) get their own rule because BouncyCastle ships separate API
+  # surfaces for each.
+
+  - id: cbom-java-bc-pqc-ml-dsa
+    message: "ML-DSA (NIST FIPS 204) post-quantum signature detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ML-DSA
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new MLDSASigner(...)
+      - pattern: new MLDSAKeyPairGenerator(...)
+      - pattern: new MLDSAKeyGenerationParameters(...)
+      - pattern: new MLDSAParameters(...)
+      - pattern: MLDSAParameters.$X
+
+  - id: cbom-java-bc-pqc-ml-kem
+    message: "ML-KEM (NIST FIPS 203) post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ML-KEM
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new MLKEMKeyPairGenerator(...)
+      - pattern: new MLKEMKeyGenerationParameters(...)
+      - pattern: new MLKEMKeyEncapsulation(...)
+      - pattern: new MLKEMGenerator(...)
+      - pattern: new MLKEMExtractor(...)
+      - pattern: new MLKEMParameters(...)
+      - pattern: MLKEMParameters.$X
+
+  - id: cbom-java-bc-pqc-sphincsplus
+    message: "SPHINCS+ post-quantum signature detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SPHINCS+
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SPHINCSPlusSigner(...)
+      - pattern: new SPHINCSPlusKeyPairGenerator(...)
+      - pattern: new SPHINCSPlusKeyGenerationParameters(...)
+      - pattern: new SPHINCSPlusParameters(...)
+      - pattern: SPHINCSPlusParameters.$X
+
+  - id: cbom-java-bc-pqc-falcon
+    message: "Falcon post-quantum signature detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: FALCON
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new FalconSigner(...)
+      - pattern: new FalconKeyPairGenerator(...)
+      - pattern: new FalconKeyGenerationParameters(...)
+      - pattern: new FalconParameters(...)
+      - pattern: FalconParameters.$X
+
+  - id: cbom-java-bc-pqc-xmss
+    message: "XMSS (stateful hash-based signature, RFC 8391) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: XMSS
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new XMSSSigner(...)
+      - pattern: new XMSSKeyPairGenerator(...)
+      - pattern: new XMSSKeyGenerationParameters(...)
+      - pattern: new XMSSParameters(...)
+
+  - id: cbom-java-bc-pqc-xmss-mt
+    message: "XMSS-MT (multi-tree XMSS, RFC 8391) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: XMSS-MT
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new XMSSMTSigner(...)
+      - pattern: new XMSSMTKeyPairGenerator(...)
+      - pattern: new XMSSMTKeyGenerationParameters(...)
+      - pattern: new XMSSMTParameters(...)
+
+  - id: cbom-java-bc-pqc-lms
+    message: "LMS (Leighton-Micali stateful hash-based signature, RFC 8554) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: LMS
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new LMSSigner(...)
+      - pattern: new LMSKeyPairGenerator(...)
+      - pattern: new LMSKeyGenerationParameters(...)
+      - pattern: new LMSParameters(...)
+      - pattern: LMSParameters.$X
+
+  - id: cbom-java-bc-pqc-hss
+    message: "HSS (Hierarchical Signature System, RFC 8554) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: HSS
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new HSSSigner(...)
+      - pattern: new HSSKeyPairGenerator(...)
+      - pattern: new HSSKeyGenerationParameters(...)
+      - pattern: new HSSParameters(...)
+
+  - id: cbom-java-bc-pqc-ntru
+    message: "NTRU lattice-based post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: NTRU
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new NTRUEngine(...)
+      - pattern: new NTRUKeyPairGenerator(...)
+      - pattern: new NTRUKeyGenerationParameters(...)
+      - pattern: new NTRUParameters(...)
+      - pattern: new NTRUKEMGenerator(...)
+      - pattern: new NTRUKEMExtractor(...)
+
+  - id: cbom-java-bc-pqc-bike
+    message: "BIKE post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: BIKE
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new BIKEKEMGenerator(...)
+      - pattern: new BIKEKEMExtractor(...)
+      - pattern: new BIKEKeyPairGenerator(...)
+      - pattern: new BIKEKeyGenerationParameters(...)
+      - pattern: new BIKEParameters(...)
+
+  - id: cbom-java-bc-pqc-classic-mceliece
+    message: "Classic McEliece post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: CLASSIC-MCELIECE
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new CMCEKEMGenerator(...)
+      - pattern: new CMCEKEMExtractor(...)
+      - pattern: new CMCEKeyPairGenerator(...)
+      - pattern: new CMCEKeyGenerationParameters(...)
+      - pattern: new CMCEParameters(...)
+      - pattern: new McElieceKEMGenerator(...)
+      - pattern: new McElieceKeyPairGenerator(...)
+
+  - id: cbom-java-bc-pqc-hqc
+    message: "HQC post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: HQC
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new HQCKEMGenerator(...)
+      - pattern: new HQCKEMExtractor(...)
+      - pattern: new HQCKeyPairGenerator(...)
+      - pattern: new HQCKeyGenerationParameters(...)
+      - pattern: new HQCParameters(...)
+
+  - id: cbom-java-bc-pqc-kyber
+    message: "Kyber post-quantum KEM detected (precursor to ML-KEM)"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KYBER
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new KyberKeyPairGenerator(...)
+      - pattern: new KyberKeyGenerationParameters(...)
+      - pattern: new KyberKEMGenerator(...)
+      - pattern: new KyberKEMExtractor(...)
+      - pattern: new KyberParameters(...)
+      - pattern: KyberParameters.$X
+
+  - id: cbom-java-bc-pqc-dilithium
+    message: "Dilithium post-quantum signature detected (precursor to ML-DSA)"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: DILITHIUM
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new DilithiumSigner(...)
+      - pattern: new DilithiumKeyPairGenerator(...)
+      - pattern: new DilithiumKeyGenerationParameters(...)
+      - pattern: new DilithiumParameters(...)
+      - pattern: DilithiumParameters.$X
