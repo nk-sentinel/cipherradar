@@ -14,26 +14,27 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Native builds only — CGO (tree-sitter) prevents cross-compilation
+          # Native builds only — CGO (tree-sitter) prevents cross-compilation.
+          # OpenGrep ships standalone single-file binaries at the release root
+          # (no tarball); rc2 PR #5 switched the runtime installer to these
+          # and this workflow follows. Note darwin/arm64 uses "arm64" not
+          # "aarch64" (opengrep is inconsistent vs the manylinux variant).
           - os: ubuntu-latest
             goos: linux
             goarch: amd64
-            opengrep_asset: opengrep-core_linux_x86.tar.gz
-            opengrep_format: tar.gz
+            opengrep_asset: opengrep_manylinux_x86
             yarax_asset: yara-x-v1.14.0-x86_64-unknown-linux-gnu.gz
             yarax_format: gz
           - os: macos-latest
             goos: darwin
             goarch: arm64
-            opengrep_asset: opengrep-core_osx_aarch64.tar.gz
-            opengrep_format: tar.gz
+            opengrep_asset: opengrep_osx_arm64
             yarax_asset: yara-x-v1.14.0-aarch64-apple-darwin.gz
             yarax_format: gz
           - os: windows-latest
             goos: windows
             goarch: amd64
-            opengrep_asset: opengrep-core_windows_x86.zip
-            opengrep_format: zip
+            opengrep_asset: opengrep_windows_x86.exe
             yarax_asset: yara-x-v1.14.0-x86_64-pc-windows-msvc.zip
             yarax_format: zip
           # NOTE: macos-13 (Intel) runners are deprecated by GitHub.
@@ -98,22 +99,9 @@ jobs:
           DOWNLOAD_URL="https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/${{ matrix.opengrep_asset }}"
           echo "Downloading OpenGrep from: ${DOWNLOAD_URL}"
           mkdir -p dist/opengrep
-          curl -fSL --retry 3 -o /tmp/opengrep-archive "${DOWNLOAD_URL}"
-          if [ "${{ matrix.opengrep_format }}" = "zip" ]; then
-            unzip -o /tmp/opengrep-archive -d dist/opengrep/
-          else
-            tar -xzf /tmp/opengrep-archive -C dist/opengrep/
-          fi
-          echo "=== Extracted OpenGrep contents ==="
-          find dist/opengrep/ -type f | head -20
-          # Locate the actual binary (tarball structure varies by platform)
-          OPENGREP_BIN=$(find dist/opengrep/ -type f \( -name 'opengrep-core' -o -name 'opengrep-core.exe' -o -name 'opengrep' -o -name 'opengrep.exe' \) | head -1)
-          if [ -z "$OPENGREP_BIN" ]; then
-            echo "::error::OpenGrep binary not found after extraction for ${{ matrix.goos }}/${{ matrix.goarch }}"
-            exit 1
-          fi
-          # Normalize: move to a known location
-          mv "$OPENGREP_BIN" dist/opengrep/opengrep-bin
+          # OpenGrep ships standalone single-file binaries at the release root —
+          # no archive to extract. Just download, chmod, and place.
+          curl -fSL --retry 3 -o dist/opengrep/opengrep-bin "${DOWNLOAD_URL}"
           chmod +x dist/opengrep/opengrep-bin
           echo "OpenGrep binary: dist/opengrep/opengrep-bin ($(du -h dist/opengrep/opengrep-bin | cut -f1))"
         shell: bash
