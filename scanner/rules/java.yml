@@ -1258,3 +1258,104 @@ rules:
       - pattern: SSLContext.getInstance("TLSv1.1")
       - pattern: SSLContext.getInstance("TLSV1.1")
       - pattern: SSLContext.getInstance("TLS-1.1")
+
+  # ── Phase D4: Hash variants with explicit size suffix ──
+  #
+  # GT v2 enumerates KECCAK-256, SKEIN-256, RIPEMD-128, RIPEMD-256
+  # individually. The bare cbom-java-bc-keccak rule already emits a
+  # KECCAK token for new KeccakDigest(256); this rule emits the more
+  # specific KECCAK-256 when the size literal is 256.
+
+  - id: cbom-java-bc-keccak-256
+    message: "Keccak-256 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KECCAK-256
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new KeccakDigest(256)
+      - pattern: MessageDigest.getInstance("KECCAK-256")
+      - pattern: MessageDigest.getInstance("Keccak-256")
+
+  - id: cbom-java-bc-skein-256
+    message: "Skein-256 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SKEIN-256
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SkeinDigest(256, 256)
+      - pattern: new SkeinDigest(256, ...)
+      - pattern: MessageDigest.getInstance("Skein-256-256")
+      - pattern: MessageDigest.getInstance("SKEIN-256-256")
+
+  - id: cbom-java-bc-ripemd-128
+    message: "RIPEMD-128 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RIPEMD-128
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new RIPEMD128Digest(...)
+      - pattern: new RIPEMD128Digest()
+      - pattern: MessageDigest.getInstance("RIPEMD128")
+      - pattern: MessageDigest.getInstance("RIPEMD-128")
+
+  - id: cbom-java-bc-ripemd-160
+    message: "RIPEMD-160 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RIPEMD-160
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new RIPEMD160Digest(...)
+      - pattern: new RIPEMD160Digest()
+      - pattern: MessageDigest.getInstance("RIPEMD160")
+      - pattern: MessageDigest.getInstance("RIPEMD-160")
+
+  - id: cbom-java-bc-ripemd-256
+    message: "RIPEMD-256 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RIPEMD-256
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new RIPEMD256Digest(...)
+      - pattern: new RIPEMD256Digest()
+      - pattern: MessageDigest.getInstance("RIPEMD256")
+      - pattern: MessageDigest.getInstance("RIPEMD-256")
