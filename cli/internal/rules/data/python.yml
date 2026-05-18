@@ -597,3 +597,24 @@ rules:
     pattern-either:
       - pattern: ed448.Ed448PrivateKey.$X(...)
       - pattern: ed448.Ed448PublicKey.$X(...)
+
+  # ── ElGamal asymmetric scheme (PyCryptodome) ──
+
+  - id: cbom-python-pycryptodome-elgamal
+    message: "ElGamal asymmetric scheme detected (PyCryptodome)"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ELGAMAL
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ElGamal.generate(...)
+      - pattern: ElGamal.construct(...)
+      - pattern: Crypto.PublicKey.ElGamal.generate(...)
+      - pattern: Crypto.PublicKey.ElGamal.construct(...)

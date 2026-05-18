@@ -809,3 +809,24 @@ rules:
       - pattern: new Ed448Signer(...)
       - pattern: new Ed448PrivateKeyParameters(...)
       - pattern: new Ed448PublicKeyParameters(...)
+
+  # ── ElGamal asymmetric scheme (BouncyCastle) ──
+
+  - id: cbom-java-bc-elgamal
+    message: "ElGamal asymmetric scheme detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ELGAMAL
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new ElGamalEngine(...)
+      - pattern: new ElGamalKeyPairGenerator(...)
+      - pattern: new ElGamalKeyGenerationParameters(...)
+      - pattern: new ElGamalParameters(...)
