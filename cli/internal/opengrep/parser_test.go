@@ -592,6 +592,112 @@ func TestParseResults_SurfacesErrorsArray(t *testing.T) {
 	}
 }
 
+func TestParseResults_StaticCbomPrimitive(t *testing.T) {
+	payload := []byte(`{"results":[{
+		"check_id":"cbom-py-md5",
+		"path":"x.py","start":{"line":1,"col":1},"end":{"line":1,"col":1},
+		"extra":{"message":"MD5","severity":"WARNING","metadata":{"cbom-asset-type":"algorithm","cbom-primitive":"MD5"},"lines":""}
+	}],"errors":[]}`)
+	findings, err := ParseResults(payload)
+	if err != nil {
+		t.Fatalf("ParseResults: %v", err)
+	}
+	if len(findings) != 1 {
+		t.Fatalf("expected 1 finding, got %d", len(findings))
+	}
+	if findings[0].Properties.AlgorithmPrimitive != "MD5" {
+		t.Errorf("AlgorithmPrimitive = %q, want %q", findings[0].Properties.AlgorithmPrimitive, "MD5")
+	}
+}
+
+func TestParseResults_MetavarPrimitiveResolution(t *testing.T) {
+	payload := []byte(`{"results":[{
+		"check_id":"cbom-py-hashlib-generic",
+		"path":"x.py","start":{"line":1,"col":1},"end":{"line":1,"col":1},
+		"extra":{
+			"message":"hashlib call","severity":"INFO",
+			"metadata":{"cbom-asset-type":"algorithm","cbom-primitive-from-metavar":"$ALGO","cbom-primitive-fallback":"SHA-256"},
+			"lines":"",
+			"metavars":{"$ALGO":{"abstract_content":"md5"}}
+		}
+	}],"errors":[]}`)
+	findings, err := ParseResults(payload)
+	if err != nil {
+		t.Fatalf("ParseResults: %v", err)
+	}
+	if findings[0].Properties.AlgorithmPrimitive != "MD5" {
+		t.Errorf("metavar-resolved primitive = %q, want %q", findings[0].Properties.AlgorithmPrimitive, "MD5")
+	}
+}
+
+func TestParseResults_MetavarFallback(t *testing.T) {
+	payload := []byte(`{"results":[{
+		"check_id":"cbom-py-hashlib-generic",
+		"path":"x.py","start":{"line":1,"col":1},"end":{"line":1,"col":1},
+		"extra":{
+			"message":"x","severity":"INFO",
+			"metadata":{"cbom-primitive-from-metavar":"$ALGO","cbom-primitive-fallback":"SHA-256"},
+			"lines":"",
+			"metavars":{"$ALGO":{"abstract_content":"some_variable"}}
+		}
+	}],"errors":[]}`)
+	findings, err := ParseResults(payload)
+	if err != nil {
+		t.Fatalf("ParseResults: %v", err)
+	}
+	if findings[0].Properties.AlgorithmPrimitive != "SHA-256" {
+		t.Errorf("expected fallback SHA-256, got %q", findings[0].Properties.AlgorithmPrimitive)
+	}
+}
+
+func TestParseResults_CbomLibraryPropagated(t *testing.T) {
+	payload := []byte(`{"results":[{
+		"check_id":"cbom-py-crypto-library-import",
+		"path":"x.py","start":{"line":1,"col":1},"end":{"line":1,"col":1},
+		"extra":{
+			"message":"x","severity":"INFO",
+			"metadata":{"cbom-asset-type":"library","cbom-primitive":"CRYPTO-LIBRARY-IMPORT","cbom-library":"cryptography"},
+			"lines":""
+		}
+	}],"errors":[]}`)
+	findings, err := ParseResults(payload)
+	if err != nil {
+		t.Fatalf("ParseResults: %v", err)
+	}
+	if findings[0].Properties.Library != "cryptography" {
+		t.Errorf("Library = %q, want %q", findings[0].Properties.Library, "cryptography")
+	}
+}
+
+func TestCanonicalizePrimitive(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"md5", "MD5"},
+		{"MD5", "MD5"},
+		{"sha1", "SHA-1"},
+		{"sha-1", "SHA-1"},
+		{"sha256", "SHA-256"},
+		{"sha512", "SHA-512"},
+		{"sha3_256", "SHA3-256"},
+		{"AES/GCM/NoPadding", "AES-GCM"},
+		{"AES/ECB/PKCS5Padding", "AES-ECB"},
+		{"AES_256_GCM", "AES-256-GCM"},
+		{"RSA", "RSA"},
+		{"TLSv1.0", "TLS-1.0"},
+		{"TLSv1_2", "TLS-1.2"},
+		{"tls_version_1_3", "TLS-1.3"},
+		{"PBKDF2WithHmacSHA256", "PBKDF2-HMAC-SHA256"},
+		{"argon2id", "ARGON2ID"},
+		{"some_random_var", ""}, // non-canonical -> empty (caller uses fallback)
+		{"", ""},
+	}
+	for _, c := range cases {
+		got := canonicalizePrimitive(c.in)
+		if got != c.want {
+			t.Errorf("canonicalizePrimitive(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+}
+
 func TestParseResults_KeepsFindingsWhenErrorsAlsoPresent(t *testing.T) {
 	payload := []byte(`{
 		"results": [{

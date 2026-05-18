@@ -465,9 +465,20 @@ func convertCryptoProperties(f *types.Finding) *cyclonedx17.CryptoProperties {
 }
 
 // convertAlgorithmProperties maps types.CryptoProperties to CycloneDX AlgorithmProperties.
+//
+// Primitive precedence:
+//   - If types.CryptoProperties.AlgorithmPrimitive is set (resolved by the
+//     OpenGrep parser from cbom-primitive metadata), it wins. The canonical
+//     token (e.g. "MD5", "AES-256-GCM", "TLS-1.2") is written as-is.
+//   - Otherwise we fall back to the legacy types.CryptoProperties.Primitive
+//     field, which expects a CycloneDX 1.7 enum value ("hash", "block-cipher", ...).
 func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.AlgorithmProperties {
+	primitive := normalizePrimitive(p.Primitive)
+	if p.AlgorithmPrimitive != "" {
+		primitive = cyclonedx17.Primitive(p.AlgorithmPrimitive)
+	}
 	ap := &cyclonedx17.AlgorithmProperties{
-		Primitive:                normalizePrimitive(p.Primitive),
+		Primitive:                primitive,
 		AlgorithmFamily:          normalizeAlgorithmFamily(p.AlgorithmFamily),
 		Mode:                     normalizeMode(p.Mode),
 		Padding:                  normalizePadding(p.Padding),
