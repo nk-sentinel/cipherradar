@@ -30,6 +30,10 @@ type pemPattern struct {
 	materialType string
 	ruleID       string
 	category     types.Category
+	// primitive is the canonical token (phase 3a vocabulary) emitted as
+	// cryptoProperties.algorithmProperties.primitive — e.g. PRIVATE-KEY,
+	// PUBLIC-KEY, CERTIFICATE-X509.
+	primitive string
 }
 
 // algoPattern matches algorithm name strings.
@@ -136,7 +140,8 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 				Severity:   pp.severity,
 				Confidence: types.ConfidenceLow,
 				Properties: types.CryptoProperties{
-					MaterialType: pp.materialType,
+					MaterialType:       pp.materialType,
+					AlgorithmPrimitive: pp.primitive,
 				},
 				Description: fmt.Sprintf("PEM-encoded %s detected via regex", pp.name),
 				RuleID:      pp.ruleID,
@@ -272,6 +277,13 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 }
 
 func (s *RegexScanner) compilePEMPatterns() {
+	// PEM blocks are asset-discovery findings: we're cataloguing every key /
+	// cert observed in the tree. They live under CategoryInventory so that
+	// `--only-inventory` surfaces them. Whether a private key sitting on disk
+	// is a security incident is contextual (is the file checked into git? is
+	// it a sample?) and belongs to a downstream policy rule, not the
+	// detection rule itself. Severity is retained as a signal of how
+	// sensitive the discovered asset is.
 	s.pemPatterns = []pemPattern{
 		{
 			re:           regexp.MustCompile(`-----BEGIN RSA PRIVATE KEY-----`),
@@ -280,7 +292,8 @@ func (s *RegexScanner) compilePEMPatterns() {
 			severity:     types.SeverityHigh,
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-rsa-private",
-			category:     types.CategorySecurity,
+			category:     types.CategoryInventory,
+			primitive:    "PRIVATE-KEY",
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN EC PRIVATE KEY-----`),
@@ -289,7 +302,8 @@ func (s *RegexScanner) compilePEMPatterns() {
 			severity:     types.SeverityHigh,
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-ec-private",
-			category:     types.CategorySecurity,
+			category:     types.CategoryInventory,
+			primitive:    "PRIVATE-KEY",
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN PRIVATE KEY-----`),
@@ -298,7 +312,8 @@ func (s *RegexScanner) compilePEMPatterns() {
 			severity:     types.SeverityHigh,
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-pkcs8-private",
-			category:     types.CategorySecurity,
+			category:     types.CategoryInventory,
+			primitive:    "PRIVATE-KEY",
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN ENCRYPTED PRIVATE KEY-----`),
@@ -308,6 +323,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-encrypted-private",
 			category:     types.CategoryInventory,
+			primitive:    "PRIVATE-KEY",
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN PUBLIC KEY-----`),
@@ -317,6 +333,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			materialType: "public-key",
 			ruleID:       "cbom-regex-pem-public",
 			category:     types.CategoryInventory,
+			primitive:    "PUBLIC-KEY",
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN CERTIFICATE-----`),
@@ -326,6 +343,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			materialType: "",
 			ruleID:       "cbom-regex-pem-certificate",
 			category:     types.CategoryInventory,
+			primitive:    "CERTIFICATE-X509",
 		},
 	}
 }
@@ -478,7 +496,8 @@ func (s *RegexScanner) parseCertificateBlocks(path string, content []byte) []typ
 				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceLow,
 				Properties: types.CryptoProperties{
-					CertificateFormat: "PEM",
+					CertificateFormat:  "PEM",
+					AlgorithmPrimitive: "CERTIFICATE-X509",
 				},
 				Description: "PEM certificate block found but could not be parsed",
 				RuleID:      "cbom-regex-pem-certificate-parse",
@@ -516,10 +535,13 @@ func (s *RegexScanner) parseCertificateBlocks(path string, content []byte) []typ
 			Severity:   types.SeverityInfo,
 			Confidence: types.ConfidenceLow,
 			Properties: types.CryptoProperties{
-				CertificateFormat: "PEM",
+				CertificateFormat:  "PEM",
+				AlgorithmPrimitive: "CERTIFICATE-X509",
 			},
 			Description: "PEM certificate block found but could not be parsed",
 			RuleID:      "cbom-regex-pem-certificate-parse",
+			Category:    types.CategoryInventory,
+			Maturity:    types.MaturityStable,
 			Pass:        1,
 		})
 	}
@@ -567,6 +589,7 @@ func buildCertFinding(cert *x509.Certificate, path string, lineNum int) types.Fi
 			SignatureAlgorithm: sigAlgo,
 			CertificateFormat:  "PEM",
 			State:              state,
+			AlgorithmPrimitive: "CERTIFICATE-X509",
 		},
 		Description: fmt.Sprintf("X.509 certificate for %q signed with %s (expires %s)",
 			cert.Subject.CommonName, sigAlgo, cert.NotAfter.Format("2006-01-02")),
