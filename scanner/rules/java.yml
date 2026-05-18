@@ -710,3 +710,71 @@ rules:
       - pattern: ECNamedCurveTable.getParameterSpec("P-521")
       - pattern: new ECGenParameterSpec("secp521r1")
       - pattern: new ECGenParameterSpec("P-521")
+
+  # ── Phase B2: BouncyCastle MAC algorithms ──
+
+  - id: cbom-java-bc-cmac
+    message: "CMAC (Cipher-based MAC) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: CMAC
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new CMac(...)
+
+  - id: cbom-java-bc-gmac
+    message: "GMAC (Galois MAC) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GMAC
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new GMac(...)
+
+  - id: cbom-java-bc-kbkdf
+    message: "KBKDF (key-based KDF, NIST SP 800-108) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KBKDF
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new KDFCounterBytesGenerator(...)
+      - pattern: new KDFFeedbackBytesGenerator(...)
+      - pattern: new KDFDoublePipelineIterationBytesGenerator(...)
+      - pattern: KDFCounterParameters.builder(...)
+
+  - id: cbom-java-bc-kmac
+    message: "KMAC (Keccak-based MAC) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KMAC
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new KMAC(...)
+      - pattern: new KMac(...)
