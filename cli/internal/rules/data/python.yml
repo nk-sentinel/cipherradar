@@ -148,6 +148,32 @@ rules:
       - pattern: from Crypto import $X
       - pattern: from nacl import $X
 
+  # ── Pyca KDF-specific import inventory (Phase C5) ──
+  #
+  # The generic crypto-library-import rule above doesn't carry an
+  # algorithm token. These per-KDF import rules ensure the CBOM lists
+  # the specific KDF primitive even when only the constructor is
+  # imported (no call site in scope), so test fixtures that exercise
+  # KBKDF / ConcatKDF / X963KDF / HKDF show up in inventory.
+
+  - id: cbom-python-kbkdf-import
+    message: "KBKDF (NIST SP 800-108) imported from pyca/cryptography"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KBKDF
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: from cryptography.hazmat.primitives.kdf.kbkdf import $X
+      - pattern: from cryptography.hazmat.primitives.kdf.kbkdf import $X, $Y
+      - pattern: from cryptography.hazmat.primitives.kdf.kbkdf import $X, $Y, $Z
+
   - id: cbom-python-deprecated-crypto-import
     message: >
       PyCrypto import detected. PyCrypto is unmaintained — consider
@@ -230,14 +256,22 @@ rules:
 
   - id: cbom-python-config-driven-algorithm
     message: >
-      Algorithm name from environment used in crypto operation.
+      Algorithm name from environment used in crypto operation. When the
+      algorithm string is a static literal the rule resolves to its
+      canonical primitive (MD5/SHA-256/...); when it is a runtime value
+      no primitive token is emitted (the finding still records the
+      hashlib.new call site for inventory).
     severity: INFO
     languages: [python]
     metadata:
       category: inventory
       cbom-asset-type: algorithm
       cbom-primitive-from-metavar: $ALGO
-      cbom-primitive-fallback: CONFIG-DRIVEN-ALGORITHM
+      # Intentionally no cbom-primitive-fallback: when $ALGO cannot be
+      # canonicalized (e.g. it is os.environ.get(...) at runtime) we'd
+      # rather emit a finding with no primitive than fabricate a coarse
+      # CONFIG-DRIVEN-ALGORITHM marker. Phase C4's TestNoCoarseMarkers
+      # enforces this.
       confidence: medium
       quantum-relevant: false
       maturity: stable

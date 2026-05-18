@@ -517,6 +517,8 @@ var cryptoHashMap = map[string]struct {
 	"SHA3_256": {family: "sha3-256", name: "SHA3-256"},
 	"SHA3_384": {family: "sha3-384", name: "SHA3-384"},
 	"SHA3_512": {family: "sha3-512", name: "SHA3-512"},
+	"SHAKE128": {family: "shake128", name: "SHAKE128"},
+	"SHAKE256": {family: "shake256", name: "SHAKE256"},
 	"SM3":      {family: "sm3", name: "SM3"},
 }
 
@@ -876,6 +878,8 @@ var kdfMap = map[string]struct {
 	"ConcatKDFHash": {family: "concatkdf", name: "ConcatKDF"},
 	"ConcatKDFHMAC": {family: "concatkdf-hmac", name: "ConcatKDF-HMAC"},
 	"X963KDF":       {family: "x963kdf", name: "X963KDF"},
+	"KBKDFHMAC":     {family: "kbkdf", name: "KBKDF-HMAC"},
+	"KBKDFCMAC":     {family: "kbkdf", name: "KBKDF-CMAC"},
 }
 
 func (s *PythonScanner) detectKDFs(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {

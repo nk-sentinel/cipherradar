@@ -42,29 +42,107 @@ rules:
     patterns:
       - pattern: md5(...)
 
-  - id: cbom-php-mcrypt-deprecated
+  # ── PHP mcrypt per-algorithm security findings (Phase C2) ──
+  #
+  # Splits the prior cbom-php-mcrypt-deprecated rule (which emitted the
+  # opaque DEPRECATED-CRYPTO marker) into per-cipher rules so each finding
+  # carries its specific canonical primitive (DES / 3DES / BLOWFISH /
+  # RC4 / etc).  The library-context messaging (mcrypt is removed in
+  # PHP 7.2) is preserved in each per-cipher message.
+
+  - id: cbom-php-mcrypt-des
     message: >
-      mcrypt extension is deprecated since PHP 7.1 and removed in PHP 7.2.
-      Migrate to openssl_encrypt()/openssl_decrypt() with authenticated
-      encryption modes (e.g., AES-256-GCM).
+      DES via deprecated mcrypt API. mcrypt was removed in PHP 7.2; DES
+      is also cryptographically broken. Migrate to openssl_encrypt() with
+      an authenticated mode (e.g. AES-256-GCM).
     severity: ERROR
     languages: [php]
     metadata:
       category: security
       cbom-asset-type: algorithm
-      cbom-primitive: DEPRECATED-CRYPTO
+      cbom-primitive: DES
       cbom-library: mcrypt
       confidence: high
       quantum-relevant: false
-      maturity: stable
+      maturity: deprecated
       default_enabled: true
       noise_risk: low
-    patterns:
-      - pattern: mcrypt_encrypt(...)
-      - pattern: mcrypt_decrypt(...)
-      - pattern: mcrypt_create_iv(...)
-      - pattern: mcrypt_get_iv_size(...)
-      - pattern: mcrypt_module_open(...)
+    pattern-either:
+      - pattern: mcrypt_encrypt(MCRYPT_DES, ...)
+      - pattern: mcrypt_decrypt(MCRYPT_DES, ...)
+
+  - id: cbom-php-mcrypt-3des
+    message: >
+      3DES (TripleDES) via deprecated mcrypt API. mcrypt was removed in
+      PHP 7.2; 3DES is no longer NIST-approved. Migrate to AES-256-GCM
+      via openssl_encrypt().
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      cbom-primitive: 3DES
+      cbom-library: mcrypt
+      confidence: high
+      quantum-relevant: false
+      maturity: deprecated
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: mcrypt_encrypt(MCRYPT_3DES, ...)
+      - pattern: mcrypt_decrypt(MCRYPT_3DES, ...)
+      - pattern: mcrypt_encrypt(MCRYPT_TRIPLEDES, ...)
+      - pattern: mcrypt_decrypt(MCRYPT_TRIPLEDES, ...)
+
+  - id: cbom-php-mcrypt-blowfish
+    message: >
+      Blowfish via deprecated mcrypt API. mcrypt was removed in PHP 7.2.
+      Migrate to AES-256-GCM via openssl_encrypt().
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      cbom-primitive: BLOWFISH
+      cbom-library: mcrypt
+      confidence: high
+      quantum-relevant: false
+      maturity: deprecated
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: mcrypt_encrypt(MCRYPT_BLOWFISH, ...)
+      - pattern: mcrypt_decrypt(MCRYPT_BLOWFISH, ...)
+
+  - id: cbom-php-mcrypt-rc4
+    message: >
+      RC4 via deprecated mcrypt API. mcrypt was removed in PHP 7.2; RC4
+      is cryptographically broken. Migrate to AES-256-GCM or
+      ChaCha20-Poly1305 via openssl_encrypt().
+    severity: ERROR
+    languages: [php]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      cbom-primitive: RC4
+      cbom-library: mcrypt
+      confidence: high
+      quantum-relevant: false
+      maturity: deprecated
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: mcrypt_encrypt(MCRYPT_ARCFOUR, ...)
+      - pattern: mcrypt_decrypt(MCRYPT_ARCFOUR, ...)
+      - pattern: mcrypt_encrypt(MCRYPT_RC4, ...)
+      - pattern: mcrypt_decrypt(MCRYPT_RC4, ...)
+
+  # mcrypt setup APIs (create_iv / get_iv_size / module_open) don't carry
+  # the cipher in the argument and signal library use rather than a
+  # specific algorithm; report them via the inventory rule below so they
+  # show up as a CRYPTO-LIBRARY-IMPORT finding (not a coarse-cipher
+  # finding). This keeps the security severity tied to the actual
+  # encrypt/decrypt call.
 
   # ── CBOM Inventory Rules ──
 
@@ -85,21 +163,67 @@ rules:
     pattern-either:
       - pattern: mcrypt_encrypt(...)
       - pattern: mcrypt_decrypt(...)
+      - pattern: mcrypt_create_iv(...)
+      - pattern: mcrypt_get_iv_size(...)
+      - pattern: mcrypt_module_open(...)
 
-  - id: cbom-php-password-hash-inventory
-    message: Password hashing function detected in PHP.
+  # ── PHP password_hash() per-algorithm inventory (Phase C1) ──
+  #
+  # Replaces the prior coarse `cbom-php-password-hash-inventory` rule whose
+  # metavar capture of `$ALGO` rarely resolved (PASSWORD_BCRYPT and friends
+  # are bare constants, not strings, so the canonicalizer dropped them).
+  # The split lets each constant emit its specific BCRYPT / ARGON2I /
+  # ARGON2ID primitive token.
+
+  - id: cbom-php-password-hash-bcrypt
+    message: "bcrypt password hash via password_hash() detected"
     severity: INFO
     languages: [php]
     metadata:
       category: inventory
       cbom-asset-type: algorithm
-      cbom-primitive-from-metavar: $ALGO
-      cbom-primitive-fallback: PASSWORD-HASH
+      cbom-primitive: BCRYPT
       confidence: high
       quantum-relevant: false
       maturity: stable
       default_enabled: true
       noise_risk: low
     pattern-either:
-      - pattern: password_hash($PASSWORD, $ALGO)
-      - pattern: password_hash($PASSWORD, $ALGO, $OPTIONS)
+      - pattern: password_hash($PASSWORD, PASSWORD_BCRYPT)
+      - pattern: password_hash($PASSWORD, PASSWORD_BCRYPT, $OPTIONS)
+      - pattern: password_hash($PASSWORD, PASSWORD_DEFAULT)
+      - pattern: password_hash($PASSWORD, PASSWORD_DEFAULT, $OPTIONS)
+
+  - id: cbom-php-password-hash-argon2id
+    message: "Argon2id password hash via password_hash() detected"
+    severity: INFO
+    languages: [php]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ARGON2ID
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: password_hash($PASSWORD, PASSWORD_ARGON2ID)
+      - pattern: password_hash($PASSWORD, PASSWORD_ARGON2ID, $OPTIONS)
+
+  - id: cbom-php-password-hash-argon2i
+    message: "Argon2i password hash via password_hash() detected"
+    severity: INFO
+    languages: [php]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ARGON2I
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: password_hash($PASSWORD, PASSWORD_ARGON2I)
+      - pattern: password_hash($PASSWORD, PASSWORD_ARGON2I, $OPTIONS)

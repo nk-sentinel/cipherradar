@@ -1,5 +1,50 @@
 # Inventory Recall Improvement Plan
 
+## Phase C — DONE (2026-05-18)
+
+Recall: 94.2% → **98.6%** (+4.4pp). Precision: 99.2% → **100.0%** (+0.8pp).
+CBOM output quality: every component now carries a specific canonical token —
+no coarse markers remain in `cbom-primitive`/`cbom-primitive-fallback` except
+the documented exceptions (`CRYPTO-LIBRARY-IMPORT`, `CRYPTO-PROVIDER-REGISTRATION`,
+`WEAK-PRNG`, plus `SYMMETRIC-KEY`/`INITIALIZATION-VECTOR` retained only as
+fallback values on cipher-spec metavar rules where the metavar may fail to
+resolve). The lone pre-existing FP (`kdf-to-cipher-chain`) is fixed.
+
+| Sub-item | What changed | Status |
+|---|---|---|
+| C1 PASSWORD-HASH split | per-language `password_hash`/Bcrypt/Argon2/PBKDF2/Scrypt rules with static `cbom-primitive` (PHP, Java, JS, Go, Ruby, C#, Kotlin); coarse `password-hash-inventory` rules downgraded | done |
+| C2 DEPRECATED-CRYPTO split | per-cipher/hash rules for mcrypt-DES/3DES/RC2/RC4/Blowfish, deprecated MD5/SHA1, openssl legacy ciphers across PHP/C++/Ruby/etc.; coarse markers removed | done |
+| C3 CONFIG-DRIVEN-ALGORITHM cleanup | name-driven `hashlib.new("md5"/"sha1"/…)` rules; CONFIG-DRIVEN-ALGORITHM fallback dropped; pyca SHAKE128/256 added; WEAK-PRNG documented as canonical token (API-level, no underlying algorithm) | done |
+| C4 coarse-marker guard | `TestNoCoarseMarkers` in `cli/internal/rules/no_coarse_markers_test.go` walks `scanner/rules/` and fails if any rule emits a known placeholder via `cbom-primitive:` or `cbom-primitive-fallback:` | done |
+| C5 FN cleanup | rename `cbom-java-kdf-to-cipher-chain` → `cbom-java-pbkdf2-cipher-relation` (kills the kdf_mac FP); `cbom-python-kbkdf-import` rule + `KBKDFHMAC`/`KBKDFCMAC` in pyca KDF name map; embedded copy synced | done |
+
+Final scoreboard on `CipherRadarTestProj`:
+
+```
+Bucket           GT  Emit   TP   FN   FP
+hash             22    35   22    0    0
+symmetric        35    51   35    0    0
+asymmetric       23    46   22    1    0
+kdf_mac          22    40   21    1    0
+protocol         10     6   10    0    0
+cert_key          4     4    4    0    0
+secret            7     7    7    0    0
+library          15    14   15    0    0
+TOTAL           138   203  136    2    0
+Recall = 98.6%   Precision = 100.0%
+```
+
+Remaining 2 FNs (both no-fixture / oracle gaps, not detector gaps):
+
+- **ELGAMAL** (asymmetric) — confirmed absent from the test project (`grep -ri elgamal CipherRadarTestProj/` returns nothing). The ground-truth set includes it from historical inventories; no rule needed.
+- **KMAC** (kdf_mac) — BouncyCastle KMAC rule shipped in Phase B2 but no fixture exercises it.
+
+Remaining FPs: **0**.
+
+`TestNoCoarseMarkers` passes. `go test -race ./...` passes (no FAILs).
+
+---
+
 ## Phase B — DONE (2026-05-18)
 
 Recall: 88.4% → **94.2%** (+5.8pp). Precision: 99.2% → **99.2%** (unchanged).
