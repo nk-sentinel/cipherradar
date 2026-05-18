@@ -258,14 +258,18 @@ rules:
   - id: cbom-java-config-driven-algorithm
     message: >
       Cryptographic algorithm name loaded from configuration and passed
-      to crypto API. CBOM tracks configuration-driven crypto.
+      to crypto API. When the algorithm string is a static literal the
+      rule resolves to its canonical primitive; when it is a runtime
+      value no primitive token is emitted (the finding still records
+      the Cipher.getInstance call site for inventory).
     severity: INFO
     languages: [java]
     metadata:
       category: inventory
       cbom-asset-type: algorithm
       cbom-primitive-from-metavar: $ALGO
-      cbom-primitive-fallback: CONFIG-DRIVEN-ALGORITHM
+      # Intentionally no cbom-primitive-fallback: see python rule for
+      # rationale. TestNoCoarseMarkers enforces this.
       confidence: medium
       quantum-relevant: false
       maturity: stable

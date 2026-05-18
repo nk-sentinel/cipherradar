@@ -230,14 +230,22 @@ rules:
 
   - id: cbom-python-config-driven-algorithm
     message: >
-      Algorithm name from environment used in crypto operation.
+      Algorithm name from environment used in crypto operation. When the
+      algorithm string is a static literal the rule resolves to its
+      canonical primitive (MD5/SHA-256/...); when it is a runtime value
+      no primitive token is emitted (the finding still records the
+      hashlib.new call site for inventory).
     severity: INFO
     languages: [python]
     metadata:
       category: inventory
       cbom-asset-type: algorithm
       cbom-primitive-from-metavar: $ALGO
-      cbom-primitive-fallback: CONFIG-DRIVEN-ALGORITHM
+      # Intentionally no cbom-primitive-fallback: when $ALGO cannot be
+      # canonicalized (e.g. it is os.environ.get(...) at runtime) we'd
+      # rather emit a finding with no primitive than fabricate a coarse
+      # CONFIG-DRIVEN-ALGORITHM marker. Phase C4's TestNoCoarseMarkers
+      # enforces this.
       confidence: medium
       quantum-relevant: false
       maturity: stable
