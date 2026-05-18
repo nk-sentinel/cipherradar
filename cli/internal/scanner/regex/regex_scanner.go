@@ -31,7 +31,7 @@ type pemPattern struct {
 	ruleID       string
 	category     types.Category
 	// primitive is the canonical token (phase 3a vocabulary) emitted as
-	// cryptoProperties.algorithmProperties.primitive — e.g. PRIVATE-KEY,
+	// cryptoProperties.algorithmProperties.primitive — e.g. PRIVATE-KEY-PEM,
 	// PUBLIC-KEY, CERTIFICATE-X509.
 	primitive string
 }
@@ -293,7 +293,12 @@ func (s *RegexScanner) compilePEMPatterns() {
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-rsa-private",
 			category:     types.CategoryInventory,
-			primitive:    "PRIVATE-KEY",
+			// PEM-encoded private key on disk. The v2 GT (and CycloneDX 1.7
+			// related-crypto-material taxonomy) distinguishes encoded private
+			// keys from in-memory PRIVATE-KEY material — use PRIVATE-KEY-PEM
+			// so downstream consumers can route the finding to the certs/keys
+			// bucket without inspecting the rule ID.
+			primitive: "PRIVATE-KEY-PEM",
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN EC PRIVATE KEY-----`),
@@ -303,7 +308,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-ec-private",
 			category:     types.CategoryInventory,
-			primitive:    "PRIVATE-KEY",
+			primitive:    "PRIVATE-KEY-PEM",
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN PRIVATE KEY-----`),
@@ -313,7 +318,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-pkcs8-private",
 			category:     types.CategoryInventory,
-			primitive:    "PRIVATE-KEY",
+			primitive:    "PRIVATE-KEY-PEM",
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN ENCRYPTED PRIVATE KEY-----`),
@@ -323,7 +328,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-encrypted-private",
 			category:     types.CategoryInventory,
-			primitive:    "PRIVATE-KEY",
+			primitive:    "PRIVATE-KEY-PEM",
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN PUBLIC KEY-----`),

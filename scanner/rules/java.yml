@@ -1359,3 +1359,39 @@ rules:
       - pattern: new RIPEMD256Digest()
       - pattern: MessageDigest.getInstance("RIPEMD256")
       - pattern: MessageDigest.getInstance("RIPEMD-256")
+
+  # ── Phase D5: SipHash MAC family (BouncyCastle) ──
+
+  - id: cbom-java-bc-siphash
+    message: "SipHash MAC detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SIPHASH
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SipHash(...)
+      - pattern: new SipHash()
+
+  - id: cbom-java-bc-siphash-128
+    message: "SipHash-128 MAC detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SIPHASH-128
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SipHash128(...)
+      - pattern: new SipHash128()
