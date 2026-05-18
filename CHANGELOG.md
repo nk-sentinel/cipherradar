@@ -4,6 +4,44 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.2.0-rc.4 — 2026-05-18
+
+CI / release pipeline fixes. No user-visible product behavior changes beyond
+the `cradar-full` bundle now correctly shipping with YARA-X (it was silently
+missing from rc3 due to a release-workflow extraction bug — see below).
+
+### Release pipeline fixes
+
+- **YARA-X extraction (real bug)** — `.gz` files published by YARA-X are
+  single-file gzipped binaries, not gzipped tars. The release workflow's
+  `gunzip -c | tar -xf -` pipeline always failed because tar got the raw
+  binary bytes. Switched non-Windows extraction to `gunzip -c > yr-bin`.
+  Net impact: rc1/rc2/rc3 `cradar-full` archives shipped **without YARA-X**;
+  rc4 onward ships it correctly.
+- **OpenGrep extraction follow-through (rc3 PR #13 was incomplete)** — rc3
+  switched the matrix to the standalone single-file binary names but the
+  YARA-X bug above caused the surrounding step to fail anyway, masking the
+  full-bundle result. With the YARA-X fix in place, both bundled tools now
+  land in `cradar-full_*` archives.
+
+### CI quality / future-proofing
+
+- `setup-go` now sets `cache-dependency-path: cli/go.sum` so Go module
+  caching actually works (was silently failing with "Dependencies file is
+  not found" on every run).
+- Bumped all GitHub Actions to Node.js 24-compatible majors ahead of the
+  June 2026 Node 20 deprecation: `actions/checkout@v5`,
+  `actions/setup-go@v6`, `actions/upload-artifact@v5`,
+  `actions/download-artifact@v6`.
+
+### Known issues at rc4 time
+
+- GitHub Actions storage quota was hit during rc3 troubleshooting; quota
+  counter recalculates every 6-12 hours. rc4 tag should be pushed once the
+  quota refreshes.
+
+---
+
 ## 0.2.0-rc.3 — 2026-05-18
 
 Post-rc2 release. Closes the only critical bug deferred from rc2 (broken
