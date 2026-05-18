@@ -878,6 +878,8 @@ var kdfMap = map[string]struct {
 	"ConcatKDFHash": {family: "concatkdf", name: "ConcatKDF"},
 	"ConcatKDFHMAC": {family: "concatkdf-hmac", name: "ConcatKDF-HMAC"},
 	"X963KDF":       {family: "x963kdf", name: "X963KDF"},
+	"KBKDFHMAC":     {family: "kbkdf", name: "KBKDF-HMAC"},
+	"KBKDFCMAC":     {family: "kbkdf", name: "KBKDF-CMAC"},
 }
 
 func (s *PythonScanner) detectKDFs(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {

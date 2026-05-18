@@ -148,6 +148,32 @@ rules:
       - pattern: from Crypto import $X
       - pattern: from nacl import $X
 
+  # ── Pyca KDF-specific import inventory (Phase C5) ──
+  #
+  # The generic crypto-library-import rule above doesn't carry an
+  # algorithm token. These per-KDF import rules ensure the CBOM lists
+  # the specific KDF primitive even when only the constructor is
+  # imported (no call site in scope), so test fixtures that exercise
+  # KBKDF / ConcatKDF / X963KDF / HKDF show up in inventory.
+
+  - id: cbom-python-kbkdf-import
+    message: "KBKDF (NIST SP 800-108) imported from pyca/cryptography"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KBKDF
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: from cryptography.hazmat.primitives.kdf.kbkdf import $X
+      - pattern: from cryptography.hazmat.primitives.kdf.kbkdf import $X, $Y
+      - pattern: from cryptography.hazmat.primitives.kdf.kbkdf import $X, $Y, $Z
+
   - id: cbom-python-deprecated-crypto-import
     message: >
       PyCrypto import detected. PyCrypto is unmaintained — consider

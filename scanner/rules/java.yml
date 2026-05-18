@@ -185,17 +185,24 @@ rules:
       - pattern: import java.security.$X.$Y;
       - pattern: import javax.net.ssl.$X.$Y;
 
-  - id: cbom-java-kdf-to-cipher-chain
+  # Note (Phase C5): renamed from cbom-java-kdf-to-cipher-chain so the
+  # derived component name (`pbkdf2-cipher-relation`) clearly signals a
+  # *relationship* artifact rather than an algorithm token. The previous
+  # name was a misleading FP for the recall comparison script (which
+  # bucketed the chain marker into kdf_mac and tried to algorithm-match
+  # it). The relationship is between an already-detected PBKDF2 KDF and
+  # an already-detected Cipher, so the asset-type stays
+  # key-derivation-function with the static PBKDF2 primitive.
+  - id: cbom-java-pbkdf2-cipher-relation
     message: >
-      Key derivation chain detected: password-based key derivation feeds
-      into cipher initialization. CBOM links KDF to cipher usage.
+      KDF-to-cipher relationship detected: PBKDF2-derived key feeds into
+      cipher initialization. CBOM links KDF to cipher usage.
     severity: INFO
     languages: [java]
     metadata:
       category: inventory
       cbom-asset-type: key-derivation-function
-      cbom-primitive-from-metavar: $ALGO
-      cbom-primitive-fallback: PBKDF2
+      cbom-primitive: PBKDF2
       confidence: high
       quantum-relevant: false
       maturity: stable
