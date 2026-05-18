@@ -463,3 +463,103 @@ rules:
       default_enabled: true
       noise_risk: low
     pattern: algorithms.ARIA(...)
+
+  # ── Phase B1: EC named curves (pyca/cryptography) ──
+
+  - id: cbom-python-pyca-curve-p-256-secp256r1
+    message: "EC curve P-256 (SECP256R1) detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-256
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: ec.SECP256R1(...)
+
+  - id: cbom-python-pyca-curve-p-384-secp384r1
+    message: "EC curve P-384 (SECP384R1) detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-384
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: ec.SECP384R1(...)
+
+  - id: cbom-python-pyca-curve-p-521-secp521r1
+    message: "EC curve P-521 (SECP521R1) detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-521
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: ec.SECP521R1(...)
+
+  - id: cbom-python-pyca-curve-x25519
+    message: "EC curve X25519 / Curve25519 detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: CURVE25519
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: x25519.X25519PrivateKey.$X(...)
+      - pattern: x25519.X25519PublicKey.$X(...)
+
+  - id: cbom-python-curve-x448
+    message: "EC curve X448 detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: X448
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: x448.X448PrivateKey.$X(...)
+      - pattern: x448.X448PublicKey.$X(...)
+
+  # ── Phase B3: Ed448 signature key (pyca/cryptography) ──
+
+  - id: cbom-python-pyca-ed448
+    message: "Ed448 signature key detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ED448
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ed448.Ed448PrivateKey.$X(...)
+      - pattern: ed448.Ed448PublicKey.$X(...)

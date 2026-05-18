@@ -1,5 +1,36 @@
 # Inventory Recall Improvement Plan
 
+## Phase B — DONE (2026-05-18)
+
+Recall: 88.4% → **94.2%** (+5.8pp). Precision: 99.2% → **99.2%** (unchanged).
+Total components: 1,696 → ~1,720 (172 inventory comps vs 167 in Phase A on
+the same scan). 13 new rules added (130 → 143 in `scanner/rules/`).
+
+| Sub-item | Tokens caught | Status |
+|---|---|---|
+| B1 EC curves | P-256, P-384, P-521, CURVE25519, X448 | done |
+| B2 BC MACs | CMAC, GMAC (KBKDF + KMAC rules added; no fixture in test project) | done |
+| B3 ED448 | ED448 | done |
+
+8 FN tokens remain (down from 16):
+
+```
+hash         SHAKE128                                  (1; no fixture in test project)
+symmetric    DESEDE                                    (1; alias of 3DES — classifier-only gap)
+asymmetric   ELGAMAL                                   (1; Phase C)
+kdf_mac      KBKDF, KMAC                               (2; rules in place, no fixture)
+secret       API-KEY, AWS-SECRET, PRIVATE-KEY-MATERIAL (3; Phase C5)
+```
+
+All 5 Phase B target tokens with fixtures (P-256/384/521, CURVE25519, X448,
+ED448, CMAC, GMAC) are now TPs. KBKDF and KMAC rules ship but are not
+exercised by the current test project. The remaining ELGAMAL, secret-bucket,
+SHAKE128, and DESEDE gaps are deferred to Phase C.
+
+The lone pre-existing FP (`kdf-to-cipher-chain`) is unchanged.
+
+---
+
 ## Phase A — DONE (2026-05-18)
 
 Recall: 76.1% → **88.4%** (+12.3pp). Precision: 99.1% → **99.2%**. Total
