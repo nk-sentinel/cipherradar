@@ -544,3 +544,22 @@ rules:
     pattern-either:
       - pattern: x448.X448PrivateKey.$X(...)
       - pattern: x448.X448PublicKey.$X(...)
+
+  # ── Phase B3: Ed448 signature key (pyca/cryptography) ──
+
+  - id: cbom-python-pyca-ed448
+    message: "Ed448 signature key detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ED448
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ed448.Ed448PrivateKey.$X(...)
+      - pattern: ed448.Ed448PublicKey.$X(...)

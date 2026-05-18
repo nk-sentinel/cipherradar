@@ -778,3 +778,23 @@ rules:
     pattern-either:
       - pattern: new KMAC(...)
       - pattern: new KMac(...)
+
+  # ── Phase B3: Ed448 signature scheme (BouncyCastle) ──
+
+  - id: cbom-java-bc-ed448
+    message: "Ed448 signature scheme detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ED448
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new Ed448Signer(...)
+      - pattern: new Ed448PrivateKeyParameters(...)
+      - pattern: new Ed448PublicKeyParameters(...)
