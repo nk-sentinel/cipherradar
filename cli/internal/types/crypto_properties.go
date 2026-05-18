@@ -23,6 +23,17 @@ type CryptoProperties struct {
 	// CryptoFunctions lists the cryptographic operations observed (e.g. ["encrypt", "decrypt", "generate"]).
 	CryptoFunctions []string `json:"crypto_functions,omitempty"`
 
+	// AlgorithmPrimitive is the canonical token for this finding's algorithm
+	// (e.g. "MD5", "AES-256-GCM", "TLS-1.2"). Populated by the OpenGrep parser
+	// from rule metadata (cbom-primitive or resolved from cbom-primitive-from-metavar).
+	// Empty when the rule doesn't specify and no fallback applied.
+	AlgorithmPrimitive string `json:"algorithm_primitive,omitempty"`
+
+	// Library is the name of the cryptographic library involved in this finding
+	// (e.g. "cryptography", "bouncycastle"). Populated by the parser from the
+	// rule's cbom-library metadata. Empty when not a library-import rule.
+	Library string `json:"library,omitempty"`
+
 	// ProtocolType is the protocol type (e.g. "tls", "ssh", "ipsec").
 	ProtocolType string `json:"protocol_type,omitempty"`
 	// ProtocolVersion is the protocol version string (e.g. "1.2", "1.3").
