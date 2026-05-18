@@ -9,6 +9,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: SYMMETRIC-KEY
       confidence: high
       quantum-relevant: true
       maturity: experimental
@@ -30,16 +31,17 @@ rules:
       - pattern: |
           SymmetricKey(data: "...".data(using: ...)!)
 
-  - id: cbom-swift-insecure-hash
+  - id: cbom-swift-insecure-hash-md5
     message: >
-      CC_MD5 or CC_SHA1 hash function detected via CommonCrypto. MD5 and
-      SHA-1 are cryptographically broken. Use SHA-256 or SHA-512 from
-      CryptoKit or CommonCrypto for integrity and authentication.
+      CC_MD5 / Insecure.MD5 hash function detected. MD5 is
+      cryptographically broken. Use SHA-256 or SHA-512 from CryptoKit or
+      CommonCrypto for integrity and authentication.
     severity: ERROR
     languages: [swift]
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: MD5
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -50,11 +52,29 @@ rules:
       - pattern: CC_MD5_Init(...)
       - pattern: CC_MD5_Update(...)
       - pattern: CC_MD5_Final(...)
+      - pattern: Insecure.MD5.hash(...)
+
+  - id: cbom-swift-insecure-hash-sha1
+    message: >
+      CC_SHA1 / Insecure.SHA1 hash function detected. SHA-1 is
+      cryptographically weak. Use SHA-256 or SHA-512 from CryptoKit or
+      CommonCrypto for integrity and authentication.
+    severity: WARNING
+    languages: [swift]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      cbom-primitive: SHA-1
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    patterns:
       - pattern: CC_SHA1(...)
       - pattern: CC_SHA1_Init(...)
       - pattern: CC_SHA1_Update(...)
       - pattern: CC_SHA1_Final(...)
-      - pattern: Insecure.MD5.hash(...)
       - pattern: Insecure.SHA1.hash(...)
 
   - id: cbom-swift-weak-random
@@ -69,6 +89,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: WEAK-PRNG
       confidence: medium
       quantum-relevant: false
       maturity: stable
@@ -88,6 +109,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: cryptokit-or-commoncrypto
       confidence: high
       quantum-relevant: false
       maturity: stable
