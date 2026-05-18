@@ -91,3 +91,39 @@ rules:
       - pattern: import javax.crypto.$X.$Y
       - pattern: import java.security.$X.$Y
       - pattern: import javax.net.ssl.$X.$Y
+
+  # ── Phase D3: Version-specific TLS protocol attribution ──
+
+  - id: cbom-kotlin-tlsv1_0
+    message: "TLS 1.0 protocol detected (broken)"
+    severity: WARNING
+    languages: [kotlin]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.0
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: SSLContext.getInstance("TLSv1")
+      - pattern: SSLContext.getInstance("TLS-1.0")
+
+  - id: cbom-kotlin-tlsv1_1
+    message: "TLS 1.1 protocol detected (deprecated)"
+    severity: WARNING
+    languages: [kotlin]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.1
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: SSLContext.getInstance("TLSv1.1")
+      - pattern: SSLContext.getInstance("TLS-1.1")

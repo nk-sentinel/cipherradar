@@ -1215,3 +1215,46 @@ rules:
       - pattern: new RFC3394WrapEngine()
       - pattern: new RFC5649WrapEngine(...)
       - pattern: new RFC5649WrapEngine()
+
+  # ── Phase D3: Version-specific TLS protocol attribution ──
+  #
+  # cbom-java-tls-version-enforcement covers MINIMUM-version configs but
+  # doesn't pin a primitive when the SSLContext is built with a literal
+  # "TLSv1" / "TLSv1.1" string. Per-version rules emit explicit TLS-1.0 /
+  # TLS-1.1 primitives so they surface in the v2 GT protocol bucket.
+
+  - id: cbom-java-tlsv1_0
+    message: "TLS 1.0 protocol detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.0
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: SSLContext.getInstance("TLSv1")
+      - pattern: SSLContext.getInstance("TLSV1")
+      - pattern: SSLContext.getInstance("TLS-1.0")
+
+  - id: cbom-java-tlsv1_1
+    message: "TLS 1.1 protocol detected (deprecated)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.1
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: SSLContext.getInstance("TLSv1.1")
+      - pattern: SSLContext.getInstance("TLSV1.1")
+      - pattern: SSLContext.getInstance("TLS-1.1")
