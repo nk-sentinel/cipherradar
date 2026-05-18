@@ -118,11 +118,19 @@ func (s *ConfigScanner) scanEnvFile(path string, lines [][]byte) []types.Finding
 			Severity:   types.SeverityHigh,
 			Confidence: types.ConfidenceMedium,
 			Properties: types.CryptoProperties{
-				MaterialType: materialType,
+				MaterialType:       materialType,
+				AlgorithmPrimitive: "HARDCODED-SECRET",
 			},
 			Description: fmt.Sprintf("Hardcoded secret found in environment variable %q", keyName),
 			RuleID:      "cbom-config-hardcoded-secret",
 			Pass:        1,
+			// Hardcoded secrets are an inventory finding (asset discovery).
+			// The security-warning angle is implicit in the rule name; we want
+			// these to appear in --only-inventory output, not be filtered out.
+			Category:       types.CategoryInventory,
+			Maturity:       types.MaturityStable,
+			NoiseRisk:      types.NoiseRiskLow,
+			DefaultEnabled: true,
 		})
 	}
 
@@ -177,11 +185,18 @@ func (s *ConfigScanner) scanPropertiesFile(path string, lines [][]byte) []types.
 				Severity:   types.SeverityHigh,
 				Confidence: types.ConfidenceMedium,
 				Properties: types.CryptoProperties{
-					MaterialType: materialType,
+					MaterialType:       materialType,
+					AlgorithmPrimitive: "HARDCODED-SECRET",
 				},
 				Description: fmt.Sprintf("Hardcoded secret found in property %q", key),
 				RuleID:      "cbom-config-hardcoded-secret",
 				Pass:        1,
+				// Hardcoded secrets are an inventory finding (asset discovery).
+				// See scanEnvFile for rationale.
+				Category:       types.CategoryInventory,
+				Maturity:       types.MaturityStable,
+				NoiseRisk:      types.NoiseRiskLow,
+				DefaultEnabled: true,
 			})
 		}
 
@@ -253,13 +268,109 @@ func containsSecretIndicator(keyLower string) bool {
 	return false
 }
 
-// isBoringValue returns true for obviously non-secret values.
+// isBoringValue returns true for obviously non-secret values. We use it to
+// suppress hardcoded-secret findings on:
+//   - boolean / null / numeric flags
+//   - template placeholders (`<your_secret>`, `${VAR}`, `{{var}}`, `%VAR%`)
+//   - obvious placeholder strings (`changeme`, `placeholder`, `xxx`, `***`,
+//     `your_*_here`)
+//   - quoted-empty values (`""`, `''`)
+//   - very short non-templated values (< 4 chars) that are almost never real
+//     secrets and frequently false-positive on things like `key=1` flags
+//
+// The goal is to keep --only-inventory clean enough that an operator skimming
+// it can trust every line as a real asset.
 func isBoringValue(v string) bool {
-	lower := strings.ToLower(v)
-	boring := []string{"true", "false", "yes", "no", "0", "1", "null", "none", ""}
-	for _, b := range boring {
-		if lower == b {
+	if v == "" {
+		return true
+	}
+	// Strip matching surrounding quotes once so `""` and `"secret"` are
+	// both inspected on their core value.
+	stripped := v
+	if len(stripped) >= 2 {
+		first, last := stripped[0], stripped[len(stripped)-1]
+		if (first == '"' && last == '"') || (first == '\'' && last == '\'') {
+			stripped = stripped[1 : len(stripped)-1]
+		}
+	}
+	if stripped == "" {
+		return true
+	}
+	lower := strings.ToLower(stripped)
+
+	// Boolean / null / single-digit flag values.
+	flagLiterals := map[string]bool{
+		"true": true, "false": true, "yes": true, "no": true,
+		"0": true, "1": true, "null": true, "none": true, "nil": true,
+	}
+	if flagLiterals[lower] {
+		return true
+	}
+
+	// Template / env-var placeholders. Catches `${VAR}`, `{{var}}`, `%VAR%`,
+	// `<your_secret>`, `[REDACTED]`, etc. — anything wrapped in matched
+	// brackets/braces that obviously isn't a literal secret.
+	if isTemplatePlaceholder(stripped) {
+		return true
+	}
+
+	// Common placeholder words. We check the whole value (not substring) so
+	// "changeme" matches but "ifChangemeQ7..." does not — long values with
+	// these words embedded are likely real.
+	placeholders := []string{
+		"changeme", "change_me", "change-me",
+		"placeholder", "todo", "tbd", "fixme",
+		"xxx", "xxxx", "xxxxx",
+		"secret", "password", "secretkey", "apikey", "token",
+		"example", "sample", "test", "dummy", "fake",
+		"foo", "bar", "baz",
+		"***", "****", "*****",
+		"redacted",
+	}
+	for _, p := range placeholders {
+		if lower == p {
 			return true
+		}
+	}
+	// "your_*_here" pattern (e.g. `your_api_key_here`, `your-secret-here`).
+	if strings.HasPrefix(lower, "your_") || strings.HasPrefix(lower, "your-") {
+		if strings.HasSuffix(lower, "_here") || strings.HasSuffix(lower, "-here") {
+			return true
+		}
+	}
+
+	// Very short values are almost never real high-entropy secrets and
+	// frequently fire on accidental matches like `key=1` or `key=on`.
+	if len(stripped) < 4 {
+		return true
+	}
+
+	return false
+}
+
+// isTemplatePlaceholder returns true if v looks like an unfilled template
+// placeholder rather than a literal secret. Heuristics:
+//   - `${...}`, `{{...}}`, `%...%`, `<...>`, `[...]` — the whole value is
+//     wrapped in a matched pair of these delimiters
+func isTemplatePlaceholder(v string) bool {
+	n := len(v)
+	if n < 2 {
+		return false
+	}
+	pairs := []struct{ open, close string }{
+		{"${", "}"},
+		{"{{", "}}"},
+		{"%", "%"},
+		{"<", ">"},
+		{"[", "]"},
+		{"{", "}"},
+	}
+	for _, p := range pairs {
+		if strings.HasPrefix(v, p.open) && strings.HasSuffix(v, p.close) {
+			// Avoid matching `%` against single-char `%` or empty inside.
+			if n > len(p.open)+len(p.close) {
+				return true
+			}
 		}
 	}
 	return false
