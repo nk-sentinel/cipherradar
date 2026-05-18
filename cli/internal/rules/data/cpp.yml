@@ -9,6 +9,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: AES
       confidence: high
       quantum-relevant: true
       maturity: experimental
@@ -42,6 +43,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: WEAK-PRNG
       confidence: medium
       quantum-relevant: false
       maturity: stable
@@ -65,6 +67,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: DEPRECATED-CRYPTO
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -93,6 +96,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: openssl-or-libsodium
       confidence: high
       quantum-relevant: false
       maturity: stable
