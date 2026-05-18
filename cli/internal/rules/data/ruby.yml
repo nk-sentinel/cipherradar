@@ -9,6 +9,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: SYMMETRIC-KEY
       confidence: high
       quantum-relevant: true
       maturity: experimental
@@ -28,7 +29,7 @@ rules:
           ...
           $CIPHER.key = $KEY
 
-  - id: cbom-ruby-weak-digest
+  - id: cbom-ruby-weak-digest-md5
     message: >
       Digest::MD5 is cryptographically broken and must not be used for
       integrity or authentication. Use Digest::SHA256 or Digest::SHA512.
@@ -37,6 +38,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: MD5
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -47,6 +49,23 @@ rules:
       - pattern: Digest::MD5.digest(...)
       - pattern: Digest::MD5.new
       - pattern: OpenSSL::Digest::MD5.new
+
+  - id: cbom-ruby-weak-digest-sha1
+    message: >
+      Digest::SHA1 is considered cryptographically weak. Use
+      Digest::SHA256 or Digest::SHA512.
+    severity: WARNING
+    languages: [ruby]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      cbom-primitive: SHA-1
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    patterns:
       - pattern: Digest::SHA1.hexdigest(...)
       - pattern: Digest::SHA1.digest(...)
       - pattern: Digest::SHA1.new
@@ -61,6 +80,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: protocol
+      cbom-primitive: TLS
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -85,6 +105,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: openssl-or-bcrypt-or-digest
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -102,6 +124,7 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: algorithm
+      cbom-primitive: BCRYPT
       confidence: high
       quantum-relevant: false
       maturity: stable

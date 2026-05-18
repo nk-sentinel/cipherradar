@@ -9,6 +9,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: SYMMETRIC-KEY
       confidence: high
       quantum-relevant: false
       maturity: experimental
@@ -33,6 +34,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: INITIALIZATION-VECTOR
       confidence: high
       quantum-relevant: false
       maturity: experimental
@@ -55,6 +57,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: WEAK-PRNG
       confidence: medium
       quantum-relevant: false
       maturity: stable
@@ -74,6 +77,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: certificate
+      cbom-primitive: CERTIFICATE-X509
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -95,6 +99,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: protocol
+      cbom-primitive: TLS
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -116,6 +121,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: AES-ECB
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -132,6 +138,8 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: ECDSA
+      cbom-primitive-curve-from-metavar: $CURVE
       confidence: high
       quantum-relevant: true
       maturity: stable
@@ -160,6 +168,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: bouncycastle-or-jca
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -184,6 +194,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: key-derivation-function
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: PBKDF2
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -206,6 +218,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: protocol
+      cbom-primitive: TLS
+      cbom-primitive-from-metavar: $VERSION
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -226,6 +240,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: related-crypto-material
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: SYMMETRIC-KEY
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -248,6 +264,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: algorithm
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: CONFIG-DRIVEN-ALGORITHM
       confidence: medium
       quantum-relevant: false
       maturity: stable
@@ -272,6 +290,7 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: certificate
+      cbom-primitive: CERTIFICATE-X509
       confidence: high
       quantum-relevant: true
       maturity: stable
@@ -296,6 +315,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-PROVIDER-REGISTRATION
+      cbom-library-from-metavar: $PROVIDER
       confidence: high
       quantum-relevant: false
       maturity: stable

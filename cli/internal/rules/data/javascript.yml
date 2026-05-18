@@ -8,6 +8,8 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: SYMMETRIC-CIPHER
       confidence: high
       quantum-relevant: false
       maturity: experimental
@@ -29,6 +31,8 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: SYMMETRIC-CIPHER
       confidence: high
       quantum-relevant: false
       maturity: experimental
@@ -53,6 +57,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: HMAC
       confidence: high
       quantum-relevant: false
       maturity: experimental
@@ -74,6 +79,8 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: HMAC
+      cbom-primitive-hash-from-metavar: $ALGO
       confidence: high
       quantum-relevant: false
       maturity: experimental
@@ -95,6 +102,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: WEAK-PRNG
       confidence: low
       quantum-relevant: false
       maturity: stable
@@ -112,6 +120,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: nodejs-crypto-or-forge-or-jwt-or-bcrypt-or-argon2
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -134,6 +144,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: crypto-js
       confidence: medium
       quantum-relevant: false
       maturity: stable
@@ -143,28 +155,43 @@ rules:
       - pattern: const $X = require('crypto-js')
       - pattern: import $X from 'crypto-js'
 
-  - id: cbom-js-kdf-to-cipher-chain
+  - id: cbom-js-kdf-to-cipher-chain-pbkdf2
     message: >
-      Key derivation chain: PBKDF2/scrypt output used as cipher key.
+      Key derivation chain: PBKDF2 output used as cipher key.
     severity: INFO
     languages: [javascript, typescript]
     metadata:
       category: inventory
       cbom-asset-type: key-derivation-function
+      cbom-primitive: PBKDF2
       confidence: high
       quantum-relevant: false
       maturity: stable
       default_enabled: true
       noise_risk: low
-    patterns:
-      - pattern: |
-          $KEY = crypto.pbkdf2Sync($PASSWORD, $SALT, $ITER, $LEN, $HASH)
-          ...
-          crypto.createCipheriv($ALGO, $KEY, $IV)
-      - pattern: |
-          $KEY = crypto.scryptSync($PASSWORD, $SALT, $LEN)
-          ...
-          crypto.createCipheriv($ALGO, $KEY, $IV)
+    pattern: |
+      $KEY = crypto.pbkdf2Sync($PASSWORD, $SALT, $ITER, $LEN, $HASH)
+      ...
+      crypto.createCipheriv($ALGO, $KEY, $IV)
+
+  - id: cbom-js-kdf-to-cipher-chain-scrypt
+    message: >
+      Key derivation chain: scrypt output used as cipher key.
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: key-derivation-function
+      cbom-primitive: SCRYPT
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: |
+      $KEY = crypto.scryptSync($PASSWORD, $SALT, $LEN)
+      ...
+      crypto.createCipheriv($ALGO, $KEY, $IV)
 
   - id: cbom-js-config-driven-algorithm
     message: >
@@ -174,6 +201,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: algorithm
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: CONFIG-DRIVEN-ALGORITHM
       confidence: medium
       quantum-relevant: false
       maturity: stable

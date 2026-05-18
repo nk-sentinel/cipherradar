@@ -9,6 +9,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: AES
       confidence: high
       quantum-relevant: true
       maturity: experimental
@@ -33,6 +34,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: HMAC
       confidence: high
       quantum-relevant: false
       maturity: experimental
@@ -57,6 +59,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: WEAK-PRNG
       confidence: medium
       quantum-relevant: false
       maturity: stable
@@ -77,6 +80,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: go-crypto
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -86,28 +91,43 @@ rules:
       - pattern: import "crypto/$..."
       - pattern: import "golang.org/x/crypto/$..."
 
-  - id: cbom-go-kdf-to-cipher-chain
+  - id: cbom-go-kdf-to-cipher-chain-scrypt
     message: >
-      Key derivation output used as cipher key in Go.
+      scrypt key derivation output used as AES cipher key in Go.
     severity: INFO
     languages: [go]
     metadata:
       category: inventory
       cbom-asset-type: key-derivation-function
+      cbom-primitive: SCRYPT
       confidence: high
       quantum-relevant: false
       maturity: stable
       default_enabled: true
       noise_risk: low
-    patterns:
-      - pattern: |
-          $KEY, $ERR = scrypt.Key($PASSWORD, $SALT, $N, $R, $P, $LEN)
-          ...
-          $BLOCK, $ERR2 = aes.NewCipher($KEY)
-      - pattern: |
-          $KEY = argon2.IDKey($PASSWORD, $SALT, $TIME, $MEM, $THREADS, $LEN)
-          ...
-          $BLOCK, $ERR = aes.NewCipher($KEY)
+    pattern: |
+      $KEY, $ERR = scrypt.Key($PASSWORD, $SALT, $N, $R, $P, $LEN)
+      ...
+      $BLOCK, $ERR2 = aes.NewCipher($KEY)
+
+  - id: cbom-go-kdf-to-cipher-chain-argon2
+    message: >
+      Argon2id key derivation output used as AES cipher key in Go.
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: key-derivation-function
+      cbom-primitive: ARGON2ID
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: |
+      $KEY = argon2.IDKey($PASSWORD, $SALT, $TIME, $MEM, $THREADS, $LEN)
+      ...
+      $BLOCK, $ERR = aes.NewCipher($KEY)
 
   - id: cbom-go-tls-version-enforcement
     message: >
@@ -117,6 +137,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: protocol
+      cbom-primitive: TLS
+      cbom-primitive-from-metavar: $MIN
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -129,19 +151,34 @@ rules:
         ...,
       }
 
-  - id: cbom-go-password-hash-inventory
+  - id: cbom-go-password-hash-bcrypt
     message: >
-      Password hashing function detected in Go.
+      bcrypt password hashing function detected in Go.
     severity: INFO
     languages: [go]
     metadata:
       category: inventory
       cbom-asset-type: algorithm
+      cbom-primitive: BCRYPT
       confidence: high
       quantum-relevant: false
       maturity: stable
       default_enabled: true
       noise_risk: low
-    pattern-either:
-      - pattern: bcrypt.GenerateFromPassword($PASSWORD, $COST)
-      - pattern: argon2.IDKey($PASSWORD, $SALT, $TIME, $MEM, $THREADS, $LEN)
+    pattern: bcrypt.GenerateFromPassword($PASSWORD, $COST)
+
+  - id: cbom-go-password-hash-argon2
+    message: >
+      Argon2id password hashing function detected in Go.
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ARGON2ID
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: argon2.IDKey($PASSWORD, $SALT, $TIME, $MEM, $THREADS, $LEN)

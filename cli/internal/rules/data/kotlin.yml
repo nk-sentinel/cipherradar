@@ -9,6 +9,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: SYMMETRIC-KEY
       confidence: high
       quantum-relevant: false
       maturity: experimental
@@ -33,6 +34,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive: INITIALIZATION-VECTOR
       confidence: high
       quantum-relevant: false
       maturity: experimental
@@ -56,6 +58,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: AES-ECB
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -72,6 +75,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: bouncycastle-or-jca
       confidence: high
       quantum-relevant: false
       maturity: stable
