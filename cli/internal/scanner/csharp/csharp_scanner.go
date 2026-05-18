@@ -89,7 +89,7 @@ func (s *CSharpScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 	regexFindings := s.detectRegexPatterns(path, content)
 	findings = append(findings, regexFindings...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.

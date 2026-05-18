@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -73,7 +74,7 @@ func (s *JavaSecurityScanner) ScanFile(path string, content []byte) ([]types.Fin
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // scanDisabledAlgorithms verifies that weak algorithms are in the disabled list.

@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -77,7 +78,7 @@ func (s *CustomScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // ScanFileForLanguage scans a source file for calls to custom wrappers
@@ -110,7 +111,7 @@ func (s *CustomScanner) ScanFileForLanguage(path string, content []byte, lang st
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // callPatternsForWrapper generates the string patterns to search for when

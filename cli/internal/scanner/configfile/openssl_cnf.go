@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -58,7 +59,7 @@ func (s *OpenSSLCnfScanner) ScanFile(path string, content []byte) ([]types.Findi
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // scanDefaultMD checks if the default message digest is weak.

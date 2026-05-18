@@ -83,7 +83,7 @@ func (s *RubyScanner) ScanFile(path string, content []byte) ([]types.Finding, er
 	// Detect Digest module usage
 	findings = append(findings, s.detectDigest(root, path, content)...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.

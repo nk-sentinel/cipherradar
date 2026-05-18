@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -62,7 +63,7 @@ func (s *ELFScanner) ScanFile(path string, content []byte) ([]types.Finding, err
 		findings = append(findings, goFindings...)
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // scanELF attempts to parse the content as an ELF binary. If successful, it

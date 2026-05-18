@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -63,7 +64,7 @@ func (s *NginxScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // scanSSLProtocols checks for weak TLS/SSL protocols.

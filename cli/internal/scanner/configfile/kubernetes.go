@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -84,7 +85,7 @@ func (s *KubernetesScanner) ScanFile(path string, content []byte) ([]types.Findi
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // scanCipherAnnotation checks cipher annotations for weak ciphers.

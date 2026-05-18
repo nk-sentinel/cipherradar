@@ -78,5 +78,5 @@ func (s *WheelScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }

@@ -93,7 +93,7 @@ func (s *JARScanner) ScanFile(path string, content []byte) ([]types.Finding, err
 	cfrFindings := s.tryCFRDecompile(path, content)
 	findings = append(findings, cfrFindings...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // readZipEntry reads the full content of a ZIP entry.

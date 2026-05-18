@@ -14,6 +14,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -22,12 +23,13 @@ var findingCounter atomic.Int64
 
 // pemPattern matches PEM block headers.
 type pemPattern struct {
-	re          *regexp.Regexp
-	name        string
-	assetType   types.AssetType
-	severity    types.Severity
+	re           *regexp.Regexp
+	name         string
+	assetType    types.AssetType
+	severity     types.Severity
 	materialType string
-	ruleID      string
+	ruleID       string
+	category     types.Category
 }
 
 // algoPattern matches algorithm name strings.
@@ -40,6 +42,7 @@ type algoPattern struct {
 	family        string
 	ruleID        string
 	assetType     types.AssetType
+	category      types.Category
 }
 
 // RegexScanner detects crypto-related patterns in any file using regular expressions.
@@ -137,6 +140,8 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 				},
 				Description: fmt.Sprintf("PEM-encoded %s detected via regex", pp.name),
 				RuleID:      pp.ruleID,
+				Category:    pp.category,
+				Maturity:    types.MaturityStable,
 				Pass:        1,
 			})
 		}
@@ -172,6 +177,8 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 					},
 					Description: fmt.Sprintf("Algorithm reference %q detected via regex", ap.name),
 					RuleID:      ap.ruleID,
+					Category:    ap.category,
+					Maturity:    types.MaturityStable,
 					Pass:        1,
 				})
 			}
@@ -225,6 +232,8 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 				},
 				Description: "High-entropy hex string that may be key material",
 				RuleID:      "cbom-regex-hex-key",
+				Category:    types.CategoryInventory,
+				Maturity:    types.MaturityStable,
 				Pass:        1,
 			})
 		}
@@ -252,12 +261,14 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 				},
 				Description: "High-entropy base64 string that may be key material",
 				RuleID:      "cbom-regex-base64-key",
+				Category:    types.CategoryInventory,
+				Maturity:    types.MaturityStable,
 				Pass:        1,
 			})
 		}
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 func (s *RegexScanner) compilePEMPatterns() {
@@ -269,6 +280,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			severity:     types.SeverityHigh,
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-rsa-private",
+			category:     types.CategorySecurity,
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN EC PRIVATE KEY-----`),
@@ -277,6 +289,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			severity:     types.SeverityHigh,
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-ec-private",
+			category:     types.CategorySecurity,
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN PRIVATE KEY-----`),
@@ -285,6 +298,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			severity:     types.SeverityHigh,
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-pkcs8-private",
+			category:     types.CategorySecurity,
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN ENCRYPTED PRIVATE KEY-----`),
@@ -293,6 +307,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			severity:     types.SeverityMedium,
 			materialType: "private-key",
 			ruleID:       "cbom-regex-pem-encrypted-private",
+			category:     types.CategoryInventory,
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN PUBLIC KEY-----`),
@@ -301,6 +316,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			severity:     types.SeverityInfo,
 			materialType: "public-key",
 			ruleID:       "cbom-regex-pem-public",
+			category:     types.CategoryInventory,
 		},
 		{
 			re:           regexp.MustCompile(`-----BEGIN CERTIFICATE-----`),
@@ -309,6 +325,7 @@ func (s *RegexScanner) compilePEMPatterns() {
 			severity:     types.SeverityInfo,
 			materialType: "",
 			ruleID:       "cbom-regex-pem-certificate",
+			category:     types.CategoryInventory,
 		},
 	}
 }
@@ -362,6 +379,7 @@ func (s *RegexScanner) compileAlgoPatterns() {
 			family:        a.family,
 			ruleID:        fmt.Sprintf("cbom-regex-algo-%s", strings.ToLower(strings.ReplaceAll(a.name, ".", ""))),
 			assetType:     assetType,
+			category:      types.CategorySecurity,
 		})
 	}
 
@@ -375,6 +393,7 @@ func (s *RegexScanner) compileAlgoPatterns() {
 			family:        a.family,
 			ruleID:        fmt.Sprintf("cbom-regex-algo-%s", strings.ToLower(strings.ReplaceAll(a.name, ".", ""))),
 			assetType:     types.AssetAlgorithm,
+			category:      types.CategoryInventory,
 		})
 	}
 }
@@ -463,6 +482,8 @@ func (s *RegexScanner) parseCertificateBlocks(path string, content []byte) []typ
 				},
 				Description: "PEM certificate block found but could not be parsed",
 				RuleID:      "cbom-regex-pem-certificate-parse",
+				Category:    types.CategoryInventory,
+				Maturity:    types.MaturityStable,
 				Pass:        1,
 			})
 			continue
@@ -510,13 +531,16 @@ func (s *RegexScanner) parseCertificateBlocks(path string, content []byte) []typ
 func buildCertFinding(cert *x509.Certificate, path string, lineNum int) types.Finding {
 	severity := types.SeverityInfo
 	state := "active"
+	category := types.CategoryInventory
 	now := time.Now()
 	if now.After(cert.NotAfter) {
 		severity = types.SeverityHigh
 		state = "expired"
+		category = types.CategorySecurity
 	} else if cert.NotAfter.Before(now.Add(30 * 24 * time.Hour)) {
 		severity = types.SeverityMedium
 		state = "expiring-soon"
+		category = types.CategorySecurity
 	}
 
 	sigAlgo := cert.SignatureAlgorithm.String()
@@ -546,8 +570,10 @@ func buildCertFinding(cert *x509.Certificate, path string, lineNum int) types.Fi
 		},
 		Description: fmt.Sprintf("X.509 certificate for %q signed with %s (expires %s)",
 			cert.Subject.CommonName, sigAlgo, cert.NotAfter.Format("2006-01-02")),
-		RuleID: "cbom-regex-pem-certificate-parsed",
-		Pass:   1,
+		RuleID:   "cbom-regex-pem-certificate-parsed",
+		Category: category,
+		Maturity: types.MaturityStable,
+		Pass:     1,
 	}
 }
 

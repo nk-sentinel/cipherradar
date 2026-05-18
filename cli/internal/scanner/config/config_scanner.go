@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -60,7 +61,7 @@ func (s *ConfigScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 		findings = append(findings, s.scanPropertiesFile(path, lines)...)
 	}
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 func (s *ConfigScanner) scanEnvFile(path string, lines [][]byte) []types.Finding {

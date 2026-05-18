@@ -111,7 +111,7 @@ func (s *GoScanner) ScanFile(path string, content []byte) ([]types.Finding, erro
 	// Detect golang.org/x/crypto packages
 	findings = append(findings, s.detectXCrypto(root, path, content, imports, cp)...)
 
-	return findings, nil
+	return scanner.AnnotateFindings(findings), nil
 }
 
 // nextFindingID generates a unique finding ID.
