@@ -9,6 +9,8 @@ rules:
     metadata:
       category: security
       cbom-asset-type: related-crypto-material
+      cbom-primitive-from-metavar: $METHOD
+      cbom-primitive-fallback: SYMMETRIC-KEY
       confidence: high
       quantum-relevant: true
       maturity: experimental
@@ -31,6 +33,7 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: MD5
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -49,6 +52,8 @@ rules:
     metadata:
       category: security
       cbom-asset-type: algorithm
+      cbom-primitive: DEPRECATED-CRYPTO
+      cbom-library: mcrypt
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -70,6 +75,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: mcrypt
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -86,6 +93,8 @@ rules:
     metadata:
       category: inventory
       cbom-asset-type: algorithm
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: PASSWORD-HASH
       confidence: high
       quantum-relevant: false
       maturity: stable
