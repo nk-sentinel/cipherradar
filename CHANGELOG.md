@@ -4,6 +4,126 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.2.0-rc.3 — 2026-05-18
+
+Post-rc2 release. Closes the only critical bug deferred from rc2 (broken
+OpenGrep rule files) and lands a multi-phase inventory-recall improvement
+campaign that pushes `--only-inventory` coverage on a representative
+multi-language crypto corpus from effectively 0% to **100% recall at 100%
+precision** against a 134-token canonical inventory.
+
+### Critical bug fix
+
+- **Bug 7 — broken OpenGrep rule files repaired.** 6 of the 12 language
+  rule files (`python.yml`, `go.yml`, `java.yml`, `kotlin.yml`, `rust.yml`,
+  `dart.yml`) failed to load under opengrep v1.16.5 due to schema-shape
+  changes and stale `$...` import patterns. Fixed across 6 bisectable
+  commits. **Loadable rules: 69 → 79** at the time of fix; Pass 2 finding
+  count on the test bench jumped from 19 → 215 immediately after.
+  (PR #2)
+
+### Pass 1 inventory restored (Bug 4 followup)
+
+- **All Pass-1 AST scanner findings now carry `Category` + `Maturity` +
+  `DefaultEnabled` metadata.** Previously the rule filter defaulted empty
+  `Category` to `CategorySecurity`, silently dropping all 2,455 Pass-1
+  findings from `--only-inventory` output. Centralized classification in
+  `cli/internal/scanner/category.go` (`AnnotateFindings` post-processor)
+  so each scanner package opts in once instead of mutating every
+  `types.Finding{}` literal. Added `TestPass1Findings_SurviveDefaultRulefilter`
+  guard to prevent regression. **Pass-1 inventory components on test
+  bench: 0 → 1,374.** rc2's user-facing hint kept as a defensive fallback.
+  (PR #3)
+
+### CBOM canonical-token contract (cbom-primitive plumbing)
+
+Previously cradar emitted category labels (`crypto-library-import`,
+`password-hash-inventory`) instead of specific algorithm tokens. This
+release plumbs canonical tokens end-to-end so every algorithm component
+in the CBOM output carries `cryptoProperties.algorithmProperties.primitive`
+with the specific token (MD5, AES-256-GCM, RSA, PBKDF2, etc.).
+
+- **3a — Rule metadata enrichment**: every rule across all 12 language
+  files now carries `metadata.cbom-primitive: <CANONICAL-TOKEN>` (static)
+  or `cbom-primitive-from-metavar: $VAR` + `cbom-primitive-fallback: <T>`
+  (for rules that capture the algorithm name from a metavariable). Library
+  imports also carry `cbom-library: <library-name>`. (PR #4)
+- **3b — Parser plumbing**: extended `opengrep/parser.go` to read the new
+  metadata fields, resolve `$METAVAR` references against
+  `extra.metavars[$NAME].abstract_content` (opengrep v1.16.5 does not
+  substitute metavars in metadata values), canonicalize the token, and
+  populate `Finding.Properties.AlgorithmPrimitive`. CycloneDX converter
+  now writes this into `algorithmProperties.primitive`. (PR #5)
+- **3c — PEM / cert / secret inventory tagging**: PEM certificate, PEM
+  private key, and `.env`/`.properties` hardcoded-secret findings were
+  previously emitted but classified as `CategorySecurity`, so the new
+  inventory filter dropped them. Re-classified to `CategoryInventory`.
+  (PR #6)
+
+### Coverage saturation (Phases A → D)
+
+A four-phase rule-expansion campaign that incrementally drove inventory
+recall on a 134-token v2 ground truth (built by direct source-file
+inspection of the test bench) from 3.6% to 100%, with precision holding
+at ~100%:
+
+- **Phase A — quick wins (recall 76% → 88%)**: BouncyCastle hash rules
+  (MD2, MD4, KECCAK, SHAKE256, TIGER, WHIRLPOOL, GOST), legacy symmetric
+  algorithms (DES, 3DES, RC2, RC4, IDEA, SEED, ARIA, BLOWFISH, CAST5,
+  CAMELLIA), GO-CRYPTO library import, SSL-3.0 protocol detection across
+  4 languages. Also caught a pre-existing dead Go import rule that
+  opengrep silently rejected. (PR #7)
+- **Phase B — EC curves + BC MACs (88% → 94%)**: EC curve detection
+  (P-256/P-384/P-521, CURVE25519, X25519, X448) across pyca / JCA / Go /
+  Node; BouncyCastle MAC rules (CMAC, GMAC, KBKDF, KMAC); Ed448 signature
+  scheme. (PR #8)
+- **Phase C — coarse-marker refinement (94% → 99%, precision → 100%)**:
+  Split the `PASSWORD-HASH`, `DEPRECATED-CRYPTO`, and
+  `CONFIG-DRIVEN-ALGORITHM` placeholder tokens (from PR #4) into
+  per-algorithm rules. Eliminated the lone remaining false-positive
+  (relationship-marker rule renamed). New `TestNoCoarseMarkers` guard
+  enforces the no-placeholders policy for future rule additions. (PR #9)
+- **ElGamal detection + final FN elimination (99% → 100%)**: Added
+  `cbom-java-bc-elgamal` and `cbom-python-pycryptodome-elgamal` rules
+  alongside companion fixtures in the test project. Validated that the
+  KMAC rule shipped in Phase B fires when exercised. (PR #10)
+- **Phase D — PQC + long-tail + protocol attribution (74% → 100% on
+  v2 GT)**: Added 14 BouncyCastle PQC rules (KYBER, DILITHIUM,
+  ML-KEM, ML-DSA, SPHINCS+, FALCON, XMSS, XMSS-MT, LMS, HSS, NTRU,
+  BIKE, CLASSIC-MCELIECE, HQC). Long-tail symmetric ciphers (SERPENT,
+  TWOFISH, SM4, CAST6, AES-KW). TLS-1.0 / TLS-1.1 version attribution
+  + Go SSH protocol detection. Hash variants (KECCAK-256, SKEIN-256,
+  RIPEMD-128/256). SipHash MAC rules. WebCrypto library detection.
+  `PRIVATE-KEY-PEM` canonical token from the regex scanner; output
+  converter now surfaces `algorithmProperties` on
+  related-crypto-material findings. (PR #11)
+
+### CycloneDX 1.7 spec conformance
+
+- Padding values (e.g. `pkcs5`, `pkcs7`, `raw`) are correctly emitted as
+  `cryptoProperties.algorithmProperties.padding` enum on the parent
+  cipher component (e.g. AES-CBC), NOT as standalone components, per
+  the CycloneDX 1.7 schema.
+
+### Rule corpus
+
+- **189 rules** across 12 language files, all loading cleanly under
+  opengrep v1.16.5.
+- Source-of-truth `scanner/rules/*.yml` synced with embedded copy
+  `cli/internal/rules/data/*.yml` via `go generate ./internal/rules`.
+
+### Known gaps (for future releases)
+
+- Cross-statement taint patterns in `dart.yml` lost precision in PR #2's
+  workarounds (blocked on upstream opengrep adding Dart support).
+- WEAK-PRNG remains a category-level marker by design (API-level
+  detection without a specific underlying algorithm token).
+- New language additions or new BouncyCastle PQC APIs will require
+  incremental rule additions following the per-algorithm + `cbom-primitive`
+  pattern established here.
+
+---
+
 ## 0.2.0-rc.2 — 2026-05-18
 
 ### Bug fixes
