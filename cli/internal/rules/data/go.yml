@@ -91,6 +91,53 @@ rules:
       - pattern: import "crypto/$..."
       - pattern: import "golang.org/x/crypto/$..."
 
+  # ── Go legacy symmetric ciphers (Phase A2) ──
+
+  - id: cbom-go-des-cipher
+    message: "DES cipher detected (broken)"
+    severity: WARNING
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: DES
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: des.NewCipher(...)
+
+  - id: cbom-go-3des-cipher
+    message: "3DES (TripleDES) cipher detected"
+    severity: WARNING
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: 3DES
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: des.NewTripleDESCipher(...)
+
+  - id: cbom-go-rc4-cipher
+    message: "RC4 cipher detected (broken)"
+    severity: WARNING
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RC4
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: rc4.NewCipher(...)
+
   - id: cbom-go-kdf-to-cipher-chain-scrypt
     message: >
       scrypt key derivation output used as AES cipher key in Go.

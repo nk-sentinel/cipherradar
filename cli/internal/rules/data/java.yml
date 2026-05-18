@@ -462,6 +462,156 @@ rules:
       - pattern: MessageDigest.getInstance("GOST3411-2012-256")
       - pattern: MessageDigest.getInstance("GOST3411-2012-512")
 
+  # ── JCA cipher inventory (Phase A2) ──
+  #
+  # Captures every Cipher.getInstance("<spec>") and KeyGenerator.getInstance(...)
+  # so the cipher-spec string flows through cbom-primitive-from-metavar
+  # into the canonicalizer (which already understands DES/CBC, DESede, RC4,
+  # Blowfish, RSA/ECB, AES/GCM, etc). Replaces the previous reliance on the
+  # library-import rule alone, which emitted no algorithm token at all.
+
+  - id: cbom-java-jca-cipher-getinstance
+    message: "JCA Cipher.getInstance() cipher-spec detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: SYMMETRIC-CIPHER
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: Cipher.getInstance("$ALGO")
+
+  - id: cbom-java-jca-keygenerator-getinstance
+    message: "JCA KeyGenerator.getInstance() algorithm detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: SYMMETRIC-KEY
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: KeyGenerator.getInstance("$ALGO")
+
+  # ── BouncyCastle engine inventory (Phase A2) ──
+  #
+  # Per-algorithm rules so the CBOM names the specific cipher (DES, RC4,
+  # IDEA, etc) rather than relying on the catchall library-import rule.
+
+  - id: cbom-java-bc-des-engine
+    message: "DES cipher engine detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: DES
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new DESEngine(...)
+
+  - id: cbom-java-bc-triple-des-engine
+    message: "3DES (TripleDES / DESede) cipher engine detected"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: 3DES
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new DESedeEngine(...)
+
+  - id: cbom-java-bc-rc2-engine
+    message: "RC2 cipher engine detected (legacy)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RC2
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new RC2Engine(...)
+
+  - id: cbom-java-bc-rc4-engine
+    message: "RC4 cipher engine detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RC4
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new RC4Engine(...)
+
+  - id: cbom-java-bc-idea-engine
+    message: "IDEA cipher engine detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: IDEA
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new IDEAEngine(...)
+
+  - id: cbom-java-bc-seed-engine
+    message: "SEED cipher engine detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SEED
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new SEEDEngine(...)
+
+  - id: cbom-java-bc-aria-engine
+    message: "ARIA cipher engine detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ARIA
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new ARIAEngine(...)
+
   - id: cbom-java-crypto-provider-registration
     message: >
       Cryptographic provider registered. This changes which implementation

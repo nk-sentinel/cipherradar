@@ -317,3 +317,130 @@ rules:
     pattern-either:
       - pattern: bcrypt.hashpw($PASSWORD, bcrypt.gensalt($ROUNDS))
       - pattern: bcrypt.hashpw($PASSWORD, bcrypt.gensalt())
+
+  # ── pyca per-algorithm cipher inventory (Phase A2) ──
+  #
+  # pyca/cryptography exposes ciphers as class objects (algorithms.TripleDES,
+  # algorithms.ARC4, …) — the algorithm name never appears as a string, so
+  # neither the metavar-driven nor the cipher-spec canonicalizer can recover
+  # it. Per-class rules emit the specific primitive directly.
+
+  - id: cbom-python-pyca-3des
+    message: "3DES (TripleDES) cipher detected"
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: 3DES
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: algorithms.TripleDES(...)
+
+  - id: cbom-python-pyca-rc4
+    message: "RC4 (ARC4) cipher detected (broken)"
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RC4
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: algorithms.ARC4(...)
+
+  - id: cbom-python-pyca-blowfish
+    message: "Blowfish cipher detected (legacy)"
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: BLOWFISH
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: algorithms.Blowfish(...)
+
+  - id: cbom-python-pyca-cast5
+    message: "CAST5 cipher detected (legacy)"
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: CAST5
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: algorithms.CAST5(...)
+
+  - id: cbom-python-pyca-camellia
+    message: "Camellia cipher detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: CAMELLIA
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: algorithms.Camellia(...)
+
+  - id: cbom-python-pyca-idea
+    message: "IDEA cipher detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: IDEA
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: algorithms.IDEA(...)
+
+  - id: cbom-python-pyca-seed
+    message: "SEED cipher detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SEED
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: algorithms.SEED(...)
+
+  - id: cbom-python-pyca-aria
+    message: "ARIA cipher detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ARIA
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: algorithms.ARIA(...)

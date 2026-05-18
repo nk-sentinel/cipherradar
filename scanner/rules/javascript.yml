@@ -135,6 +135,37 @@ rules:
       - pattern: const $X = require('argon2')
       - pattern: import $X from 'crypto'
 
+  # ── Node crypto cipher-spec inventory (Phase A2) ──
+  #
+  # createCipheriv("aes-256-gcm", …) / createCipher("des-ecb", …) etc.
+  # The canonicalizer uppercases and rewrites "aes-256-gcm" -> "AES-256-GCM",
+  # "des-ecb" -> "DES-ECB", "rc4" -> "RC4". Without this rule the spec string
+  # never reaches the parser.
+
+  - id: cbom-js-cipher-spec-inventory
+    message: "Node crypto cipher-spec detected"
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: SYMMETRIC-CIPHER
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: crypto.createCipheriv("$ALGO", ...)
+      - pattern: crypto.createDecipheriv("$ALGO", ...)
+      - pattern: crypto.createCipher("$ALGO", ...)
+      - pattern: crypto.createDecipher("$ALGO", ...)
+      - pattern: crypto.createCipheriv('$ALGO', ...)
+      - pattern: crypto.createDecipheriv('$ALGO', ...)
+      - pattern: crypto.createCipher('$ALGO', ...)
+      - pattern: crypto.createDecipher('$ALGO', ...)
+
   - id: cbom-js-deprecated-crypto-import
     message: >
       crypto-js library imported. Often misused for server-side crypto;
