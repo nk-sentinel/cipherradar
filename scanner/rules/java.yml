@@ -830,3 +830,568 @@ rules:
       - pattern: new ElGamalKeyPairGenerator(...)
       - pattern: new ElGamalKeyGenerationParameters(...)
       - pattern: new ElGamalParameters(...)
+
+  # ── Phase D1: Post-Quantum Cryptography (BouncyCastle PQC APIs) ──
+  #
+  # Covers the 14 PQC primitives tracked in v2 GT. Both NIST-standardized
+  # names (ML-KEM, ML-DSA) and the prior CRYSTALS submission names (Kyber,
+  # Dilithium) get their own rule because BouncyCastle ships separate API
+  # surfaces for each.
+
+  - id: cbom-java-bc-pqc-ml-dsa
+    message: "ML-DSA (NIST FIPS 204) post-quantum signature detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ML-DSA
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new MLDSASigner(...)
+      - pattern: new MLDSAKeyPairGenerator(...)
+      - pattern: new MLDSAKeyGenerationParameters(...)
+      - pattern: new MLDSAParameters(...)
+      - pattern: MLDSAParameters.$X
+
+  - id: cbom-java-bc-pqc-ml-kem
+    message: "ML-KEM (NIST FIPS 203) post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ML-KEM
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new MLKEMKeyPairGenerator(...)
+      - pattern: new MLKEMKeyGenerationParameters(...)
+      - pattern: new MLKEMKeyEncapsulation(...)
+      - pattern: new MLKEMGenerator(...)
+      - pattern: new MLKEMExtractor(...)
+      - pattern: new MLKEMParameters(...)
+      - pattern: MLKEMParameters.$X
+
+  - id: cbom-java-bc-pqc-sphincsplus
+    message: "SPHINCS+ post-quantum signature detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SPHINCS+
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SPHINCSPlusSigner(...)
+      - pattern: new SPHINCSPlusKeyPairGenerator(...)
+      - pattern: new SPHINCSPlusKeyGenerationParameters(...)
+      - pattern: new SPHINCSPlusParameters(...)
+      - pattern: SPHINCSPlusParameters.$X
+
+  - id: cbom-java-bc-pqc-falcon
+    message: "Falcon post-quantum signature detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: FALCON
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new FalconSigner(...)
+      - pattern: new FalconKeyPairGenerator(...)
+      - pattern: new FalconKeyGenerationParameters(...)
+      - pattern: new FalconParameters(...)
+      - pattern: FalconParameters.$X
+
+  - id: cbom-java-bc-pqc-xmss
+    message: "XMSS (stateful hash-based signature, RFC 8391) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: XMSS
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new XMSSSigner(...)
+      - pattern: new XMSSKeyPairGenerator(...)
+      - pattern: new XMSSKeyGenerationParameters(...)
+      - pattern: new XMSSParameters(...)
+
+  - id: cbom-java-bc-pqc-xmss-mt
+    message: "XMSS-MT (multi-tree XMSS, RFC 8391) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: XMSS-MT
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new XMSSMTSigner(...)
+      - pattern: new XMSSMTKeyPairGenerator(...)
+      - pattern: new XMSSMTKeyGenerationParameters(...)
+      - pattern: new XMSSMTParameters(...)
+
+  - id: cbom-java-bc-pqc-lms
+    message: "LMS (Leighton-Micali stateful hash-based signature, RFC 8554) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: LMS
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new LMSSigner(...)
+      - pattern: new LMSKeyPairGenerator(...)
+      - pattern: new LMSKeyGenerationParameters(...)
+      - pattern: new LMSParameters(...)
+      - pattern: LMSParameters.$X
+
+  - id: cbom-java-bc-pqc-hss
+    message: "HSS (Hierarchical Signature System, RFC 8554) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: HSS
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new HSSSigner(...)
+      - pattern: new HSSKeyPairGenerator(...)
+      - pattern: new HSSKeyGenerationParameters(...)
+      - pattern: new HSSParameters(...)
+
+  - id: cbom-java-bc-pqc-ntru
+    message: "NTRU lattice-based post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: NTRU
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new NTRUEngine(...)
+      - pattern: new NTRUKeyPairGenerator(...)
+      - pattern: new NTRUKeyGenerationParameters(...)
+      - pattern: new NTRUParameters(...)
+      - pattern: new NTRUKEMGenerator(...)
+      - pattern: new NTRUKEMExtractor(...)
+
+  - id: cbom-java-bc-pqc-bike
+    message: "BIKE post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: BIKE
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new BIKEKEMGenerator(...)
+      - pattern: new BIKEKEMExtractor(...)
+      - pattern: new BIKEKeyPairGenerator(...)
+      - pattern: new BIKEKeyGenerationParameters(...)
+      - pattern: new BIKEParameters(...)
+
+  - id: cbom-java-bc-pqc-classic-mceliece
+    message: "Classic McEliece post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: CLASSIC-MCELIECE
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new CMCEKEMGenerator(...)
+      - pattern: new CMCEKEMExtractor(...)
+      - pattern: new CMCEKeyPairGenerator(...)
+      - pattern: new CMCEKeyGenerationParameters(...)
+      - pattern: new CMCEParameters(...)
+      - pattern: new McElieceKEMGenerator(...)
+      - pattern: new McElieceKeyPairGenerator(...)
+
+  - id: cbom-java-bc-pqc-hqc
+    message: "HQC post-quantum KEM detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: HQC
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new HQCKEMGenerator(...)
+      - pattern: new HQCKEMExtractor(...)
+      - pattern: new HQCKeyPairGenerator(...)
+      - pattern: new HQCKeyGenerationParameters(...)
+      - pattern: new HQCParameters(...)
+
+  - id: cbom-java-bc-pqc-kyber
+    message: "Kyber post-quantum KEM detected (precursor to ML-KEM)"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KYBER
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new KyberKeyPairGenerator(...)
+      - pattern: new KyberKeyGenerationParameters(...)
+      - pattern: new KyberKEMGenerator(...)
+      - pattern: new KyberKEMExtractor(...)
+      - pattern: new KyberParameters(...)
+      - pattern: KyberParameters.$X
+
+  - id: cbom-java-bc-pqc-dilithium
+    message: "Dilithium post-quantum signature detected (precursor to ML-DSA)"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: DILITHIUM
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new DilithiumSigner(...)
+      - pattern: new DilithiumKeyPairGenerator(...)
+      - pattern: new DilithiumKeyGenerationParameters(...)
+      - pattern: new DilithiumParameters(...)
+      - pattern: DilithiumParameters.$X
+
+  # ── Phase D2: Long-tail symmetric ciphers (BouncyCastle engines) ──
+  #
+  # GT v2 enumerates SERPENT, TWOFISH, SM4, CAST6, AES-KW separately;
+  # cradar previously had no rules for these (they only surfaced via the
+  # generic library-import rule). One rule per engine class.
+
+  - id: cbom-java-bc-serpent
+    message: "Serpent symmetric cipher detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SERPENT
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SerpentEngine(...)
+      - pattern: new SerpentEngine()
+
+  - id: cbom-java-bc-twofish
+    message: "Twofish symmetric cipher detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: TWOFISH
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new TwofishEngine(...)
+      - pattern: new TwofishEngine()
+
+  - id: cbom-java-bc-sm4
+    message: "SM4 symmetric cipher (GB/T 32907) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SM4
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SM4Engine(...)
+      - pattern: new SM4Engine()
+
+  - id: cbom-java-bc-cast6
+    message: "CAST6 (CAST-256) symmetric cipher detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: CAST6
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new CAST6Engine(...)
+      - pattern: new CAST6Engine()
+
+  - id: cbom-java-bc-aes-kw
+    message: "AES key wrap (RFC 3394 / RFC 5649) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: AES-KW
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new AESWrapEngine(...)
+      - pattern: new AESWrapEngine()
+      - pattern: new RFC3394WrapEngine(...)
+      - pattern: new RFC3394WrapEngine()
+      - pattern: new RFC5649WrapEngine(...)
+      - pattern: new RFC5649WrapEngine()
+
+  # ── Phase D3: Version-specific TLS protocol attribution ──
+  #
+  # cbom-java-tls-version-enforcement covers MINIMUM-version configs but
+  # doesn't pin a primitive when the SSLContext is built with a literal
+  # "TLSv1" / "TLSv1.1" string. Per-version rules emit explicit TLS-1.0 /
+  # TLS-1.1 primitives so they surface in the v2 GT protocol bucket.
+
+  - id: cbom-java-tlsv1_0
+    message: "TLS 1.0 protocol detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.0
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: SSLContext.getInstance("TLSv1")
+      - pattern: SSLContext.getInstance("TLSV1")
+      - pattern: SSLContext.getInstance("TLS-1.0")
+
+  - id: cbom-java-tlsv1_1
+    message: "TLS 1.1 protocol detected (deprecated)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.1
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: SSLContext.getInstance("TLSv1.1")
+      - pattern: SSLContext.getInstance("TLSV1.1")
+      - pattern: SSLContext.getInstance("TLS-1.1")
+
+  # ── Phase D4: Hash variants with explicit size suffix ──
+  #
+  # GT v2 enumerates KECCAK-256, SKEIN-256, RIPEMD-128, RIPEMD-256
+  # individually. The bare cbom-java-bc-keccak rule already emits a
+  # KECCAK token for new KeccakDigest(256); this rule emits the more
+  # specific KECCAK-256 when the size literal is 256.
+
+  - id: cbom-java-bc-keccak-256
+    message: "Keccak-256 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KECCAK-256
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new KeccakDigest(256)
+      - pattern: MessageDigest.getInstance("KECCAK-256")
+      - pattern: MessageDigest.getInstance("Keccak-256")
+
+  - id: cbom-java-bc-skein-256
+    message: "Skein-256 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SKEIN-256
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SkeinDigest(256, 256)
+      - pattern: new SkeinDigest(256, ...)
+      - pattern: MessageDigest.getInstance("Skein-256-256")
+      - pattern: MessageDigest.getInstance("SKEIN-256-256")
+
+  - id: cbom-java-bc-ripemd-128
+    message: "RIPEMD-128 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RIPEMD-128
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new RIPEMD128Digest(...)
+      - pattern: new RIPEMD128Digest()
+      - pattern: MessageDigest.getInstance("RIPEMD128")
+      - pattern: MessageDigest.getInstance("RIPEMD-128")
+
+  - id: cbom-java-bc-ripemd-160
+    message: "RIPEMD-160 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RIPEMD-160
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new RIPEMD160Digest(...)
+      - pattern: new RIPEMD160Digest()
+      - pattern: MessageDigest.getInstance("RIPEMD160")
+      - pattern: MessageDigest.getInstance("RIPEMD-160")
+
+  - id: cbom-java-bc-ripemd-256
+    message: "RIPEMD-256 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RIPEMD-256
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new RIPEMD256Digest(...)
+      - pattern: new RIPEMD256Digest()
+      - pattern: MessageDigest.getInstance("RIPEMD256")
+      - pattern: MessageDigest.getInstance("RIPEMD-256")
+
+  # ── Phase D5: SipHash MAC family (BouncyCastle) ──
+
+  - id: cbom-java-bc-siphash
+    message: "SipHash MAC detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SIPHASH
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SipHash(...)
+      - pattern: new SipHash()
+
+  - id: cbom-java-bc-siphash-128
+    message: "SipHash-128 MAC detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SIPHASH-128
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SipHash128(...)
+      - pattern: new SipHash128()

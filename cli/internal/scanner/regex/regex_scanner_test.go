@@ -264,10 +264,10 @@ func TestPEMFindingsAreInventory(t *testing.T) {
 	}
 
 	wantPrimitive := map[string]string{
-		"cbom-regex-pem-rsa-private":       "PRIVATE-KEY",
-		"cbom-regex-pem-ec-private":        "PRIVATE-KEY",
-		"cbom-regex-pem-pkcs8-private":     "PRIVATE-KEY",
-		"cbom-regex-pem-encrypted-private": "PRIVATE-KEY",
+		"cbom-regex-pem-rsa-private":       "PRIVATE-KEY-PEM",
+		"cbom-regex-pem-ec-private":        "PRIVATE-KEY-PEM",
+		"cbom-regex-pem-pkcs8-private":     "PRIVATE-KEY-PEM",
+		"cbom-regex-pem-encrypted-private": "PRIVATE-KEY-PEM",
 		"cbom-regex-pem-public":            "PUBLIC-KEY",
 		"cbom-regex-pem-certificate":       "CERTIFICATE-X509",
 		"cbom-regex-pem-certificate-parse": "CERTIFICATE-X509",

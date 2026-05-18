@@ -618,3 +618,44 @@ rules:
       - pattern: ElGamal.construct(...)
       - pattern: Crypto.PublicKey.ElGamal.generate(...)
       - pattern: Crypto.PublicKey.ElGamal.construct(...)
+
+  # ── Phase D3: Version-specific TLS protocol attribution ──
+
+  - id: cbom-python-tlsv1_0
+    message: "TLS 1.0 protocol detected (broken)"
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.0
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ssl.PROTOCOL_TLSv1
+      - pattern: ssl.TLSVersion.TLSv1
+      - pattern: $X.minimum_version = ssl.TLSVersion.TLSv1
+      - pattern: $X.maximum_version = ssl.TLSVersion.TLSv1
+      - pattern: ssl.wrap_socket(..., ssl_version=ssl.PROTOCOL_TLSv1, ...)
+
+  - id: cbom-python-tlsv1_1
+    message: "TLS 1.1 protocol detected (deprecated)"
+    severity: WARNING
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.1
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ssl.PROTOCOL_TLSv1_1
+      - pattern: ssl.TLSVersion.TLSv1_1
+      - pattern: $X.minimum_version = ssl.TLSVersion.TLSv1_1
+      - pattern: $X.maximum_version = ssl.TLSVersion.TLSv1_1

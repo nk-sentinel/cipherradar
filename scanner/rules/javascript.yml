@@ -333,3 +333,29 @@ rules:
           { ..., namedCurve: "P-521", ... }
       - pattern: |
           { ..., namedCurve: 'P-521', ... }
+
+  # ── Phase D6: Web Crypto API library import (browser/Deno/Node 15+) ──
+  #
+  # crypto.subtle is the entry point for the W3C Web Crypto API. Distinct
+  # from node:crypto / require('crypto'); rules to attribute usage to the
+  # WEBCRYPTO library bucket in the v2 GT.
+
+  - id: cbom-js-webcrypto-library-import
+    message: "Web Crypto API (crypto.subtle) usage detected"
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: webcrypto
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: crypto.subtle
+      - pattern: window.crypto.subtle
+      - pattern: self.crypto.subtle
+      - pattern: globalThis.crypto.subtle
