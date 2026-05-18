@@ -135,6 +135,27 @@ rules:
       - pattern: const $X = require('argon2')
       - pattern: import $X from 'crypto'
 
+  # ── SSL 3.0 protocol detection (Phase A4) ──
+
+  - id: cbom-js-sslv3-protocol
+    message: "SSL 3.0 protocol detected (broken)"
+    severity: WARNING
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: SSL-3.0
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: |
+          { ..., secureProtocol: "SSLv3_method", ... }
+      - pattern: |
+          { ..., secureProtocol: 'SSLv3_method', ... }
+
   # ── Node crypto cipher-spec inventory (Phase A2) ──
   #
   # createCipheriv("aes-256-gcm", …) / createCipher("des-ecb", …) etc.

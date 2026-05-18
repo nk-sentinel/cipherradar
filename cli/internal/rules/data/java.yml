@@ -306,6 +306,26 @@ rules:
           ...
           $TMF.init($KS);
 
+  # ── SSL 3.0 protocol detection (Phase A4) ──
+
+  - id: cbom-java-sslv3-protocol
+    message: "SSL 3.0 protocol detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: SSL-3.0
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: SSLContext.getInstance("SSLv3")
+      - pattern: SSLContext.getInstance("SSL")
+      - pattern: $X.setEnabledProtocols(new String[]{"SSLv3"})
+
   # ── BouncyCastle / JCA hash algorithm inventory (Phase A1) ──
   #
   # Each rule names a specific hash primitive instead of relying on the
