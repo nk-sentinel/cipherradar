@@ -1,5 +1,35 @@
 # Inventory Recall Improvement Plan
 
+## Phase A — DONE (2026-05-18)
+
+Recall: 76.1% → **88.4%** (+12.3pp). Precision: 99.1% → **99.2%**. Total
+components: 1,591 → 1,696. 35 new rules added (87 → 122 in `scanner/rules/`).
+
+| Sub-item | Tokens caught | Status |
+|---|---|---|
+| A1 BC hashes | MD2, MD4, KECCAK, SHAKE256, TIGER, WHIRLPOOL, GOST | done |
+| A2 legacy symmetric | DES, 3DES, TRIPLE-DES, RC2, RC4, IDEA, SEED, ARIA, BLOWFISH, CAST5, CAMELLIA | done |
+| A3 GO-CRYPTO library | GO-CRYPTO | done |
+| A4 SSL-3.0 | SSL-3.0 (SSLV3) | done |
+
+Remaining FN buckets (to be addressed in Phase B/C):
+
+```
+hash         SHAKE128                                                (1; no fixture in test project)
+symmetric    DESEDE                                                  (1; alias of 3DES, classifier-only gap)
+asymmetric   CURVE25519, ED448, ELGAMAL, P-256, P-384, P-521, X448   (7; Phase B1+B3)
+kdf_mac      CMAC, GMAC, KBKDF, KMAC                                 (4; Phase B2)
+secret       API-KEY, AWS-SECRET, PRIVATE-KEY-MATERIAL               (3; Phase C5)
+```
+
+The remaining 16 FNs split into: 7 EC curve names (Phase B1), 4 BC MACs
+(Phase B2), 1 ED448 (Phase B3), 3 secret-bucket script gaps (Phase C5), and
+2 oracle-only mismatches (SHAKE128 has no fixture in the test project;
+DESEDE is the third spelling of an already-counted 3DES rule). The single
+pre-existing FP (`kdf-to-cipher-chain`) is unchanged.
+
+---
+
 **Baseline:** post-rc3 (after PRs #2-#6 merged 2026-05-18).
 
 **Current state on `CipherRadarTestProj`:**
