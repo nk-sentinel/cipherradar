@@ -246,6 +246,133 @@ valid.key=visible
 	}
 }
 
+// TestHardcodedSecretIsInventory guards the contract that hardcoded-secret
+// findings (from .env and .properties files) are CategoryInventory so they
+// surface in `--only-inventory` runs alongside other discovered crypto
+// assets. The HIGH severity captures the security-warning angle; the
+// category captures "this is an asset we discovered".
+func TestHardcodedSecretIsInventory(t *testing.T) {
+	content := []byte(`SECRET_KEY=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6
+JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+API_KEY=sk-proj-abc123def456
+`)
+
+	s := New()
+	findings, err := s.ScanFile("inv.env", content)
+	if err != nil {
+		t.Fatalf("ScanFile returned error: %v", err)
+	}
+
+	if len(findings) != 3 {
+		t.Fatalf("expected 3 findings, got %d", len(findings))
+	}
+
+	for _, f := range findings {
+		if f.RuleID != "cbom-config-hardcoded-secret" {
+			t.Errorf("%s: wrong rule %q", f.Name, f.RuleID)
+		}
+		if f.Category != types.CategoryInventory {
+			t.Errorf("%s: want CategoryInventory, got %q", f.Name, f.Category)
+		}
+		if f.Maturity != types.MaturityStable {
+			t.Errorf("%s: want MaturityStable, got %q", f.Name, f.Maturity)
+		}
+		if !f.DefaultEnabled {
+			t.Errorf("%s: want DefaultEnabled=true", f.Name)
+		}
+		if f.Properties.AlgorithmPrimitive != "HARDCODED-SECRET" {
+			t.Errorf("%s: want AlgorithmPrimitive=HARDCODED-SECRET, got %q",
+				f.Name, f.Properties.AlgorithmPrimitive)
+		}
+	}
+}
+
+// TestHardcodedSecretInventoryProperties applies to .properties files as well.
+func TestHardcodedSecretInventoryPropertiesFile(t *testing.T) {
+	content := []byte(`database.password=SuperSecret123!
+auth.jwt.secret=eyJhbGciOiJSUzI1NiJ9
+crypto.symmetric.key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+`)
+
+	s := New()
+	findings, err := s.ScanFile("inv.properties", content)
+	if err != nil {
+		t.Fatalf("ScanFile returned error: %v", err)
+	}
+
+	secretFindings := 0
+	for _, f := range findings {
+		if f.RuleID != "cbom-config-hardcoded-secret" {
+			continue
+		}
+		secretFindings++
+		if f.Category != types.CategoryInventory {
+			t.Errorf("%s: want CategoryInventory, got %q", f.Name, f.Category)
+		}
+		if f.Properties.AlgorithmPrimitive != "HARDCODED-SECRET" {
+			t.Errorf("%s: want AlgorithmPrimitive=HARDCODED-SECRET, got %q",
+				f.Name, f.Properties.AlgorithmPrimitive)
+		}
+	}
+	if secretFindings != 3 {
+		t.Fatalf("expected 3 hardcoded-secret findings, got %d", secretFindings)
+	}
+}
+
+// TestSkipsTemplatePlaceholders ensures we don't fire on obvious unfilled
+// placeholders that templates leave behind. Without this, .env.example
+// files and CI templates would generate noise in --only-inventory.
+func TestSkipsTemplatePlaceholders(t *testing.T) {
+	content := []byte(`API_KEY=${MY_API_KEY}
+SECRET_KEY=<your_secret_here>
+JWT_SECRET=changeme
+DB_PASSWORD={{password}}
+TOKEN=%TOKEN_VAR%
+AUTH_TOKEN=your_token_here
+ANOTHER=xxx
+EMPTY_QUOTED=""
+SHORT=ab
+PLACEHOLDER=[REDACTED]
+PASSWORD_FIELD=placeholder
+`)
+
+	s := New()
+	findings, err := s.ScanFile("template.env", content)
+	if err != nil {
+		t.Fatalf("ScanFile returned error: %v", err)
+	}
+
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings on template placeholders, got %d", len(findings))
+		for _, f := range findings {
+			t.Logf("  unexpected: %s (snippet: %q)", f.Name, f.Location.Snippet)
+		}
+	}
+}
+
+// TestRealSecretsSurviveFiltering verifies that high-entropy real-looking
+// secrets are NOT mistakenly suppressed by the placeholder heuristics.
+func TestRealSecretsSurviveFiltering(t *testing.T) {
+	content := []byte(`API_KEY=sk-proj-abc123def456ghi789jkl012mno345pqr678
+AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY
+JWT_SECRET=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+DATABASE_PASSWORD=SuperSecret123!
+`)
+
+	s := New()
+	findings, err := s.ScanFile("real.env", content)
+	if err != nil {
+		t.Fatalf("ScanFile returned error: %v", err)
+	}
+
+	if len(findings) != 4 {
+		t.Errorf("expected 4 findings (all real secrets), got %d", len(findings))
+		for _, f := range findings {
+			t.Logf("  found: %s", f.Name)
+		}
+	}
+}
+
 // --- helpers ---
 
 func assertFindingNameContains(t *testing.T, findings []types.Finding, substr string) {

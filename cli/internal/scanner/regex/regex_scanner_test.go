@@ -246,6 +246,61 @@ func TestLocationAccuracy(t *testing.T) {
 	}
 }
 
+// TestPEMFindingsAreInventory guards against regressing the contract that
+// PEM private keys, public keys, and certificates discovered by the regex
+// scanner are classified as CategoryInventory so they surface in
+// --only-inventory output. The security-warning angle (a private key is
+// sensitive!) is captured by Severity, not Category.
+func TestPEMFindingsAreInventory(t *testing.T) {
+	content, err := os.ReadFile("../../../testdata/regex/test_keys.pem")
+	if err != nil {
+		t.Fatalf("failed to read test fixture: %v", err)
+	}
+
+	s := New()
+	findings, err := s.ScanFile("test_keys.pem", content)
+	if err != nil {
+		t.Fatalf("ScanFile returned error: %v", err)
+	}
+
+	wantPrimitive := map[string]string{
+		"cbom-regex-pem-rsa-private":       "PRIVATE-KEY",
+		"cbom-regex-pem-ec-private":        "PRIVATE-KEY",
+		"cbom-regex-pem-pkcs8-private":     "PRIVATE-KEY",
+		"cbom-regex-pem-encrypted-private": "PRIVATE-KEY",
+		"cbom-regex-pem-public":            "PUBLIC-KEY",
+		"cbom-regex-pem-certificate":       "CERTIFICATE-X509",
+		"cbom-regex-pem-certificate-parse": "CERTIFICATE-X509",
+	}
+
+	seenRules := map[string]bool{}
+	for _, f := range findings {
+		want, ok := wantPrimitive[f.RuleID]
+		if !ok {
+			continue
+		}
+		seenRules[f.RuleID] = true
+		if f.Category != types.CategoryInventory {
+			t.Errorf("rule %s: want CategoryInventory, got %q", f.RuleID, f.Category)
+		}
+		if f.Properties.AlgorithmPrimitive != want {
+			t.Errorf("rule %s: want AlgorithmPrimitive=%q, got %q",
+				f.RuleID, want, f.Properties.AlgorithmPrimitive)
+		}
+	}
+
+	// We expect at least the three PEM types present in the fixture to fire.
+	if !seenRules["cbom-regex-pem-rsa-private"] {
+		t.Error("expected cbom-regex-pem-rsa-private to fire on fixture")
+	}
+	if !seenRules["cbom-regex-pem-ec-private"] {
+		t.Error("expected cbom-regex-pem-ec-private to fire on fixture")
+	}
+	if !seenRules["cbom-regex-pem-certificate"] {
+		t.Error("expected cbom-regex-pem-certificate to fire on fixture")
+	}
+}
+
 // --- helpers ---
 
 func filterByRulePrefix(findings []types.Finding, prefix string) []types.Finding {
