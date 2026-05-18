@@ -86,6 +86,59 @@ rules:
       - pattern: using System.Security.Cryptography;
       - pattern: using System.Net.Security;
 
+  # ── .NET legacy symmetric ciphers (Phase A2) ──
+
+  - id: cbom-csharp-des-cipher
+    message: "DES cipher detected (broken)"
+    severity: WARNING
+    languages: [csharp]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: DES
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: DES.Create(...)
+      - pattern: new DESCryptoServiceProvider(...)
+
+  - id: cbom-csharp-3des-cipher
+    message: "3DES (TripleDES) cipher detected"
+    severity: WARNING
+    languages: [csharp]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: 3DES
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: TripleDES.Create(...)
+      - pattern: new TripleDESCryptoServiceProvider(...)
+
+  - id: cbom-csharp-rc2-cipher
+    message: "RC2 cipher detected (legacy)"
+    severity: WARNING
+    languages: [csharp]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RC2
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: RC2.Create(...)
+      - pattern: new RC2CryptoServiceProvider(...)
+
   - id: cbom-csharp-password-hash-inventory
     message: Password hashing detected in C#.
     severity: INFO

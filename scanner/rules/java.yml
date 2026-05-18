@@ -306,6 +306,332 @@ rules:
           ...
           $TMF.init($KS);
 
+  # ── SSL 3.0 protocol detection (Phase A4) ──
+
+  - id: cbom-java-sslv3-protocol
+    message: "SSL 3.0 protocol detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: SSL-3.0
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: SSLContext.getInstance("SSLv3")
+      - pattern: SSLContext.getInstance("SSL")
+      - pattern: $X.setEnabledProtocols(new String[]{"SSLv3"})
+
+  # ── BouncyCastle / JCA hash algorithm inventory (Phase A1) ──
+  #
+  # Each rule names a specific hash primitive instead of relying on the
+  # generic library-import rule, so the CBOM lists e.g. "MD2" not just
+  # "CRYPTO-LIBRARY-IMPORT". Broken algorithms (MD2/MD4) keep severity
+  # WARNING; legacy-but-not-broken digests are INFO inventory entries.
+  #
+  # Rule IDs use the "bc-" prefix (not "bouncycastle-") so the derived
+  # component name doesn't collide with the BOUNCYCASTLE library token in
+  # downstream bucket classification.
+
+  - id: cbom-java-bc-md2
+    message: "MD2 hash detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: MD2
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new MD2Digest(...)
+      - pattern: MessageDigest.getInstance("MD2")
+
+  - id: cbom-java-bc-md4
+    message: "MD4 hash detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: MD4
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new MD4Digest(...)
+      - pattern: MessageDigest.getInstance("MD4")
+
+  - id: cbom-java-bc-keccak
+    message: "Keccak hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KECCAK
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new KeccakDigest(...)
+      - pattern: MessageDigest.getInstance("KECCAK")
+      - pattern: MessageDigest.getInstance("Keccak")
+
+  - id: cbom-java-bc-shake128
+    message: "SHAKE128 extendable-output hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SHAKE128
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SHAKEDigest(128)
+      - pattern: MessageDigest.getInstance("SHAKE128")
+      - pattern: MessageDigest.getInstance("SHAKE-128")
+
+  - id: cbom-java-bc-shake256
+    message: "SHAKE256 extendable-output hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SHAKE256
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SHAKEDigest(256)
+      - pattern: MessageDigest.getInstance("SHAKE256")
+      - pattern: MessageDigest.getInstance("SHAKE-256")
+
+  - id: cbom-java-bc-tiger
+    message: "Tiger hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: TIGER
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new TigerDigest(...)
+      - pattern: MessageDigest.getInstance("TIGER")
+      - pattern: MessageDigest.getInstance("Tiger")
+
+  - id: cbom-java-bc-whirlpool
+    message: "Whirlpool hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: WHIRLPOOL
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new WhirlpoolDigest(...)
+      - pattern: MessageDigest.getInstance("WHIRLPOOL")
+      - pattern: MessageDigest.getInstance("Whirlpool")
+
+  - id: cbom-java-bc-gost3411
+    message: "GOST R 34.11 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GOST3411
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new GOST3411Digest(...)
+      - pattern: new GOST3411_2012_256Digest(...)
+      - pattern: new GOST3411_2012_512Digest(...)
+      - pattern: MessageDigest.getInstance("GOST3411")
+      - pattern: MessageDigest.getInstance("GOST3411-2012-256")
+      - pattern: MessageDigest.getInstance("GOST3411-2012-512")
+
+  # ── JCA cipher inventory (Phase A2) ──
+  #
+  # Captures every Cipher.getInstance("<spec>") and KeyGenerator.getInstance(...)
+  # so the cipher-spec string flows through cbom-primitive-from-metavar
+  # into the canonicalizer (which already understands DES/CBC, DESede, RC4,
+  # Blowfish, RSA/ECB, AES/GCM, etc). Replaces the previous reliance on the
+  # library-import rule alone, which emitted no algorithm token at all.
+
+  - id: cbom-java-jca-cipher-getinstance
+    message: "JCA Cipher.getInstance() cipher-spec detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: SYMMETRIC-CIPHER
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: Cipher.getInstance("$ALGO")
+
+  - id: cbom-java-jca-keygenerator-getinstance
+    message: "JCA KeyGenerator.getInstance() algorithm detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: SYMMETRIC-KEY
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: KeyGenerator.getInstance("$ALGO")
+
+  # ── BouncyCastle engine inventory (Phase A2) ──
+  #
+  # Per-algorithm rules so the CBOM names the specific cipher (DES, RC4,
+  # IDEA, etc) rather than relying on the catchall library-import rule.
+
+  - id: cbom-java-bc-des-engine
+    message: "DES cipher engine detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: DES
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new DESEngine(...)
+
+  - id: cbom-java-bc-triple-des-engine
+    message: "3DES (TripleDES / DESede) cipher engine detected"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: 3DES
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new DESedeEngine(...)
+
+  - id: cbom-java-bc-rc2-engine
+    message: "RC2 cipher engine detected (legacy)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RC2
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new RC2Engine(...)
+
+  - id: cbom-java-bc-rc4-engine
+    message: "RC4 cipher engine detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: RC4
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new RC4Engine(...)
+
+  - id: cbom-java-bc-idea-engine
+    message: "IDEA cipher engine detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: IDEA
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new IDEAEngine(...)
+
+  - id: cbom-java-bc-seed-engine
+    message: "SEED cipher engine detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SEED
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new SEEDEngine(...)
+
+  - id: cbom-java-bc-aria-engine
+    message: "ARIA cipher engine detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ARIA
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: new ARIAEngine(...)
+
   - id: cbom-java-crypto-provider-registration
     message: >
       Cryptographic provider registered. This changes which implementation
