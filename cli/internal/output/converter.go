@@ -459,6 +459,18 @@ func convertCryptoProperties(f *types.Finding) *cyclonedx17.CryptoProperties {
 		cp.CertificateProperties = convertCertificateProperties(props)
 	case types.AssetRelatedCryptoMaterial:
 		cp.RelatedCryptoMaterialProperties = convertRelatedCryptoMaterialProperties(props)
+		// When a related-crypto-material finding carries a canonical
+		// algorithm token (e.g. PRIVATE-KEY-PEM emitted by the PEM-block
+		// regex rules), surface it under algorithmProperties.primitive
+		// too. The CycloneDX 1.7 cryptoProperties schema allows both
+		// algorithmProperties and relatedCryptoMaterialProperties to be
+		// present on the same block (no oneOf constraint). Downstream
+		// CBOM consumers that inspect algorithmProperties.primitive can
+		// then route the finding to the certs/keys bucket without
+		// scanning rule IDs.
+		if props.AlgorithmPrimitive != "" {
+			cp.AlgorithmProperties = convertAlgorithmProperties(props)
+		}
 	}
 
 	return cp
