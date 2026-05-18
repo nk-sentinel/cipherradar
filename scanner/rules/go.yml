@@ -237,3 +237,67 @@ rules:
       default_enabled: true
       noise_risk: low
     pattern: argon2.IDKey($PASSWORD, $SALT, $TIME, $MEM, $THREADS, $LEN)
+
+  # ── Phase B1: EC named curves (Go stdlib + x/crypto) ──
+
+  - id: cbom-go-elliptic-p-256
+    message: "EC curve P-256 detected"
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-256
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: elliptic.P256()
+
+  - id: cbom-go-elliptic-p-384
+    message: "EC curve P-384 detected"
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-384
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: elliptic.P384()
+
+  - id: cbom-go-elliptic-p-521
+    message: "EC curve P-521 detected"
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-521
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern: elliptic.P521()
+
+  - id: cbom-go-curve25519
+    message: "Curve25519 / X25519 detected (golang.org/x/crypto/curve25519 or nacl/box)"
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: CURVE25519
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: curve25519.$X(...)
+      - pattern: box.GenerateKey(...)

@@ -269,3 +269,62 @@ rules:
           $ALGO = process.env.$KEY
           ...
           crypto.createHash($ALGO)
+
+  # ── Phase B1: EC named curves (node:crypto + WebCrypto) ──
+
+  - id: cbom-js-named-curve-p-256
+    message: "EC named curve P-256 detected"
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-256
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: |
+          { ..., namedCurve: "P-256", ... }
+      - pattern: |
+          { ..., namedCurve: 'P-256', ... }
+
+  - id: cbom-js-named-curve-p-384
+    message: "EC named curve P-384 detected"
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-384
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: |
+          { ..., namedCurve: "P-384", ... }
+      - pattern: |
+          { ..., namedCurve: 'P-384', ... }
+
+  - id: cbom-js-named-curve-p-521
+    message: "EC named curve P-521 detected"
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-521
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: |
+          { ..., namedCurve: "P-521", ... }
+      - pattern: |
+          { ..., namedCurve: 'P-521', ... }

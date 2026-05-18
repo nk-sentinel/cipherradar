@@ -651,3 +651,62 @@ rules:
     pattern-either:
       - pattern: Security.addProvider(new $PROVIDER());
       - pattern: Security.insertProviderAt(new $PROVIDER(), $POS);
+
+  # ── Phase B1: explicit EC named curves (JCA + BouncyCastle) ──
+
+  - id: cbom-java-bc-curve-p-256-secp256r1
+    message: "EC curve P-256 (secp256r1) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-256
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ECNamedCurveTable.getParameterSpec("secp256r1")
+      - pattern: ECNamedCurveTable.getParameterSpec("P-256")
+      - pattern: new ECGenParameterSpec("secp256r1")
+      - pattern: new ECGenParameterSpec("P-256")
+
+  - id: cbom-java-bc-curve-p-384-secp384r1
+    message: "EC curve P-384 (secp384r1) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-384
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ECNamedCurveTable.getParameterSpec("secp384r1")
+      - pattern: ECNamedCurveTable.getParameterSpec("P-384")
+      - pattern: new ECGenParameterSpec("secp384r1")
+      - pattern: new ECGenParameterSpec("P-384")
+
+  - id: cbom-java-bc-curve-p-521-secp521r1
+    message: "EC curve P-521 (secp521r1) detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: P-521
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ECNamedCurveTable.getParameterSpec("secp521r1")
+      - pattern: ECNamedCurveTable.getParameterSpec("P-521")
+      - pattern: new ECGenParameterSpec("secp521r1")
+      - pattern: new ECGenParameterSpec("P-521")
