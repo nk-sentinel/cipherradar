@@ -57,31 +57,71 @@ rules:
       - pattern: |
           $VAL = rand() % ...;
 
-  - id: cbom-cpp-deprecated-api
+  # ── OpenSSL deprecated-API per-algorithm security findings (Phase C2) ──
+  #
+  # Splits the prior cbom-cpp-deprecated-api rule (which emitted the
+  # opaque DEPRECATED-CRYPTO marker) into per-cipher/per-hash rules so
+  # each finding carries its specific canonical primitive (DES / RC4 /
+  # MD5). Migration guidance is preserved per-rule.
+
+  - id: cbom-cpp-openssl-des
     message: >
-      Deprecated or weak OpenSSL cryptographic API detected. DES, RC4, and
-      MD5 are considered broken and must not be used for security purposes.
-      Migrate to AES-256-GCM, ChaCha20-Poly1305, or SHA-256/SHA-3.
+      DES via OpenSSL low-level API. DES is cryptographically broken;
+      migrate to AES-256-GCM or ChaCha20-Poly1305.
     severity: ERROR
     languages: [cpp, c]
     metadata:
       category: security
       cbom-asset-type: algorithm
-      cbom-primitive: DEPRECATED-CRYPTO
+      cbom-primitive: DES
       confidence: high
       quantum-relevant: false
-      maturity: stable
+      maturity: deprecated
       default_enabled: true
       noise_risk: low
-    patterns:
+    pattern-either:
       - pattern: DES_set_key(...)
       - pattern: DES_set_key_checked(...)
       - pattern: DES_set_key_unchecked(...)
       - pattern: DES_ecb_encrypt(...)
       - pattern: DES_ncbc_encrypt(...)
       - pattern: DES_cbc_encrypt(...)
+
+  - id: cbom-cpp-openssl-rc4
+    message: >
+      RC4 via OpenSSL low-level API. RC4 is cryptographically broken;
+      migrate to AES-256-GCM or ChaCha20-Poly1305.
+    severity: ERROR
+    languages: [cpp, c]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      cbom-primitive: RC4
+      confidence: high
+      quantum-relevant: false
+      maturity: deprecated
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
       - pattern: RC4_set_key(...)
       - pattern: RC4(...)
+
+  - id: cbom-cpp-openssl-md5
+    message: >
+      MD5 via OpenSSL low-level API. MD5 is cryptographically broken for
+      security uses; migrate to SHA-256 or SHA-3.
+    severity: ERROR
+    languages: [cpp, c]
+    metadata:
+      category: security
+      cbom-asset-type: algorithm
+      cbom-primitive: MD5
+      confidence: high
+      quantum-relevant: false
+      maturity: deprecated
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
       - pattern: MD5_Init(...)
       - pattern: MD5_Update(...)
       - pattern: MD5_Final(...)
