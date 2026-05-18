@@ -306,6 +306,162 @@ rules:
           ...
           $TMF.init($KS);
 
+  # ── BouncyCastle / JCA hash algorithm inventory (Phase A1) ──
+  #
+  # Each rule names a specific hash primitive instead of relying on the
+  # generic library-import rule, so the CBOM lists e.g. "MD2" not just
+  # "CRYPTO-LIBRARY-IMPORT". Broken algorithms (MD2/MD4) keep severity
+  # WARNING; legacy-but-not-broken digests are INFO inventory entries.
+  #
+  # Rule IDs use the "bc-" prefix (not "bouncycastle-") so the derived
+  # component name doesn't collide with the BOUNCYCASTLE library token in
+  # downstream bucket classification.
+
+  - id: cbom-java-bc-md2
+    message: "MD2 hash detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: MD2
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new MD2Digest(...)
+      - pattern: MessageDigest.getInstance("MD2")
+
+  - id: cbom-java-bc-md4
+    message: "MD4 hash detected (broken)"
+    severity: WARNING
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: MD4
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new MD4Digest(...)
+      - pattern: MessageDigest.getInstance("MD4")
+
+  - id: cbom-java-bc-keccak
+    message: "Keccak hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: KECCAK
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new KeccakDigest(...)
+      - pattern: MessageDigest.getInstance("KECCAK")
+      - pattern: MessageDigest.getInstance("Keccak")
+
+  - id: cbom-java-bc-shake128
+    message: "SHAKE128 extendable-output hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SHAKE128
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SHAKEDigest(128)
+      - pattern: MessageDigest.getInstance("SHAKE128")
+      - pattern: MessageDigest.getInstance("SHAKE-128")
+
+  - id: cbom-java-bc-shake256
+    message: "SHAKE256 extendable-output hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SHAKE256
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new SHAKEDigest(256)
+      - pattern: MessageDigest.getInstance("SHAKE256")
+      - pattern: MessageDigest.getInstance("SHAKE-256")
+
+  - id: cbom-java-bc-tiger
+    message: "Tiger hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: TIGER
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new TigerDigest(...)
+      - pattern: MessageDigest.getInstance("TIGER")
+      - pattern: MessageDigest.getInstance("Tiger")
+
+  - id: cbom-java-bc-whirlpool
+    message: "Whirlpool hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: WHIRLPOOL
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new WhirlpoolDigest(...)
+      - pattern: MessageDigest.getInstance("WHIRLPOOL")
+      - pattern: MessageDigest.getInstance("Whirlpool")
+
+  - id: cbom-java-bc-gost3411
+    message: "GOST R 34.11 hash detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GOST3411
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new GOST3411Digest(...)
+      - pattern: new GOST3411_2012_256Digest(...)
+      - pattern: new GOST3411_2012_512Digest(...)
+      - pattern: MessageDigest.getInstance("GOST3411")
+      - pattern: MessageDigest.getInstance("GOST3411-2012-256")
+      - pattern: MessageDigest.getInstance("GOST3411-2012-512")
+
   - id: cbom-java-crypto-provider-registration
     message: >
       Cryptographic provider registered. This changes which implementation
