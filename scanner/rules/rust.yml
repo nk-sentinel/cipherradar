@@ -51,13 +51,11 @@ rules:
       maturity: stable
       default_enabled: true
       noise_risk: low
-    patterns:
+    pattern-either:
       - pattern: rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA
       - pattern: rustls::cipher_suite::TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA
-      - pattern: |
-          dangerous_configuration::DangerousClientConfig { ... }
-      - pattern: |
-          .with_custom_certificate_verifier(...)
+      - pattern: dangerous_configuration::DangerousClientConfig
+      - pattern: $X.with_custom_certificate_verifier(...)
 
   - id: cbom-rust-deprecated-hash
     message: >
@@ -100,9 +98,12 @@ rules:
       default_enabled: true
       noise_risk: low
     pattern-either:
-      - pattern: use ring::$...;
-      - pattern: use rustls::$...;
-      - pattern: use openssl::$...;
+      - pattern: use ring::$X;
+      - pattern: use rustls::$X;
+      - pattern: use openssl::$X;
+      - pattern: use ring::$X::$Y;
+      - pattern: use rustls::$X::$Y;
+      - pattern: use openssl::$X::$Y;
 
   - id: cbom-rust-password-hash-inventory
     message: Password hashing detected in Rust.

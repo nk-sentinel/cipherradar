@@ -14,19 +14,13 @@ rules:
       maturity: experimental
       default_enabled: false
       noise_risk: high
-    patterns:
-      - pattern: |
-          final $KEY = Key.fromUtf8("...");
-      - pattern: |
-          var $KEY = Key.fromUtf8("...");
-      - pattern: |
-          final $KEY = Key.fromBase64("...");
-      - pattern: |
-          final $KEY = Key(Uint8List.fromList([...]));
-      - pattern: |
-          final $KEY = "..."
-          ...
-          Key.fromUtf8($KEY)
+    # rc2-bug7: simplified — opengrep v1.16.5 dart parser cannot tokenise
+    # multi-statement patterns (binding + ellipsis + call chain). Restore the
+    # cross-statement key-flow pattern when opengrep dart support improves.
+    pattern-either:
+      - pattern: Key.fromUtf8("...")
+      - pattern: Key.fromBase64("...")
+      - pattern: Key(Uint8List.fromList([...]))
 
   - id: cbom-dart-weak-hash
     message: >
@@ -67,20 +61,14 @@ rules:
       maturity: stable
       default_enabled: true
       noise_risk: low
-    patterns:
+    # rc2-bug7: simplified — opengrep v1.16.5 dart parser cannot tokenise
+    # multi-statement binding-then-use patterns. Falls back to direct
+    # Random() construction/usage matches. Restore cross-statement flow
+    # patterns when opengrep dart support improves.
+    pattern-either:
       - pattern: Random().nextInt(...)
-      - pattern: |
-          var $R = Random();
-          ...
-          $R.nextInt(...)
-      - pattern: |
-          final $R = Random();
-          ...
-          $R.nextInt(...)
-      - pattern: |
-          var $R = Random();
-          ...
-          $R.nextDouble()
+      - pattern: Random().nextDouble()
+      - pattern: Random().nextBool()
 
   # ── CBOM Inventory Rules ──
 

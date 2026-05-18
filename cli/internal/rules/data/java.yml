@@ -166,10 +166,14 @@ rules:
       default_enabled: true
       noise_risk: low
     pattern-either:
-      - pattern: import org.bouncycastle.$...;
-      - pattern: import javax.crypto.$...;
-      - pattern: import java.security.$...;
-      - pattern: import javax.net.ssl.$...;
+      - pattern: import org.bouncycastle.$X;
+      - pattern: import javax.crypto.$X;
+      - pattern: import java.security.$X;
+      - pattern: import javax.net.ssl.$X;
+      - pattern: import org.bouncycastle.$X.$Y;
+      - pattern: import javax.crypto.$X.$Y;
+      - pattern: import java.security.$X.$Y;
+      - pattern: import javax.net.ssl.$X.$Y;
 
   - id: cbom-java-kdf-to-cipher-chain
     message: >

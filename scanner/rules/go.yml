@@ -62,9 +62,8 @@ rules:
       maturity: stable
       default_enabled: true
       noise_risk: low
-    patterns:
+    pattern-either:
       - pattern: rand.Read(...)
-        fix: Use crypto/rand.Read() instead of math/rand.
       - pattern: rand.Int(...)
       - pattern: rand.Intn(...)
 
