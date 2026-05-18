@@ -301,3 +301,60 @@ rules:
     pattern-either:
       - pattern: curve25519.$X(...)
       - pattern: box.GenerateKey(...)
+
+  # ── Phase D3: Version-specific TLS + SSH protocol attribution ──
+
+  - id: cbom-go-tlsv1_0
+    message: "TLS 1.0 protocol detected (broken)"
+    severity: WARNING
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.0
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: tls.VersionTLS10
+
+  - id: cbom-go-tlsv1_1
+    message: "TLS 1.1 protocol detected (deprecated)"
+    severity: WARNING
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: TLS-1.1
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: tls.VersionTLS11
+
+  - id: cbom-go-ssh-protocol
+    message: "SSH protocol usage detected (golang.org/x/crypto/ssh)"
+    severity: INFO
+    languages: [go]
+    metadata:
+      category: inventory
+      cbom-asset-type: protocol
+      cbom-primitive: SSH
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ssh.Dial(...)
+      - pattern: ssh.NewClientConn(...)
+      - pattern: ssh.NewServerConn(...)
+      - pattern: ssh.ParseRawPrivateKey(...)
+      - pattern: ssh.ParsePrivateKey(...)
+      - pattern: ssh.NewSignerFromKey(...)
+      - pattern: ssh.NewPublicKey(...)
+      - pattern: ssh.MarshalAuthorizedKey(...)
