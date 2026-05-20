@@ -1,0 +1,36 @@
+name: Cache cleanup
+
+# Deletes the Actions caches a PR created once it closes/merges. Without this,
+# each PR's setup-go cache (~750 MB per OS) lingers for 7 days post-merge and
+# accumulates across PRs — a major contributor to the account Actions-storage
+# quota filling up. GitHub auto-evicts caches after 7 idle days, but reclaiming
+# them immediately on PR close keeps usage tight.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  actions: write   # required to delete caches
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete caches scoped to this PR's merge ref
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_REF: refs/pull/${{ github.event.pull_request.number }}/merge
+        run: |
+          echo "Cleaning caches for ${PR_REF} in ${REPO}"
+          ids=$(gh api "/repos/${REPO}/actions/caches?ref=${PR_REF}" --jq '.actions_caches[].id' 2>/dev/null || true)
+          if [ -z "$ids" ]; then
+            echo "No caches scoped to this PR — nothing to delete."
+            exit 0
+          fi
+          for id in $ids; do
+            echo "Deleting cache $id"
+            gh api -X DELETE "/repos/${REPO}/actions/caches/${id}" >/dev/null 2>&1 \
+              && echo "  deleted" || echo "  delete failed (may already be gone)"
+          done
