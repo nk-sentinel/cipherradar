@@ -8,8 +8,73 @@ on:
 permissions:
   contents: write
 
+# Design note — no Actions artifact storage:
+# Each build job uploads its archives DIRECTLY to the GitHub Release via
+# softprops/action-gh-release. Release-attached assets do NOT count against
+# the account's Actions storage quota, whereas upload-artifact/download-artifact
+# do. The previous design relayed ~370 MB through Actions storage every release
+# (retained 90 days by default) just to hand files between jobs — that filled
+# the storage quota and blocked releases. Job graph:
+#   create-release  -> build (matrix x3, appends archives) -> checksums
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate VERSION matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          FILE_VERSION="$(cat VERSION | tr -d '[:space:]')"
+          echo "Tag: ${TAG_VERSION}, VERSION file: ${FILE_VERSION}"
+          if [ "$TAG_VERSION" != "$FILE_VERSION" ]; then
+            echo "::error::VERSION file (${FILE_VERSION}) does not match tag (${TAG_VERSION}). Update VERSION before tagging."
+            exit 1
+          fi
+        shell: bash
+
+      - name: Create the GitHub Release shell
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "CipherRadar ${{ github.ref_name }}"
+          draft: false
+          generate_release_notes: true
+          body: |
+            ## CipherRadar ${{ github.ref_name }}
+
+            ### Downloads
+
+            | Platform | Lightweight | Full (+ OpenGrep + YARA-X) |
+            |---|---|---|
+            | Linux x86_64 | `cradar_*_linux_amd64.tar.gz` | `cradar-full_*_linux_amd64.tar.gz` |
+            | macOS ARM64 | `cradar_*_darwin_arm64.tar.gz` | `cradar-full_*_darwin_arm64.tar.gz` |
+            | Windows x86_64 | `cradar_*_windows_amd64.zip` | `cradar-full_*_windows_amd64.zip` |
+
+            ### Quick Start
+            ```bash
+            # Download and extract
+            tar xzf cradar_*_$(uname -s | tr A-Z a-z)_$(uname -m).tar.gz
+
+            # Scan a project
+            ./cradar scan /path/to/project --format text
+
+            # Generate CycloneDX 1.7 CBOM
+            ./cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate
+
+            # Install OpenGrep + YARA-X (if using lightweight)
+            ./cradar install-tools
+            ```
+
+            ### What's Included
+            - **cradar** (lightweight, ~15 MB): 2-pass scanner (tree-sitter + OpenGrep), 12+ languages, CycloneDX 1.7 output
+            - **cradar-full** (~55 MB): Same binary + OpenGrep + YARA-X pre-bundled for air-gapped environments
+
+            `checksums.txt` (SHA-256 of every archive) is attached once all platform builds complete.
+
+            See [CHANGELOG](https://github.com/nk-sentinel/cipherradar/blob/main/CHANGELOG.md) for full details.
+
   build:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
@@ -39,7 +104,6 @@ jobs:
             yarax_format: zip
           # NOTE: macos-13 (Intel) runners are deprecated by GitHub.
           # darwin/amd64 dropped until a cross-compile or self-hosted solution is available.
-          # NOTE: linux/arm64 requires a self-hosted ARM runner — skipped for v0.1.
           # NOTE: linux/arm64 requires a self-hosted ARM runner or
           # ubuntu-24.04-arm64 (GitHub-hosted ARM, if available).
           # Skipped for v1.0 — add when ARM runner is available.
@@ -47,17 +111,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
-
-      - name: Validate VERSION matches tag
-        run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
-          FILE_VERSION="$(cat VERSION | tr -d '[:space:]')"
-          echo "Tag: ${TAG_VERSION}, VERSION file: ${FILE_VERSION}"
-          if [ "$TAG_VERSION" != "$FILE_VERSION" ]; then
-            echo "::error::VERSION file (${FILE_VERSION}) does not match tag (${TAG_VERSION}). Update VERSION before tagging."
-            exit 1
-          fi
-        shell: bash
 
       - uses: actions/setup-go@v6
         with:
@@ -180,7 +233,8 @@ jobs:
             fi
             echo "Bundled YARA-X into cradar-full"
           else
-            echo "::warning::YARA-X binary not found — cradar-full will not include binary scanning"
+            echo "::error::YARA-X binary not found for ${{ matrix.goos }}/${{ matrix.goarch }}"
+            exit 1
           fi
 
           # Verify full package contents
@@ -212,74 +266,36 @@ jobs:
           echo "Size check passed: full is $(( FULL_SIZE - SLIM_SIZE )) bytes larger"
         shell: bash
 
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v5
-        with:
-          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
-          path: |
-            dist/cradar_*
-            dist/cradar-full_*
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v6
-        with:
-          path: dist
-          merge-multiple: true
-
-      - name: Generate checksums
-        run: |
-          cd dist
-          sha256sum cradar_* cradar-full_* > checksums.txt
-          echo "=== Release Artifacts ==="
-          ls -lh cradar_* cradar-full_*
-          echo ""
-          echo "=== Checksums ==="
-          cat checksums.txt
-
-      - name: Create GitHub Release
+      # Upload this platform's archives DIRECTLY to the GitHub Release.
+      # No actions/upload-artifact -> no Actions storage consumed. The release
+      # shell was already created by the create-release job; this appends files.
+      - name: Attach archives to the release
         uses: softprops/action-gh-release@v2
         with:
-          name: "CipherRadar ${{ github.ref_name }}"
-          draft: false
-          generate_release_notes: true
-          body: |
-            ## CipherRadar ${{ github.ref_name }}
-
-            ### Downloads
-
-            | Platform | Lightweight | Full (+ OpenGrep + YARA-X) |
-            |---|---|---|
-            | Linux x86_64 | `cradar_*_linux_amd64.tar.gz` | `cradar-full_*_linux_amd64.tar.gz` |
-            | macOS ARM64 | `cradar_*_darwin_arm64.tar.gz` | `cradar-full_*_darwin_arm64.tar.gz` |
-            | Windows x86_64 | `cradar_*_windows_amd64.zip` | `cradar-full_*_windows_amd64.zip` |
-
-            ### Quick Start
-            ```bash
-            # Download and extract
-            tar xzf cradar_*_$(uname -s | tr A-Z a-z)_$(uname -m).tar.gz
-
-            # Scan a project
-            ./cradar scan /path/to/project --format text
-
-            # Generate CycloneDX 1.7 CBOM
-            ./cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate
-
-            # Install OpenGrep + YARA-X (if using lightweight)
-            ./cradar install-tools
-            ```
-
-            ### What's Included
-            - **cradar** (lightweight, ~15 MB): 2-pass scanner (tree-sitter + OpenGrep), 12+ languages, CycloneDX 1.7 output
-            - **cradar-full** (~55 MB): Same binary + OpenGrep + YARA-X pre-bundled for air-gapped environments
-
-            See [CHANGELOG](https://github.com/nk-sentinel/cipherradar/blob/main/CHANGELOG.md) for full details.
+          tag_name: ${{ github.ref_name }}
           files: |
             dist/cradar_*
             dist/cradar-full_*
-            dist/checksums.txt
+
+  checksums:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # Pull the just-published archives back from the Release (not from Actions
+      # storage) via `gh release download`, hash them, attach checksums.txt.
+      - name: Generate and attach checksums.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p dist
+          cd dist
+          gh release download "${GITHUB_REF_NAME}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern 'cradar_*' --pattern 'cradar-full_*'
+          echo "=== Release archives ==="
+          ls -lh
+          sha256sum cradar_* cradar-full_* > checksums.txt
+          echo "=== Checksums ==="
+          cat checksums.txt
+          gh release upload "${GITHUB_REF_NAME}" checksums.txt \
+            --repo "${GITHUB_REPOSITORY}" --clobber
