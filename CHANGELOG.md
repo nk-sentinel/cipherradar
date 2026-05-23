@@ -4,6 +4,48 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.2.0-rc.5 — 2026-05-23
+
+Release-artifact correctness + offline-ready archives.
+
+### Bug fix — YARA-X binary corrupted in rc1/rc2/rc3/rc4 archives
+
+The release workflow's YARA-X extraction step assumed a single-file gzip
+format. YARA-X actually publishes a GZIPPED TAR archive containing a
+single `yr` binary. The workflow shipped the raw tar archive renamed to
+`yr` — file(1) reports "POSIX tar archive"; exec fails with "Exec format
+error". cradar-full archives from rc1 through rc4 all contain a broken
+yr. rc4 is being marked as prerelease with a do-not-use note pointing
+here.
+
+Fix: restore `gunzip -c | tar -xf -` extraction, then `mv` the produced
+`yr` to a known path. New in-CI gate exec's `opengrep-bin --version` and
+`yr-bin --version` post-extraction so any future broken-binary regression
+fails the workflow at build time instead of after publication.
+
+### Offline-ready archives
+
+cradar-full's entire reason for existing is air-gapped / offline use.
+Every release archive (lite and full, all 3 platforms) now ships with:
+
+- `LICENSE`
+- `CHANGELOG.md`
+- `README.md` — short archive-root pointer (different from the repo README)
+- `docs/` — full CLI usage guide (mirror of `docs/guides/cli/` from PR #16),
+  covering commands, output formats, configuration schemas, exit codes,
+  and common workflows
+
+Adds ~115 KB to each archive; negligible against the ~22-65 MB binaries.
+
+### Pre-tag local verification
+
+New `scripts/release-smoke.sh` runs the same packaging and bundle-content
+checks the release workflow runs, but locally for linux/amd64. Run this
+before pushing any `v*` tag so the workflow doesn't burn CI minutes on a
+broken release.
+
+---
+
 ## 0.2.0-rc.4 — 2026-05-18
 
 CI / release pipeline fixes. No user-visible product behavior changes beyond

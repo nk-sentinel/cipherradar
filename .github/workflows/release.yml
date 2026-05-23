@@ -172,19 +172,46 @@ jobs:
             # Windows ships yr.exe inside a zip — extract and locate.
             unzip -o /tmp/yarax-archive -d dist/yarax/
             YARAX_BIN=$(find dist/yarax/ -type f \( -name 'yr' -o -name 'yr.exe' \) | head -1)
-            if [ -z "$YARAX_BIN" ]; then
-              echo "::error::YARA-X binary not found in zip for ${{ matrix.goos }}/${{ matrix.goarch }}"
-              exit 1
-            fi
-            mv "$YARAX_BIN" dist/yarax/yr-bin
           else
-            # YARA-X .gz files are SINGLE-FILE gzipped binaries (not gzipped tars).
-            # The prior `gunzip -c | tar -xf` pipeline always failed because tar
-            # got the raw binary content. Just gunzip into the destination.
-            gunzip -c /tmp/yarax-archive > dist/yarax/yr-bin
+            # YARA-X .gz files are GZIPPED TAR archives containing a single 'yr'
+            # binary (not single-file gzip). Earlier workflow revisions assumed
+            # single-file gzip and shipped the raw tar as if it were the binary;
+            # the in-CI exec gate below now catches that class of bug.
+            cd dist/yarax && gunzip -c /tmp/yarax-archive | tar -xf -
+            cd "$GITHUB_WORKSPACE"
+            YARAX_BIN=$(find dist/yarax/ -type f \( -name 'yr' -o -name 'yr.exe' \) | head -1)
           fi
+          if [ -z "$YARAX_BIN" ]; then
+            echo "::error::YARA-X binary not found after extraction for ${{ matrix.goos }}/${{ matrix.goarch }}"
+            exit 1
+          fi
+          mv "$YARAX_BIN" dist/yarax/yr-bin
           chmod +x dist/yarax/yr-bin
           echo "YARA-X binary: dist/yarax/yr-bin ($(du -h dist/yarax/yr-bin | cut -f1))"
+        shell: bash
+
+      - name: Sanity-exec bundled tools (catches non-binary files shipping as binaries)
+        if: matrix.opengrep_asset != ''
+        run: |
+          # OpenGrep
+          file dist/opengrep/opengrep-bin
+          case "${{ matrix.goos }}" in
+            linux|darwin)
+              dist/opengrep/opengrep-bin --version 2>&1 | head -3 || {
+                echo "::error::OpenGrep binary at dist/opengrep/opengrep-bin does not execute on ${{ matrix.goos }}/${{ matrix.goarch }}"; exit 1; }
+              ;;
+            # Windows opengrep_windows_x86.exe is sanity-checked by file(1) only —
+            # cross-OS exec on the actions runner host isn't useful.
+          esac
+          # YARA-X
+          file dist/yarax/yr-bin
+          case "${{ matrix.goos }}" in
+            linux|darwin)
+              dist/yarax/yr-bin --version 2>&1 | head -3 || {
+                echo "::error::YARA-X binary at dist/yarax/yr-bin does not execute on ${{ matrix.goos }}/${{ matrix.goarch }}"; exit 1; }
+              ;;
+          esac
+          echo "Bundled-tool sanity OK"
         shell: bash
 
       - name: Package cradar (lightweight)
@@ -193,6 +220,13 @@ jobs:
           EXT=""
           if [ "${{ matrix.goos }}" = "windows" ]; then EXT=".exe"; fi
           cp dist/cradar${EXT} dist/cradar-pkg/
+          # Bundle docs and metadata (paths are relative to GITHUB_WORKSPACE,
+          # so must run BEFORE the `cd dist/cradar-pkg` below).
+          if [ -f LICENSE ]; then cp LICENSE dist/cradar-pkg/; fi
+          cp CHANGELOG.md dist/cradar-pkg/
+          cp .github/release-README.md dist/cradar-pkg/README.md
+          mkdir -p dist/cradar-pkg/docs
+          cp -r docs/guides/cli/* dist/cradar-pkg/docs/
           cd dist/cradar-pkg
           if [ "${{ matrix.goos }}" = "windows" ]; then
             7z a "../cradar_${GITHUB_REF_NAME#v}_${{ matrix.goos }}_${{ matrix.goarch }}.zip" .
@@ -236,6 +270,14 @@ jobs:
             echo "::error::YARA-X binary not found for ${{ matrix.goos }}/${{ matrix.goarch }}"
             exit 1
           fi
+
+          # Bundle docs and metadata (paths are relative to GITHUB_WORKSPACE,
+          # so must run BEFORE the `cd dist/cradar-full-pkg` below).
+          if [ -f LICENSE ]; then cp LICENSE dist/cradar-full-pkg/; fi
+          cp CHANGELOG.md dist/cradar-full-pkg/
+          cp .github/release-README.md dist/cradar-full-pkg/README.md
+          mkdir -p dist/cradar-full-pkg/docs
+          cp -r docs/guides/cli/* dist/cradar-full-pkg/docs/
 
           # Verify full package contents
           echo "=== cradar-full package contents ==="
