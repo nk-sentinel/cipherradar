@@ -222,7 +222,7 @@ jobs:
           cp dist/cradar${EXT} dist/cradar-pkg/
           # Bundle docs and metadata (paths are relative to GITHUB_WORKSPACE,
           # so must run BEFORE the `cd dist/cradar-pkg` below).
-          if [ -f LICENSE ]; then cp LICENSE dist/cradar-pkg/; fi
+          cp cli/LICENSE dist/cradar-pkg/
           cp CHANGELOG.md dist/cradar-pkg/
           cp .github/release-README.md dist/cradar-pkg/README.md
           mkdir -p dist/cradar-pkg/docs
@@ -273,7 +273,7 @@ jobs:
 
           # Bundle docs and metadata (paths are relative to GITHUB_WORKSPACE,
           # so must run BEFORE the `cd dist/cradar-full-pkg` below).
-          if [ -f LICENSE ]; then cp LICENSE dist/cradar-full-pkg/; fi
+          cp cli/LICENSE dist/cradar-full-pkg/
           cp CHANGELOG.md dist/cradar-full-pkg/
           cp .github/release-README.md dist/cradar-full-pkg/README.md
           mkdir -p dist/cradar-full-pkg/docs

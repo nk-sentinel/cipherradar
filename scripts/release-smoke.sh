@@ -62,14 +62,10 @@ set -o pipefail
 
 bundle_extras() {
   local pkg="$1"
-  # LICENSE is optional locally — warn if absent so the dev knows the
-  # production archives will also lack it until a LICENSE file lands at
-  # the repo root.
-  if [ -f LICENSE ]; then
-    cp LICENSE "$pkg/"
-  else
-    echo "WARN: no LICENSE file at repo root; archives will ship without one"
-  fi
+  # LICENSE lives at cli/LICENSE — Apache 2.0 covers the CLI only. The repo
+  # root deliberately has no LICENSE (other top-level dirs like backend/ and
+  # frontend/ are licensed separately; see LICENSING.md).
+  cp cli/LICENSE "$pkg/LICENSE"
   cp CHANGELOG.md "$pkg/"
   cp .github/release-README.md "$pkg/README.md"
   mkdir -p "$pkg/docs"
@@ -79,12 +75,9 @@ bundle_extras() {
 verify_archive_layout() {
   local pkg="$1" label="$2"
   echo "==> Verify $label layout"
-  for f in cradar CHANGELOG.md README.md docs/README.md docs/commands.md docs/output-formats.md docs/configuration.md docs/exit-codes.md docs/workflows.md; do
+  for f in cradar LICENSE CHANGELOG.md README.md docs/README.md docs/commands.md docs/output-formats.md docs/configuration.md docs/exit-codes.md docs/workflows.md; do
     [ -s "$pkg/$f" ] || { echo "FAIL: $label missing or empty: $f"; exit 1; }
   done
-  if [ -f LICENSE ]; then
-    [ -s "$pkg/LICENSE" ] || { echo "FAIL: $label missing or empty: LICENSE"; exit 1; }
-  fi
 }
 
 echo "==> Assemble cradar (lightweight)"
