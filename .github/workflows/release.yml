@@ -322,12 +322,29 @@ jobs:
   checksums:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write   # gh release download + upload need write on Releases
     steps:
+      # actions/checkout sets up the git auth helper that newer gh CLI versions
+      # rely on; without it, gh release download fails with `401 Bad credentials`
+      # even when GH_TOKEN is set. Don't fetch any history — we just need the
+      # auth context.
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
       # Pull the just-published archives back from the Release (not from Actions
       # storage) via `gh release download`, hash them, attach checksums.txt.
+      # If `gh release download` ever 401s again, the curl fallback below is the
+      # bulletproof equivalent — uncomment instead:
+      #   curl -fSL -H "Authorization: Bearer $GITHUB_TOKEN" \
+      #        -H "Accept: application/octet-stream" \
+      #        "https://api.github.com/repos/$GITHUB_REPOSITORY/releases/assets/<id>" \
+      #        -o <file>
       - name: Generate and attach checksums.txt
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           mkdir -p dist
           cd dist
