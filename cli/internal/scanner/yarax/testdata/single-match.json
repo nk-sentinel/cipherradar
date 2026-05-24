@@ -1,0 +1,21 @@
+{
+  "version": "1.14.0",
+  "matches": [
+    {
+      "rule": "probe_openssl_3_0",
+      "file": "/home/test/openssl-versions",
+      "meta": {
+        "description": "Probe rule for Sub-PR A development",
+        "author": "cradar-test"
+      },
+      "tags": [],
+      "strings": [
+        {
+          "identifier": "$a",
+          "offset": 8222,
+          "match": "OpenSSL 3.0"
+        }
+      ]
+    }
+  ]
+}

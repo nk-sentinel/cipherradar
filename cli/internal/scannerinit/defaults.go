@@ -22,6 +22,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/ruby"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/rust"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/swift"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/yarax"
 )
 
 // DefaultRegistry returns a registry with all built-in language scanners.
@@ -52,6 +53,15 @@ func DefaultRegistry() *scanner.Registry {
 
 	// Universal scanners (run on every file regardless of extension)
 	r.RegisterUniversal(regex.New())
+
+	// YARA-X scanner (Pass 3 — binary crypto detection via the bundled
+	// `yr` binary). Registered as Universal so it doesn't displace the
+	// native binary / JAR / wheel scanners (Registry.ForExtension is
+	// last-write-wins). Until Sub-PR B ships an embedded ruleset and
+	// Sub-PR C wires up `--passes 3`, the scanner soft-skips on every
+	// file — registration is the seam for the upcoming work, not a
+	// behavior change.
+	r.RegisterUniversal(yarax.New())
 
 	return r
 }
