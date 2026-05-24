@@ -1,0 +1,9 @@
+{
+  "version": "1.14.0",
+  "matches": [
+    {
+      "rule": "probe_minimal",
+      "file": "/home/test/sample"
+    }
+  ]
+}
