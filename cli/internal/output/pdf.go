@@ -311,13 +311,15 @@ func addFindingsTable(m core.Maroto, result *types.ScanResult) {
 		Color: colorWhite,
 	}
 
+	// Grid widths must match the body rows below: 1+3+1+2+4+1 = 12.
+	// "Quantum" label kept short for the narrow 1/12 column.
 	m.AddRow(8,
 		col.New(1).Add(text.New("Severity", headerText)).WithStyle(headerStyle),
 		col.New(3).Add(text.New("File", headerText)).WithStyle(headerStyle),
 		col.New(1).Add(text.New("Line", headerText)).WithStyle(headerStyle),
 		col.New(2).Add(text.New("Name", headerText)).WithStyle(headerStyle),
-		col.New(3).Add(text.New("Description", headerText)).WithStyle(headerStyle),
-		col.New(2).Add(text.New("Quantum Status", headerText)).WithStyle(headerStyle),
+		col.New(4).Add(text.New("Description", headerText)).WithStyle(headerStyle),
+		col.New(1).Add(text.New("Quantum", headerText)).WithStyle(headerStyle),
 	)
 
 	// Sort findings by severity (CRITICAL first).
@@ -339,19 +341,19 @@ func addFindingsTable(m core.Maroto, result *types.ScanResult) {
 			rowBg = colorLightGray
 		}
 
-		filePath := f.Location.File
-		if len(filePath) > 35 {
-			filePath = "..." + filePath[len(filePath)-32:]
-		}
+		// Maroto v2 wraps text across multiple lines within a cell when the
+		// row is added via AddAutoRow (see below). Don't pre-truncate the
+		// string — let the renderer break on word boundaries. Long unwrappable
+		// single tokens (paths with no slashes, base64 blobs) still need a
+		// hard cap so they don't overflow a single cell width; that's what
+		// middleTruncate handles below.
+		filePath := middleTruncate(f.Location.File, 80)
 
 		lineStr := fmt.Sprintf("%d", f.Location.StartLine)
 
 		desc := f.Description
 		if desc == "" {
 			desc = f.Name
-		}
-		if len(desc) > 50 {
-			desc = desc[:47] + "..."
 		}
 
 		qs := string(f.Properties.QuantumStatus)
@@ -366,7 +368,12 @@ func addFindingsTable(m core.Maroto, result *types.ScanResult) {
 			Color: &props.BlackColor,
 		}
 
-		m.AddRow(7,
+		// Grid rebalance: Description gets 4/12 (was 3); Quantum Status
+		// gets 1/12 (was 2 — labels are 5-10 chars, never need 2 columns).
+		// Total: 1 sev + 3 file + 1 line + 2 name + 4 desc + 1 quantum = 12.
+		// AddAutoRow lets maroto grow the row vertically when wrapped text
+		// in any cell exceeds the natural single-line height.
+		m.AddAutoRow(
 			col.New(1).Add(text.New(sevLabel, props.Text{
 				Size:  7,
 				Style: fontstyle.Bold,
@@ -409,7 +416,7 @@ func addFindingsTable(m core.Maroto, result *types.ScanResult) {
 				BorderColor:     colorLightGray,
 				BorderThickness: 0.1,
 			}),
-			col.New(3).Add(text.New(desc, props.Text{
+			col.New(4).Add(text.New(desc, props.Text{
 				Size:  7,
 				Align: align.Left,
 				Top:   1.5,
@@ -421,7 +428,7 @@ func addFindingsTable(m core.Maroto, result *types.ScanResult) {
 				BorderColor:     colorLightGray,
 				BorderThickness: 0.1,
 			}),
-			col.New(2).Add(text.New(qs, props.Text{
+			col.New(1).Add(text.New(qs, props.Text{
 				Size:  7,
 				Align: align.Center,
 				Top:   1.5,
@@ -537,10 +544,9 @@ func addQuantumReadinessSection(m core.Maroto, result *types.ScanResult) {
 	)
 
 	for _, info := range families {
+		// Maroto v2 wraps the comma-joined list naturally on word boundaries
+		// in the 3/12 cell. Don't pre-truncate.
 		names := strings.Join(info.names, ", ")
-		if len(names) > 40 {
-			names = names[:37] + "..."
-		}
 
 		statusLabel := string(info.status)
 		if statusLabel == "" {
@@ -557,7 +563,7 @@ func addQuantumReadinessSection(m core.Maroto, result *types.ScanResult) {
 			Color: &props.BlackColor,
 		}
 
-		m.AddRow(8,
+		m.AddAutoRow(
 			col.New(2).Add(text.New(info.family, props.Text{
 				Size:  7,
 				Style: fontstyle.Bold,
@@ -729,4 +735,38 @@ func quantumRecommendation(family string, status types.QuantumStatus) string {
 	}
 
 	return "Review algorithm and assess quantum readiness based on latest NIST guidelines."
+}
+
+// middleTruncate shortens a long unwrappable string by replacing its middle
+// with an ellipsis, preserving roughly equal head and tail context. Used for
+// file paths and other slash-bearing tokens where both the leading directory
+// context and the trailing filename are useful. Strings <= max are returned
+// unchanged; very short max values (< 8) fall back to head-truncation.
+//
+// Examples (max=40):
+//   cli/internal/scanner/python/python_scanner.go (45 chars) ->
+//     cli/internal/scan…python/python_scanner.go (40 chars)
+//   /a/very/long/path/here/with/many/segments/file.go ->
+//     /a/very/long/path…segments/file.go
+//
+// Reserves three characters for the ellipsis "..." so that the result fits
+// exactly within `max` runes (not bytes — caller passes a rune budget).
+func middleTruncate(s string, max int) string {
+	if max < 8 {
+		// Below 8 chars, ellipsis + tail isn't meaningful; head-truncate.
+		runes := []rune(s)
+		if len(runes) <= max {
+			return s
+		}
+		return string(runes[:max])
+	}
+	runes := []rune(s)
+	if len(runes) <= max {
+		return s
+	}
+	// Reserve 3 runes for "..." then split remaining budget head/tail.
+	keep := max - 3
+	head := keep / 2
+	tail := keep - head
+	return string(runes[:head]) + "..." + string(runes[len(runes)-tail:])
 }
