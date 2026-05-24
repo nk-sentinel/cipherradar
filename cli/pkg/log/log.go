@@ -272,6 +272,22 @@ func (lg *Logger) Info(msg string, args ...any)  { lg.slog.Info(msg, args...) }
 func (lg *Logger) Warn(msg string, args ...any)  { lg.slog.Warn(msg, args...) }
 func (lg *Logger) Error(msg string, args ...any) { lg.slog.Error(msg, args...) }
 
+// YaraXScanFire emits a debug-level event the moment a file is handed to
+// the YARA-X subprocess. The event lets --debug consumers (and the
+// end-to-end probe described in ADR-039 / the Sub-PR A spec) observe
+// Pass-3 dispatch ordering without having to read the per-scanner
+// scanner_start/scanner_complete pair. Mirrors ScannerStart's style.
+func (lg *Logger) YaraXScanFire(target string) {
+	if lg == nil || lg.slog == nil {
+		return
+	}
+	lg.slog.Debug("yarax_scan_fire",
+		"event", "yarax_scan_fire",
+		"scanner", "yarax",
+		"target", lg.RedactPath(target),
+	)
+}
+
 // ScannerStart emits a structured event when a per-language scanner begins.
 // Use this in the per-pass dispatch loop so debug logs show ordering and
 // coverage.
