@@ -298,9 +298,38 @@ Three progress points, all emitted to stderr (never stdout — keeps the JSON ou
 - TTY detection (`output.IsTerminal(os.Stderr)`): on non-TTY, use plain lines; on TTY, optionally use `\r` carriage return to overwrite (configurable; default off for grep-ability).
 - `--quiet` suppresses all progress lines.
 
+### Always-on terminal summary (new)
+
+In addition to per-step progress, **always emit a short scan summary to stderr at the end of every scan** so the terminal is never blank, regardless of where machine output goes. With `--output` set, additionally list each resolved output path.
+
+Format (stderr, always):
+```
+[scan] complete in 4.2s — 142 findings (3 CRIT / 12 HIGH / 41 MED / 79 LOW / 7 INFO)
+[scan] wrote /home/user/proj/scan.cbom.json (cyclonedx-json, 184 KB)
+[scan] wrote /home/user/proj/report.pdf (pdf, 312 KB)
+```
+
+Duplication-avoidance rule (so the common TTY case isn't noisy):
+
+| Scenario | stdout gets | stderr summary? |
+|---|---|---|
+| `cradar scan ./app` on a TTY (default → text format) | full text report on stdout | **suppressed** — already on stdout |
+| `cradar scan ./app \| jq` (pipe, default → cyclonedx-json) | JSON | **emitted** — user has no terminal output otherwise |
+| `cradar scan ./app -o x.json` (TTY, file output) | nothing | **emitted** + path lines |
+| `cradar scan ./app -o x.pdf -o y.json` | nothing | **emitted** + both path lines |
+| `cradar scan ./app --quiet` | format-dependent | **suppressed** (entire commit 4 is gated by `--quiet`) |
+
+Implementation: in `writeOutputs`, after writing all destinations, compute the resolved-paths list. Pass it + the result to a new `emitFinalSummary(stderr, result, paths, stdoutFormat)` helper. The helper applies the rule table above.
+
+Path format: always absolute (`filepath.Abs`) so users can click-to-open in modern terminals. Size shown via `os.Stat` post-write.
+
 ### Failure-mode coverage
 
-User's specific report ("`cradar scan` with `--output cbom.json` shows nothing during scan"): commit 4 fixes this because progress goes to stderr regardless of stdout destination. The final summary behavior with `--output` (intentionally silent on stdout) is documented in CLI help, not changed.
+User's specific reports:
+- *"`cradar scan` with `--output cbom.json` shows nothing during scan"* → fixed by per-step progress events to stderr + the new always-on final summary listing the output path.
+- *"silent execution makes you wonder if scan is happening"* → fixed by walker heartbeat (one line per 100 files or per 2s).
+
+The "stdout silent when -o is set" behavior remains unchanged — it's correct (avoid duplicating output that's already in the file). The fix is that **stderr is no longer silent** — it carries progress + final summary + path list.
 
 ### Files touched (commit 4)
 
@@ -310,6 +339,7 @@ User's specific report ("`cradar scan` with `--output cbom.json` shows nothing d
 - **Modified:** `cli/internal/cmd/scan.go` — wire callbacks, emit pass boundary lines
 - **Modified:** `cli/internal/cmd/root.go` — add `--quiet` flag if not already present
 - **New:** `cli/internal/cmd/progress.go` — small helper that formats and rate-limits progress lines
+- **New:** `cli/internal/cmd/summary.go` — `emitFinalSummary` helper, duplication-avoidance rule, path+size listing
 - **Modified:** `cli/internal/cmd/scan_test.go` — golden-output assertion for progress lines (use `--quiet` in existing tests that diff stderr)
 - **New:** `cli/internal/cmd/progress_test.go` — rate-limiter unit tests
 - **Modified:** CLI help text — document stdout vs. stderr behavior and `--output` silencing
@@ -323,7 +353,7 @@ User's specific report ("`cradar scan` with `--output cbom.json` shows nothing d
 | 1 | `normalize/*_test.go` (table-driven per enum + golden file inputs); `converter_test.go` updates for asset rerouting |
 | 2 | `quantum_test.go` (every alias resolves to canonical; non-algorithm asset types skip; fuzzy names match family root); YAML round-trip |
 | 3 | `pdf/*_test.go` split per file; `aggregate()` unit tests; golden PDF byte-comparison OR page-count + size sanity |
-| 4 | `progress_test.go` (rate-limiter + heartbeat formatting); `scan_test.go` golden stderr lines with `--verbose` and default; ensure `--quiet` suppresses all progress |
+| 4 | `progress_test.go` (rate-limiter + heartbeat formatting); `summary_test.go` (truth table for every duplication-avoidance scenario above); `scan_test.go` golden stderr lines with `--verbose` and default; ensure `--quiet` suppresses all progress + final summary |
 
 ### Per-commit regression gates
 
