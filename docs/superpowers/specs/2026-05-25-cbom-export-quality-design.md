@@ -16,9 +16,11 @@ Improve the correctness, completeness, and reporting quality of `cradar`'s CBOM 
 ## Out of scope
 
 - `cfg.Format` wiring (dead config field — separate item)
-- The original `feature/cli-improvements` work items: rule-lifecycle metadata, structured logging, multi-output format, shell completion, `cradar init`
+- The original `feature/cli-improvements` work items: rule-lifecycle metadata, **full** structured logging (slog adoption + JSONL log file at `~/.cradar/logs/`), multi-output format, shell completion, `cradar init`
 - Any portal/backend/frontend changes
 - Backwards-compat shims for invalid `assetType: "library"` or `primitive: "HARDCODE-SECRET"` (these were never valid CycloneDX, breaking change in CHANGELOG)
+
+Note: commit 4 adds *minimal* scan-time progress feedback only, not the full slog/JSONL story. That remains in `feature/cli-improvements`. The two efforts will need to reconcile once both land.
 
 ## Architecture overview
 
@@ -261,6 +263,57 @@ If flag omitted, section omitted.
 - **Modified:** `cli/internal/cmd/scan.go` — add `--baseline` flag
 - **Modified:** `cli/go.mod` / `go.sum` — add go-echarts dep
 
+## Work item 4 — Scan-time progress visibility
+
+### Problem
+
+Today `cradar scan ./bigrepo` is silent from invocation until the final summary. Users on slow scans cannot tell whether the process is hung. `--verbose` is wired to `clilog.LevelVerbose` at `cli/internal/cmd/root.go:34-46` but scanner code in `cli/internal/scanner/*` and `cli/internal/opengrep/*` never calls clilog, so the flag is functionally silent.
+
+This is **shell- and OS-agnostic** (TTY detection is per file descriptor, not per shell) — applies equally to bash, fish, ksh on macOS/Linux.
+
+### Tight scope (this commit)
+
+Add minimal progress emission. Defer the full structured-logging story (slog adoption, JSONL to `~/.cradar/logs/`, log enrichment) to `feature/cli-improvements`.
+
+Three progress points, all emitted to stderr (never stdout — keeps the JSON output path clean):
+
+1. **Walker heartbeat** — `cli/internal/scanner/walker.go`: emit one line per N files (default N=100) at default verbosity:
+   ```
+   [scan] walked 100 files (Go: 42, Java: 31, Python: 27)
+   [scan] walked 200 files (...)
+   ```
+2. **Pass boundary** — `cli/internal/cmd/scan.go`: emit at start and end of Pass 1 (tree-sitter) and Pass 2 (OpenGrep):
+   ```
+   [scan] pass 1: tree-sitter starting (412 files)
+   [scan] pass 1: tree-sitter complete (1.2s, 87 findings)
+   [scan] pass 2: opengrep starting
+   [scan] pass 2: opengrep complete (3.4s, 38 findings)
+   ```
+3. **Verbose mode** (`--verbose`) — emit per-file: `[scan] pass1 python: <file>` and per-rule-match. Existing log level integration via clilog.
+
+### Throttling rules
+
+- Default: heartbeat suppressed if total file count < 50 (avoids noise on small scans).
+- Default: emit one heartbeat per 100 files OR every 2 seconds, whichever comes first.
+- TTY detection (`output.IsTerminal(os.Stderr)`): on non-TTY, use plain lines; on TTY, optionally use `\r` carriage return to overwrite (configurable; default off for grep-ability).
+- `--quiet` suppresses all progress lines.
+
+### Failure-mode coverage
+
+User's specific report ("`cradar scan` with `--output cbom.json` shows nothing during scan"): commit 4 fixes this because progress goes to stderr regardless of stdout destination. The final summary behavior with `--output` (intentionally silent on stdout) is documented in CLI help, not changed.
+
+### Files touched (commit 4)
+
+- **Modified:** `cli/internal/scanner/walker.go` — add heartbeat callback + file-count tracker
+- **Modified:** `cli/internal/scanner/scanner.go` — wire progress callback through scanner runs
+- **Modified:** `cli/internal/opengrep/runner.go` — emit pass 2 start/end events
+- **Modified:** `cli/internal/cmd/scan.go` — wire callbacks, emit pass boundary lines
+- **Modified:** `cli/internal/cmd/root.go` — add `--quiet` flag if not already present
+- **New:** `cli/internal/cmd/progress.go` — small helper that formats and rate-limits progress lines
+- **Modified:** `cli/internal/cmd/scan_test.go` — golden-output assertion for progress lines (use `--quiet` in existing tests that diff stderr)
+- **New:** `cli/internal/cmd/progress_test.go` — rate-limiter unit tests
+- **Modified:** CLI help text — document stdout vs. stderr behavior and `--output` silencing
+
 ## Testing strategy
 
 ### Per-commit unit tests
@@ -270,6 +323,7 @@ If flag omitted, section omitted.
 | 1 | `normalize/*_test.go` (table-driven per enum + golden file inputs); `converter_test.go` updates for asset rerouting |
 | 2 | `quantum_test.go` (every alias resolves to canonical; non-algorithm asset types skip; fuzzy names match family root); YAML round-trip |
 | 3 | `pdf/*_test.go` split per file; `aggregate()` unit tests; golden PDF byte-comparison OR page-count + size sanity |
+| 4 | `progress_test.go` (rate-limiter + heartbeat formatting); `scan_test.go` golden stderr lines with `--verbose` and default; ensure `--quiet` suppresses all progress |
 
 ### Per-commit regression gates
 
@@ -294,7 +348,7 @@ Per `superpowers:test-driven-development`, every new function in `normalize/`, `
 
 ## Commit ordering and dependencies
 
-Validation (commit 1) lands first because it corrects the data the other two consume. Quantum (commit 2) lands second because it expands the data model the PDF will summarize. PDF (commit 3) lands last because it depends on both. Each commit is independently green; if commit 3 grows beyond ~1500 LOC the PDF section may be split, but the target is one PR.
+Validation (commit 1) lands first because it corrects the data the other two consume. Quantum (commit 2) lands second because it expands the data model the PDF will summarize. PDF (commit 3) lands last because it depends on both. Scan-time progress (commit 4) is independent of 1–3 and lands last for review focus, but could be reordered without conflict. Each commit is independently green; if commit 3 grows beyond ~1500 LOC the PDF section may be split, but the target is one PR.
 
 ## Open questions
 
