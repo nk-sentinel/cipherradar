@@ -18,8 +18,12 @@ state).
 
 - **Opt-in** via `--passes 3` (only) or `--passes 1,2,3` / `--deep` (full pipeline).
   `--deep` was previously an alias for `1,2`; it now means `1,2,3`.
-- **15 starter rules** ship embedded with the CLI (`scanner/yara-rules/`,
-  `cli/internal/yararules/data/`). Override with `CRADAR_YARA_RULES_DIR`.
+- **18 starter rules** ship embedded with the CLI (`scanner/yara-rules/`,
+  `cli/internal/yararules/data/`). Coverage spans OpenSSL banner versions
+  (1.0 / 1.1 / 3.0 / 3.1), 3 non-OpenSSL library signatures, 4 PEM-block
+  markers (cert / RSA / EC / PKCS#8), 4 symmetric-cipher constants
+  (AES forward + inverse S-box + Rcon, DES S-box), and 3 hash IV
+  signatures (MD5 / SHA-1 / SHA-256). Override with `CRADAR_YARA_RULES_DIR`.
 - **Universal walker dispatch** — Pass 3 fires alongside the native binary / JAR /
   wheel scanners on `.so` / `.class` / `.jar` / `.whl` / `.wasm` files; findings
   are de-duplicated via `Finding.Fingerprint`. Source files are skipped.
