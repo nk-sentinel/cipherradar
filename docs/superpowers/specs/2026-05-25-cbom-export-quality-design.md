@@ -47,87 +47,86 @@ Scanner → Finding → converter.go ──▶ normalize/   ──▶ CycloneDX 
 - `normalize/` is the only place that knows the CycloneDX 1.7 valid value sets.
 - PDF aggregators read from the already-normalized CycloneDX struct, not raw scanner output.
 
-## Work item 1 — Validation fix
+## Work item 1 — Validation fix (revised after code audit)
 
-### Normalization package
+### What's already done
 
-New: `cli/internal/cyclonedx17/normalize/`
+Audit on 2026-05-25 revealed `converter.go` already has comprehensive normalization maps (`algorithmFamilyMap`, `primitiveMap`, `modeMap`, `paddingMap`, `cryptoFunctionMap`, `relatedCryptoMaterialTypeMap`) at lines 15-297. The 37 violations from `TODO-SCHEMA-VALIDATION.md` (concatkdf, fernet, aes-cmac, poly1305, x963kdf, etc.) are **all already mapped** at lines 108-119. So that historical sweep is done — TODO file is stale.
 
+### What's actually broken
+
+Two real bugs identified from current scanner output:
+
+**Bug 1 — `AlgorithmPrimitive` bypass** (`converter.go:487-491`):
 ```go
-package normalize
-
-var (
-    AssetTypes        = set{"algorithm", "certificate", "protocol", "related-crypto-material"}
-    Primitives        = set{"drbg","mac","block-cipher","stream-cipher","signature","hash","pke","xof","kdf","key-agree","kem","ae","combiner","key-wrap","other","unknown"}
-    Modes             = set{"cbc","ecb","ccm","gcm","cfb","ofb","ctr","other","unknown"}
-    Paddings          = set{"pkcs5","pkcs7","pkcs1v15","oaep","raw","other","unknown"}
-    CryptoFunctions   = set{"generate","keygen","encrypt","decrypt","digest","tag","keyderive","sign","verify","encapsulate","decapsulate","other","unknown"}
-    ExecutionEnvs     = set{"software-plain-ram","software-encrypted-ram","software-tee","hardware","other","unknown"}
-    ImplPlatforms     = set{"generic","x86_32","x86_64","armv7-a","armv7-m","armv8-a","armv8-m","armv9-a","armv9-m","s390x","ppc64","ppc64le","other","unknown"}
-    AlgorithmFamilies = set{ /* 95 values from cryptography-defs.schema.json */ }
-)
-
-var primitiveAliases = map[string]string{
-    "block_cipher": "block-cipher", "blockcipher": "block-cipher",
-    "stream_cipher": "stream-cipher",
-    "key-derivation": "kdf", "keyderivation": "kdf",
-    "key-agreement": "key-agree", "keyagreement": "key-agree",
-    "cipher-suite": "other",
-    // full map populated during implementation per scan of current scanner output
-}
-
-var algorithmFamilyAliases = map[string]string{
-    "concatkdf": "HKDF", "concatkdf-hmac": "HKDF", "x963kdf": "HKDF",
-    "fernet": "AES", "poly1305": "Poly1305",
-    "aes-cmac": "CMAC", "3des-cmac": "CMAC",
-    // covers the 37 documented in TODO-SCHEMA-VALIDATION.md (to be deleted at end of commit 1)
-}
-
-func Primitive(v string) (string, bool)        // (normalized, wasValid)
-func AssetType(v string) (string, bool)
-func AlgorithmFamily(v string) (string, bool)
-// ... one per enum
-```
-
-### Asset rerouting
-
-In `converter.go`, before emitting `cryptoProperties`:
-
-```go
-func rerouteAssetType(f types.Finding) (assetType string, props *CryptoProps) {
-    name := strings.ToLower(f.Name)
-    switch {
-    case strings.Contains(name, "secret") || strings.Contains(name, "hardcoded-key") || strings.Contains(name, "api-key"):
-        return "related-crypto-material", buildRelatedMaterial(f, "secret-parameter")
-    case strings.Contains(name, "certificate") || strings.HasSuffix(f.Location.File, ".pem") || strings.HasSuffix(f.Location.File, ".crt"):
-        return "certificate", buildCertificate(f)
-    case strings.Contains(name, "private-key") || strings.HasSuffix(f.Location.File, ".key"):
-        return "related-crypto-material", buildRelatedMaterial(f, "private-key")
-    default:
-        return "algorithm", buildAlgorithm(f)
-    }
+primitive := normalizePrimitive(p.Primitive)
+if p.AlgorithmPrimitive != "" {
+    primitive = cyclonedx17.Primitive(p.AlgorithmPrimitive)  // ← raw cast, skips normalization
 }
 ```
+The scanner sets `p.AlgorithmPrimitive` to canonical algorithm tokens (`MD5`, `AES-256-GCM`) for OpenGrep findings, but also for hardcoded-secret findings at `cli/internal/scanner/config/config_scanner.go:122,189` it's set to `"HARDCODED-SECRET"`. The bypass emits that literal string into `algorithmProperties.primitive` where it fails CycloneDX 1.7 enum validation (closed set: `drbg | mac | block-cipher | stream-cipher | signature | hash | pke | xof | kdf | key-agree | kem | ae | combiner | key-wrap | other | unknown`).
 
-`relatedCryptoMaterialProperties.type` enum (CycloneDX 1.7): `private-key`, `public-key`, `secret-key`, `key`, `ciphertext`, `signature`, `digest`, `initialization-vector`, `nonce`, `seed`, `salt`, `shared-secret`, `tag`, `additional-data`, `password`, `credential`, `token`, `secret-parameter`, `other`, `unknown`.
+**Bug 2 — `library` assetType bleed-through** (`converter.go:448`):
+```go
+cp := &cyclonedx17.CryptoProperties{
+    AssetType: string(f.AssetType),  // ← passes "library" straight through
+}
+```
+Two scanner-side sources, both pre-existing this branch:
+- **OpenGrep YAML inventory rules** (since pre-rc.4) — every language's `cbom-<lang>-crypto-library-import` rule in `cli/internal/rules/data/*.yml` carries `cbom-asset-type: library` metadata. The parser at `cli/internal/opengrep/parser.go:114,184` falls through to `types.AssetType(s)` as-is for unknown values, so "library" reaches the converter verbatim. Confirmed in `v0.2.0-rc.4` (2026-05-20) — this is where the user's reported error originated.
+- **YARA-X starter ruleset** (since `3ec4365`, 2026-05-25) — `cli/internal/yararules/data/openssl-versions.yar` and `crypto-library-signatures.yar` set `cbom_asset_type = "library"` for binary library-presence detection.
 
-### Strictness mode
+`library` is not in CycloneDX 1.7's `cryptoProperties.assetType` enum (`algorithm | certificate | protocol | related-crypto-material`). Library presence isn't a crypto asset semantically — it's an SBOM library entry and belongs in a regular CycloneDX `Component{Type: "library"}` instead.
+
+Bug 1 has the same multi-source pattern: in addition to `config_scanner.go:122,189` setting `HARDCODED-SECRET`, the OpenGrep rules set `cbom-primitive: CRYPTO-LIBRARY-IMPORT` (also not in the `Primitive` enum). The converter fix catches both regardless of which scanner sourced them.
+
+### Fixes
+
+**Approach:** in-place fixes in `converter.go`. Skip the optional `normalize/` subpackage refactor (deferred — existing maps already serve their purpose well enough).
+
+**Fix 1 — `AlgorithmPrimitive` bypass:** when `p.AlgorithmPrimitive` is set, run through `normalizePrimitive()` first. If the token is "HARDCODED-SECRET", reroute the finding to `assetType: related-crypto-material` with `relatedCryptoMaterialProperties.type: secret-parameter` (per CycloneDX 1.7 enum). If the token is a canonical algorithm name like `MD5`/`AES-256-GCM`, derive the proper primitive (`hash`/`block-cipher`) by family lookup. Otherwise, fall through to `PrimitiveOther` and tally a violation.
+
+**Fix 2 — `library` assetType:** in `convertFinding`, special-case `f.AssetType == "library"` → emit a CycloneDX component with `Type: "library"` and **no** `CryptoProperties` block. Component name carries the library identifier from the YARA rule (e.g. `openssl`, `boringssl`). This is per-CycloneDX-1.7-spec: library presence belongs in regular SBOM components, not `cryptographicAsset`.
+
+### Closed-set validation tally
+
+Add a per-conversion validation tally that counts every value the normalizer had to fall back to a "preserves raw value" or "PrimitiveOther" path:
 
 ```go
-if cfg.StrictValidate && tally.Total > 0 {
-    return nil, fmt.Errorf("strict validation failed: %d normalized values had no valid CycloneDX mapping; see logs", tally.Total)
+type validationTally struct {
+    Primitives          int
+    AlgorithmFamilies   int
+    Modes               int
+    Paddings            int
+    CryptoFunctions     int
+    AssetTypes          int
+    RelatedMaterialTypes int
+    Total               int
+    // First N example violations, for log enrichment.
+    Examples []string
 }
-// Default: log each violation as a structured warning to stderr.
+```
+
+Each `normalize*` function increments the tally when it falls through to the "no map hit" branch. After `ConvertScanResult` finishes, the tally is logged to stderr at default verbosity (one summary line) and per-violation with `--verbose`. With `--strict-validate`, a non-zero tally returns an error from the converter (caller exits non-zero).
+
+### Strict-validate flag
+
+```go
+// cli/internal/cmd/scan.go
+scanCmd.Flags().Bool("strict-validate", false,
+    "fail the scan if any output value falls outside the CycloneDX 1.7 enum closed sets (default: warn only)")
 ```
 
 ### Files touched (commit 1)
 
-- **New:** `cli/internal/cyclonedx17/normalize/{normalize.go, normalize_test.go, aliases.go}`
-- **New:** `cli/internal/cyclonedx17/normalize/golden/` — testdata with intentionally-broken Finding inputs and expected normalized output
-- **Modified:** `cli/internal/output/converter.go` — call normalize, add rerouting
-- **Modified:** `cli/internal/cmd/scan.go` — add `--strict-validate` flag
-- **Modified:** `cli/internal/scanner/{java,python}/...` — remove invented enum values at source (emit secrets without setting `primitive`)
-- **Deleted:** `docs/benchmark/TODO-SCHEMA-VALIDATION.md` (PR description notes why)
+- **Modified:** `cli/internal/output/converter.go` — wrap normalize functions to take a `*validationTally`; fix `AlgorithmPrimitive` bypass at line 487-491; special-case `f.AssetType == "library"` in `convertFinding`; emit final tally.
+- **Modified:** `cli/internal/output/converter_test.go` — golden-file tests for the two bug fixes + tally arithmetic.
+- **New:** `cli/internal/output/converter_validation_test.go` — table-driven tests for each closed-set enum (asserts every CycloneDX 1.7 enum value round-trips, every known bad value normalizes correctly).
+- **Modified:** `cli/internal/cmd/scan.go` — add `--strict-validate` flag; thread to converter; non-zero exit on strict failure.
+- **Modified:** `cli/internal/scanner/config/config_scanner.go` — change `AlgorithmPrimitive: "HARDCODED-SECRET"` to set `AssetType: types.AssetRelatedCryptoMaterial` + `MaterialType: "secret-parameter"` directly at the scanner. (Optional: the converter rerouting also fixes this, but fixing at the source is cleaner. Both layers can coexist as defense-in-depth.)
+- **Modified:** `cli/internal/scanner/config/config_scanner_test.go` — update assertions for the new emission shape.
+- **Updated:** `docs/benchmark/TODO-SCHEMA-VALIDATION.md` — mark as historical/resolved, add note pointing to this commit and to `2026-05-25-cbom-export-quality-design.md`. Do NOT delete (preserves audit trail).
+- **New:** `docs/decisions/ADR-034-library-asset-type.md` — record the design decision: YARA library findings emit as `type: library` components, not `cryptographic-asset`.
 
 ## Work item 2 — Quantum readiness expansion
 
