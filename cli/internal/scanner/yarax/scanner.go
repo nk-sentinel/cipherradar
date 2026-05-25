@@ -82,6 +82,12 @@ func newScanner(r *Runner, rulesDir string) *YaraXScanner {
 // scanner_start / scanner_complete events.
 func (s *YaraXScanner) Name() string { return "yarax" }
 
+// Pass returns the detection pass this scanner belongs to. YARA-X is
+// Pass 3 (binary-content detection); the walker skips Pass-3 scanners
+// when --passes doesn't include 3, mirroring how runPass2 in cmd/scan.go
+// gates the OpenGrep step.
+func (s *YaraXScanner) Pass() int { return 3 }
+
 // Extensions returns the file extensions this scanner handles. The set
 // matches ADR-039: native binary formats + JVM class files + JVM/Python
 // archives + low-level object files + WASM modules. The list is
