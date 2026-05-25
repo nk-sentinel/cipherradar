@@ -109,6 +109,12 @@ func ParseResults(jsonData []byte, fallbackTarget string) ([]types.Finding, erro
 			Description: describeMatch(m),
 			Location:    locationFromMatch(filePath, m),
 		}
+		// Enrich with the cradar-canonical metadata (algorithm token,
+		// library, category, maturity, ...) declared by the rule's
+		// meta: block. Without this step Pass 3 findings would only
+		// carry the raw rule id; with it they land in the CBOM with
+		// the same shape OpenGrep findings do.
+		applyMeta(&f, parseMeta(m.Meta))
 		findings = append(findings, f)
 	}
 	return findings, nil

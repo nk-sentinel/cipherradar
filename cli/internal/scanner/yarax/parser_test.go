@@ -149,3 +149,67 @@ func TestParse_MalformedJSON(t *testing.T) {
 		t.Error("expected error on malformed JSON")
 	}
 }
+
+// TestParser_RuleMetaToFinding is the integration test the Sub-PR B
+// spec calls for: feed a representative yr JSON envelope (with the
+// cradar meta vocabulary) through ParseResults and assert the
+// resulting Findings carry the canonical AlgorithmPrimitive / Library
+// / Category / Maturity / AssetType the rule meta declares. Without
+// the applyMeta wiring these all fall back to defaults, so the test
+// is the closest thing to an end-to-end check of the parser's full
+// canonicalization pipeline that doesn't require invoking `yr`.
+func TestParser_RuleMetaToFinding(t *testing.T) {
+	payload := loadFixture(t, "canonical-meta-match.json")
+	findings, err := ParseResults(payload, "")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(findings) != 2 {
+		t.Fatalf("expected 2 findings, got %d", len(findings))
+	}
+
+	byRule := make(map[string]types.Finding, len(findings))
+	for _, f := range findings {
+		byRule[f.RuleID] = f
+	}
+
+	openssl, ok := byRule["openssl_version_3_0"]
+	if !ok {
+		t.Fatal("missing openssl_version_3_0 finding")
+	}
+	if openssl.Properties.AlgorithmPrimitive != "OPENSSL-3.0" {
+		t.Errorf("openssl primitive: got %q, want OPENSSL-3.0", openssl.Properties.AlgorithmPrimitive)
+	}
+	if openssl.Properties.Library != "openssl" {
+		t.Errorf("openssl library: got %q, want openssl", openssl.Properties.Library)
+	}
+	if openssl.Category != types.CategoryInventory {
+		t.Errorf("openssl category: got %q, want inventory", openssl.Category)
+	}
+	if openssl.Maturity != types.MaturityStable {
+		t.Errorf("openssl maturity: got %q, want stable", openssl.Maturity)
+	}
+	if openssl.Description != "OpenSSL 3.0.x version string embedded in binary" {
+		t.Errorf("openssl description not pulled from meta: %q", openssl.Description)
+	}
+	if openssl.Pass != 3 {
+		t.Errorf("openssl pass: got %d, want 3", openssl.Pass)
+	}
+	if string(openssl.AssetType) != "library" {
+		t.Errorf("openssl asset type: got %q, want library", openssl.AssetType)
+	}
+
+	rsa, ok := byRule["embedded_pem_rsa_private"]
+	if !ok {
+		t.Fatal("missing embedded_pem_rsa_private finding")
+	}
+	if rsa.Properties.AlgorithmPrimitive != "RSA" {
+		t.Errorf("rsa primitive: got %q, want RSA", rsa.Properties.AlgorithmPrimitive)
+	}
+	if rsa.Category != types.CategorySecurity {
+		t.Errorf("rsa category: got %q, want security", rsa.Category)
+	}
+	if rsa.AssetType != types.AssetRelatedCryptoMaterial {
+		t.Errorf("rsa asset type: got %q, want related-crypto-material", rsa.AssetType)
+	}
+}
