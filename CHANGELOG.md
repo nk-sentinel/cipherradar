@@ -4,6 +4,82 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.3.0-rc.1 — 2026-05-26
+
+New: Pass 3 binary crypto detection (YARA-X).
+
+### Pass 3 — YARA-X binary content scanning
+
+cradar now ships with a YARA-X (`yr`) engine integration that detects cryptographic
+material baked into compiled artifacts: hard-coded private keys, pinned X.509
+certificates, statically-linked OpenSSL / libsodium / BoringSSL / mbedTLS banners,
+and algorithm-defining byte tables (AES S-box / Rcon, MD5 / SHA-1 / SHA-256 initial
+state).
+
+- **Opt-in** via `--passes 3` (only) or `--passes 1,2,3` / `--deep` (full pipeline).
+  `--deep` was previously an alias for `1,2`; it now means `1,2,3`.
+- **15 starter rules** ship embedded with the CLI (`scanner/yara-rules/`,
+  `cli/internal/yararules/data/`). Override with `CRADAR_YARA_RULES_DIR`.
+- **Universal walker dispatch** — Pass 3 fires alongside the native binary / JAR /
+  wheel scanners on `.so` / `.class` / `.jar` / `.whl` / `.wasm` files; findings
+  are de-duplicated via `Finding.Fingerprint`. Source files are skipped.
+- **Tool resolution order**: bundled (`cradar-full`) → `CRADAR_TOOLS_DIR` →
+  `~/.cradar/tools/yr` → `PATH`. Soft-skip when absent unless `--passes 3` was
+  explicitly requested, in which case the run hard-fails with `ExitToolMissing`
+  (exit 4) — same contract as Pass 2 / OpenGrep.
+- **CycloneDX shape** — Pass 3 findings populate `cryptoProperties.assetType` from
+  rule meta (library / algorithm / certificate / related-crypto-material); the
+  rule's `cbom_primitive` runs through the shared OpenGrep canonicalizer so
+  Pass-3 algorithm tokens match Pass-2 tokens (no token drift between engines).
+
+The supersession of `docs/recall-improvement-plan.md` is documented at the top of
+that file — further recall gains belong to Pass 3 / binary scanning, not to more
+source-level patterns.
+
+### YARA-X install integrity (closes ADR-038 gap)
+
+`cradar install-tools` previously streamed the YARA-X archive over HTTPS without
+verifying the bytes. `InstallYARAX` now uses the same flow as `InstallOpenGrep`:
+fetch the GitHub Releases API digest, download to a temp file, SHA-256-verify,
+then extract. On mismatch the temp file is removed and no binary lands in
+`~/.cradar/tools/`. Test coverage: `TestInstallYARAX_VerifiesSHA256` and
+`TestInstallYARAX_ChecksumMismatchFails`.
+
+### `--deep` semantic change
+
+`--deep` was `--passes 1,2`; it is now `--passes 1,2,3`. Existing CI that uses the
+default `--passes 1,2` is unchanged. CI that uses `--deep` will start running Pass 3
+on the next upgrade — set `--passes 1,2` explicitly to preserve old behavior, or
+keep `--deep` to opt into binary scanning.
+
+### Architecture / extensibility
+
+New optional Scanner interface `PassAware { Pass() int }` lets a scanner declare
+which pass it belongs to. The walker filters Pass-aware universals against the
+active `--passes` selection. This is the seam for future passes; today only
+YARA-X uses it.
+
+### Rule canonicalizer
+
+The OpenGrep canonical-token allow-list grew to recognise library identities
+(OPENSSL, LIBSODIUM, BORINGSSL, MBEDTLS, WOLFSSL, GNUTLS, NSS, X.509). YARA-X
+rules carrying `cbom_primitive = "OPENSSL-3.0"` etc. now round-trip cleanly
+through the canonicalizer instead of falling back to a lowercase raw token.
+
+### Docs
+
+New section in `docs/guides/cli/commands.md` under the `scan` command, and a new
+recipe in `docs/guides/cli/workflows.md` covering binary-only scans, the
+nightly-CI pattern, and current limitations (packed binaries, AES-NI gap).
+
+### References
+
+- [ADR-039 — YARA-X integration for binary crypto detection](docs/decisions/ADR-039-yarax-binary-scanning.md)
+- [Design spec — 2026-05-24-yarax-binary-scanning-design.md](docs/superpowers/specs/2026-05-24-yarax-binary-scanning-design.md)
+- Sub-PRs: #22 (runner skeleton), #23 (ruleset + parser), #24 (CLI wiring + walker + SHA-256), this release (docs + smoke).
+
+---
+
 ## 0.2.0-rc.5 — 2026-05-23
 
 Release-artifact correctness + offline-ready archives.
