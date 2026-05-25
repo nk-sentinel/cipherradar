@@ -598,6 +598,32 @@ rules:
       - pattern: ed448.Ed448PrivateKey.$X(...)
       - pattern: ed448.Ed448PublicKey.$X(...)
 
+  # ── Ed25519 signature key (pyca/cryptography) ──
+  #
+  # The AST-based detectEdDSAKeyGen handler in python_scanner.go only
+  # matches the unprefixed form `Ed25519PrivateKey.generate()`, not the
+  # namespaced form `ed25519.Ed25519PrivateKey.generate()` that real
+  # pyca/cryptography users write. This OpenGrep rule closes that gap,
+  # mirroring the cbom-python-pyca-ed448 / -curve-x25519 / -curve-x448
+  # patterns above.
+
+  - id: cbom-python-pyca-ed25519
+    message: "Ed25519 signature key detected"
+    severity: INFO
+    languages: [python]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ED25519
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: ed25519.Ed25519PrivateKey.$X(...)
+      - pattern: ed25519.Ed25519PublicKey.$X(...)
+
   # ── ElGamal asymmetric scheme (PyCryptodome) ──
 
   - id: cbom-python-pycryptodome-elgamal
