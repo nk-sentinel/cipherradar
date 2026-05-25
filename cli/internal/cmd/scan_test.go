@@ -21,9 +21,13 @@ func TestParsePasses(t *testing.T) {
 		{"1", []int{1}, false},
 		{"1,2", []int{1, 2}, false},
 		{"1, 2", []int{1, 2}, false},
-		// Pass 3 removed per ADR-033 (Joern dropped, all patterns covered by OpenGrep).
-		{"1,2,3", nil, true},
-		{"3", nil, true},
+		// Pass 3 (YARA-X binary scanning) re-introduced via ADR-039.
+		// The Joern-based Pass 3 was removed in ADR-033 and the slot
+		// stayed unused until ADR-039 reclaimed it for binary-content
+		// detection. parsePasses now accepts 1..3.
+		{"1,2,3", []int{1, 2, 3}, false},
+		{"3", []int{3}, false},
+		{"2,3", []int{2, 3}, false},
 		{"", nil, true},
 		{"0", nil, true},
 		{"4", nil, true},
