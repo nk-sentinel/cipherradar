@@ -101,6 +101,41 @@ for f in opengrep yr; do
   [ -x "$PKG_FULL/$f" ] || { echo "FAIL: cradar-full missing or non-exec: $f"; exit 1; }
 done
 
+echo "==> Smoke-test Pass 3 (YARA-X) end-to-end via cradar-full"
+# Build a minimal binary fixture in /tmp so we have something the YARA-X
+# starter rules will fire on (an embedded BEGIN CERTIFICATE marker). The
+# cradar-full bundle includes everything Pass 3 needs (yr + embedded
+# ruleset), so this proves the assembled artifact actually delivers
+# binary scanning — not just a passing --version probe.
+SMOKE_DIR="$OUT/pass3-smoke"
+mkdir -p "$SMOKE_DIR/targets"
+cat > "$SMOKE_DIR/targets/embedded-cert" <<'CERT_FIXTURE'
+junk-bytes-before
+-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIUEzM7vK6V+vbqcWGskQ8AeBz0KQIwCgYIKoZIzj0EAwIw
+FZEVMBMGA1UEAwwMdGVzdC1maXh0dXJlMB4XDTI2MDUyNDAwMDAwMFoXDTI2MDYy
+-----END CERTIFICATE-----
+junk-bytes-after
+CERT_FIXTURE
+# Use the assembled cradar-full bundle so PATH-discovery picks up the
+# bundled yr without depending on the host. CRADAR_TOOLS_DIR points at
+# the bundle's root so the runner's 2nd-priority lookup finds yr there.
+SMOKE_OUT="$SMOKE_DIR/cbom.json"
+CRADAR_TOOLS_DIR="$PKG_FULL" "$PKG_FULL/cradar" scan "$SMOKE_DIR/targets" \
+  --passes 3 --format cyclonedx-json \
+  > "$SMOKE_OUT" 2>"$SMOKE_DIR/stderr.log" \
+  || { echo "FAIL: cradar --passes 3 exited non-zero"; cat "$SMOKE_DIR/stderr.log"; exit 1; }
+# Confirm at least one YARA-X finding lands in the CBOM.
+if ! grep -q 'embedded_pem_certificate' "$SMOKE_OUT"; then
+  echo "FAIL: Pass 3 did not emit expected embedded_pem_certificate finding"
+  echo "--- cradar stderr ---"
+  cat "$SMOKE_DIR/stderr.log"
+  echo "--- cbom (first 50 lines) ---"
+  head -50 "$SMOKE_OUT"
+  exit 1
+fi
+echo "    Pass 3 produced the expected embedded_pem_certificate finding"
+
 echo "==> Pack archives"
 (cd "$OUT/dist" && tar czf "cradar_${VERSION}_${OS}_${ARCH}.tar.gz" -C cradar-pkg .)
 (cd "$OUT/dist" && tar czf "cradar-full_${VERSION}_${OS}_${ARCH}.tar.gz" -C cradar-full-pkg .)
