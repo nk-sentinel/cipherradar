@@ -48,16 +48,34 @@ cradar scan --container <image-ref> [flags]
 
 | Flag | Default | Description |
 |---|---|---|
-| `--passes string` | `1,2` | Comma-separated list of passes to run. `1` = AST inventory; `2` = OpenGrep taint. |
-| `--deep` | `false` | Alias for `--passes 1,2`. |
+| `--passes string` | `1,2` | Comma-separated list of passes to run. `1` = AST inventory; `2` = OpenGrep taint; `3` = YARA-X binary content. |
+| `--deep` | `false` | Alias for `--passes 1,2,3` (full pipeline including binary scanning). |
 | `--fast` | `false` | Pass 1 only; skip files larger than 100 KB. Designed for the pre-commit hook. |
 | `--rules-dir string` | `(embedded)` | External directory of OpenGrep YAML rules to use instead of the embedded set. Also reads `CRADAR_RULES_DIR`. |
 | `--severity string` | `low` | Minimum severity level to report. |
 | `--branch string` | | Git branch to scan (for git URL inputs). |
 
-When `--deep` or `--passes` is given explicitly and OpenGrep is missing, `cradar` exits 4
-(`ExitToolMissing`). When pass 2 runs only as part of the default set, the missing tool degrades
-to a warning and pass 2 is skipped.
+When `--deep` or `--passes` is given explicitly and the required tool (OpenGrep for pass 2,
+YARA-X for pass 3) is missing, `cradar` exits 4 (`ExitToolMissing`). When a pass runs only as
+part of the default set, the missing tool degrades to a warning and the pass is skipped.
+
+#### Pass 3 — binary content scanning (YARA-X)
+
+Pass 3 runs the bundled YARA-X engine (`yr`) over compiled artifacts to detect cryptographic
+material that isn't visible in source: embedded certificates, hard-coded private keys, library
+fingerprints (OpenSSL / libsodium / BoringSSL / mbedTLS), and algorithm-defining byte tables
+(AES S-box, MD5/SHA initial state). The starter ruleset ships embedded with the CLI; override
+with `CRADAR_YARA_RULES_DIR` if you need to extend or replace the default set.
+
+Pass 3 is **opt-in** — it's not in the default `--passes 1,2` set so binary-heavy repos don't
+pay the cost on every scan. Enable it via `--passes 3` (Pass 3 only), `--passes 1,2,3` (full
+pipeline), or `--deep` (alias for 1,2,3).
+
+File types Pass 3 examines: `.so`, `.dll`, `.dylib`, `.exe`, `.a`, `.o`, `.class`, `.jar`,
+`.whl`, `.wasm`, plus extensionless executables. Source files are skipped — language scanners
+(pass 1) handle those. Pass 3 runs **alongside** the native binary scanner on the same files
+when both are enabled; the two engines produce complementary findings (de-duplicated by
+`Finding.Fingerprint`).
 
 ### Rule / category filters
 
