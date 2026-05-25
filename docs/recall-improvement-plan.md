@@ -1,5 +1,11 @@
 # Inventory Recall Improvement Plan
 
+> **Status (2026-05-26):** Phases A–D complete; **superseded for further recall gains by
+> Pass 3 (YARA-X) binary scanning per [ADR-039](decisions/ADR-039-yarax-binary-scanning.md)**.
+> Future "deep scan" work expands coverage by reaching into compiled artifacts rather than
+> adding more source-level patterns. See `docs/guides/cli/workflows.md` recipe 11 for usage.
+> This document is kept as a historical record of the source-level recall campaign.
+
 ## Phase D — DONE (2026-05-18)
 
 Recall: 74.4% → **98.5%** (+24.1pp). Precision: 89.4% → **100.0%** (+10.6pp).
