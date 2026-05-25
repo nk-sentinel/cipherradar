@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -221,14 +222,33 @@ func TestRunner_ScanSoftSkipsWhenRulesDirMissing(t *testing.T) {
 	}
 }
 
-func TestRulesDir_DefaultsToEnv(t *testing.T) {
-	t.Setenv("CRADAR_YARA_RULES_DIR", "")
-	if got := RulesDir(); got != "" {
-		t.Errorf("expected empty RulesDir() when env unset, got %q", got)
-	}
-
+func TestRulesDir_DefaultsToEmbedded(t *testing.T) {
+	// Override wins over the embedded default.
 	t.Setenv("CRADAR_YARA_RULES_DIR", "/some/rules")
 	if got := RulesDir(); got != "/some/rules" {
 		t.Errorf("expected RulesDir() = %q, got %q", "/some/rules", got)
+	}
+
+	// Empty env falls back to the extracted embedded ruleset (Sub-PR B).
+	// We don't pin a specific path — extraction lands in os.TempDir() —
+	// but we assert it's non-empty and contains at least one .yar file.
+	t.Setenv("CRADAR_YARA_RULES_DIR", "")
+	dir := RulesDir()
+	if dir == "" {
+		t.Fatalf("expected RulesDir() to fall back to extracted embedded rules, got empty")
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("reading extracted rules dir %q: %v", dir, err)
+	}
+	hasYar := false
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(strings.ToLower(e.Name()), ".yar") {
+			hasYar = true
+			break
+		}
+	}
+	if !hasYar {
+		t.Errorf("expected at least one .yar file in extracted rules dir %q", dir)
 	}
 }

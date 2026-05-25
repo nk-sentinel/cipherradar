@@ -21,8 +21,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
+	"sync"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
+	"github.com/nk-sentinel/cipherradar/cli/internal/yararules"
 )
 
 // Runner executes YARA-X scans against individual target files.
@@ -109,12 +112,57 @@ func (r *Runner) BinaryPath() string {
 }
 
 // RulesDir returns the directory the runner should load YARA-X rules
-// from. For Sub-PR A this is a thin placeholder: it honours
-// $CRADAR_YARA_RULES_DIR when set, and otherwise returns "" (meaning
-// "no rules available"). Sub-PR B replaces this with an embedded-rules
-// extraction path that mirrors cli/internal/rules.ExtractToTempDir.
+// from.
+//
+// Resolution order:
+//  1. $CRADAR_YARA_RULES_DIR (when set) — caller-provided override,
+//     used by tests and by users who want to scan with a custom or
+//     extended ruleset.
+//  2. The embedded starter ruleset, extracted to a tempdir once per
+//     process (cli/internal/yararules.ExtractToTempDir). This is the
+//     default path: the cradar binary ships with rules baked in via
+//     //go:embed so a vanilla `cradar scan --passes 3` works without
+//     any rule-file plumbing.
+//
+// Returns "" only when extraction fails (e.g. tempfs is full), in
+// which case ScanFile soft-skips like the runner-absent path. The
+// extraction is memoised in `embeddedRulesDir` so we don't pay the
+// tempdir-create cost for every scanner invocation.
 func RulesDir() string {
-	return os.Getenv("CRADAR_YARA_RULES_DIR")
+	if env := strings.TrimSpace(os.Getenv("CRADAR_YARA_RULES_DIR")); env != "" {
+		return env
+	}
+	return ensureEmbeddedRulesDir()
+}
+
+// embeddedRulesDir is the once-extracted tempdir holding the embedded
+// YARA-X starter ruleset. Populated lazily by ensureEmbeddedRulesDir
+// the first time RulesDir is asked for a path with no env override.
+// Process-scoped — the OS reclaims the tempdir at process exit, so
+// no explicit cleanup is wired in (matches the cli/internal/rules
+// pattern for OpenGrep).
+var (
+	embeddedRulesDir     string
+	embeddedRulesDirOnce sync.Once
+)
+
+// ensureEmbeddedRulesDir extracts the embedded ruleset on first call
+// and returns the resulting tempdir path. Subsequent calls return the
+// cached value. Returns "" when extraction fails; callers treat that
+// as "no rules" and soft-skip.
+func ensureEmbeddedRulesDir() string {
+	embeddedRulesDirOnce.Do(func() {
+		dir, err := yararules.ExtractToTempDir()
+		if err != nil {
+			// Don't fail loudly — soft-skip matches the rest of the
+			// scanner's failure model. The --debug log on Pass 3
+			// dispatch already surfaces "no rules" via the soft-skip
+			// path in ScanFile.
+			return
+		}
+		embeddedRulesDir = dir
+	})
+	return embeddedRulesDir
 }
 
 // Scan runs `yr scan --output-format json <rulesDir> <target>` against a
@@ -155,7 +203,18 @@ func (r *Runner) Scan(target string, rulesDir string) ([]types.Finding, error) {
 		return nil, nil
 	}
 
-	cmd := exec.Command(r.binaryPath, "scan", "--output-format", "json", rulesDir, target)
+	// Pass-3 invocation. We request --print-meta and --print-strings so
+	// the JSON envelope carries the cbom_primitive/cbom_asset_type meta
+	// the canonicalize pass needs, plus the offset/snippet location data
+	// the binary-finding location helper formats. --print-namespace is
+	// currently unused (the embedded ruleset uses the default namespace)
+	// but harmless.
+	cmd := exec.Command(r.binaryPath, "scan",
+		"--output-format", "json",
+		"--print-meta",
+		"--print-strings",
+		rulesDir, target,
+	)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

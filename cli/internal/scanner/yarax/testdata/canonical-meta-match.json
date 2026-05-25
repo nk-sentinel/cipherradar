@@ -1,0 +1,42 @@
+{
+  "version": "1.14.0",
+  "matches": [
+    {
+      "rule": "openssl_version_3_0",
+      "file": "/scan/path/libfoo.so",
+      "meta": {
+        "author": "cradar",
+        "description": "OpenSSL 3.0.x version string embedded in binary",
+        "cbom_primitive": "OPENSSL-3.0",
+        "cbom_asset_type": "library",
+        "cbom_library": "openssl",
+        "category": "inventory",
+        "maturity": "stable",
+        "default_enabled": "true",
+        "noise_risk": "low"
+      },
+      "tags": [],
+      "strings": [
+        { "identifier": "$ver", "offset": 8222, "match": "OpenSSL 3.0.12" }
+      ]
+    },
+    {
+      "rule": "embedded_pem_rsa_private",
+      "file": "/scan/path/libfoo.so",
+      "meta": {
+        "author": "cradar",
+        "description": "Embedded PKCS#1 RSA private key in binary",
+        "cbom_primitive": "RSA",
+        "cbom_asset_type": "related-crypto-material",
+        "category": "security",
+        "maturity": "stable",
+        "default_enabled": "true",
+        "noise_risk": "low"
+      },
+      "tags": [],
+      "strings": [
+        { "identifier": "$begin", "offset": 16404, "match": "-----BEGIN RSA PRIVATE KEY-----" }
+      ]
+    }
+  ]
+}

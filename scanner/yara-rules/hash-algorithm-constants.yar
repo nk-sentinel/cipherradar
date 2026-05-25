@@ -47,11 +47,16 @@ rule sha1_constants {
     default_enabled = "true"
     noise_risk      = "low"
   strings:
-    /* SHA-1 IV in big-endian on-disk order: 67452301 efcdab89 98badcfe
-     * 10325476 c3d2e1f0. */
+    /* SHA-1 IV. The constants are H0..H4 = {67452301, efcdab89,
+     * 98badcfe, 10325476, c3d2e1f0}. Two layouts in the wild:
+     *   - big-endian on-disk: how OpenSSL writes them in lookup tables
+     *   - little-endian on x86/ARM uint32_t arrays
+     * Matching either covers both static implementations (BE tables)
+     * and "C const array of uint32_t" implementations (LE in memory). */
     $iv_be = { 67 45 23 01 ef cd ab 89 98 ba dc fe 10 32 54 76 c3 d2 e1 f0 }
+    $iv_le = { 01 23 45 67 89 ab cd ef fe dc ba 98 76 54 32 10 f0 e1 d2 c3 }
   condition:
-    $iv_be
+    any of them
 }
 
 rule sha256_constants {
@@ -65,11 +70,13 @@ rule sha256_constants {
     default_enabled = "true"
     noise_risk      = "low"
   strings:
-    /* SHA-256 IV in big-endian on-disk order: first 32 bits of the
-     * fractional parts of the square roots of the first 8 primes.
-     * Matching all 8 in order makes this near-zero false-positive. */
+    /* SHA-256 IV: first 32 bits of the fractional parts of the
+     * square roots of the first 8 primes. Same two-layout story as
+     * SHA-1 — match either BE table or LE uint32_t array. */
     $iv_be = { 6a 09 e6 67 bb 67 ae 85 3c 6e f3 72 a5 4f f5 3a
                51 0e 52 7f 9b 05 68 8c 1f 83 d9 ab 5b e0 cd 19 }
+    $iv_le = { 67 e6 09 6a 85 ae 67 bb 72 f3 6e 3c 3a f5 4f a5
+               7f 52 0e 51 8c 68 05 9b ab d9 83 1f 19 cd e0 5b }
   condition:
-    $iv_be
+    any of them
 }

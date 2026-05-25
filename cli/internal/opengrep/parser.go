@@ -473,6 +473,16 @@ func looksLikePrimitive(s string) bool {
 		"KYBER", "ML-KEM", "ML-DSA", "DILITHIUM", "FALCON", "SPHINCS",
 		"XMSS", "LMS", "HSS", "NTRU", "HQC",
 		"PKCS", "OAEP", "FERNET", "CRYPTO-LIBRARY-IMPORT",
+		// Library / framework tokens carried as cbom_primitive by the
+		// YARA-X starter ruleset (cli/internal/yararules). These name
+		// the artifact that *contains* the crypto rather than a raw
+		// primitive, but they share the same AlgorithmPrimitive field
+		// so the canonicalizer needs to recognise them. Without this,
+		// "OPENSSL-3.0" gets rejected by looksLikePrimitive and falls
+		// back to the raw token (lowercase, untouched), losing the
+		// "round-trip cleanly through the canonicalizer" invariant.
+		"OPENSSL", "LIBSODIUM", "BORINGSSL", "MBEDTLS", "WOLFSSL",
+		"GNUTLS", "NSS", "X.509",
 	}
 	for _, p := range prefixes {
 		if strings.HasPrefix(s, p) {
