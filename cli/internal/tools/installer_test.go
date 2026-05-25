@@ -375,3 +375,183 @@ func TestPlatformArchiveReturnsValidCombination(t *testing.T) {
 		}
 	}
 }
+
+// helperYARAXServer serves a GitHub-API-shaped release response at /api
+// and the matching gzipped tar at /assets/bin. Tar carries a `yr`
+// binary holding the supplied yrBody bytes; digest is computed over
+// the tar archive. Returns the test server.
+func helperYARAXServer(t *testing.T, yrBody []byte) (*httptest.Server, []byte) {
+	t.Helper()
+
+	// Build a gzipped tar containing a single "yr" entry — mirrors
+	// the upstream YARA-X release artifact layout.
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+	hdr := &tar.Header{Name: "yr", Mode: 0o755, Size: int64(len(yrBody))}
+	if err := tw.WriteHeader(hdr); err != nil {
+		t.Fatalf("tar header: %v", err)
+	}
+	if _, err := tw.Write(yrBody); err != nil {
+		t.Fatalf("tar write: %v", err)
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("tar close: %v", err)
+	}
+	if err := gw.Close(); err != nil {
+		t.Fatalf("gzip close: %v", err)
+	}
+	archive := buf.Bytes()
+	sum := sha256.Sum256(archive)
+
+	mux := http.NewServeMux()
+	var srvURL string
+
+	asset, err := yaraXAsset()
+	if err != nil {
+		t.Skipf("YARA-X asset name unavailable on this platform: %v", err)
+	}
+
+	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"assets": []map[string]any{
+				{
+					"name":                 asset,
+					"browser_download_url": srvURL + "/assets/bin",
+					"digest":               "sha256:" + hex.EncodeToString(sum[:]),
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	mux.HandleFunc("/assets/bin", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(archive)
+	})
+
+	srv := httptest.NewTLSServer(mux)
+	srvURL = srv.URL
+	return srv, archive
+}
+
+func TestInstallYARAX_VerifiesSHA256(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("InstallYARAX windows path uses zip, not tar.gz — covered by separate fixture if needed")
+	}
+
+	yrBody := []byte("fake-yr-binary-content")
+	srv, _ := helperYARAXServer(t, yrBody)
+	defer srv.Close()
+
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = srv.Client().Transport
+	defer func() { http.DefaultTransport = origTransport }()
+
+	origAPI := yaraXReleaseAPI
+	yaraXReleaseAPI = srv.URL + "/api"
+	defer func() { yaraXReleaseAPI = origAPI }()
+
+	tmp := t.TempDir()
+	if err := InstallYARAX(tmp); err != nil {
+		t.Fatalf("InstallYARAX: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(tmp, "yr"))
+	if err != nil {
+		t.Fatalf("read installed yr: %v", err)
+	}
+	if !bytes.Equal(got, yrBody) {
+		t.Errorf("installed yr content mismatch: got %q, want %q", got, yrBody)
+	}
+}
+
+func TestInstallYARAX_ChecksumMismatchFails(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("InstallYARAX windows path uses zip, not tar.gz")
+	}
+
+	// Build a real tar archive but advertise the wrong digest in the API
+	// response. InstallYARAX should reject the download.
+	var buf bytes.Buffer
+	gw := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gw)
+	body := []byte("good-yr")
+	hdr := &tar.Header{Name: "yr", Mode: 0o755, Size: int64(len(body))}
+	_ = tw.WriteHeader(hdr)
+	_, _ = tw.Write(body)
+	tw.Close()
+	gw.Close()
+	archive := buf.Bytes()
+
+	wrongSum := sha256.Sum256([]byte("not-the-archive"))
+	asset, err := yaraXAsset()
+	if err != nil {
+		t.Skipf("YARA-X asset name unavailable: %v", err)
+	}
+
+	mux := http.NewServeMux()
+	var srvURL string
+	mux.HandleFunc("/api", func(w http.ResponseWriter, r *http.Request) {
+		resp := map[string]any{
+			"assets": []map[string]any{
+				{
+					"name":                 asset,
+					"browser_download_url": srvURL + "/assets/bin",
+					"digest":               "sha256:" + hex.EncodeToString(wrongSum[:]),
+				},
+			},
+		}
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	mux.HandleFunc("/assets/bin", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(archive)
+	})
+	srv := httptest.NewTLSServer(mux)
+	defer srv.Close()
+	srvURL = srv.URL
+
+	origTransport := http.DefaultTransport
+	http.DefaultTransport = srv.Client().Transport
+	defer func() { http.DefaultTransport = origTransport }()
+	origAPI := yaraXReleaseAPI
+	yaraXReleaseAPI = srv.URL + "/api"
+	defer func() { yaraXReleaseAPI = origAPI }()
+
+	tmp := t.TempDir()
+	err = InstallYARAX(tmp)
+	if err == nil {
+		t.Fatal("InstallYARAX should reject mismatched checksum")
+	}
+	if !strings.Contains(err.Error(), "checksum") && !strings.Contains(err.Error(), "mismatch") &&
+		!strings.Contains(err.Error(), "SHA-256") && !strings.Contains(err.Error(), "sha256") {
+		t.Errorf("expected checksum-related error, got: %v", err)
+	}
+	// Confirm no `yr` binary was placed.
+	if _, statErr := os.Stat(filepath.Join(tmp, "yr")); statErr == nil {
+		t.Error("yr should not have been installed when checksum failed")
+	}
+}
+
+func TestYaraXAsset_PlatformNaming(t *testing.T) {
+	asset, err := yaraXAsset()
+	if err != nil {
+		t.Skipf("unsupported platform for YARA-X asset mapping: %v", err)
+	}
+	if !strings.HasPrefix(asset, "yara-x-"+YARAXVersion+"-") {
+		t.Errorf("yaraXAsset = %q, expected prefix yara-x-%s-", asset, YARAXVersion)
+	}
+	switch {
+	case goos() == "linux" && goarch() == "amd64":
+		if asset != "yara-x-"+YARAXVersion+"-x86_64-unknown-linux-gnu.gz" {
+			t.Errorf("linux/amd64 yaraXAsset = %q (expected x86_64-unknown-linux-gnu.gz)", asset)
+		}
+	case goos() == "darwin" && goarch() == "arm64":
+		if asset != "yara-x-"+YARAXVersion+"-aarch64-apple-darwin.gz" {
+			t.Errorf("darwin/arm64 yaraXAsset = %q (expected aarch64-apple-darwin.gz)", asset)
+		}
+	case goos() == "windows" && goarch() == "amd64":
+		if asset != "yara-x-"+YARAXVersion+"-x86_64-pc-windows-msvc.zip" {
+			t.Errorf("windows/amd64 yaraXAsset = %q (expected x86_64-pc-windows-msvc.zip)", asset)
+		}
+	}
+}
