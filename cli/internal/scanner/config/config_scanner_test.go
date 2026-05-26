@@ -280,9 +280,11 @@ API_KEY=sk-proj-abc123def456
 		if !f.DefaultEnabled {
 			t.Errorf("%s: want DefaultEnabled=true", f.Name)
 		}
-		if f.Properties.AlgorithmPrimitive != "HARDCODED-SECRET" {
-			t.Errorf("%s: want AlgorithmPrimitive=HARDCODED-SECRET, got %q",
-				f.Name, f.Properties.AlgorithmPrimitive)
+		if f.AssetType != types.AssetRelatedCryptoMaterial {
+			t.Errorf("%s: want AssetType=related-crypto-material, got %q", f.Name, f.AssetType)
+		}
+		if f.Properties.MaterialType == "" {
+			t.Errorf("%s: want non-empty MaterialType, got empty string", f.Name)
 		}
 	}
 }
@@ -309,9 +311,12 @@ crypto.symmetric.key=AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
 		if f.Category != types.CategoryInventory {
 			t.Errorf("%s: want CategoryInventory, got %q", f.Name, f.Category)
 		}
-		if f.Properties.AlgorithmPrimitive != "HARDCODED-SECRET" {
-			t.Errorf("%s: want AlgorithmPrimitive=HARDCODED-SECRET, got %q",
-				f.Name, f.Properties.AlgorithmPrimitive)
+		if f.AssetType != types.AssetRelatedCryptoMaterial {
+			t.Errorf("%s: want AssetType=related-crypto-material, got %q", f.Name, f.AssetType)
+		}
+		if f.Properties.MaterialType != "other" && f.Properties.MaterialType != "password" &&
+			f.Properties.MaterialType != "secret-key" && f.Properties.MaterialType != "token" {
+			t.Errorf("%s: want a valid MaterialType, got %q", f.Name, f.Properties.MaterialType)
 		}
 	}
 	if secretFindings != 3 {

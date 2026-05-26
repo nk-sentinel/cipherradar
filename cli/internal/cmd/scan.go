@@ -46,6 +46,8 @@ func init() {
 	scanCmd.Flags().String("passes", "1,2", "comma-separated list of scan passes to run (1=AST, 2=OpenGrep)")
 	scanCmd.Flags().String("branch", "", "git branch to scan (for git URLs)")
 	scanCmd.Flags().Bool("validate", false, "validate output against CycloneDX 1.7 schema")
+	scanCmd.Flags().Bool("strict-validate", false,
+		"fail the scan if any output value falls outside the CycloneDX 1.7 enum closed sets (default: warn only)")
 	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2 (enables taint analysis)")
 
@@ -269,6 +271,19 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// findings and exits the gate early; --no-baseline skips suppression.
 	if err := applyBaseline(cmd, result); err != nil {
 		return err
+	}
+
+	// Surface CycloneDX enum normalization violations. ConvertScanResultWithTally
+	// converts the result and tallies any fall-through values that landed outside
+	// the CycloneDX 1.7 closed enum sets. Writers re-run conversion independently;
+	// the tally here is used only for warning emission and --strict-validate gating.
+	strictValidate, _ := cmd.Flags().GetBool("strict-validate")
+	_, validationTallyResult := output.ConvertScanResultWithTally(result)
+	if validationTallyResult.Total > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: %s\n", validationTallyResult.Summary())
+		if strictValidate {
+			return fmt.Errorf("strict-validate: %d normalization violation(s); see warnings above", validationTallyResult.Total)
+		}
 	}
 
 	// Resolve output destinations (ADR-037: repeatable --output).

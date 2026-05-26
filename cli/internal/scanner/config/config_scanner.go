@@ -118,8 +118,9 @@ func (s *ConfigScanner) scanEnvFile(path string, lines [][]byte) []types.Finding
 			Severity:   types.SeverityHigh,
 			Confidence: types.ConfidenceMedium,
 			Properties: types.CryptoProperties{
-				MaterialType:       materialType,
-				AlgorithmPrimitive: "HARDCODED-SECRET",
+				// Hardcoded secret — modeled as related-crypto-material per ADR-040.
+				// (Defense-in-depth: converter also reroutes this token if scanners regress.)
+				MaterialType: materialType,
 			},
 			Description: fmt.Sprintf("Hardcoded secret found in environment variable %q", keyName),
 			RuleID:      "cbom-config-hardcoded-secret",
@@ -185,8 +186,9 @@ func (s *ConfigScanner) scanPropertiesFile(path string, lines [][]byte) []types.
 				Severity:   types.SeverityHigh,
 				Confidence: types.ConfidenceMedium,
 				Properties: types.CryptoProperties{
-					MaterialType:       materialType,
-					AlgorithmPrimitive: "HARDCODED-SECRET",
+					// Hardcoded secret — modeled as related-crypto-material per ADR-040.
+					// (Defense-in-depth: converter also reroutes this token if scanners regress.)
+					MaterialType: materialType,
 				},
 				Description: fmt.Sprintf("Hardcoded secret found in property %q", key),
 				RuleID:      "cbom-config-hardcoded-secret",

@@ -106,11 +106,11 @@ var algorithmFamilyMap = map[string]cyclonedx17.AlgorithmFamily{
 	"jwt":      cyclonedx17.AlgorithmFamilyHMAC, // JWT typically uses HMAC-based signing
 
 	// New scanner families added during CBOMkit benchmark FN fixes.
-	"fernet":         cyclonedx17.AlgorithmFamilyAES,    // Fernet wraps AES-128-CBC + HMAC-SHA256
-	"concatkdf":      cyclonedx17.AlgorithmFamilyHKDF,   // ConcatKDF is a KDF like HKDF
-	"concatkdf-hmac": cyclonedx17.AlgorithmFamilyHKDF,   // ConcatKDF-HMAC variant
-	"x963kdf":        cyclonedx17.AlgorithmFamilyHKDF,   // ANSI X9.63 KDF
-	"xsalsa20":       cyclonedx17.AlgorithmFamilySalsa20, // XSalsa20 is a Salsa20 variant
+	"fernet":         cyclonedx17.AlgorithmFamilyAES,      // Fernet wraps AES-128-CBC + HMAC-SHA256
+	"concatkdf":      cyclonedx17.AlgorithmFamilyHKDF,     // ConcatKDF is a KDF like HKDF
+	"concatkdf-hmac": cyclonedx17.AlgorithmFamilyHKDF,     // ConcatKDF-HMAC variant
+	"x963kdf":        cyclonedx17.AlgorithmFamilyHKDF,     // ANSI X9.63 KDF
+	"xsalsa20":       cyclonedx17.AlgorithmFamilySalsa20,  // XSalsa20 is a Salsa20 variant
 	"nacl":           cyclonedx17.AlgorithmFamilyChaCha20, // NaCl typically uses XSalsa20/ChaCha
 	"aes-cmac":       cyclonedx17.AlgorithmFamilyCMACFamily,
 	"3des-cmac":      cyclonedx17.AlgorithmFamilyCMACFamily,
@@ -119,10 +119,10 @@ var algorithmFamilyMap = map[string]cyclonedx17.AlgorithmFamily{
 	"shake128":       cyclonedx17.AlgorithmFamilySHA3,
 	"sha-224":        cyclonedx17.AlgorithmFamilySHA2,
 	// Lowercase variants from some scanners.
-	"sha256 ":  cyclonedx17.AlgorithmFamilySHA2, // trailing space from some parsers
-	"sha384 ":  cyclonedx17.AlgorithmFamilySHA2,
-	"sha1 ":    cyclonedx17.AlgorithmFamilySHA1,
-	"md5 ":     cyclonedx17.AlgorithmFamilyMD5,
+	"sha256 ": cyclonedx17.AlgorithmFamilySHA2, // trailing space from some parsers
+	"sha384 ": cyclonedx17.AlgorithmFamilySHA2,
+	"sha1 ":   cyclonedx17.AlgorithmFamilySHA1,
+	"md5 ":    cyclonedx17.AlgorithmFamilyMD5,
 }
 
 // normalizeAlgorithmFamily converts an internal algorithm family string to the
@@ -139,21 +139,21 @@ func normalizeAlgorithmFamily(internal string) cyclonedx17.AlgorithmFamily {
 
 // cryptoFunctionMap normalizes internal crypto function values to CycloneDX 1.7 schema values.
 var cryptoFunctionMap = map[string]cyclonedx17.CryptoFunction{
-	"generate":    cyclonedx17.CryptoFunctionGenerate,
-	"keygen":      cyclonedx17.CryptoFunctionKeygen,
-	"encrypt":     cyclonedx17.CryptoFunctionEncrypt,
-	"decrypt":     cyclonedx17.CryptoFunctionDecrypt,
-	"digest":      cyclonedx17.CryptoFunctionDigest,
-	"tag":         cyclonedx17.CryptoFunctionTag,
-	"keyderive":   cyclonedx17.CryptoFunctionKeyderive,
-	"derive":      cyclonedx17.CryptoFunctionKeyderive, // map "derive" to "keyderive"
-	"sign":        cyclonedx17.CryptoFunctionSign,
-	"verify":      cyclonedx17.CryptoFunctionVerify,
-	"encapsulate": cyclonedx17.CryptoFunctionEncapsulate,
-	"decapsulate": cyclonedx17.CryptoFunctionDecapsulate,
+	"generate":      cyclonedx17.CryptoFunctionGenerate,
+	"keygen":        cyclonedx17.CryptoFunctionKeygen,
+	"encrypt":       cyclonedx17.CryptoFunctionEncrypt,
+	"decrypt":       cyclonedx17.CryptoFunctionDecrypt,
+	"digest":        cyclonedx17.CryptoFunctionDigest,
+	"tag":           cyclonedx17.CryptoFunctionTag,
+	"keyderive":     cyclonedx17.CryptoFunctionKeyderive,
+	"derive":        cyclonedx17.CryptoFunctionKeyderive, // map "derive" to "keyderive"
+	"sign":          cyclonedx17.CryptoFunctionSign,
+	"verify":        cyclonedx17.CryptoFunctionVerify,
+	"encapsulate":   cyclonedx17.CryptoFunctionEncapsulate,
+	"decapsulate":   cyclonedx17.CryptoFunctionDecapsulate,
 	"mac":           cyclonedx17.CryptoFunctionTag,       // MAC computation maps to "tag"
-	"cipher-suite":  cyclonedx17.CryptoFunctionEncrypt,  // cipher suite maps to encrypt
-	"key-agreement": cyclonedx17.CryptoFunctionKeygen,   // key agreement maps to keygen
+	"cipher-suite":  cyclonedx17.CryptoFunctionEncrypt,   // cipher suite maps to encrypt
+	"key-agreement": cyclonedx17.CryptoFunctionKeygen,    // key agreement maps to keygen
 	"hash":          cyclonedx17.CryptoFunctionDigest,    // hash maps to digest
 	"passwordhash":  cyclonedx17.CryptoFunctionKeyderive, // password hash is key derivation
 	"keydrive":      cyclonedx17.CryptoFunctionKeyderive, // typo fix
@@ -193,24 +193,26 @@ var relatedCryptoMaterialTypeMap = map[string]cyclonedx17.RelatedCryptoMaterialT
 	"token":                 cyclonedx17.RelatedCryptoMaterialTypeToken,
 	"other":                 cyclonedx17.RelatedCryptoMaterialTypeOther,
 	"unknown":               cyclonedx17.RelatedCryptoMaterialTypeUnknown,
+	// Aliases: scanner tokens that normalize to a canonical CycloneDX type.
+	"symmetric-key": cyclonedx17.RelatedCryptoMaterialTypeSecretKey, // CycloneDX uses "secret-key"
 }
 
 // paddingMap normalizes internal padding values to CycloneDX 1.7 schema values.
 var paddingMap = map[string]cyclonedx17.Padding{
-	"pkcs5":        cyclonedx17.PaddingPKCS5,
-	"pkcs7":        cyclonedx17.PaddingPKCS7,
-	"pkcs1v15":     cyclonedx17.PaddingPKCS1v15,
-	"oaep":         cyclonedx17.PaddingOAEP,
-	"raw":          cyclonedx17.PaddingRaw,
-	"nopadding":    cyclonedx17.PaddingRaw,    // no padding = raw
-	"none":         cyclonedx17.PaddingRaw,    // no padding = raw
-	"pkcs5padding":                    cyclonedx17.PaddingPKCS5,    // Java-style name
-	"pkcs7padding":                    cyclonedx17.PaddingPKCS7,    // Java-style name
-	"pkcs1padding":                    cyclonedx17.PaddingPKCS1v15, // Java RSA default
-	"oaepwithsha-256andmgf1padding":   cyclonedx17.PaddingOAEP,    // Java OAEP full name
-	"oaepwithsha-1andmgf1padding":     cyclonedx17.PaddingOAEP,
-	"other":                           cyclonedx17.PaddingOther,
-	"unknown":                         cyclonedx17.PaddingUnknown,
+	"pkcs5":                         cyclonedx17.PaddingPKCS5,
+	"pkcs7":                         cyclonedx17.PaddingPKCS7,
+	"pkcs1v15":                      cyclonedx17.PaddingPKCS1v15,
+	"oaep":                          cyclonedx17.PaddingOAEP,
+	"raw":                           cyclonedx17.PaddingRaw,
+	"nopadding":                     cyclonedx17.PaddingRaw,      // no padding = raw
+	"none":                          cyclonedx17.PaddingRaw,      // no padding = raw
+	"pkcs5padding":                  cyclonedx17.PaddingPKCS5,    // Java-style name
+	"pkcs7padding":                  cyclonedx17.PaddingPKCS7,    // Java-style name
+	"pkcs1padding":                  cyclonedx17.PaddingPKCS1v15, // Java RSA default
+	"oaepwithsha-256andmgf1padding": cyclonedx17.PaddingOAEP,     // Java OAEP full name
+	"oaepwithsha-1andmgf1padding":   cyclonedx17.PaddingOAEP,
+	"other":                         cyclonedx17.PaddingOther,
+	"unknown":                       cyclonedx17.PaddingUnknown,
 }
 
 // normalizePadding converts an internal padding string to the
@@ -253,26 +255,147 @@ func normalizeMode(internal string) cyclonedx17.Mode {
 
 // primitiveMap normalizes internal primitive values to CycloneDX 1.7 schema values.
 var primitiveMap = map[string]cyclonedx17.Primitive{
-	"block-cipher":   cyclonedx17.PrimitiveBlockCipher,
-	"stream-cipher":  cyclonedx17.PrimitiveStreamCipher,
-	"hash":           cyclonedx17.PrimitiveHash,
-	"mac":            cyclonedx17.PrimitiveMAC,
-	"signature":      cyclonedx17.PrimitiveSignature,
-	"pke":            cyclonedx17.PrimitivePKE,
-	"kdf":            cyclonedx17.PrimitiveKDF,
-	"key-agree":      cyclonedx17.PrimitiveKeyAgree,
-	"key-exchange":   cyclonedx17.PrimitiveKeyAgree, // normalize to CycloneDX name
-	"kem":            cyclonedx17.PrimitiveKEM,
-	"ae":             cyclonedx17.PrimitiveAE,
-	"aead":           cyclonedx17.PrimitiveAE, // alias
-	"xof":            cyclonedx17.PrimitiveXOF,
-	"drbg":           cyclonedx17.PrimitiveDRBG,
-	"combiner":       cyclonedx17.PrimitiveCombiner,
-	"key-wrap":       cyclonedx17.PrimitiveKeyWrap,
-	"other":          cyclonedx17.PrimitiveOther,
-	"unknown":        cyclonedx17.PrimitiveUnknown,
+	"block-cipher":  cyclonedx17.PrimitiveBlockCipher,
+	"stream-cipher": cyclonedx17.PrimitiveStreamCipher,
+	"hash":          cyclonedx17.PrimitiveHash,
+	"mac":           cyclonedx17.PrimitiveMAC,
+	"signature":     cyclonedx17.PrimitiveSignature,
+	"pke":           cyclonedx17.PrimitivePKE,
+	"kdf":           cyclonedx17.PrimitiveKDF,
+	"key-agree":     cyclonedx17.PrimitiveKeyAgree,
+	"key-exchange":  cyclonedx17.PrimitiveKeyAgree, // normalize to CycloneDX name
+	"kem":           cyclonedx17.PrimitiveKEM,
+	"ae":            cyclonedx17.PrimitiveAE,
+	"aead":          cyclonedx17.PrimitiveAE, // alias
+	"xof":           cyclonedx17.PrimitiveXOF,
+	"drbg":          cyclonedx17.PrimitiveDRBG,
+	"combiner":      cyclonedx17.PrimitiveCombiner,
+	"key-wrap":      cyclonedx17.PrimitiveKeyWrap,
+	"other":         cyclonedx17.PrimitiveOther,
+	"unknown":       cyclonedx17.PrimitiveUnknown,
 	// Common aliases.
-	"protocol":       cyclonedx17.PrimitiveOther,
+	"protocol": cyclonedx17.PrimitiveOther,
+}
+
+// canonicalTokenPrimitive maps canonical algorithm tokens (as emitted by
+// OpenGrep rule cbom-primitive metadata) to their CycloneDX 1.7 primitive.
+// Used by convertAlgorithmProperties when AlgorithmPrimitive is a known
+// algorithm name rather than a primitive name.
+var canonicalTokenPrimitive = map[string]cyclonedx17.Primitive{
+	// hash family
+	"MD2": cyclonedx17.PrimitiveHash, "MD4": cyclonedx17.PrimitiveHash, "MD5": cyclonedx17.PrimitiveHash,
+	"SHA-1": cyclonedx17.PrimitiveHash, "SHA-2": cyclonedx17.PrimitiveHash, "SHA-3": cyclonedx17.PrimitiveHash,
+	"SHA1": cyclonedx17.PrimitiveHash, "SHA256": cyclonedx17.PrimitiveHash, "SHA384": cyclonedx17.PrimitiveHash,
+	"SHA512": cyclonedx17.PrimitiveHash, "SHA-224": cyclonedx17.PrimitiveHash, "SHA-256": cyclonedx17.PrimitiveHash,
+	"SHA-384": cyclonedx17.PrimitiveHash, "SHA-512": cyclonedx17.PrimitiveHash,
+	"BLAKE2": cyclonedx17.PrimitiveHash, "BLAKE3": cyclonedx17.PrimitiveHash,
+	"RIPEMD": cyclonedx17.PrimitiveHash, "WHIRLPOOL": cyclonedx17.PrimitiveHash,
+	// block-cipher
+	"AES": cyclonedx17.PrimitiveBlockCipher, "AES-128": cyclonedx17.PrimitiveBlockCipher,
+	"AES-192": cyclonedx17.PrimitiveBlockCipher, "AES-256": cyclonedx17.PrimitiveBlockCipher,
+	"AES-128-GCM": cyclonedx17.PrimitiveBlockCipher, "AES-256-GCM": cyclonedx17.PrimitiveBlockCipher,
+	"AES-128-CBC": cyclonedx17.PrimitiveBlockCipher, "AES-256-CBC": cyclonedx17.PrimitiveBlockCipher,
+	"DES": cyclonedx17.PrimitiveBlockCipher, "3DES": cyclonedx17.PrimitiveBlockCipher,
+	"BLOWFISH": cyclonedx17.PrimitiveBlockCipher, "TWOFISH": cyclonedx17.PrimitiveBlockCipher,
+	"CAMELLIA": cyclonedx17.PrimitiveBlockCipher, "ARIA": cyclonedx17.PrimitiveBlockCipher,
+	"SEED": cyclonedx17.PrimitiveBlockCipher, "SM4": cyclonedx17.PrimitiveBlockCipher,
+	"IDEA": cyclonedx17.PrimitiveBlockCipher, "CAST5": cyclonedx17.PrimitiveBlockCipher,
+	"CAST6": cyclonedx17.PrimitiveBlockCipher, "SERPENT": cyclonedx17.PrimitiveBlockCipher,
+	"SKIPJACK": cyclonedx17.PrimitiveBlockCipher,
+	// stream-cipher
+	"CHACHA20": cyclonedx17.PrimitiveStreamCipher, "CHACHA": cyclonedx17.PrimitiveStreamCipher,
+	"SALSA20": cyclonedx17.PrimitiveStreamCipher, "RC4": cyclonedx17.PrimitiveStreamCipher,
+	// signature
+	"RSA": cyclonedx17.PrimitiveSignature, "DSA": cyclonedx17.PrimitiveSignature,
+	"ECDSA": cyclonedx17.PrimitiveSignature, "EDDSA": cyclonedx17.PrimitiveSignature,
+	"ED25519": cyclonedx17.PrimitiveSignature, "ED448": cyclonedx17.PrimitiveSignature,
+	"ML-DSA": cyclonedx17.PrimitiveSignature, "SLH-DSA": cyclonedx17.PrimitiveSignature,
+	// key-agree
+	"DH": cyclonedx17.PrimitiveKeyAgree, "ECDH": cyclonedx17.PrimitiveKeyAgree,
+	"X25519": cyclonedx17.PrimitiveKeyAgree, "X448": cyclonedx17.PrimitiveKeyAgree,
+	// kem
+	"ML-KEM": cyclonedx17.PrimitiveKEM, "BIKE": cyclonedx17.PrimitiveKEM, "HQC": cyclonedx17.PrimitiveKEM,
+	// kdf
+	"HKDF": cyclonedx17.PrimitiveKDF, "PBKDF1": cyclonedx17.PrimitiveKDF, "PBKDF2": cyclonedx17.PrimitiveKDF,
+	"SCRYPT": cyclonedx17.PrimitiveKDF, "BCRYPT": cyclonedx17.PrimitiveKDF, "ARGON2": cyclonedx17.PrimitiveKDF,
+	// mac
+	"HMAC": cyclonedx17.PrimitiveMAC, "CMAC": cyclonedx17.PrimitiveMAC, "KMAC": cyclonedx17.PrimitiveMAC,
+	"POLY1305": cyclonedx17.PrimitiveMAC,
+	// hash family additions
+	"KECCAK": cyclonedx17.PrimitiveHash, "KECCAK-256": cyclonedx17.PrimitiveHash,
+	"KECCAK-512": cyclonedx17.PrimitiveHash, "TIGER": cyclonedx17.PrimitiveHash,
+	"SKEIN-256": cyclonedx17.PrimitiveHash, "SKEIN-512": cyclonedx17.PrimitiveHash,
+	"GOST3411": cyclonedx17.PrimitiveHash, "GOST-3411": cyclonedx17.PrimitiveHash,
+	// block-cipher additions
+	"AES-ECB": cyclonedx17.PrimitiveBlockCipher, "AES-CFB": cyclonedx17.PrimitiveBlockCipher,
+	"AES-OFB": cyclonedx17.PrimitiveBlockCipher, "AES-CTR": cyclonedx17.PrimitiveBlockCipher,
+	"AES-CCM": cyclonedx17.PrimitiveBlockCipher,
+	// key-wrap
+	"AES-KW": cyclonedx17.PrimitiveKeyWrap,
+	// key-agree additions
+	"CURVE25519": cyclonedx17.PrimitiveKeyAgree, "P-256": cyclonedx17.PrimitiveKeyAgree,
+	"P-384": cyclonedx17.PrimitiveKeyAgree, "P-521": cyclonedx17.PrimitiveKeyAgree,
+	// kem additions
+	"CLASSIC-MCELIECE": cyclonedx17.PrimitiveKEM, "FRODOKEM": cyclonedx17.PrimitiveKEM,
+	"FRODO": cyclonedx17.PrimitiveKEM, "SABER": cyclonedx17.PrimitiveKEM, "NTRU": cyclonedx17.PrimitiveKEM,
+	// signature additions
+	"ELGAMAL": cyclonedx17.PrimitiveSignature, "DILITHIUM": cyclonedx17.PrimitiveSignature,
+	"FALCON": cyclonedx17.PrimitiveSignature, "SPHINCS+": cyclonedx17.PrimitiveSignature,
+	"SPHINCS": cyclonedx17.PrimitiveSignature, "FN-DSA": cyclonedx17.PrimitiveSignature,
+	"XMSS": cyclonedx17.PrimitiveSignature, "XMSS-MT": cyclonedx17.PrimitiveSignature,
+	"LMS": cyclonedx17.PrimitiveSignature, "HSS": cyclonedx17.PrimitiveSignature,
+	// kdf additions
+	"ARGON2I": cyclonedx17.PrimitiveKDF, "ARGON2ID": cyclonedx17.PrimitiveKDF,
+	"KBKDF": cyclonedx17.PrimitiveKDF, "CONCATKDF": cyclonedx17.PrimitiveKDF,
+	"X963KDF": cyclonedx17.PrimitiveKDF,
+	// mac additions
+	"GMAC": cyclonedx17.PrimitiveMAC, "SIPHASH": cyclonedx17.PrimitiveMAC,
+	"SIPHASH-128": cyclonedx17.PrimitiveMAC,
+	// explicit PrimitiveOther for tokens that aren't primitives but shouldn't error
+	"CRYPTO-PROVIDER-REGISTRATION": cyclonedx17.PrimitiveOther,
+	// WEAK-PRNG maps to drbg — it's a (poor) PRNG variant
+	"WEAK-PRNG": cyclonedx17.PrimitiveDRBG,
+}
+
+// rerouteMarker identifies AlgorithmPrimitive tokens that indicate the finding
+// should be modeled as a different assetType. Returns the target assetType and
+// material type (when applicable). Empty assetType means no reroute needed.
+func rerouteMarker(token string) (assetType types.AssetType, materialType string) {
+	switch strings.ToUpper(token) {
+	case "HARDCODED-SECRET", "HARDCODE-SECRET", "HARDCODED_SECRET":
+		return types.AssetRelatedCryptoMaterial, "other"
+	case "PRIVATE-KEY-PEM", "PRIVATE-KEY", "PRIVATE_KEY":
+		return types.AssetRelatedCryptoMaterial, "private-key"
+	case "PUBLIC-KEY-PEM", "PUBLIC-KEY", "PUBLIC_KEY":
+		return types.AssetRelatedCryptoMaterial, "public-key"
+
+	// Protocol tokens (cbom-primitive: SSH, TLS, TLS-1.0, TLS-1.1, TLS-1.2,
+	// TLS-1.3, SSL-3.0) belong in assetType=protocol, not algorithm.
+	case "SSH", "TLS", "TLS-1.0", "TLS-1.1", "TLS-1.2", "TLS-1.3",
+		"SSL", "SSL-2.0", "SSL-3.0", "DTLS", "DTLS-1.0", "DTLS-1.2", "DTLS-1.3",
+		"IPSEC", "IKE", "IKEV1", "IKEV2", "SAML", "OIDC", "JWT":
+		return types.AssetProtocol, ""
+
+	// Material-only tokens belong in related-crypto-material.
+	case "INITIALIZATION-VECTOR", "IV", "SYMMETRIC-KEY", "SHARED-SECRET",
+		"NONCE", "SALT", "SEED", "PASSWORD", "CREDENTIAL", "TOKEN":
+		// Map to the most appropriate CycloneDX RelatedCryptoMaterialType.
+		// The switch in convertCryptoProperties uses materialType to populate
+		// RelatedCryptoMaterialProperties.Type, which is normalized through
+		// normalizeRelatedCryptoMaterialType.
+		materialType := strings.ToLower(strings.ReplaceAll(token, "_", "-"))
+		return types.AssetRelatedCryptoMaterial, materialType
+
+	// Certificate tokens.
+	case "CERTIFICATE", "CERTIFICATE-X509", "X509", "X.509":
+		return types.AssetCertificate, ""
+
+	// CRYPTO-LIBRARY-IMPORT is not handled here; it requires AssetType-level
+	// reroute (see Task 1.3 — convertFindingTally short-circuits when
+	// f.AssetType == "library").
+	default:
+		return "", ""
+	}
 }
 
 // normalizePrimitive converts an internal primitive string to the CycloneDX 1.7 schema value.
@@ -362,8 +485,11 @@ func generateUUID4() string {
 		uuid[0:4], uuid[4:6], uuid[6:8], uuid[8:10], uuid[10:16])
 }
 
-// ConvertScanResult converts a types.ScanResult to a CycloneDX 1.7 BOM.
-func ConvertScanResult(result *types.ScanResult) *BOM {
+// ConvertScanResultWithTally is like ConvertScanResult but also returns a
+// validationTally counting normalization fall-throughs. Callers that want
+// to surface or fail on tally totals (e.g. --strict-validate) use this.
+func ConvertScanResultWithTally(result *types.ScanResult) (*BOM, validationTally) {
+	var tally validationTally
 	bom := &BOM{
 		BOMFormat:    "CycloneDX",
 		SpecVersion:  "1.7",
@@ -371,32 +497,52 @@ func ConvertScanResult(result *types.ScanResult) *BOM {
 		SerialNumber: generateUUID4(),
 		Metadata: &Metadata{
 			Timestamp: result.StartTime.UTC().Format("2006-01-02T15:04:05Z"),
-			Tools: []Tool{
-				{
-					Name:    "CipherRadar",
-					Version: AppVersion,
-					Vendor:  "nk-sentinel",
-				},
-			},
+			Tools: []Tool{{Name: "CipherRadar", Version: AppVersion, Vendor: "nk-sentinel"}},
 		},
 	}
-
 	components := make([]Component, 0, len(result.Findings))
 	for i := range result.Findings {
-		components = append(components, convertFinding(&result.Findings[i]))
+		components = append(components, convertFindingTally(&result.Findings[i], &tally))
 	}
-
-	// Sort components by bom-ref for deterministic output.
 	sort.Slice(components, func(i, j int) bool {
 		return components[i].BOMRef < components[j].BOMRef
 	})
-
 	bom.Components = components
+	return bom, tally
+}
+
+// ConvertScanResult converts a types.ScanResult to a CycloneDX 1.7 BOM.
+// For tally observability, use ConvertScanResultWithTally instead.
+func ConvertScanResult(result *types.ScanResult) *BOM {
+	bom, _ := ConvertScanResultWithTally(result)
 	return bom
 }
 
 // convertFinding maps a single types.Finding to a CycloneDX Component.
 func convertFinding(f *types.Finding) Component {
+	return convertFindingTally(f, nil)
+}
+
+func convertFindingTally(f *types.Finding, tally *validationTally) Component {
+	// ADR-040: library findings (from opengrep cbom-library-import rules and
+	// yara-x library signatures) emit as regular CycloneDX components with
+	// type: library, no cryptoProperties. They are not cryptographic assets.
+	if string(f.AssetType) == "library" {
+		return Component{
+			Type:        "library",
+			BOMRef:      f.ID,
+			Name:        f.Name,
+			Description: f.Description,
+			Evidence: &Evidence{
+				Occurrences: []Occurrence{
+					{Location: f.Location.File, Line: f.Location.StartLine},
+				},
+			},
+			Properties: buildFindingProperties(f),
+		}
+	}
+
+	// Existing cryptographic-asset path unchanged below this line.
 	comp := Component{
 		Type:        "cryptographic-asset",
 		BOMRef:      f.ID,
@@ -404,20 +550,13 @@ func convertFinding(f *types.Finding) Component {
 		Description: f.Description,
 		Evidence: &Evidence{
 			Occurrences: []Occurrence{
-				{
-					Location: f.Location.File,
-					Line:     f.Location.StartLine,
-				},
+				{Location: f.Location.File, Line: f.Location.StartLine},
 			},
 		},
 	}
-
-	cp := convertCryptoProperties(f)
+	cp := convertCryptoProperties(f, tally)
 	comp.CryptoProperties = cp
-
-	// Add finding metadata as CycloneDX properties
 	comp.Properties = buildFindingProperties(f)
-
 	return comp
 }
 
@@ -442,15 +581,27 @@ func buildFindingProperties(f *types.Finding) []Property {
 	return props
 }
 
-// convertCryptoProperties builds CycloneDX 1.7 cryptoProperties from a Finding.
-func convertCryptoProperties(f *types.Finding) *cyclonedx17.CryptoProperties {
-	cp := &cyclonedx17.CryptoProperties{
-		AssetType: string(f.AssetType),
-	}
-
+// convertCryptoProperties builds CycloneDX 1.7 cryptoProperties from a Finding,
+// applying AlgorithmPrimitive-token reroutes (HARDCODED-SECRET → related-crypto-material, etc.)
+// before the assetType switch. Records violations in tally if non-nil.
+func convertCryptoProperties(f *types.Finding, tally *validationTally) *cyclonedx17.CryptoProperties {
 	props := &f.Properties
 
-	switch f.AssetType {
+	// Reroute by AlgorithmPrimitive marker (Bug A fix).
+	effectiveAssetType := f.AssetType
+	rerouteMaterial := ""
+	if props.AlgorithmPrimitive != "" {
+		if at, mt := rerouteMarker(props.AlgorithmPrimitive); at != "" {
+			effectiveAssetType = at
+			rerouteMaterial = mt
+		}
+	}
+
+	cp := &cyclonedx17.CryptoProperties{
+		AssetType: string(effectiveAssetType),
+	}
+
+	switch effectiveAssetType {
 	case types.AssetAlgorithm:
 		cp.AlgorithmProperties = convertAlgorithmProperties(props)
 	case types.AssetProtocol:
@@ -458,19 +609,35 @@ func convertCryptoProperties(f *types.Finding) *cyclonedx17.CryptoProperties {
 	case types.AssetCertificate:
 		cp.CertificateProperties = convertCertificateProperties(props)
 	case types.AssetRelatedCryptoMaterial:
-		cp.RelatedCryptoMaterialProperties = convertRelatedCryptoMaterialProperties(props)
-		// When a related-crypto-material finding carries a canonical
-		// algorithm token (e.g. PRIVATE-KEY-PEM emitted by the PEM-block
-		// regex rules), surface it under algorithmProperties.primitive
-		// too. The CycloneDX 1.7 cryptoProperties schema allows both
-		// algorithmProperties and relatedCryptoMaterialProperties to be
-		// present on the same block (no oneOf constraint). Downstream
-		// CBOM consumers that inspect algorithmProperties.primitive can
-		// then route the finding to the certs/keys bucket without
-		// scanning rule IDs.
-		if props.AlgorithmPrimitive != "" {
-			cp.AlgorithmProperties = convertAlgorithmProperties(props)
+		if rerouteMaterial != "" {
+			// Reroute case: clear primitive (it was the marker) and set material type.
+			cp.RelatedCryptoMaterialProperties = &cyclonedx17.RelatedCryptoMaterialProperties{
+				Type: normalizeRelatedCryptoMaterialType(rerouteMaterial),
+			}
+			// Do NOT populate AlgorithmProperties on a rerouted finding.
+		} else {
+			cp.RelatedCryptoMaterialProperties = convertRelatedCryptoMaterialProperties(props)
+			// Preserve existing dual-properties behavior for non-rerouted material findings.
+			// When a related-crypto-material finding carries a canonical
+			// algorithm token (e.g. PRIVATE-KEY-PEM emitted by the PEM-block
+			// regex rules), surface it under algorithmProperties.primitive
+			// too. The CycloneDX 1.7 cryptoProperties schema allows both
+			// algorithmProperties and relatedCryptoMaterialProperties to be
+			// present on the same block (no oneOf constraint). Downstream
+			// CBOM consumers that inspect algorithmProperties.primitive can
+			// then route the finding to the certs/keys bucket without
+			// scanning rule IDs.
+			if props.AlgorithmPrimitive != "" {
+				cp.AlgorithmProperties = convertAlgorithmProperties(props)
+			}
 		}
+	default:
+		// Unknown assetType — record violation and emit "other"-ish output.
+		if tally != nil {
+			tally.recordAssetType(string(effectiveAssetType))
+		}
+		cp.AssetType = "algorithm" // safest default
+		cp.AlgorithmProperties = convertAlgorithmProperties(props)
 	}
 
 	return cp
@@ -479,15 +646,27 @@ func convertCryptoProperties(f *types.Finding) *cyclonedx17.CryptoProperties {
 // convertAlgorithmProperties maps types.CryptoProperties to CycloneDX AlgorithmProperties.
 //
 // Primitive precedence:
-//   - If types.CryptoProperties.AlgorithmPrimitive is set (resolved by the
-//     OpenGrep parser from cbom-primitive metadata), it wins. The canonical
-//     token (e.g. "MD5", "AES-256-GCM", "TLS-1.2") is written as-is.
-//   - Otherwise we fall back to the legacy types.CryptoProperties.Primitive
-//     field, which expects a CycloneDX 1.7 enum value ("hash", "block-cipher", ...).
+//   - If types.CryptoProperties.AlgorithmPrimitive is set, first check the
+//     canonicalTokenPrimitive map (handles "MD5", "AES-256-GCM", etc.).
+//   - Then try primitiveMap (handles CycloneDX 1.7 enum strings like "hash").
+//   - Unknown tokens fall back to PrimitiveOther (never passed through raw).
+//   - If AlgorithmPrimitive is unset, use the legacy Primitive field via normalizePrimitive.
 func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.AlgorithmProperties {
 	primitive := normalizePrimitive(p.Primitive)
 	if p.AlgorithmPrimitive != "" {
-		primitive = cyclonedx17.Primitive(p.AlgorithmPrimitive)
+		// First check the canonical-token map (handles MD5, AES-256-GCM, etc.).
+		// All keys are uppercase, so ToUpper normalizes any casing from the scanner.
+		if cp, ok := canonicalTokenPrimitive[strings.ToUpper(p.AlgorithmPrimitive)]; ok {
+			primitive = cp
+		} else {
+			// Unknown token — try as a primitive name, else default to "other".
+			lower := strings.ToLower(strings.TrimSpace(p.AlgorithmPrimitive))
+			if cp, ok := primitiveMap[lower]; ok {
+				primitive = cp
+			} else {
+				primitive = cyclonedx17.PrimitiveOther
+			}
+		}
 	}
 	ap := &cyclonedx17.AlgorithmProperties{
 		Primitive:                primitive,

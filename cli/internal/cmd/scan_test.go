@@ -283,3 +283,33 @@ func TestScanCommand_NonDirectoryPathExitsConfigError(t *testing.T) {
 		t.Errorf("error should mention 'not a directory': %v", err)
 	}
 }
+
+func TestScan_StrictValidate_EmptyDirSucceeds(t *testing.T) {
+	tmp := t.TempDir()
+
+	// Reset StringSlice flags that prior tests may have dirtied; cobra reuses
+	// the global scanCmd flag set across tests in the same process.
+	// pflag StringSlice values implement SliceValue with a Replace method.
+	type sliceResetter interface{ Replace([]string) error }
+	for _, name := range []string{"category", "output"} {
+		if f := scanCmd.Flags().Lookup(name); f != nil {
+			if sv, ok := f.Value.(sliceResetter); ok {
+				_ = sv.Replace(nil)
+			}
+			f.Changed = false
+		}
+	}
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", tmp, "--strict-validate", "-f", "cyclonedx-json"})
+
+	err := rootCmd.Execute()
+	if err != nil {
+		t.Fatalf("--strict-validate on empty dir should exit 0, got: %v", err)
+	}
+	if strings.Contains(buf.String(), "WARNING:") {
+		t.Errorf("expected no WARNING on empty dir, got:\n%s", buf.String())
+	}
+}
