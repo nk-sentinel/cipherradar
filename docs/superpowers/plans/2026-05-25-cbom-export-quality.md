@@ -66,7 +66,7 @@ Fix two bleed-through bugs introduced by scanner metadata:
   straight to cyclonedx primitive enum; now normalized + rerouted.
 - library asset_type from opengrep inventory rules (and yarax starter
   rules) had no cyclonedx 1.7 home; now emitted as type:library component
-  without cryptoProperties per ADR-034.
+  without cryptoProperties per ADR-040.
 
 Adds validationTally + --strict-validate flag so future bleed-through
 is visible (default warn, opt-in fail).
@@ -177,7 +177,7 @@ var validPrimitives = map[cyclonedx17.Primitive]bool{
 }
 
 // validAssetTypes is the CycloneDX 1.7 cryptoProperties.assetType closed set.
-// IMPORTANT: "library" is NOT in this set — see ADR-034.
+// IMPORTANT: "library" is NOT in this set — see ADR-040.
 var validAssetTypes = map[string]bool{
 	"algorithm": true, "certificate": true,
 	"protocol": true, "related-crypto-material": true,
@@ -624,7 +624,7 @@ func TestConvertFinding_LibraryAssetType_EmitsLibraryComponent(t *testing.T) {
 	comp := convertFindingTally(f, &tally)
 
 	if comp.Type != "library" {
-		t.Errorf("Type = %q, want library (per ADR-034)", comp.Type)
+		t.Errorf("Type = %q, want library (per ADR-040)", comp.Type)
 	}
 	if comp.CryptoProperties != nil {
 		t.Errorf("CryptoProperties should be nil for library components, got %+v", comp.CryptoProperties)
@@ -653,7 +653,7 @@ Expected: FAIL — Type is "cryptographic-asset", CryptoProperties is non-nil.
 Update `convertFindingTally` in `cli/internal/output/converter.go`:
 ```go
 func convertFindingTally(f *types.Finding, tally *validationTally) Component {
-	// ADR-034: library findings (from opengrep cbom-library-import rules and
+	// ADR-040: library findings (from opengrep cbom-library-import rules and
 	// yara-x library signatures) emit as regular CycloneDX components with
 	// type: library, no cryptoProperties. They are not cryptographic assets.
 	if string(f.AssetType) == "library" {
@@ -906,7 +906,7 @@ AlgorithmPrimitive: "HARDCODED-SECRET",
 ```
 with:
 ```go
-// Hardcoded secret — model as related-crypto-material per ADR-034.
+// Hardcoded secret — model as related-crypto-material per ADR-040.
 // (Was: AlgorithmPrimitive: "HARDCODED-SECRET" — leaked into cyclonedx
 // algorithmProperties.primitive enum; defense-in-depth, converter also
 // reroutes this if scanners regress.)
@@ -946,18 +946,18 @@ Expected: PASS.
 
 ---
 
-### Task 1.7: Doc — ADR-034 + update TODO-SCHEMA-VALIDATION
+### Task 1.7: Doc — ADR-040 + update TODO-SCHEMA-VALIDATION
 
 **Files:**
-- Create: `docs/decisions/ADR-034-library-asset-type.md`
+- Create: `docs/decisions/ADR-040-library-asset-type.md`
 - Modify: `docs/decisions/DECISION-LOG.md` (append entry)
 - Modify: `docs/benchmark/TODO-SCHEMA-VALIDATION.md` (mark resolved)
 
-- [ ] **Step 1: Write ADR-034**
+- [ ] **Step 1: Write ADR-040**
 
-`docs/decisions/ADR-034-library-asset-type.md`:
+`docs/decisions/ADR-040-library-asset-type.md`:
 ```markdown
-# ADR-034: Library detections emit as CycloneDX type=library components
+# ADR-040: Library detections emit as CycloneDX type=library components
 
 **Status:** Accepted
 **Date:** 2026-05-25
@@ -1005,12 +1005,12 @@ JSON shape changes.
 Append to `docs/decisions/DECISION-LOG.md`:
 ```markdown
 
-## 2026-05-25 — ADR-034: Library detections emit as type=library components
+## 2026-05-25 — ADR-040: Library detections emit as type=library components
 
 OpenGrep + YARA-X library-presence findings (cbom-asset-type: library) no longer pass
 the invalid value through to CycloneDX `cryptoProperties.assetType`. Routed to
 component `type: library` per CycloneDX 1.7 spec. Breaking change for CBOM JSON consumers
-that read `assetType: "library"`. See ADR-034.
+that read `assetType: "library"`. See ADR-040.
 ```
 
 - [ ] **Step 3: Update TODO-SCHEMA-VALIDATION.md to mark resolved**
@@ -1034,7 +1034,7 @@ Two additional bugs were discovered during the 2026-05-25 audit:
   `cyclonedx17.Primitive` without normalization. Fixed in `convertCryptoProperties`
   with a `rerouteMarker` switch + `canonicalTokenPrimitive` map.
 - **library assetType** — emitted as-is from OpenGrep inventory rules; not in
-  CycloneDX 1.7 enum. Fixed per ADR-034 (emit as `type: library` component).
+  CycloneDX 1.7 enum. Fixed per ADR-040 (emit as `type: library` component).
 
 ## Preventing regressions
 
@@ -1104,7 +1104,7 @@ git add cli/internal/output/converter.go \
         cli/internal/cmd/scan_test.go \
         cli/internal/scanner/config/config_scanner.go \
         cli/internal/scanner/config/config_scanner_test.go \
-        docs/decisions/ADR-034-library-asset-type.md \
+        docs/decisions/ADR-040-library-asset-type.md \
         docs/decisions/DECISION-LOG.md \
         docs/benchmark/TODO-SCHEMA-VALIDATION.md
 git commit -m "feat(converter): close cyclonedx 1.7 enum gaps + add strict validation
@@ -1114,7 +1114,7 @@ Fix two bleed-through bugs introduced by scanner metadata:
   straight to cyclonedx primitive enum; now normalized + rerouted.
 - library asset_type from opengrep inventory rules (and yarax starter
   rules) had no cyclonedx 1.7 home; now emitted as type:library component
-  without cryptoProperties per ADR-034.
+  without cryptoProperties per ADR-040.
 
 Adds validationTally + --strict-validate flag so future bleed-through
 is visible (default warn, opt-in fail)."
@@ -3677,7 +3677,7 @@ Four sequential commits improving CBOM output correctness and report depth:
 
 Spec: `docs/superpowers/specs/2026-05-25-cbom-export-quality-design.md`
 Plan: `docs/superpowers/plans/2026-05-25-cbom-export-quality.md`
-ADR: `docs/decisions/ADR-034-library-asset-type.md`
+ADR: `docs/decisions/ADR-040-library-asset-type.md`
 
 ## Breaking changes (CHANGELOG)
 
@@ -3711,7 +3711,7 @@ This section is for the plan author. Engineers executing the plan can skip.
 | Work item 4 (progress + summary) | Tasks 4.1-4.5 |
 | Closed-set tally + --strict-validate | Tasks 1.1, 1.5 |
 | Asset rerouting (HARDCODED-SECRET) | Task 1.2 |
-| Library handling (ADR-034) | Tasks 1.3, 1.7 |
+| Library handling (ADR-040) | Tasks 1.3, 1.7 |
 | Source-side cleanup of config_scanner | Task 1.6 |
 | YAML schema + embedded table | Task 2.2 |
 | normalizeFamily fuzzy matching | Task 2.2 |

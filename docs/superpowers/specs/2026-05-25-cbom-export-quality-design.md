@@ -126,7 +126,7 @@ scanCmd.Flags().Bool("strict-validate", false,
 - **Modified:** `cli/internal/scanner/config/config_scanner.go` — change `AlgorithmPrimitive: "HARDCODED-SECRET"` to set `AssetType: types.AssetRelatedCryptoMaterial` + `MaterialType: "secret-parameter"` directly at the scanner. (Optional: the converter rerouting also fixes this, but fixing at the source is cleaner. Both layers can coexist as defense-in-depth.)
 - **Modified:** `cli/internal/scanner/config/config_scanner_test.go` — update assertions for the new emission shape.
 - **Updated:** `docs/benchmark/TODO-SCHEMA-VALIDATION.md` — mark as historical/resolved, add note pointing to this commit and to `2026-05-25-cbom-export-quality-design.md`. Do NOT delete (preserves audit trail).
-- **New:** `docs/decisions/ADR-034-library-asset-type.md` — record the design decision: YARA library findings emit as `type: library` components, not `cryptographic-asset`.
+- **New:** `docs/decisions/ADR-040-library-asset-type.md` — record the design decision: YARA library findings emit as `type: library` components, not `cryptographic-asset`.
 
 ## Work item 2 — Quantum readiness expansion
 
