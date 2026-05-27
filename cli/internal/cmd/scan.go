@@ -14,13 +14,15 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/baseline"
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/container"
+	"github.com/nk-sentinel/cipherradar/cli/internal/diff"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
-	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
+	pdfpkg "github.com/nk-sentinel/cipherradar/cli/internal/output/pdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/push"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rulefilter"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 	"github.com/nk-sentinel/cipherradar/cli/internal/validation"
@@ -74,6 +76,9 @@ func init() {
 	scanCmd.Flags().String("baseline-file", baseline.DefaultFile, "path to the baseline file used for suppression")
 	scanCmd.Flags().Bool("no-baseline", false, "ignore the baseline file for this run")
 	scanCmd.Flags().Bool("update-baseline", false, "rewrite the baseline file from this run's security findings")
+
+	// PDF baseline diff flag (Task 3.8): compare against a previous scan's CycloneDX JSON.
+	scanCmd.Flags().String("baseline", "", "path to a previous scan's CycloneDX JSON; adds 'Changes vs Baseline' section to PDF reports")
 
 	// Push flags (ADR-025).
 	scanCmd.Flags().Bool("push", false, "upload scan results to CipherRadar portal after scan")
@@ -297,7 +302,19 @@ func runScan(cmd *cobra.Command, args []string) error {
 		cfgFormat = scanCfg.Format
 	}
 
-	formats, err := writeOutputs(cmd, result, outputPaths, explicitFormat, cfgFormat)
+	// Load baseline CBOM for PDF diff section (--baseline flag, Task 3.8).
+	// baselineBOM is nil when --baseline is not set, which disables the section.
+	baselineFlag, _ := cmd.Flags().GetString("baseline")
+	var baselineBOM *output.BOM
+	if baselineFlag != "" {
+		bom, loadErr := diff.LoadBOM(baselineFlag)
+		if loadErr != nil {
+			return fmt.Errorf("baseline: %w", loadErr)
+		}
+		baselineBOM = bom
+	}
+
+	formats, err := writeOutputs(cmd, result, outputPaths, explicitFormat, cfgFormat, baselineBOM)
 	if err != nil {
 		return err
 	}
@@ -391,9 +408,13 @@ func firstArg(args []string) string {
 // from its extension; --format is only honored when there is exactly one
 // output (otherwise it's ambiguous which file it applies to).
 //
+// baselineBOM, when non-nil, is injected into any *pdfpkg.Writer instances so
+// the "Changes vs Baseline" section is rendered. The factory returns
+// *pdfpkg.Writer (registered via output/pdf.init), so injectBaseline is active.
+//
 // Returns the resolved format for each destination so callers can decide
 // whether schema validation is applicable.
-func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, explicitFormat, cfgFormat string) ([]string, error) {
+func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, explicitFormat, cfgFormat string, baselineBOM *output.BOM) ([]string, error) {
 	// File sinks always fall back to cyclonedx-json (the canonical CBOM
 	// artifact). Stdout falls back to text-on-TTY / cyclonedx-json-on-pipe
 	// so `cradar scan ./app` prints a readable summary in a terminal and
@@ -409,6 +430,7 @@ func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, 
 		if err != nil {
 			return nil, err
 		}
+		injectBaseline(w, baselineBOM)
 		if err := w.WriteScanResult(cmd.OutOrStdout(), result); err != nil {
 			return nil, fmt.Errorf("writing output: %w", err)
 		}
@@ -435,6 +457,7 @@ func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, 
 		if err != nil {
 			return nil, err
 		}
+		injectBaseline(w, baselineBOM)
 		f, err := os.Create(p)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create output file %s: %w", p, err)
@@ -449,6 +472,17 @@ func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, 
 		formats = append(formats, fmtName)
 	}
 	return formats, nil
+}
+
+// injectBaseline sets the baseline BOM on a *pdfpkg.Writer if the writer is
+// that concrete type. This is a no-op for all other writer implementations.
+func injectBaseline(w output.Writer, baselineBOM *output.BOM) {
+	if baselineBOM == nil {
+		return
+	}
+	if pw, ok := w.(*pdfpkg.Writer); ok {
+		pw.Opts.Baseline = baselineBOM
+	}
 }
 
 // formatUserMessage renders a ValidationError for the human-facing stderr

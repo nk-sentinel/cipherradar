@@ -1,24 +1,21 @@
 package output
 
 import (
-	"bytes"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
 func TestWriterFactory_ReturnsCorrectWriter(t *testing.T) {
 	tests := []struct {
 		format     string
 		wantFormat string
-		wantType   string
 	}{
-		{"cyclonedx-json", "cyclonedx-json", "*output.CycloneDXJSONWriter"},
-		{"sarif", "sarif", "*output.SARIFWriter"},
-		{"text", "text", "*output.TextWriter"},
-		{"pdf", "pdf", "*output.PDFWriter"},
+		{"cyclonedx-json", "cyclonedx-json"},
+		{"sarif", "sarif"},
+		{"text", "text"},
+		// "pdf" is registered by output/pdf.init() and is covered by the
+		// external test in pdf_test.go (package output_test) which imports
+		// output/pdf to trigger registration.
 	}
 
 	for _, tt := range tests {
@@ -55,7 +52,6 @@ func TestWriterFormat(t *testing.T) {
 		{&CycloneDXJSONWriter{}, "cyclonedx-json"},
 		{&SARIFWriter{}, "sarif"},
 		{&TextWriter{}, "text"},
-		{&PDFWriter{}, "pdf"},
 	}
 
 	for _, tt := range tests {
@@ -64,26 +60,5 @@ func TestWriterFormat(t *testing.T) {
 				t.Errorf("Format() = %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestPDFWriter_IsNoLongerStub(t *testing.T) {
-	result := &types.ScanResult{
-		Target:       "/tmp/test-project",
-		Findings:     []types.Finding{},
-		StartTime:    time.Now(),
-		EndTime:      time.Now(),
-		PassesRun:    []int{1},
-		FilesScanned: 0,
-		Errors:       []types.ScanError{},
-	}
-
-	var buf bytes.Buffer
-	err := (&PDFWriter{}).WriteScanResult(&buf, result)
-	if err != nil {
-		t.Fatalf("PDFWriter should no longer return an error, got: %v", err)
-	}
-	if buf.Len() == 0 {
-		t.Fatal("PDFWriter should produce non-empty output")
 	}
 }

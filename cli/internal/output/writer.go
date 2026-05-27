@@ -16,6 +16,21 @@ type Writer interface {
 	Format() string
 }
 
+// writerRegistry holds extra format constructors registered via RegisterWriter.
+// It is populated at init time by sub-packages (e.g. output/pdf) that would
+// create an import cycle if imported directly from this file.
+var writerRegistry = map[string]func() Writer{}
+
+// RegisterWriter registers a constructor for a named format. Call from an
+// init() in the format's package after importing this package.
+// Panics if the format name is already registered (programming error).
+func RegisterWriter(format string, ctor func() Writer) {
+	if _, dup := writerRegistry[format]; dup {
+		panic("output: duplicate writer registration for format " + format)
+	}
+	writerRegistry[format] = ctor
+}
+
 // WriterFactory returns a Writer for the given format name.
 // Supported formats: "cyclonedx-json", "sarif", "text", "pdf", "sonarqube-generic".
 func WriterFactory(format string) (Writer, error) {
@@ -28,11 +43,12 @@ func WriterFactory(format string) (Writer, error) {
 		return &TextWriter{}, nil
 	case "table":
 		return &TableWriter{}, nil
-	case "pdf":
-		return &PDFWriter{}, nil
 	case "sonarqube-generic":
 		return &SonarQubeWriter{}, nil
 	default:
+		if ctor, ok := writerRegistry[format]; ok {
+			return ctor(), nil
+		}
 		return nil, fmt.Errorf("unsupported output format: %s", format)
 	}
 }
