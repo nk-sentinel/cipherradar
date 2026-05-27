@@ -24,7 +24,7 @@ import (
 // The actual diff API found in cli/internal/diff/diff.go:
 //   - Function:  diff.CompareBOMs(before, after *output.BOM) *diff.DiffResult
 //   - Result:    Added []output.Component, Removed []output.Component,
-//                Changed []diff.ChangedComponent, Unchanged int (count, not slice)
+//     Changed []diff.ChangedComponent, Unchanged int (count, not slice)
 //
 // output.Component carries Name, BOMRef, Evidence.Occurrences[].{Location,Line},
 // and CryptoProperties.AssetType — no Severity or Finding-style location fields.

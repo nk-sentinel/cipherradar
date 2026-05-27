@@ -276,7 +276,7 @@ func containsSecretIndicator(keyLower string) bool {
 //   - template placeholders (`<your_secret>`, `${VAR}`, `{{var}}`, `%VAR%`)
 //   - obvious placeholder strings (`changeme`, `placeholder`, `xxx`, `***`,
 //     `your_*_here`)
-//   - quoted-empty values (`""`, `''`)
+//   - quoted-empty values (`""`, `”`)
 //   - very short non-templated values (< 4 chars) that are almost never real
 //     secrets and frequently false-positive on things like `key=1` flags
 //

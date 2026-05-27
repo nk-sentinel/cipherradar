@@ -161,13 +161,13 @@ var cryptoFunctionMap = map[string]cyclonedx17.CryptoFunction{
 	"keydrive":      cyclonedx17.CryptoFunctionKeyderive, // typo fix
 	// Key-agreement aliases — scanners emit "keyagree" or "key-agree" as a function;
 	// CycloneDX 1.7 has no "keyagree" function: closest equivalent is "keygen".
-	"keyagree":      cyclonedx17.CryptoFunctionKeygen,
-	"key-agree":     cyclonedx17.CryptoFunctionKeygen,
+	"keyagree":  cyclonedx17.CryptoFunctionKeygen,
+	"key-agree": cyclonedx17.CryptoFunctionKeygen,
 	// PHP openssl_seal emits "seal" (authenticated encryption); maps to "encrypt".
-	"seal":          cyclonedx17.CryptoFunctionEncrypt,
-	"open":          cyclonedx17.CryptoFunctionDecrypt, // openssl_open is the decrypt counterpart
-	"other":         cyclonedx17.CryptoFunctionOther,
-	"unknown":       cyclonedx17.CryptoFunctionUnknown,
+	"seal":    cyclonedx17.CryptoFunctionEncrypt,
+	"open":    cyclonedx17.CryptoFunctionDecrypt, // openssl_open is the decrypt counterpart
+	"other":   cyclonedx17.CryptoFunctionOther,
+	"unknown": cyclonedx17.CryptoFunctionUnknown,
 }
 
 // normalizeCryptoFunction converts an internal crypto function string to the
