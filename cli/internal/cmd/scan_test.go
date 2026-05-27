@@ -66,9 +66,12 @@ h = hashlib.md5(b"hello")
 	}
 
 	// Run the scan command.
-	var buf bytes.Buffer
-	rootCmd.SetOut(&buf)
-	rootCmd.SetErr(&buf)
+	// Use separate buffers: stdout holds the JSON, stderr holds progress lines.
+	// Mixing them (single buf) causes the JSON parse to fail when progress is
+	// emitted to stderr.
+	var stdout, stderr bytes.Buffer
+	rootCmd.SetOut(&stdout)
+	rootCmd.SetErr(&stderr)
 	rootCmd.SetArgs([]string{"scan", tmpDir, "-f", "cyclonedx-json"})
 
 	err = rootCmd.Execute()
@@ -76,12 +79,13 @@ h = hashlib.md5(b"hello")
 		t.Fatalf("scan command failed: %v", err)
 	}
 
-	output := buf.String()
+	output := stdout.String()
 
 	// Verify it is valid JSON.
 	var raw map[string]interface{}
 	if err := json.Unmarshal([]byte(output), &raw); err != nil {
-		t.Fatalf("output is not valid JSON: %v\n--- output ---\n%s", err, output)
+		t.Fatalf("output is not valid JSON: %v\n--- stdout ---\n%s\n--- stderr ---\n%s",
+			err, output, stderr.String())
 	}
 
 	// Verify CycloneDX envelope.

@@ -49,6 +49,8 @@ type scanJobResult struct {
 	findings []types.Finding
 	errors   []types.ScanError
 	scanned  bool
+	lang     string // scanner name (or empty for universal-only files)
+	relPath  string // relative path, echoed back for the Progress callback
 }
 
 // ScanOptions controls optional scanning behavior.
@@ -59,6 +61,13 @@ type ScanOptions struct {
 	StagedOnly bool
 	// FileList is the explicit set of relative file paths to scan (used with StagedOnly).
 	FileList []string
+
+	// Progress, if non-nil, is invoked once per scanned file with the
+	// detected language (may be empty if no extension match) and the
+	// relative path. Used for stderr heartbeat / verbose output.
+	// Implementation note: invoked from the result-collector goroutine,
+	// not the worker pool, so callers do not need their own mutex.
+	Progress func(lang, path string)
 }
 
 // maxFastFileSize is the maximum file size (in bytes) scanned when --fast is set.
@@ -249,10 +258,18 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 					}
 				}
 
+				// Derive language label from the matched scanner name.
+				// Universal-only files have no language scanner, so lang stays "".
+				lang := ""
+				if job.scanner != nil {
+					lang = job.scanner.Name()
+				}
 				results[idx] = scanJobResult{
 					findings: findings,
 					errors:   errs,
 					scanned:  scanned,
+					lang:     lang,
+					relPath:  job.relPath,
 				}
 			}
 		}()
@@ -276,6 +293,9 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 		result.Errors = append(result.Errors, r.errors...)
 		if r.scanned {
 			filesScanned++
+			if opts.Progress != nil {
+				opts.Progress(r.lang, r.relPath)
+			}
 		}
 	}
 	result.FilesScanned = filesScanned
