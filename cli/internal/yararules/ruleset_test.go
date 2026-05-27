@@ -77,6 +77,12 @@ func TestRuleset_MinimumRuleCount(t *testing.T) {
 	if total < 15 {
 		t.Errorf("expected >= 15 rules in starter ruleset (ADR-039 baseline), found %d", total)
 	}
+	// Soft upper bound — keep the budget honest. The performance budget
+	// in ADR-039 sets 50 as the ceiling; if you blow past it, run the
+	// benchmark before merging.
+	if total > 50 {
+		t.Logf("ruleset has %d rules — within the 50-rule budget but worth a benchmark before merge", total)
+	}
 }
 
 // splitRules carves the file into a map of rule name -> rule body

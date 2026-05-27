@@ -16,6 +16,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/container"
 	"github.com/nk-sentinel/cipherradar/cli/internal/diff"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/yarax"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
 	pdfpkg "github.com/nk-sentinel/cipherradar/cli/internal/output/pdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/push"
@@ -45,13 +46,13 @@ func init() {
 	scanCmd.Flags().StringSliceP("output", "o", nil, "output file path (repeatable; format inferred from file extension, e.g. .json/.sarif/.pdf/.sonar.json/.cbom.json)")
 	scanCmd.Flags().StringP("format", "f", "", "output format when writing to stdout or overriding extension dispatch (cyclonedx-json, sarif, text, table, pdf, sonarqube-generic)")
 	scanCmd.Flags().String("severity", "low", "minimum severity level to report")
-	scanCmd.Flags().String("passes", "1,2", "comma-separated list of scan passes to run (1=AST, 2=OpenGrep)")
+	scanCmd.Flags().String("passes", "1,2", "comma-separated list of scan passes to run (1=AST, 2=OpenGrep, 3=YARA-X binary)")
 	scanCmd.Flags().String("branch", "", "git branch to scan (for git URLs)")
 	scanCmd.Flags().Bool("validate", false, "validate output against CycloneDX 1.7 schema")
 	scanCmd.Flags().Bool("strict-validate", false,
 		"fail the scan if any output value falls outside the CycloneDX 1.7 enum closed sets (default: warn only)")
 	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
-	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2 (enables taint analysis)")
+	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (taint analysis + YARA-X binary scan)")
 
 	// Pre-commit hook support flags.
 	scanCmd.Flags().Bool("fast", false, "run Pass 1 only (no OpenGrep/Joern), skip files >100KB")
@@ -118,19 +119,35 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// Auto-sync custom rules from portal if api_url is configured (D27).
 	syncCustomRules(cmd)
 
-	// Parse passes flag. --deep is an alias for --passes 1,2,3.
-	// --fast overrides to pass 1 only.
+	// Parse passes flag. --deep is an alias for --passes 1,2,3 (the
+	// full pipeline including Pass 3 YARA-X binary scanning). --fast
+	// overrides to pass 1 only.
 	fast, _ := cmd.Flags().GetBool("fast")
 	deep, _ := cmd.Flags().GetBool("deep")
 	passesStr, _ := cmd.Flags().GetString("passes")
 	if fast {
 		passesStr = "1"
 	} else if deep {
-		passesStr = "1,2"
+		passesStr = "1,2,3"
 	}
 	passes, err := parsePasses(passesStr)
 	if err != nil {
 		return fmt.Errorf("invalid --passes flag: %w", err)
+	}
+
+	// When the user explicitly opted into Pass 3 (via --deep or via
+	// --passes including 3) and yr isn't installed, hard-fail with
+	// ExitToolMissing. Mirrors the runPass2 contract: a CI configured
+	// for Pass 3 should not silently downgrade to "Pass 3 absent"
+	// just because the binary wasn't deployed. The check uses a
+	// runner constructed exactly the way the YARA-X scanner does so
+	// the two stay in lockstep.
+	if containsPass(passes, 3) && (cmd.Flag("deep").Changed || cmd.Flag("passes").Changed) {
+		yrRunner := yarax.NewRunner()
+		if yrRunner == nil || !yrRunner.Available() {
+			return ExitErrorf(ExitToolMissing,
+				"Pass 3 requires yara-x (yr), which was not found on PATH. Run 'cradar install-tools' or use the cradar-full binary.")
+		}
 	}
 
 	// Determine scan options.
@@ -642,8 +659,8 @@ func parsePasses(s string) ([]int, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid pass number %q: %w", p, err)
 		}
-		if n < 1 || n > 2 {
-			return nil, fmt.Errorf("pass number must be 1-2, got %d (Pass 3/Joern removed per ADR-033)", n)
+		if n < 1 || n > 3 {
+			return nil, fmt.Errorf("pass number must be 1-3, got %d", n)
 		}
 		passes = append(passes, n)
 	}

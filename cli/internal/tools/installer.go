@@ -73,6 +73,14 @@ var openGrepReleaseAPI = fmt.Sprintf(
 	OpenGrepVersion,
 )
 
+// yaraXReleaseAPI is the GitHub Releases API endpoint for the pinned
+// YARA-X version. Exposed as a var so tests can swap it for an httptest
+// server URL — mirrors the openGrepReleaseAPI pattern.
+var yaraXReleaseAPI = fmt.Sprintf(
+	"https://api.github.com/repos/VirusTotal/yara-x/releases/tags/%s",
+	YARAXVersion,
+)
+
 // githubReleaseAsset is the subset of the GitHub Releases API asset shape we
 // care about. The `digest` field is GitHub-computed (format "sha256:<hex>")
 // and exists on every release asset.
@@ -213,21 +221,20 @@ func IsYARAXInstalled(toolsDir string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// InstallYARAX downloads the YARA-X binary to the specified directory.
-func InstallYARAX(toolsDir string) error {
-	goos := runtime.GOOS
-	goarch := runtime.GOARCH
-
-	arch := goarch
-	if arch == "amd64" {
+// yaraXAsset returns the YARA-X release asset filename for the current
+// host platform. Mirrors openGrepAsset; centralising the per-OS naming
+// keeps the SHA-256 verification path symmetric for both tools.
+func yaraXAsset() (string, error) {
+	arch := goarch()
+	switch arch {
+	case "amd64":
 		arch = "x86_64"
-	}
-	if arch == "arm64" {
+	case "arm64":
 		arch = "aarch64"
 	}
 
 	var target string
-	switch goos {
+	switch goos() {
 	case "darwin":
 		target = arch + "-apple-darwin"
 	case "linux":
@@ -235,73 +242,87 @@ func InstallYARAX(toolsDir string) error {
 	case "windows":
 		target = arch + "-pc-windows-msvc"
 	default:
-		return fmt.Errorf("unsupported OS: %s", goos)
+		return "", fmt.Errorf("unsupported OS for YARA-X: %s", goos())
 	}
 
-	// YARA-X archives use .gz (gzipped tar) for unix, .zip for windows.
+	// YARA-X archives: gzipped tar on unix, zip on windows.
 	ext := "gz"
-	if goos == "windows" {
+	if goos() == "windows" {
 		ext = "zip"
 	}
-	filename := fmt.Sprintf("yara-x-%s-%s.%s", YARAXVersion, target, ext)
-	url := fmt.Sprintf("%s/%s/%s", YARAXBaseURL, YARAXVersion, filename)
+	return fmt.Sprintf("yara-x-%s-%s.%s", YARAXVersion, target, ext), nil
+}
 
-	if err := os.MkdirAll(toolsDir, 0755); err != nil {
+// InstallYARAX downloads the YARA-X binary to toolsDir and verifies
+// its SHA-256 against the digest reported by the GitHub Releases API
+// — same pattern InstallOpenGrep follows.
+//
+// Closes the ADR-038 gap: the previous implementation streamed the
+// archive over HTTPS without checksum verification, which left the
+// install path vulnerable to a TLS-terminating proxy or GitHub CDN
+// edge serving altered bytes. The release API returns a GitHub-computed
+// `digest` field on every asset, so we get the canonical sha256 for
+// free without maintaining a separate pin list.
+func InstallYARAX(toolsDir string) error {
+	assetName, err := yaraXAsset()
+	if err != nil {
+		return err
+	}
+
+	if err := os.MkdirAll(toolsDir, 0o755); err != nil {
 		return fmt.Errorf("creating tools directory: %w", err)
 	}
 
 	destPath := filepath.Join(toolsDir, "yr")
+	if goos() == "windows" {
+		destPath += ".exe"
+	}
 
-	fmt.Printf("Downloading YARA-X %s for %s/%s...\n", YARAXVersion, goos, arch)
-	fmt.Printf("URL: %s\n", url)
+	fmt.Printf("Downloading YARA-X %s for %s/%s...\n", YARAXVersion, goos(), goarch())
 
-	resp, err := http.Get(url) //nolint:gosec // URL is constructed from constants, not user input
+	binURL, expectedSum, err := fetchReleaseAsset(yaraXReleaseAPI, assetName)
 	if err != nil {
-		return fmt.Errorf("downloading YARA-X: %w", err)
+		return fmt.Errorf("fetching YARA-X release metadata: %w", err)
 	}
-	defer resp.Body.Close()
+	fmt.Printf("URL: %s\n", binURL)
 
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("download failed: HTTP %d -- check if YARA-X %s is available for %s",
-			resp.StatusCode, YARAXVersion, target)
-	}
-
-	tmpFile, err := os.CreateTemp(toolsDir, "yarax-download-*")
+	tmpPath, err := downloadToTemp(binURL, toolsDir, "yarax-download-*")
 	if err != nil {
-		return fmt.Errorf("creating temp file: %w", err)
+		return err
 	}
-	tmpPath := tmpFile.Name()
 	defer os.Remove(tmpPath)
 
-	if _, err := io.Copy(tmpFile, resp.Body); err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("saving download: %w", err)
+	if err := VerifySHA256(tmpPath, expectedSum); err != nil {
+		return err
 	}
-	tmpFile.Close()
 
-	if goos == "windows" {
-		// Windows archives are zip files containing yr.exe.
-		extractDir := filepath.Join(toolsDir, "yarax-extract")
+	// Extract the actual yr binary out of the verified archive. For
+	// unix the archive is a gzipped tar containing a single `yr`
+	// binary; for windows it's a zip containing `yr.exe`.
+	if goos() == "windows" {
+		extractDir, err := os.MkdirTemp(toolsDir, "yarax-extract-*")
+		if err != nil {
+			return fmt.Errorf("creating extract dir: %w", err)
+		}
 		defer os.RemoveAll(extractDir)
 		if err := extractZip(tmpPath, extractDir); err != nil {
 			return fmt.Errorf("extracting YARA-X zip: %w", err)
 		}
 		yrExe := filepath.Join(extractDir, "yr.exe")
-		if err := os.Rename(yrExe, destPath+".exe"); err != nil {
+		if err := os.Rename(yrExe, destPath); err != nil {
 			return fmt.Errorf("moving yr.exe: %w", err)
 		}
 	} else {
-		// Unix archives are gzipped tars containing a single 'yr' binary.
 		if err := extractBinaryFromTarGz(tmpPath, destPath, "yr"); err != nil {
 			return fmt.Errorf("extracting YARA-X: %w", err)
 		}
 	}
 
-	if err := os.Chmod(destPath, 0755); err != nil {
+	if err := os.Chmod(destPath, 0o755); err != nil {
 		return fmt.Errorf("setting executable permission: %w", err)
 	}
 
-	fmt.Printf("YARA-X %s installed to %s\n", YARAXVersion, destPath)
+	fmt.Printf("YARA-X %s installed to %s (sha256 verified via GitHub API)\n", YARAXVersion, destPath)
 	return nil
 }
 

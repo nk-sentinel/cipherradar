@@ -259,3 +259,100 @@ cradar scan ./service \
 
 Each path's format is dispatched from its extension. See [output-formats.md](output-formats.md)
 for the full mapping.
+
+---
+
+## 11. Scanning compiled binaries for embedded crypto
+
+Pass 3 (YARA-X) inspects compiled artifacts for cryptographic material that doesn't appear in
+source: hard-coded private keys, pinned certificates, statically-linked OpenSSL banners, and
+algorithm-specific byte tables like the AES S-box. Useful for:
+
+- Firmware images / IoT builds where the source has long since drifted from what shipped
+- Third-party JAR / wheel / native libraries vendored into your repo
+- Verifying that a release artifact doesn't carry test keys or debug certs you forgot to strip
+
+Pass 3 is opt-in. Default scans don't pay the cost.
+
+### Scan a build output directory
+
+```bash
+# Lightweight binary — make sure yr is on PATH
+cradar install-tools         # one-time; OpenGrep + YARA-X
+cradar scan ./build/artifacts --passes 3 --format text
+
+# cradar-full ships yr pre-bundled
+cradar scan ./build/artifacts --passes 3 -o cbom.json --validate
+```
+
+Example output on a directory of ELF / JAR fixtures:
+
+```
+  Pass 3 (YARA-X):   +12 findings  [0.1s]
+
+  CRITICAL    1     embedded_pem_rsa_private      service.so:0x4020
+  HIGH        1     embedded_pem_certificate      service.so:0x3f80
+  INFO       10     openssl_version_3_0, ...
+```
+
+### Combine with the standard passes
+
+```bash
+# Full pipeline: AST inventory + OpenGrep taint + YARA-X binary
+cradar scan ./repo --deep -o cbom.json
+# equivalent to --passes 1,2,3
+
+# Just Pass 3 on a single artifact
+cradar scan ./build/service.jar --passes 3
+```
+
+### Override the embedded ruleset
+
+The 15-rule starter set is embedded in the binary. Point at your own rules directory to extend
+or replace it:
+
+```bash
+# Extend: ship cradar's rules + add your in-house signatures
+mkdir -p /etc/cradar/yara-rules
+cp /path/to/cradar/extracted/*.yar /etc/cradar/yara-rules/
+cp ./my-org-rules.yar              /etc/cradar/yara-rules/
+
+CRADAR_YARA_RULES_DIR=/etc/cradar/yara-rules \
+  cradar scan ./build --passes 3
+```
+
+Rule authoring conventions live in [`scanner/yara-rules/README.md`](../../../scanner/yara-rules/README.md)
+in the repo — every rule needs `meta.cbom_primitive` to surface in the CBOM with a canonical
+algorithm token.
+
+### CI recipe: nightly binary-deep scan
+
+Run binary scans nightly rather than on every PR (they're slower and the artifacts don't change
+on every commit):
+
+```yaml
+# .github/workflows/cradar-binary-nightly.yml
+name: cradar binary scan
+on:
+  schedule: [{cron: '0 3 * * *'}]
+jobs:
+  binary-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - run: |
+          curl -L https://github.com/nk-sentinel/cipherradar/releases/latest/download/cradar-full_linux_amd64.tar.gz | tar -xz
+          ./cradar scan ./dist --passes 3 -o cbom.json --validate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nightly-binary-cbom
+          path: cbom.json
+```
+
+### Limitations
+
+- **Packed binaries** (UPX, etc.) hide all rule patterns — Pass 3 can't unpack.
+- **Compressed PEM blobs** embedded inside ZIP / TAR layers inside binaries aren't reached
+  unless the outer container is the scan target (use `--container` for OCI images).
+- **AES-NI / hardware-accelerated paths** have a different byte signature than the table-based
+  AES the current ruleset matches — coverage gap noted in `scanner/yara-rules/README.md`.

@@ -264,16 +264,24 @@ func TestScanDirUniversalScannersRunOnAllFiles(t *testing.T) {
 	}
 }
 
-func TestScanDirUniversalSkippedWhenLanguageScannerExists(t *testing.T) {
+// TestScanDirUniversalRunsAlongsideLanguageScanner asserts that under
+// the post-ADR-039 dispatch model, universal scanners fire on every
+// file — including files a language scanner already claimed — so that
+// Pass 3 (YARA-X) can scan .jar / .class / .so binaries the native
+// binary scanners also handle. Universals self-gate via ScanFile; this
+// test relies on a mock universal that returns a finding for every
+// file it sees, which after the change means BOTH files yield a
+// universal finding.
+func TestScanDirUniversalRunsAlongsideLanguageScanner(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	// .py file — has a language scanner, so universal should NOT run on it
+	// .py file — has a language scanner; universal MUST also run on it now.
 	pyFile := filepath.Join(tmpDir, "crypto.py")
 	if err := os.WriteFile(pyFile, []byte("import hashlib\n"), 0644); err != nil {
 		t.Fatalf("failed to write .py file: %v", err)
 	}
 
-	// .pem file — no language scanner, so universal SHOULD run on it
+	// .pem file — no language scanner; universal runs (unchanged behaviour).
 	pemFile := filepath.Join(tmpDir, "key.pem")
 	if err := os.WriteFile(pemFile, []byte("-----BEGIN RSA PRIVATE KEY-----\n"), 0644); err != nil {
 		t.Fatalf("failed to write .pem file: %v", err)
@@ -314,27 +322,76 @@ func TestScanDirUniversalSkippedWhenLanguageScannerExists(t *testing.T) {
 		t.Errorf("expected 2 files scanned, got %d", result.FilesScanned)
 	}
 
-	// .py → ext scanner only (1 finding), .pem → universal only (1 finding)
-	if len(result.Findings) != 2 {
-		t.Fatalf("expected 2 findings (1 ext from .py + 1 univ from .pem), got %d", len(result.Findings))
+	// .py yields ext+univ (2 findings); .pem yields univ (1 finding). Total 3.
+	if len(result.Findings) != 3 {
+		t.Fatalf("expected 3 findings (ext on .py + univ on both files), got %d", len(result.Findings))
 	}
 
-	foundExt, foundUniv := false, false
+	extCount, univCount := 0, 0
 	for _, f := range result.Findings {
-		if f.RuleID == "ext-rule" {
-			foundExt = true
-		}
-		if f.RuleID == "univ-rule" {
-			foundUniv = true
+		switch f.RuleID {
+		case "ext-rule":
+			extCount++
+		case "univ-rule":
+			univCount++
 		}
 	}
-	if !foundExt {
-		t.Error("expected finding from extension scanner on .py file")
+	if extCount != 1 {
+		t.Errorf("expected 1 ext-rule finding (from .py), got %d", extCount)
 	}
-	if !foundUniv {
-		t.Error("expected finding from universal scanner on .pem file")
+	if univCount != 2 {
+		t.Errorf("expected 2 univ-rule findings (from .py and .pem), got %d", univCount)
 	}
 }
+
+// TestScanDirPassAwareUniversalGatedByPasses asserts that a universal
+// scanner declaring Pass(N) is dispatched only when the active --passes
+// selection includes N. This is the gate that keeps YARA-X (Pass 3)
+// off the default scan path; users opt in via --passes 3 or --deep.
+func TestScanDirPassAwareUniversalGatedByPasses(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "a.txt"), []byte("hi"), 0644); err != nil {
+		t.Fatalf("write a.txt: %v", err)
+	}
+
+	univ := &passAwareMockScanner{
+		mockScanner: &mockScanner{
+			name:       "yarax-stub",
+			extensions: nil,
+			findings:   []types.Finding{{ID: "P3-001", RuleID: "pass3-rule"}},
+		},
+		pass: 3,
+	}
+	registry := NewRegistry()
+	registry.RegisterUniversal(univ)
+
+	// passes=[1,2] — Pass-3 universal must NOT run.
+	res12, err := ScanDir(tmpDir, registry, []int{1, 2})
+	if err != nil {
+		t.Fatalf("ScanDir 1,2: %v", err)
+	}
+	if len(res12.Findings) != 0 {
+		t.Errorf("expected 0 findings with passes=[1,2], got %d", len(res12.Findings))
+	}
+
+	// passes=[1,2,3] — Pass-3 universal MUST run.
+	res123, err := ScanDir(tmpDir, registry, []int{1, 2, 3})
+	if err != nil {
+		t.Fatalf("ScanDir 1,2,3: %v", err)
+	}
+	if len(res123.Findings) != 1 {
+		t.Errorf("expected 1 finding with passes=[1,2,3], got %d", len(res123.Findings))
+	}
+}
+
+// passAwareMockScanner wraps mockScanner and implements PassAware. Used
+// only in this test file to exercise the walker's pass filter.
+type passAwareMockScanner struct {
+	*mockScanner
+	pass int
+}
+
+func (p *passAwareMockScanner) Pass() int { return p.pass }
 
 // recordingMockScanner wraps a mockScanner and records which files it is called with.
 // The mutex makes appends safe when ScanDir invokes scanners across goroutines.

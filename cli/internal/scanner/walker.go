@@ -178,10 +178,20 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 			content: content,
 			scanner: s,
 		}
-		// Only assign universals when there is no language-specific scanner.
-		if s == nil {
-			job.universals = universals
-		}
+		// Universals are assigned to every job, with two filters applied:
+		// (a) Pass-aware universals are skipped when their pass isn't in
+		//     the active --passes selection (gates YARA-X behind --passes 3
+		//     so default scans don't pay the Pass-3 cost).
+		// (b) The universal's own ScanFile() decides whether to fire on
+		//     this specific path (e.g. YARA-X soft-skips source files;
+		//     regex soft-skips binaries via a NUL probe).
+		//
+		// Previously universals only ran on files without a language
+		// scanner — that prevented YARA-X from firing on .jar / .class /
+		// .so binaries because the native binary/jar/wheel scanners had
+		// already claimed those extensions. Filtering by pass + path
+		// inside each universal is more accurate.
+		job.universals = filterUniversalsForPasses(universals, passes)
 
 		jobs = append(jobs, job)
 		return nil
@@ -236,26 +246,30 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 					scanned = true
 				}
 
-				// Run universal scanners only on files WITHOUT a language scanner.
-				if job.scanner == nil {
-					for _, us := range job.universals {
-						scannerStart := time.Now()
-						lg.ScannerStart(us.Name(), job.relPath)
-						f, scanErr := us.ScanFile(job.relPath, job.content)
-						lg.ScannerComplete(us.Name(), len(f), time.Since(scannerStart))
-						if scanErr != nil {
-							errs = append(errs, types.ScanError{
-								File:    job.relPath,
-								Message: scanErr.Error(),
-							})
-							continue
-						}
-						for _, fnd := range f {
-							lg.FindingEmitted(us.Name(), fnd.RuleID, string(fnd.Severity), fnd.Location.File, fnd.Location.Snippet)
-						}
-						findings = append(findings, f...)
-						scanned = true
+				// Run universal scanners on every job regardless of whether
+				// a language scanner already claimed the file. Universals
+				// self-gate via ScanFile (regex via NUL probe / extension
+				// list; YARA-X via its supportedExtensions check); the
+				// walker no longer second-guesses that decision. Pass-3
+				// scanners were already filtered out at job-assembly time
+				// when --passes doesn't include 3.
+				for _, us := range job.universals {
+					scannerStart := time.Now()
+					lg.ScannerStart(us.Name(), job.relPath)
+					f, scanErr := us.ScanFile(job.relPath, job.content)
+					lg.ScannerComplete(us.Name(), len(f), time.Since(scannerStart))
+					if scanErr != nil {
+						errs = append(errs, types.ScanError{
+							File:    job.relPath,
+							Message: scanErr.Error(),
+						})
+						continue
 					}
+					for _, fnd := range f {
+						lg.FindingEmitted(us.Name(), fnd.RuleID, string(fnd.Severity), fnd.Location.File, fnd.Location.Snippet)
+					}
+					findings = append(findings, f...)
+					scanned = true
 				}
 
 				// Derive language label from the matched scanner name.
@@ -322,4 +336,43 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 		return result, err
 	}
 	return result, nil
+}
+
+// filterUniversalsForPasses returns the subset of universals whose
+// declared pass is included in the active passes selection. A universal
+// that doesn't implement PassAware is always included — same effective
+// behaviour as before this filter existed.
+//
+// The walker calls this once per file (cheap: 3 universals max, single
+// type assertion each) rather than at registry-build time so a future
+// --only-pass-3 mode can flip the filter without rebuilding the
+// registry.
+func filterUniversalsForPasses(universals []Scanner, passes []int) []Scanner {
+	if len(universals) == 0 {
+		return universals
+	}
+	out := make([]Scanner, 0, len(universals))
+	for _, u := range universals {
+		if pa, ok := u.(PassAware); ok {
+			p := pa.Pass()
+			if p > 0 && !containsPassInt(passes, p) {
+				continue
+			}
+		}
+		out = append(out, u)
+	}
+	return out
+}
+
+// containsPassInt mirrors cmd.containsPass at the scanner level so
+// walker can do the filter without a package cycle (cmd imports
+// scanner). Kept package-private to avoid duplicating the public
+// surface area.
+func containsPassInt(passes []int, p int) bool {
+	for _, x := range passes {
+		if x == p {
+			return true
+		}
+	}
+	return false
 }
