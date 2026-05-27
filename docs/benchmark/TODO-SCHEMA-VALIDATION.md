@@ -1,31 +1,33 @@
-# TODO: Fix CycloneDX 1.7 Schema Validation Errors
+# RESOLVED: CycloneDX 1.7 Schema Validation Errors
 
-**Priority:** Medium
-**Found:** 2026-03-23
-**Context:** Post-benchmark scanner improvements introduced 37 schema validation failures
+**Status:** Resolved 2026-05-25
+**Resolved by:** feature/cbom-export-quality, commit 1 (see `docs/superpowers/specs/2026-05-25-cbom-export-quality-design.md`)
 
-## Problem
+## History
 
-`cradar scan --validate` reports 37 errors against the CycloneDX 1.7 JSON schema. Our new scanner findings use non-standard enum values for:
+Originally filed 2026-03-23 with 37 enum-validation failures across `algorithmFamily`,
+`cryptoFunctions`, `mode`, `padding`. All 37 were resolved by the normalization maps
+in `cli/internal/output/converter.go` (algorithmFamilyMap, cryptoFunctionMap, etc.)
+before this commit landed.
 
-1. **`algorithmFamily`** — values like `concatkdf`, `concatkdf-hmac`, `x963kdf`, `fernet`, `poly1305`, `aes-cmac`, `3des-cmac` are not in the CycloneDX 1.7 `cryptoAlgorithmFamily` enum
-2. **`cryptoFunctions`** — values like `cipher-suite`, `key-agreement`, `generate`, `mac` may not match the schema's allowed function list
-3. **`mode`** — some mode strings may not match the CycloneDX enum
-4. **`padding`** — some padding values may not match
+Two additional bugs were discovered during the 2026-05-25 audit:
 
-## Root Cause
+- **AlgorithmPrimitive bypass** — `HARDCODED-SECRET` (from `config_scanner.go`) and
+  `CRYPTO-LIBRARY-IMPORT` (from OpenGrep rules) were cast straight to
+  `cyclonedx17.Primitive` without normalization. Fixed in `convertCryptoProperties`
+  with a `rerouteMarker` switch + `canonicalTokenPrimitive` map. Source cleanup
+  in `config_scanner.go` removes the offending `AlgorithmPrimitive` field.
 
-The FN fixes and CBOM inventory improvements added new algorithm families and crypto function types that were named for clarity but don't map to CycloneDX 1.7's restricted enum values.
+- **library assetType** — emitted as-is from OpenGrep inventory rules; not in
+  CycloneDX 1.7 enum. Fixed per ADR-040 (emit as `type: library` component).
 
-## Fix Approach
+The `rerouteMarker` was extended in the same audit to also catch protocol tokens
+(SSH, TLS-*, IKE), material tokens (INITIALIZATION-VECTOR, SYMMETRIC-KEY), and
+certificate tokens (X509, CERTIFICATE-X509) — same bug shape, found by reviewing
+scanner rule emissions exhaustively.
 
-1. Read the CycloneDX 1.7 schema at `cli/internal/validation/schema/` to get the exact allowed enum values
-2. Create a mapping from our internal names to CycloneDX-standard names
-3. Apply the mapping in `cli/internal/output/converter.go` before serialization
-4. Re-run `--validate` to confirm 0 errors
+## Preventing regressions
 
-## Affected Files
-
-- `cli/internal/scanner/java/java_scanner.go` — algorithmFamily values
-- `cli/internal/scanner/python/python_scanner.go` — algorithmFamily values
-- `cli/internal/output/converter.go` — the mapping layer
+`--strict-validate` flag (added in this commit) fails the scan if the
+`validationTally` registers any non-zero fall-through during CycloneDX conversion.
+Default behavior warns to stderr; CI should run with `--strict-validate`.

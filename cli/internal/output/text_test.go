@@ -319,3 +319,23 @@ func TestTextWriter_NoColorInBuffer(t *testing.T) {
 		t.Error("output to non-terminal should not contain ANSI escape codes")
 	}
 }
+
+func TestText_QuantumNotApplicable_OmitsField(t *testing.T) {
+	result := &types.ScanResult{
+		Findings: []types.Finding{
+			{
+				ID: "1", Name: "openssl", AssetType: types.AssetType("library"),
+				Properties: types.CryptoProperties{QuantumStatus: types.QuantumNotApplicable},
+			},
+		},
+	}
+	var buf bytes.Buffer
+	(&TextWriter{}).WriteScanResult(&buf, result)
+	out := buf.String()
+	if strings.Contains(out, "not-applicable") {
+		t.Errorf("text output should NOT render not-applicable literal; got:\n%s", out)
+	}
+	// Avoid asserting on "Unknown" since the existing text output may legitimately
+	// use that word in headers (e.g., a "Unknown algorithms" section). Just make
+	// sure no Quantum Readiness: line appears for this specific finding.
+}

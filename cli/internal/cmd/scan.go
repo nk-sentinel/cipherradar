@@ -14,14 +14,16 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/baseline"
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/container"
+	"github.com/nk-sentinel/cipherradar/cli/internal/diff"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/yarax"
-	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
+	pdfpkg "github.com/nk-sentinel/cipherradar/cli/internal/output/pdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/push"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rulefilter"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 	"github.com/nk-sentinel/cipherradar/cli/internal/validation"
@@ -47,6 +49,8 @@ func init() {
 	scanCmd.Flags().String("passes", "1,2", "comma-separated list of scan passes to run (1=AST, 2=OpenGrep, 3=YARA-X binary)")
 	scanCmd.Flags().String("branch", "", "git branch to scan (for git URLs)")
 	scanCmd.Flags().Bool("validate", false, "validate output against CycloneDX 1.7 schema")
+	scanCmd.Flags().Bool("strict-validate", false,
+		"fail the scan if any output value falls outside the CycloneDX 1.7 enum closed sets (default: warn only)")
 	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (taint analysis + YARA-X binary scan)")
 
@@ -73,6 +77,9 @@ func init() {
 	scanCmd.Flags().String("baseline-file", baseline.DefaultFile, "path to the baseline file used for suppression")
 	scanCmd.Flags().Bool("no-baseline", false, "ignore the baseline file for this run")
 	scanCmd.Flags().Bool("update-baseline", false, "rewrite the baseline file from this run's security findings")
+
+	// PDF baseline diff flag (Task 3.8): compare against a previous scan's CycloneDX JSON.
+	scanCmd.Flags().String("baseline", "", "path to a previous scan's CycloneDX JSON; adds 'Changes vs Baseline' section to PDF reports")
 
 	// Push flags (ADR-025).
 	scanCmd.Flags().Bool("push", false, "upload scan results to CipherRadar portal after scan")
@@ -146,10 +153,23 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// Determine scan options.
 	stagedOnly, _ := cmd.Flags().GetBool("staged-only")
 
+	// Build progress emitter for stderr heartbeat / verbose output.
+	// Both flags are declared as persistent root flags (root.go).
+	quiet, _ := cmd.Flags().GetBool("quiet")
+	verbose, _ := cmd.Flags().GetBool("verbose")
+	emitter := newProgressEmitter(cmd.ErrOrStderr(), ProgressOpts{
+		Quiet:          quiet,
+		Verbose:        verbose,
+		HeartbeatEvery: 100,
+		MinInterval:    2 * time.Second,
+		MinFiles:       50,
+	})
+
 	// Build scan options.
 	scanOpts := scanner.ScanOptions{
 		Fast:       fast,
 		StagedOnly: stagedOnly,
+		Progress:   emitter.WalkedFile,
 	}
 
 	// Load .cradar.yml (optional) so custom_wrappers can seed the registry
@@ -206,11 +226,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 			scanOpts.FileList = stagedFiles
 		}
 
-		// Run Pass 1 scan.
+		// Run Pass 1 scan (tree-sitter AST).
+		emitter.PassStart(1, "tree-sitter", 0) // file count unknown until walk completes
+		pass1Start := time.Now()
 		result, err = scanner.ScanDirWithOptions(targetPath, registry, passes, scanOpts)
 		if err != nil {
 			return fmt.Errorf("scan failed: %w", err)
 		}
+		emitter.PassComplete(1, "tree-sitter", time.Since(pass1Start), len(result.Findings))
 
 		// Run Pass 2 (OpenGrep taint analysis) if requested. When the user
 		// explicitly asked for pass 2 (via --deep or --passes) we hard-fail
@@ -225,9 +248,12 @@ func runScan(cmd *cobra.Command, args []string) error {
 			}
 
 			pass2Required := cmd.Flag("deep").Changed || cmd.Flag("passes").Changed
+			emitter.PassStart(2, "opengrep", result.FilesScanned)
+			pass2Start := time.Now()
 			pass2Findings, pass2Err := runPass2(targetPath, rulesDir, pass2Required)
 			pass2Ran = pass2Err != nil || pass2Findings != nil
 			if pass2Err != nil {
+				emitter.PassComplete(2, "opengrep", time.Since(pass2Start), 0)
 				var ee *ExitError
 				if errors.As(pass2Err, &ee) {
 					return pass2Err
@@ -237,7 +263,11 @@ func runScan(cmd *cobra.Command, args []string) error {
 					Message: fmt.Sprintf("Pass 2 error: %v", pass2Err),
 				})
 			} else if pass2Findings != nil {
+				emitter.PassComplete(2, "opengrep", time.Since(pass2Start), len(pass2Findings))
 				result.Findings = opengrep.DeduplicateFindings(result.Findings, pass2Findings)
+			} else {
+				// pass2Findings is nil (tool skipped)
+				emitter.PassComplete(2, "opengrep", time.Since(pass2Start), 0)
 			}
 		}
 
@@ -288,6 +318,19 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Surface CycloneDX enum normalization violations. ConvertScanResultWithTally
+	// converts the result and tallies any fall-through values that landed outside
+	// the CycloneDX 1.7 closed enum sets. Writers re-run conversion independently;
+	// the tally here is used only for warning emission and --strict-validate gating.
+	strictValidate, _ := cmd.Flags().GetBool("strict-validate")
+	_, validationTallyResult := output.ConvertScanResultWithTally(result)
+	if validationTallyResult.Total > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: %s\n", validationTallyResult.Summary())
+		if strictValidate {
+			return fmt.Errorf("strict-validate: %d normalization violation(s); see warnings above", validationTallyResult.Total)
+		}
+	}
+
 	// Resolve output destinations (ADR-037: repeatable --output).
 	// Precedence for each destination's format: extension dispatch >
 	// --format override (applied when exactly one output and --format set) >
@@ -299,7 +342,19 @@ func runScan(cmd *cobra.Command, args []string) error {
 		cfgFormat = scanCfg.Format
 	}
 
-	formats, err := writeOutputs(cmd, result, outputPaths, explicitFormat, cfgFormat)
+	// Load baseline CBOM for PDF diff section (--baseline flag, Task 3.8).
+	// baselineBOM is nil when --baseline is not set, which disables the section.
+	baselineFlag, _ := cmd.Flags().GetString("baseline")
+	var baselineBOM *output.BOM
+	if baselineFlag != "" {
+		bom, loadErr := diff.LoadBOM(baselineFlag)
+		if loadErr != nil {
+			return fmt.Errorf("baseline: %w", loadErr)
+		}
+		baselineBOM = bom
+	}
+
+	resolved, err := writeOutputs(cmd, result, outputPaths, explicitFormat, cfgFormat, baselineBOM)
 	if err != nil {
 		return err
 	}
@@ -309,10 +364,17 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// meaningful when at least one destination produced cyclonedx-json.
 	validate, _ := cmd.Flags().GetBool("validate")
 	producedCycloneDX := false
-	for _, f := range formats {
-		if f == "cyclonedx-json" {
+	for _, r := range resolved {
+		if r.Format == "cyclonedx-json" {
 			producedCycloneDX = true
 			break
+		}
+	}
+	// Also check stdout sink (resolved is empty when no -o paths were given).
+	if !producedCycloneDX && len(resolved) == 0 {
+		stdoutFmtForValidate := output.ResolveOutputFormat("", explicitFormat, cfgFormat, output.DefaultStdoutFormat())
+		if stdoutFmtForValidate == "cyclonedx-json" {
+			producedCycloneDX = true
 		}
 	}
 	if validate && producedCycloneDX {
@@ -357,6 +419,16 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Emit the always-on final summary to stderr. Suppressed when --quiet or
+	// when the text writer already printed its own summary to stdout (TTY default).
+	stdoutFmt := ""
+	if len(resolved) == 0 {
+		// No -o paths → stdout received the output. Re-resolve the format so
+		// emitFinalSummary knows whether the text writer already showed a summary.
+		stdoutFmt = output.ResolveOutputFormat("", explicitFormat, cfgFormat, output.DefaultStdoutFormat())
+	}
+	emitFinalSummary(cmd.ErrOrStderr(), result, resolved, stdoutFmt, quiet)
+
 	// Check --fail-on severity gate.
 	failOn, _ := cmd.Flags().GetString("fail-on")
 	if failOn != "" {
@@ -389,13 +461,20 @@ func firstArg(args []string) string {
 
 // writeOutputs resolves every destination (stdout or file) to a format and
 // writes the scan result. With no --output paths, writes once to stdout in
-// explicit/cfg/fallback order. With paths, each path's format is inferred
-// from its extension; --format is only honored when there is exactly one
-// output (otherwise it's ambiguous which file it applies to).
+// explicit/cfg/fallback order and returns an empty slice (the caller uses the
+// stdoutFormat parameter of emitFinalSummary to handle the TTY/text case).
+// With paths, each path's format is inferred from its extension; --format is
+// only honored when there is exactly one output (otherwise it's ambiguous
+// which file it applies to).
 //
-// Returns the resolved format for each destination so callers can decide
-// whether schema validation is applicable.
-func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, explicitFormat, cfgFormat string) ([]string, error) {
+// baselineBOM, when non-nil, is injected into any *pdfpkg.Writer instances so
+// the "Changes vs Baseline" section is rendered. The factory returns
+// *pdfpkg.Writer (registered via output/pdf.init), so injectBaseline is active.
+//
+// Returns one ResolvedOutput per file sink (path, format, post-write size).
+// The stdout-only case returns an empty slice; callers check len == 0 to know
+// output went to stdout.
+func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, explicitFormat, cfgFormat string, baselineBOM *output.BOM) ([]ResolvedOutput, error) {
 	// File sinks always fall back to cyclonedx-json (the canonical CBOM
 	// artifact). Stdout falls back to text-on-TTY / cyclonedx-json-on-pipe
 	// so `cradar scan ./app` prints a readable summary in a terminal and
@@ -411,10 +490,12 @@ func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, 
 		if err != nil {
 			return nil, err
 		}
+		injectBaseline(w, baselineBOM)
 		if err := w.WriteScanResult(cmd.OutOrStdout(), result); err != nil {
 			return nil, fmt.Errorf("writing output: %w", err)
 		}
-		return []string{fmtName}, nil
+		// Stdout sink — no ResolvedOutput entry; caller signals this via empty slice.
+		return nil, nil
 	}
 
 	// --format only applies to a single output; ambiguous with multiple sinks.
@@ -427,7 +508,7 @@ func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, 
 			explicitFormat)
 	}
 
-	formats := make([]string, 0, len(paths))
+	var resolved []ResolvedOutput
 	for _, p := range paths {
 		fmtName := output.ResolveOutputFormat(p, perPathExplicit, cfgFormat, fileFallback)
 		if err := output.ValidateFormat(fmtName); err != nil {
@@ -437,6 +518,7 @@ func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, 
 		if err != nil {
 			return nil, err
 		}
+		injectBaseline(w, baselineBOM)
 		f, err := os.Create(p)
 		if err != nil {
 			return nil, fmt.Errorf("cannot create output file %s: %w", p, err)
@@ -448,9 +530,25 @@ func writeOutputs(cmd *cobra.Command, result *types.ScanResult, paths []string, 
 		if err := f.Close(); err != nil {
 			return nil, fmt.Errorf("closing %s: %w", p, err)
 		}
-		formats = append(formats, fmtName)
+		stat, _ := os.Stat(p)
+		var size int64
+		if stat != nil {
+			size = stat.Size()
+		}
+		resolved = append(resolved, ResolvedOutput{Path: p, Format: fmtName, Size: size})
 	}
-	return formats, nil
+	return resolved, nil
+}
+
+// injectBaseline sets the baseline BOM on a *pdfpkg.Writer if the writer is
+// that concrete type. This is a no-op for all other writer implementations.
+func injectBaseline(w output.Writer, baselineBOM *output.BOM) {
+	if baselineBOM == nil {
+		return
+	}
+	if pw, ok := w.(*pdfpkg.Writer); ok {
+		pw.Opts.Baseline = baselineBOM
+	}
 }
 
 // formatUserMessage renders a ValidationError for the human-facing stderr

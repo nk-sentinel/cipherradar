@@ -157,15 +157,22 @@ func (w *TextWriter) WriteScanResult(wr io.Writer, result *types.ScanResult) err
 	printSevRow(types.SeverityInfo, "INFO", grey)
 	p("")
 
-	// Quantum readiness
-	totalFindings := len(result.Findings)
+	// Quantum readiness — not-applicable findings (libraries, certs) are excluded
+	// from the denominator so they don't dilute the readiness percentage.
 	qCounts := map[types.QuantumStatus]int{}
 	for _, f := range result.Findings {
 		qs := f.Properties.QuantumStatus
+		if qs == types.QuantumNotApplicable {
+			continue
+		}
 		if qs == "" {
 			qs = types.QuantumUnknown
 		}
 		qCounts[qs]++
+	}
+	totalFindings := 0
+	for _, n := range qCounts {
+		totalFindings += n
 	}
 
 	safeCount := qCounts[types.QuantumSafe]

@@ -212,6 +212,16 @@ Kotlin External Annotator following IntelliJ's threading model. `collectInformat
 
 ---
 
+### 2026-05-25 — ADR-040: Library detections emit as type=library components
+
+**ADR-040: Library detections emit as CycloneDX type=library components**
+OpenGrep + YARA-X library-presence findings (cbom-asset-type: library) no longer pass
+the invalid value through to CycloneDX `cryptoProperties.assetType`. Routed to
+component `type: library` per CycloneDX 1.7 spec. Breaking change for CBOM JSON consumers
+that read `assetType: "library"`. See ADR-040.
+
+---
+
 ## Open Questions / Pending Decisions
 
 The following items have been identified but not yet formally decided:
