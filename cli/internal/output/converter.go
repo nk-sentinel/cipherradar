@@ -497,7 +497,7 @@ func ConvertScanResultWithTally(result *types.ScanResult) (*BOM, validationTally
 		SerialNumber: generateUUID4(),
 		Metadata: &Metadata{
 			Timestamp: result.StartTime.UTC().Format("2006-01-02T15:04:05Z"),
-			Tools: []Tool{{Name: "CipherRadar", Version: AppVersion, Vendor: "nk-sentinel"}},
+			Tools:     []Tool{{Name: "CipherRadar", Version: AppVersion, Vendor: "nk-sentinel"}},
 		},
 	}
 	components := make([]Component, 0, len(result.Findings))
@@ -569,7 +569,7 @@ func buildFindingProperties(f *types.Finding) []Property {
 	if f.RuleID != "" {
 		props = append(props, Property{Name: "ruleId", Value: f.RuleID})
 	}
-	if f.Properties.QuantumStatus != "" {
+	if f.Properties.QuantumStatus != "" && f.Properties.QuantumStatus != types.QuantumNotApplicable {
 		props = append(props, Property{Name: "quantumStatus", Value: string(f.Properties.QuantumStatus)})
 	}
 	if f.Fingerprint != "" {

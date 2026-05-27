@@ -188,6 +188,9 @@ func addSummarySection(m core.Maroto, result *types.ScanResult) {
 	}
 	for _, f := range result.Findings {
 		qs := f.Properties.QuantumStatus
+		if qs == types.QuantumNotApplicable {
+			continue
+		}
 		if qs == "" {
 			qs = types.QuantumUnknown
 		}
@@ -475,6 +478,12 @@ func addQuantumReadinessSection(m core.Maroto, result *types.ScanResult) {
 	familyMap := make(map[string]*algoInfo)
 
 	for _, f := range result.Findings {
+		// Skip not-applicable findings (libraries, certs) — they don't belong in
+		// the migration recommendations table.
+		if f.Properties.QuantumStatus == types.QuantumNotApplicable {
+			continue
+		}
+
 		family := f.Properties.AlgorithmFamily
 		if family == "" {
 			family = f.Name
@@ -744,10 +753,11 @@ func quantumRecommendation(family string, status types.QuantumStatus) string {
 // unchanged; very short max values (< 8) fall back to head-truncation.
 //
 // Examples (max=40):
-//   cli/internal/scanner/python/python_scanner.go (45 chars) ->
-//     cli/internal/scan…python/python_scanner.go (40 chars)
-//   /a/very/long/path/here/with/many/segments/file.go ->
-//     /a/very/long/path…segments/file.go
+//
+//	cli/internal/scanner/python/python_scanner.go (45 chars) ->
+//	  cli/internal/scan…python/python_scanner.go (40 chars)
+//	/a/very/long/path/here/with/many/segments/file.go ->
+//	  /a/very/long/path…segments/file.go
 //
 // Reserves three characters for the ellipsis "..." so that the result fits
 // exactly within `max` runes (not bytes — caller passes a rune budget).

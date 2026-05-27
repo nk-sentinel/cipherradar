@@ -208,3 +208,16 @@ func TestConvertScanResult_TallyAccumulates(t *testing.T) {
 		t.Errorf("AssetTypes = %d, want 1", tally.AssetTypes)
 	}
 }
+
+func TestConverter_QuantumNotApplicable_OmitsProperty(t *testing.T) {
+	f := &types.Finding{
+		ID: "1", Name: "openssl", AssetType: types.AssetType("library"),
+		Properties: types.CryptoProperties{QuantumStatus: types.QuantumNotApplicable},
+	}
+	comp := convertFinding(f)
+	for _, p := range comp.Properties {
+		if p.Name == "quantumStatus" {
+			t.Errorf("property quantumStatus should be omitted for not-applicable; got value=%q", p.Value)
+		}
+	}
+}

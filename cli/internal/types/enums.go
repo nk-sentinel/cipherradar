@@ -99,4 +99,9 @@ const (
 	QuantumUnknown QuantumStatus = "quantum-unknown"
 	// Broken indicates the asset is already broken by classical attacks.
 	Broken QuantumStatus = "broken"
+	// QuantumNotApplicable indicates the asset is not an algorithm (e.g. a
+	// certificate, hardcoded secret, or library detection) and the quantum
+	// readiness lookup should be skipped entirely. Output writers should omit
+	// the quantum status field rather than render "Unknown".
+	QuantumNotApplicable QuantumStatus = "not-applicable"
 )

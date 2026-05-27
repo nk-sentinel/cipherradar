@@ -168,6 +168,12 @@ func TestScanResultFindingsAppend(t *testing.T) {
 	}
 }
 
+func TestQuantumNotApplicable(t *testing.T) {
+	if QuantumNotApplicable != "not-applicable" {
+		t.Errorf("QuantumNotApplicable = %q, want not-applicable", QuantumNotApplicable)
+	}
+}
+
 func TestScanResultTimestamps(t *testing.T) {
 	start := time.Now()
 	result := ScanResult{

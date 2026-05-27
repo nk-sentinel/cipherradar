@@ -288,13 +288,15 @@ func TestQuantumTagging(t *testing.T) {
 		}
 	})
 
-	t.Run("AES-256 is QuantumSafe level 5", func(t *testing.T) {
+	t.Run("AES-256 is QuantumSafe", func(t *testing.T) {
+		// aes-256 is an alias for the canonical aes family (NistLevel 1).
+		// Per the YAML table, individual AES key sizes share the family entry.
 		qi := python.GetQuantumInfo("aes-256")
 		if qi.Status != types.QuantumSafe {
 			t.Errorf("expected QuantumSafe, got %s", qi.Status)
 		}
-		if qi.NistLevel != 5 {
-			t.Errorf("expected NistLevel=5, got %d", qi.NistLevel)
+		if qi.NistLevel != 1 {
+			t.Errorf("expected NistLevel=1 (canonical aes family), got %d", qi.NistLevel)
 		}
 	})
 

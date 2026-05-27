@@ -1,0 +1,349 @@
+# CipherRadar quantum-readiness table
+# Last updated: 2026-05-25
+# Each algorithm has a canonical `family` (always lowercase, used as map key).
+# `aliases` are silently mapped to the canonical family (Kyber → ML-KEM, etc).
+# `status`: quantum-vulnerable | quantum-safe | quantum-unknown | broken
+# `nist_level`: 0 (not applicable) or 1/3/5 (NIST PQC security categories)
+# `recommendation`: short migration guidance; appears in PDF + text output
+
+version: 1
+non_algorithm_asset_types:
+  - related-crypto-material
+  - certificate
+  - library
+
+algorithms:
+  # ── Quantum-vulnerable (Shor's algorithm breaks these) ──
+  - family: rsa
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM (encryption) or ML-DSA (signatures)"
+    aliases: [rsa-pss, rsa-oaep, rsaes-pkcs1, rsassa-pkcs1, rsassa-pss]
+  - family: dsa
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-DSA"
+  - family: dh
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM"
+    aliases: [ffdh, diffie-hellman]
+  - family: ecdsa
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-DSA"
+  - family: ecdh
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM"
+  - family: ec
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM (key agreement) or ML-DSA (signatures)"
+  - family: ed25519
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-DSA"
+  - family: ed448
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-DSA"
+  - family: x25519
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM"
+  - family: x448
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM"
+  - family: elgamal
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM"
+  - family: ecies
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM + symmetric cipher composition"
+  - family: sm2
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-DSA"
+  - family: gost
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM / ML-DSA"
+
+  # ── Quantum-safe symmetric (Grover halves effective key size) ──
+  - family: aes
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "AES is quantum-safe; prefer AES-256 for PQ margin"
+    aliases: [aes-128, aes-192, aes-256]
+  - family: chacha20
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "256-bit key provides adequate PQ margin"
+    aliases: [chacha, xchacha20]
+  - family: camellia
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe symmetric cipher"
+  - family: aria
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe symmetric cipher"
+  - family: seed
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe symmetric cipher (KS) — acceptable"
+  - family: sm4
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe symmetric cipher (CN) — acceptable"
+  - family: salsa20
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe; consider ChaCha20 for stronger margins"
+    aliases: [xsalsa20]
+  - family: serpent
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe; AES is more widely audited"
+  - family: twofish
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe; AES is more widely audited"
+
+  # ── Quantum-safe hash ──
+  - family: sha-256
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "128-bit PQ security; adequate"
+    aliases: [sha256]
+  - family: sha-384
+    status: quantum-safe
+    nist_level: 3
+    recommendation: "192-bit PQ security"
+    aliases: [sha384]
+  - family: sha-512
+    status: quantum-safe
+    nist_level: 5
+    recommendation: "256-bit PQ security"
+    aliases: [sha512]
+  - family: sha-224
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "112-bit PQ security; consider SHA-256+"
+    aliases: [sha224]
+  - family: sha3-256
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "128-bit PQ security"
+  - family: sha3-384
+    status: quantum-safe
+    nist_level: 3
+    recommendation: "192-bit PQ security"
+  - family: sha3-512
+    status: quantum-safe
+    nist_level: 5
+    recommendation: "256-bit PQ security"
+  - family: blake2
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe with 256-bit output"
+    aliases: [blake2b, blake2s]
+  - family: blake3
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe with 256-bit output"
+  - family: shake-128
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe (SHA-3 family)"
+    aliases: [shake128]
+  - family: shake-256
+    status: quantum-safe
+    nist_level: 3
+    recommendation: "Quantum-safe (SHA-3 family)"
+    aliases: [shake256]
+
+  # ── MAC ──
+  - family: hmac
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "HMAC inherits the underlying hash's PQ strength"
+  - family: hmac-sha-256
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "128-bit PQ security"
+    aliases: [hmac-sha256]
+  - family: hmac-sha-384
+    status: quantum-safe
+    nist_level: 3
+    recommendation: "192-bit PQ security"
+  - family: hmac-sha-512
+    status: quantum-safe
+    nist_level: 5
+    recommendation: "256-bit PQ security"
+  - family: cmac
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe MAC (when paired with AES-256)"
+  - family: kmac
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe MAC (SHA-3 family)"
+  - family: poly1305
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe one-time MAC (paired with ChaCha20)"
+  - family: gmac
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe MAC; part of AES-GCM"
+
+  # ── KDF / password hashing ──
+  - family: pbkdf2
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Use ≥600k iterations + SHA-256 minimum"
+  - family: hkdf
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe KDF (RFC 5869)"
+  - family: scrypt
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe memory-hard KDF"
+  - family: bcrypt
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe password hash; consider Argon2id for new code"
+  - family: argon2
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe password hash (PHC winner); use Argon2id variant"
+    aliases: [argon2i, argon2d, argon2id]
+  - family: concatkdf
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Quantum-safe KDF (SP 800-56C)"
+    aliases: [concatkdf-hmac, x963kdf]
+
+  # ── Post-quantum NIST standards ──
+  - family: ml-kem
+    status: quantum-safe
+    nist_level: 5
+    recommendation: "NIST PQC standard (FIPS 203) — recommended for key encapsulation"
+    aliases: [kyber, kyber-512, kyber-768, kyber-1024, crystals-kyber]
+  - family: ml-dsa
+    status: quantum-safe
+    nist_level: 5
+    recommendation: "NIST PQC standard (FIPS 204) — recommended for signatures"
+    aliases: [dilithium, dilithium2, dilithium3, dilithium5, crystals-dilithium]
+  - family: slh-dsa
+    status: quantum-safe
+    nist_level: 5
+    recommendation: "NIST PQC standard (FIPS 205) — stateless hash-based signatures"
+    aliases: [sphincs, sphincs+, sphincsplus]
+  - family: fn-dsa
+    status: quantum-safe
+    nist_level: 5
+    recommendation: "NIST PQC standard (draft FIPS 206) — Falcon successor"
+    aliases: [falcon, falcon-512, falcon-1024]
+  - family: xmss
+    status: quantum-safe
+    nist_level: 5
+    recommendation: "NIST SP 800-208 — stateful hash-based signatures"
+    aliases: [xmss-mt]
+  - family: lms
+    status: quantum-safe
+    nist_level: 5
+    recommendation: "NIST SP 800-208 — stateful hash-based signatures"
+    aliases: [hss]
+  - family: bike
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "NIST PQC alternative (KEM, code-based)"
+  - family: hqc
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "NIST PQC alternative (KEM, code-based)"
+  - family: frodokem
+    status: quantum-safe
+    nist_level: 1
+    recommendation: "Conservative LWE-based KEM (slower than ML-KEM)"
+    aliases: [frodo]
+
+  # ── Broken ──
+  - family: md5
+    status: broken
+    nist_level: 0
+    recommendation: "Do not use — collision attacks practical since 2004"
+  - family: md4
+    status: broken
+    nist_level: 0
+    recommendation: "Do not use — collision attacks trivial"
+  - family: md2
+    status: broken
+    nist_level: 0
+    recommendation: "Do not use — collision attacks practical"
+  - family: sha-1
+    status: broken
+    nist_level: 0
+    recommendation: "Do not use — collision attacks practical since 2017"
+    aliases: [sha1]
+  - family: des
+    status: broken
+    nist_level: 0
+    recommendation: "Do not use — 56-bit key is trivially brutable"
+  - family: 3des
+    status: broken
+    nist_level: 0
+    recommendation: "Deprecated by NIST (2024) — migrate to AES"
+    aliases: [tripledes, triple-des]
+  - family: rc2
+    status: broken
+    nist_level: 0
+    recommendation: "Do not use — multiple known attacks"
+  - family: rc4
+    status: broken
+    nist_level: 0
+    recommendation: "Do not use — RFC 7465 (banned in TLS)"
+  - family: rc5
+    status: broken
+    nist_level: 0
+    recommendation: "Do not use — distinguishing attacks known"
+  - family: rc6
+    status: broken
+    nist_level: 0
+    recommendation: "Do not use — distinguishing attacks known"
+  - family: ripemd
+    status: broken
+    nist_level: 0
+    recommendation: "RIPEMD-160 not yet broken but deprecated; use SHA-256+"
+    aliases: [ripemd-160, ripemd160]
+  - family: blowfish
+    status: broken
+    nist_level: 0
+    recommendation: "64-bit block size makes it weak for modern use; use AES"
+  - family: idea
+    status: broken
+    nist_level: 0
+    recommendation: "Patent expired but rarely used; prefer AES"
+  - family: cast5
+    status: broken
+    nist_level: 0
+    recommendation: "64-bit block size makes it weak for modern use; use AES"
+  - family: cast6
+    status: broken
+    nist_level: 0
+    recommendation: "Use AES; CAST6 is rarely audited"
+  - family: skipjack
+    status: broken
+    nist_level: 0
+    recommendation: "Deprecated NSA cipher; use AES"
+  - family: whirlpool
+    status: broken
+    nist_level: 0
+    recommendation: "Rarely audited; prefer SHA-3 / BLAKE3"
