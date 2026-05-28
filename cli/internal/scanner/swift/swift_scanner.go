@@ -135,6 +135,17 @@ func (s *SwiftScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 		// Detect CommonCrypto patterns
 		for _, pat := range s.commonCryptoRe {
 			if pat.re.MatchString(resolved) {
+				// Special case: CCCrypt's first argument is a kCCAlgorithm*
+				// constant identifying the actual cipher. Inspect it so that
+				// e.g. kCCAlgorithmDES is reported as DES rather than a generic
+				// (AES-defaulted) CCCrypt finding. When a recognized constant is
+				// present we emit only the algorithm-specific finding to avoid
+				// duplicating it with the generic one.
+				if pat.ruleID == ccCryptRuleID {
+					if alg, ok := ccCryptAlgorithm(resolved); ok {
+						pat = alg
+					}
+				}
 				qi := quantum.GetInfo(pat.family)
 				findings = append(findings, types.Finding{
 					ID:        nextFindingID(),
@@ -480,6 +491,97 @@ func (s *SwiftScanner) initCommonCryptoPatterns() {
 			assetType:   types.AssetAlgorithm,
 		},
 	}
+}
+
+// ccCryptRuleID is the rule ID of the generic CCCrypt pattern. Used to trigger
+// algorithm-argument inspection.
+const ccCryptRuleID = "cbom-swift-commoncrypto-cccrypt"
+
+// ccCryptAlgConst maps a CommonCrypto kCCAlgorithm* constant to a concrete
+// algorithm-specific CCCrypt pattern. Only these exact constants trigger an
+// algorithm-specific finding; anything else falls back to the generic pattern.
+var ccCryptAlgConst = map[string]*regexPattern{
+	"kCCAlgorithmDES": {
+		family:      "des",
+		name:        "CCCrypt-DES",
+		primitive:   "block-cipher",
+		severity:    types.SeverityHigh,
+		ruleID:      "cbom-swift-commoncrypto-cccrypt-des",
+		cryptoFuncs: []string{"encrypt", "decrypt"},
+		assetType:   types.AssetAlgorithm,
+	},
+	"kCCAlgorithm3DES": {
+		family:      "3des",
+		name:        "CCCrypt-3DES",
+		primitive:   "block-cipher",
+		severity:    types.SeverityHigh,
+		ruleID:      "cbom-swift-commoncrypto-cccrypt-3des",
+		cryptoFuncs: []string{"encrypt", "decrypt"},
+		assetType:   types.AssetAlgorithm,
+	},
+	"kCCAlgorithmRC4": {
+		family:      "rc4",
+		name:        "CCCrypt-RC4",
+		primitive:   "stream-cipher",
+		severity:    types.SeverityHigh,
+		ruleID:      "cbom-swift-commoncrypto-cccrypt-rc4",
+		cryptoFuncs: []string{"encrypt", "decrypt"},
+		assetType:   types.AssetAlgorithm,
+	},
+	"kCCAlgorithmAES": {
+		family:      "aes",
+		name:        "CCCrypt-AES",
+		primitive:   "block-cipher",
+		severity:    types.SeverityInfo,
+		ruleID:      "cbom-swift-commoncrypto-cccrypt-aes",
+		cryptoFuncs: []string{"encrypt", "decrypt"},
+		assetType:   types.AssetAlgorithm,
+	},
+	"kCCAlgorithmAES128": {
+		family:      "aes",
+		name:        "CCCrypt-AES",
+		primitive:   "block-cipher",
+		severity:    types.SeverityInfo,
+		ruleID:      "cbom-swift-commoncrypto-cccrypt-aes",
+		cryptoFuncs: []string{"encrypt", "decrypt"},
+		assetType:   types.AssetAlgorithm,
+	},
+	"kCCAlgorithmBlowfish": {
+		family:      "blowfish",
+		name:        "CCCrypt-Blowfish",
+		primitive:   "block-cipher",
+		severity:    types.SeverityHigh,
+		ruleID:      "cbom-swift-commoncrypto-cccrypt-blowfish",
+		cryptoFuncs: []string{"encrypt", "decrypt"},
+		assetType:   types.AssetAlgorithm,
+	},
+	"kCCAlgorithmCAST": {
+		family:      "cast5",
+		name:        "CCCrypt-CAST",
+		primitive:   "block-cipher",
+		severity:    types.SeverityHigh,
+		ruleID:      "cbom-swift-commoncrypto-cccrypt-cast",
+		cryptoFuncs: []string{"encrypt", "decrypt"},
+		assetType:   types.AssetAlgorithm,
+	},
+}
+
+// ccCryptAlgRe extracts the kCCAlgorithm* constant token from a CCCrypt call.
+// The constant may be wrapped in CCAlgorithm(...) or passed bare. We match the
+// word-boundary-delimited identifier and look it up exactly to stay tight (no
+// arbitrary identifiers, no false positives).
+var ccCryptAlgRe = regexp.MustCompile(`\bkCCAlgorithm[0-9A-Za-z]+`)
+
+// ccCryptAlgorithm inspects a CCCrypt call line and returns the algorithm-specific
+// pattern for its kCCAlgorithm* constant. The bool is false when no recognized
+// constant is present (caller then uses the generic CCCrypt pattern).
+func ccCryptAlgorithm(line string) (*regexPattern, bool) {
+	for _, tok := range ccCryptAlgRe.FindAllString(line, -1) {
+		if pat, ok := ccCryptAlgConst[tok]; ok {
+			return pat, true
+		}
+	}
+	return nil, false
 }
 
 // ---------------------------------------------------------------------------
