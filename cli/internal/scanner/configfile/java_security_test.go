@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
 func TestJavaSecurityName(t *testing.T) {
@@ -81,6 +83,62 @@ jdk.certpath.disabledAlgorithms=MD2
 		if !found {
 			t.Errorf("expected finding for missing disabled algorithm %q", algo)
 		}
+	}
+}
+
+func TestJavaSecurityKeyManagerAlgorithm(t *testing.T) {
+	content := []byte(`
+ssl.KeyManagerFactory.algorithm=SunX509
+ssl.TrustManagerFactory.algorithm=PKIX
+keystore.type=pkcs12
+`)
+	s := NewJavaSecurity()
+	findings, err := s.ScanFile("keymgr.security", content)
+	if err != nil {
+		t.Fatalf("ScanFile returned error: %v", err)
+	}
+
+	// Should emit SunX509, PKIX (algorithm) and PKCS12 (keystore type).
+	assertHasFindingNamed(t, findings, "SunX509", types.AssetAlgorithm)
+	assertHasFindingNamed(t, findings, "PKIX", types.AssetAlgorithm)
+	assertHasFindingNamed(t, findings, "PKCS12", types.AssetRelatedCryptoMaterial)
+
+	for _, f := range findings {
+		if f.Pass != 1 {
+			t.Errorf("expected Pass=1 for %q, got %d", f.Name, f.Pass)
+		}
+	}
+}
+
+func TestJavaSecurityKeyManagerNoFalsePositive(t *testing.T) {
+	// An unknown / non-algorithm value must NOT produce a finding (zero-FP rule).
+	content := []byte(`
+ssl.KeyManagerFactory.algorithm=SomethingUnknown
+keystore.type=notarealtype
+`)
+	s := NewJavaSecurity()
+	findings, err := s.ScanFile("unknown.security", content)
+	if err != nil {
+		t.Fatalf("ScanFile returned error: %v", err)
+	}
+	for _, f := range findings {
+		if f.RuleID == "cbom-configfile-java-keymanager-algorithm" ||
+			f.RuleID == "cbom-configfile-java-keystore-type" {
+			t.Errorf("unexpected finding for unknown value: name=%q ruleID=%q", f.Name, f.RuleID)
+		}
+	}
+}
+
+func assertHasFindingNamed(t *testing.T, findings []types.Finding, name string, at types.AssetType) {
+	t.Helper()
+	for _, f := range findings {
+		if f.Name == name && f.AssetType == at {
+			return
+		}
+	}
+	t.Errorf("expected finding name=%q assetType=%q, not found among %d findings", name, at, len(findings))
+	for _, f := range findings {
+		t.Logf("  found: name=%q assetType=%q ruleID=%q", f.Name, f.AssetType, f.RuleID)
 	}
 }
 

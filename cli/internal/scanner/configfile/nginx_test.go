@@ -51,6 +51,10 @@ func TestNginxScanFile(t *testing.T) {
 	assertHasFinding(t, findings, "TLS certificate:")
 	assertHasFinding(t, findings, "TLS private key:")
 
+	// The ssl_certificate finding must be emitted as a certificate asset so it
+	// survives --only-inventory filtering (hasAssetIdentity includes certificate).
+	assertHasFindingType(t, findings, "TLS certificate:", types.AssetCertificate)
+
 	// All findings should have Pass=1.
 	for _, f := range findings {
 		if f.Pass != 1 {
@@ -105,6 +109,16 @@ other_setting = other_value
 	if len(findings) != 0 {
 		t.Errorf("expected 0 findings for non-nginx config, got %d", len(findings))
 	}
+}
+
+func assertHasFindingType(t *testing.T, findings []types.Finding, nameSubstr string, at types.AssetType) {
+	t.Helper()
+	for _, f := range findings {
+		if strings.Contains(f.Name, nameSubstr) && f.AssetType == at {
+			return
+		}
+	}
+	t.Errorf("expected finding name containing %q with assetType %q, not found among %d findings", nameSubstr, at, len(findings))
 }
 
 func assertHasFinding(t *testing.T, findings []types.Finding, nameSubstr string) {
