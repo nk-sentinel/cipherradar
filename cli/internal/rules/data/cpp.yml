@@ -148,3 +148,50 @@ rules:
           #include <openssl/$X>
       - pattern: |
           #include <sodium.h>
+
+  # ── GOST R 34.10 signature (Botan), quantum-vulnerable ──
+  #
+  # Botan exposes GOST_3410 public-key classes. Tied to those identifiers
+  # so unrelated code is never matched. GOST3410 feeds the Pass-2 quantum
+  # classifier (gost family is quantum-vulnerable).
+
+  - id: cbom-cpp-botan-gost3410
+    message: "GOST R 34.10 signature (Botan) detected"
+    severity: INFO
+    languages: [cpp, c]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GOST3410
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: Botan::GOST_3410_PrivateKey $X;
+      - pattern: Botan::GOST_3410_PublicKey $X;
+      - pattern: new Botan::GOST_3410_PrivateKey(...)
+      - pattern: new Botan::GOST_3410_PublicKey(...)
+      - pattern: Botan::GOST_3410_PrivateKey($A, ...)
+      - pattern: Botan::GOST_3410_PublicKey($A, ...)
+
+  # ── GOST R 34.11 hash (OpenSSL gost engine / Botan) ──
+  - id: cbom-cpp-gost3411
+    message: "GOST R 34.11 hash detected"
+    severity: INFO
+    languages: [cpp, c]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GOST3411
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: EVP_get_digestbyname("md_gost94")
+      - pattern: EVP_get_digestbyname("md_gost12_256")
+      - pattern: EVP_get_digestbyname("md_gost12_512")
+      - pattern: Botan::GOST_34_11

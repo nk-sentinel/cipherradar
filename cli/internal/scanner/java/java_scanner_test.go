@@ -242,6 +242,35 @@ func TestBouncyCastleCrypto(t *testing.T) {
 			f.Properties.Primitive == "hash"
 	}, "Bouncy Castle BLAKE2s digest finding (new Blake2sDigest)")
 
+	// SM2 public-key encryption engine (quantum-vulnerable, #32)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "sm2" &&
+			f.Name == "SM2" &&
+			f.Properties.Primitive == "pke" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Bouncy Castle SM2 engine finding (quantum-vulnerable)")
+
+	// SM2 signer (quantum-vulnerable, #32)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "sm2" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Bouncy Castle SM2Signer finding (quantum-vulnerable)")
+
+	// ECIES engine (quantum-vulnerable, #32)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "ecies" &&
+			f.Name == "ECIES" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Bouncy Castle IESEngine (ECIES) finding (quantum-vulnerable)")
+
+	// EC-GOST R 34.10 signer (quantum-vulnerable, #32)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "gost" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Bouncy Castle ECGOST3410Signer finding (quantum-vulnerable)")
+
 	// All findings must have Pass = 1
 	for _, f := range findings {
 		if f.Pass != 1 {

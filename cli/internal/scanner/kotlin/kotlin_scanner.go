@@ -78,6 +78,12 @@ func (s *KotlinScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 	bcFindings := s.detectBouncyCastle(root, path, content, cp)
 	findings = append(findings, bcFindings...)
 
+	// Detect Bouncy Castle asymmetric engines/signers (SM2, ECIES, GOST).
+	// Kotlin has no `new` keyword, so these constructor calls parse as
+	// call_expression rather than object_creation_expression.
+	bcAsymFindings := s.detectBouncyCastleAsymmetric(root, path, content)
+	findings = append(findings, bcAsymFindings...)
+
 	// Detect SSL/TLS usage
 	sslFindings := s.detectSSL(root, path, content, cp)
 	findings = append(findings, sslFindings...)
@@ -584,6 +590,26 @@ var bcEngineAlgorithms = map[string]struct {
 	"CamelliaEngine": {family: "camellia", name: "Camellia", primitive: "block-cipher"},
 }
 
+// bcAsymmetricAlgorithms maps Bouncy Castle asymmetric engine/signer class
+// names to quantum-vulnerable public-key schemes. Detection is tied to the
+// specific BC identifier (constructed via `new XxxEngine()`/`new XxxSigner()`),
+// so there are no false positives. Family names match quantum-readiness.yml
+// entries (sm2 / ecies / gost), so each finding is quantum labeled in Pass 1.
+var bcAsymmetricAlgorithms = map[string]struct {
+	family    string
+	name      string
+	primitive string
+}{
+	"SM2Engine":             {family: "sm2", name: "SM2", primitive: "pke"},
+	"SM2Signer":             {family: "sm2", name: "SM2", primitive: "signature"},
+	"IESEngine":             {family: "ecies", name: "ECIES", primitive: "pke"},
+	"ECIESEngine":           {family: "ecies", name: "ECIES", primitive: "pke"},
+	"IESCipher":             {family: "ecies", name: "ECIES", primitive: "pke"},
+	"GOST3410Signer":        {family: "gost", name: "GOST R 34.10", primitive: "signature"},
+	"ECGOST3410Signer":      {family: "gost", name: "EC-GOST R 34.10", primitive: "signature"},
+	"ECGOST3410_2012Signer": {family: "gost", name: "EC-GOST R 34.10-2012", primitive: "signature"},
+}
+
 // bcModes maps Bouncy Castle mode class names to mode strings.
 var bcModes = map[string]string{
 	"CBCBlockCipher": "cbc",
@@ -731,6 +757,89 @@ func (s *KotlinScanner) detectBouncyCastle(root *sitter.Node, path string, conte
 			})
 			continue
 		}
+	}
+
+	return findings
+}
+
+// detectBouncyCastleAsymmetric detects Bouncy Castle SM2 / ECIES / GOST
+// engine and signer constructions. The Kotlin scanner parses with the Java
+// tree-sitter grammar, under which a Kotlin constructor call without `new`
+// (e.g. `SM2Engine()`) parses as a method_invocation whose name is a bare
+// identifier. detectBouncyCastle only matches object_creation_expression
+// (`new Xxx()`), so these are handled separately here. The class names are
+// highly specific BC identifiers, so there are no false positives.
+func (s *KotlinScanner) detectBouncyCastleAsymmetric(root *sitter.Node, path string, content []byte) []types.Finding {
+	queryStr := `(method_invocation
+		name: (identifier) @cls
+		arguments: (argument_list))`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return nil
+	}
+
+	var findings []types.Finding
+	for _, match := range matches {
+		// The query has a single named capture (@cls); take the first capture
+		// whose text matches a known asymmetric BC class.
+		var clsNode *sitter.Node
+		var asymInfo struct {
+			family    string
+			name      string
+			primitive string
+		}
+		for _, capture := range match.Captures {
+			if info, ok := bcAsymmetricAlgorithms[scanner.NodeText(capture.Node, content)]; ok {
+				clsNode = capture.Node
+				asymInfo = info
+				break
+			}
+		}
+		if clsNode == nil {
+			continue
+		}
+
+		className := scanner.NodeText(clsNode, content)
+
+		// The method_invocation node is the enclosing call; walk up to it.
+		callNode := clsNode.Parent()
+		for callNode != nil && callNode.Type() != "method_invocation" {
+			callNode = callNode.Parent()
+		}
+		if callNode == nil {
+			callNode = clsNode
+		}
+
+		qi := quantum.GetInfo(asymInfo.family)
+		severity := types.SeverityInfo
+		if qi.Status == types.QuantumVulnerable || qi.Status == types.Broken {
+			severity = types.SeverityMedium
+		}
+
+		cryptoFn := []string{"encrypt", "decrypt"}
+		if asymInfo.primitive == "signature" {
+			cryptoFn = []string{"sign", "verify"}
+		}
+
+		findings = append(findings, types.Finding{
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       asymInfo.name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   severity,
+			Confidence: types.ConfidenceHigh,
+			Properties: types.CryptoProperties{
+				Primitive:        asymInfo.primitive,
+				AlgorithmFamily:  asymInfo.family,
+				QuantumStatus:    qi.Status,
+				NistQuantumLevel: qi.NistLevel,
+				CryptoFunctions:  cryptoFn,
+			},
+			Description: fmt.Sprintf("Bouncy Castle %s via %s()", asymInfo.name, className),
+			RuleID:      fmt.Sprintf("cbom-kotlin-bc-%s-%s", asymInfo.family, strings.ToLower(className)),
+			Pass:        1,
+		})
 	}
 
 	return findings

@@ -110,3 +110,26 @@ rules:
     pattern-either:
       - pattern: import 'package:crypto/$X';
       - pattern: import 'package:pointycastle/$X';
+
+  # ── GOST R 34.11 hash (PointyCastle) ──
+  #
+  # PointyCastle (Dart's BouncyCastle port) exposes GOST3411Digest and a
+  # registry lookup Digest('GOST3411'). Tied to those specific identifiers
+  # so unrelated code is never matched.
+
+  - id: cbom-dart-gost3411
+    message: "GOST R 34.11 hash (PointyCastle) detected"
+    severity: INFO
+    languages: [dart]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GOST3411
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: GOST3411Digest()
+      - pattern: Digest("GOST3411")
