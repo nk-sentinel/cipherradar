@@ -141,6 +141,22 @@ func TestCryptoUsage(t *testing.T) {
 			f.Properties.Primitive == "mac"
 	}, "HMAC finding")
 
+	// PBKDF2 KDF (quantum-safe, INFO severity)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "PBKDF2" &&
+			f.Properties.AlgorithmFamily == "pbkdf2" &&
+			f.Properties.Primitive == "kdf" &&
+			f.Severity == types.SeverityInfo &&
+			f.Properties.QuantumStatus == types.QuantumSafe &&
+			f.RuleID == "cbom-cpp-pbkdf2"
+	}, "PBKDF2 key derivation finding via PKCS5_PBKDF2_HMAC")
+
+	// PBKDF2 via PKCS5_PBKDF2_HMAC_SHA1 variant
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "PBKDF2" &&
+			f.Description == "PBKDF2 key derivation via PKCS5_PBKDF2_HMAC_SHA1()"
+	}, "PBKDF2 finding via PKCS5_PBKDF2_HMAC_SHA1")
+
 	// PEM private key
 	assertFindingExists(t, findings, func(f types.Finding) bool {
 		return f.AssetType == types.AssetRelatedCryptoMaterial &&
