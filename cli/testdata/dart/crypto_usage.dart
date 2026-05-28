@@ -70,3 +70,33 @@ final key = Key.fromLength(32);
 final iv = IV.fromLength(16);
 final encrypter = Encrypter(AES(key));
 final encrypted = encrypter.encrypt('sensitive data', iv: iv);
+
+// AES-GCM (AEAD) via package:encrypt — mode must be captured.
+final gcmEncrypter = Encrypter(AES(key, mode: AESMode.gcm));
+// AES-CBC standalone — mode must be captured, single finding.
+final cbcCipher = AES(key, mode: AESMode.cbc);
+
+// ---------------------------------------------------------------------------
+// pointycastle — EC key generation (quantum-vulnerable)
+// ---------------------------------------------------------------------------
+
+final ecGen = ECKeyGenerator()
+  ..init(ParametersWithRandom(
+      ECKeyGeneratorParameters(ECCurve_secp256r1()), FortunaRandom()));
+
+// ---------------------------------------------------------------------------
+// pointycastle — scrypt KDF
+// ---------------------------------------------------------------------------
+
+final scryptKdf = Scrypt()..init(ScryptParameters(16384, 8, 1, 32, salt));
+
+// ---------------------------------------------------------------------------
+// dart:io — TLS transport
+// ---------------------------------------------------------------------------
+
+final tlsConn = SecureSocket.connect('example.com', 443);
+
+// Negative control: an unrelated identifier containing "socket" or "AES"
+// substrings must NOT trigger any finding.
+final webSocketUrl = 'wss://example.com/feed';
+final phrase = 'PHRASES contain AES letters but are not crypto';

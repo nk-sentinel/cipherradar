@@ -9,11 +9,26 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
-// opensslInstallRe matches apt-get/apt install of openssl without version pinning.
-var opensslInstallRe = regexp.MustCompile(`(?i)(apt-get|apt)\s+install\s+.*\bopenssl\b`)
+// pkgInstallRe matches a package-manager install command across the common
+// Linux distros: Debian/Ubuntu (apt/apt-get), Alpine (apk add), and
+// RHEL/Fedora (yum/dnf install). Flags such as --no-cache or -y between the
+// verb and the package list are tolerated.
+var pkgInstallRe = regexp.MustCompile(`(?i)\b(?:apt-get|apt|yum|dnf|microdnf|apk)\s+(?:install|add)\b`)
 
-// opensslPinnedRe matches openssl with a version pin (openssl=version).
-var opensslPinnedRe = regexp.MustCompile(`(?i)\bopenssl=[^\s]+`)
+// opensslPkgRe matches the openssl runtime package name as a whole word.
+var opensslPkgRe = regexp.MustCompile(`(?i)\bopenssl\b`)
+
+// opensslPinnedRe matches openssl with a version pin (openssl=version or
+// openssl-3.0.2 for apk/yum style pins).
+var opensslPinnedRe = regexp.MustCompile(`(?i)\bopenssl[=-][0-9][^\s]*`)
+
+// cryptoLibPkgRe matches common OpenSSL development / shared library packages
+// across distros: libssl-dev, libssl1.1, openssl-dev, openssl-libs. Kept tight
+// to these exact package names so arbitrary packages are never matched.
+var cryptoLibPkgRe = regexp.MustCompile(`(?i)\b(?:libssl-dev|libssl[0-9][0-9.]*|openssl-dev|openssl-libs)\b`)
+
+// tlsPorts is the set of EXPOSE ports treated as TLS/HTTPS endpoints.
+var tlsPorts = map[string]bool{"443": true, "8443": true}
 
 // DockerfileScanner detects crypto-related patterns in Dockerfiles.
 type DockerfileScanner struct{}
@@ -55,9 +70,11 @@ func (s *DockerfileScanner) ScanFile(path string, content []byte) ([]types.Findi
 			continue
 		}
 
-		// Detect unpinned openssl install.
-		if strings.HasPrefix(strings.ToUpper(trimmed), "RUN") {
-			if opensslInstallRe.MatchString(trimmed) && !opensslPinnedRe.MatchString(trimmed) {
+		// Detect unpinned crypto-package installs (openssl runtime + dev/shared
+		// libraries) across apt/apt-get/apk/yum/dnf.
+		if strings.HasPrefix(strings.ToUpper(trimmed), "RUN") && pkgInstallRe.MatchString(trimmed) {
+			// openssl runtime package (skip when version-pinned).
+			if opensslPkgRe.MatchString(trimmed) && !opensslPinnedRe.MatchString(trimmed) {
 				findings = append(findings, makeFinding(
 					types.AssetAlgorithm,
 					"Unpinned OpenSSL install",
@@ -68,25 +85,36 @@ func (s *DockerfileScanner) ScanFile(path string, content []byte) ([]types.Findi
 					types.CryptoProperties{AlgorithmFamily: "openssl"},
 				))
 			}
+			// OpenSSL dev/shared library packages (libssl-dev, openssl-libs, ...).
+			if cryptoLibPkgRe.MatchString(trimmed) {
+				findings = append(findings, makeFinding(
+					types.AssetAlgorithm,
+					"Unpinned crypto library install",
+					path, lineNum, trimmed,
+					types.SeverityMedium,
+					"Dockerfile installs an OpenSSL development/shared library package",
+					"cbom-configfile-dockerfile-unpinned-crypto-lib",
+					types.CryptoProperties{AlgorithmFamily: "openssl"},
+				))
+			}
 		}
 
-		// Detect EXPOSE 443 (TLS endpoint indicator).
+		// Detect EXPOSE of a TLS/HTTPS port (443, 8443).
 		if strings.HasPrefix(strings.ToUpper(trimmed), "EXPOSE") {
 			ports := strings.Fields(trimmed)
 			for _, port := range ports[1:] {
 				// Strip protocol suffix if present (e.g., "443/tcp").
 				cleanPort := strings.Split(port, "/")[0]
-				if cleanPort == "443" {
+				if tlsPorts[cleanPort] {
 					findings = append(findings, makeFinding(
 						types.AssetProtocol,
-						"TLS endpoint: EXPOSE 443",
+						"TLS endpoint: EXPOSE "+cleanPort,
 						path, lineNum, trimmed,
 						types.SeverityInfo,
-						"Dockerfile exposes port 443, indicating a TLS endpoint",
+						"Dockerfile exposes port "+cleanPort+", indicating a TLS endpoint",
 						"cbom-configfile-dockerfile-tls-port",
 						types.CryptoProperties{ProtocolType: "tls"},
 					))
-					break
 				}
 			}
 		}

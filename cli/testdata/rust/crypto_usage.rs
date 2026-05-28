@@ -4,6 +4,9 @@ use ring::agreement;
 use ring::pbkdf2;
 use ring::signature;
 use rustls::ClientConfig;
+use aes_gcm::{Aes256Gcm, Aes128Gcm, KeyInit};
+use aes_gcm::aead::Aead as _;
+use rsa::RsaPrivateKey;
 
 // ring::digest - SHA-256
 fn hash_sha256(data: &[u8]) {
@@ -106,4 +109,28 @@ fn openssl_aes(key: &[u8], iv: &[u8], data: &[u8]) {
 // openssl crate - DES (broken)
 fn openssl_des(key: &[u8], iv: &[u8], data: &[u8]) {
     let cipher = openssl::symm::Cipher::des_cbc();
+}
+
+// RustCrypto aes-gcm crate - AES-256-GCM
+fn rustcrypto_aes256_gcm(key_bytes: &[u8], nonce: &[u8], data: &[u8]) {
+    let cipher = Aes256Gcm::new(key_bytes.into());
+    let _ct = cipher.encrypt(nonce.into(), data).unwrap();
+}
+
+// RustCrypto aes-gcm crate - AES-128-GCM
+fn rustcrypto_aes128_gcm(key_bytes: &[u8]) {
+    let _cipher = Aes128Gcm::new(key_bytes.into());
+}
+
+// RustCrypto rsa crate - RSA keygen with literal bit size
+fn rustcrypto_rsa_literal() {
+    let mut rng = rand::thread_rng();
+    let _priv = RsaPrivateKey::new(&mut rng, 2048).unwrap();
+}
+
+// RustCrypto rsa crate - RSA keygen with const-propagated bit size
+fn rustcrypto_rsa_constprop() {
+    let bits = 4096;
+    let mut rng = rand::thread_rng();
+    let _priv = RsaPrivateKey::new(&mut rng, bits).unwrap();
 }

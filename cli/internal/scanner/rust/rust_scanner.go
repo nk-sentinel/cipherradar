@@ -79,6 +79,10 @@ func (s *RustScanner) ScanFile(path string, content []byte) ([]types.Finding, er
 	// Detect openssl crate usage
 	findings = append(findings, s.detectOpenSSLCrate(root, path, content, uses)...)
 
+	// Detect RustCrypto pure-Rust crate usage (aes-gcm, rsa)
+	findings = append(findings, s.detectRustCryptoAEAD(root, path, content, uses)...)
+	findings = append(findings, s.detectRustCryptoRSA(root, path, content, cp, uses)...)
+
 	return scanner.AnnotateFindings(findings), nil
 }
 
@@ -776,6 +780,172 @@ func (s *RustScanner) detectOpenSSLCrate(root *sitter.Node, path string, content
 	}
 
 	return findings
+}
+
+// ---------------------------------------------------------------------------
+// RustCrypto aes-gcm crate detection
+// ---------------------------------------------------------------------------
+
+// rustCryptoAESGCM maps the aes-gcm crate's AEAD cipher types to findings info.
+var rustCryptoAESGCM = map[string]struct {
+	name    string
+	keySize int
+}{
+	"Aes256Gcm": {name: "AES-256-GCM", keySize: 256},
+	"Aes128Gcm": {name: "AES-128-GCM", keySize: 128},
+}
+
+// detectRustCryptoAEAD detects AES-GCM AEAD usage via the pure-Rust `aes-gcm`
+// crate, e.g. `Aes256Gcm::new(key)`. Gated on a `use aes_gcm::...` import to
+// avoid false positives against unrelated identifiers.
+func (s *RustScanner) detectRustCryptoAEAD(root *sitter.Node, path string, content []byte, uses map[string]bool) []types.Finding {
+	var findings []types.Finding
+
+	// Require the aes_gcm crate to be imported.
+	if !hasUsePrefix(uses, "aes_gcm") {
+		return findings
+	}
+
+	for _, callNode := range findAllCallExprs(root, content) {
+		callText := callNode.Content(content)
+
+		for cipherType, info := range rustCryptoAESGCM {
+			// Match constructor calls: Aes256Gcm::new(, Aes256Gcm::new_from_slice(
+			if strings.Contains(callText, cipherType+"::new") {
+				qi := quantum.GetInfo("aes")
+				findings = append(findings, types.Finding{
+					ID:         nextFindingID(),
+					AssetType:  types.AssetAlgorithm,
+					Name:       info.name,
+					Location:   scanner.NodeLocation(callNode, path, content),
+					Severity:   types.SeverityInfo,
+					Confidence: types.ConfidenceHigh,
+					Properties: types.CryptoProperties{
+						Primitive:        "ae",
+						AlgorithmFamily:  "aes",
+						Mode:             "gcm",
+						KeySize:          info.keySize,
+						QuantumStatus:    qi.Status,
+						NistQuantumLevel: qi.NistLevel,
+						CryptoFunctions:  []string{"encrypt"},
+					},
+					Description: fmt.Sprintf("%s AEAD via aes-gcm crate", info.name),
+					RuleID:      "cbom-rust-rustcrypto-aes-gcm",
+					Pass:        1,
+				})
+				break
+			}
+		}
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// RustCrypto rsa crate detection
+// ---------------------------------------------------------------------------
+
+// detectRustCryptoRSA detects RSA key generation via the pure-Rust `rsa`
+// crate, e.g. `RsaPrivateKey::new(&mut rng, 2048)`. The key size (second
+// argument) is resolved via constant propagation when passed as a variable.
+// Gated on a `use rsa::...` import to avoid false positives.
+func (s *RustScanner) detectRustCryptoRSA(root *sitter.Node, path string, content []byte, cp *ConstPropagator, uses map[string]bool) []types.Finding {
+	var findings []types.Finding
+
+	// Require the rsa crate to be imported. Guard against the ring `rsa`
+	// submodule path (ring::...rsa) which is handled elsewhere; the bare
+	// `rsa` crate import is what gates RustCrypto detection.
+	if !hasUsePrefix(uses, "rsa") {
+		return findings
+	}
+
+	for _, callNode := range findAllCallExprs(root, content) {
+		callText := callNode.Content(content)
+
+		// Match RsaPrivateKey::new( — the RustCrypto keygen entrypoint.
+		if strings.Contains(callText, "RsaPrivateKey::new(") {
+			keySize := resolveRSAKeySize(callNode, content, cp)
+			qi := quantum.GetInfo("rsa")
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "RSA",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        "pke",
+					AlgorithmFamily:  "rsa",
+					KeySize:          keySize,
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{"generate"},
+				},
+				Description: "RSA key generation via rsa crate",
+				RuleID:      "cbom-rust-rustcrypto-rsa",
+				Pass:        1,
+			})
+		}
+	}
+
+	return findings
+}
+
+// resolveRSAKeySize extracts the bit-size argument from an
+// `RsaPrivateKey::new(&mut rng, bits)` call. The bits value is the last
+// argument; it may be an integer literal or a variable resolved via
+// constant propagation. Returns 0 if it cannot be determined.
+func resolveRSAKeySize(callNode *sitter.Node, content []byte, cp *ConstPropagator) int {
+	argsNode := callNode.ChildByFieldName("arguments")
+	if argsNode == nil {
+		return 0
+	}
+
+	// Collect the top-level argument expression nodes.
+	var args []*sitter.Node
+	for i := 0; i < int(argsNode.ChildCount()); i++ {
+		child := argsNode.Child(i)
+		if child == nil {
+			continue
+		}
+		switch child.Type() {
+		case "(", ")", ",":
+			continue
+		default:
+			args = append(args, child)
+		}
+	}
+
+	if len(args) == 0 {
+		return 0
+	}
+
+	// The key size is the final argument.
+	last := args[len(args)-1]
+	switch last.Type() {
+	case "integer_literal":
+		return atoiSafe(extractRustLiteralValue(last, content))
+	case "identifier":
+		if v, ok := cp.Resolve(last.Content(content)); ok {
+			return atoiSafe(v)
+		}
+	}
+	return 0
+}
+
+// atoiSafe parses a base-10 integer, returning 0 on failure.
+func atoiSafe(s string) int {
+	n := 0
+	if s == "" {
+		return 0
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return 0
+		}
+		n = n*10 + int(c-'0')
+	}
+	return n
 }
 
 // ---------------------------------------------------------------------------

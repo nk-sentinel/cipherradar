@@ -196,6 +196,37 @@ func TestCryptoUsage(t *testing.T) {
 			f.RuleID == "cbom-rust-openssl-symm"
 	}, "openssl crate DES finding with HIGH severity")
 
+	// RustCrypto aes-gcm AES-256-GCM
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "AES-256-GCM" &&
+			f.Properties.Primitive == "ae" &&
+			f.Properties.Mode == "gcm" &&
+			f.Properties.KeySize == 256 &&
+			f.RuleID == "cbom-rust-rustcrypto-aes-gcm"
+	}, "RustCrypto aes-gcm AES-256-GCM finding")
+
+	// RustCrypto aes-gcm AES-128-GCM
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "AES-128-GCM" &&
+			f.Properties.KeySize == 128 &&
+			f.RuleID == "cbom-rust-rustcrypto-aes-gcm"
+	}, "RustCrypto aes-gcm AES-128-GCM finding")
+
+	// RustCrypto rsa keygen with literal bit size (2048)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "RSA" &&
+			f.Properties.Primitive == "pke" &&
+			f.Properties.KeySize == 2048 &&
+			f.RuleID == "cbom-rust-rustcrypto-rsa"
+	}, "RustCrypto rsa keygen finding with key size 2048")
+
+	// RustCrypto rsa keygen with const-propagated bit size (4096)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "RSA" &&
+			f.Properties.KeySize == 4096 &&
+			f.RuleID == "cbom-rust-rustcrypto-rsa"
+	}, "RustCrypto rsa keygen finding with const-propagated key size 4096")
+
 	// All findings must have Pass = 1
 	for _, f := range findings {
 		if f.Pass != 1 {
@@ -269,6 +300,99 @@ func TestQuantumTagging(t *testing.T) {
 			return f.Properties.AlgorithmFamily == "x25519" &&
 				f.Properties.QuantumStatus == types.QuantumVulnerable
 		}, "X25519 finding with QuantumVulnerable status")
+	})
+}
+
+// ---------------------------------------------------------------------------
+// RustCrypto pure-Rust crate tests (aes-gcm, rsa)
+// ---------------------------------------------------------------------------
+
+func TestRustCryptoCrates(t *testing.T) {
+	s := rust.New()
+
+	t.Run("aes-gcm Aes256Gcm is detected and QuantumSafe", func(t *testing.T) {
+		code := []byte(`use aes_gcm::{Aes256Gcm, KeyInit};
+fn f(key: &[u8]) { let _c = Aes256Gcm::new(key.into()); }`)
+		findings, err := s.ScanFile("test.rs", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Name == "AES-256-GCM" &&
+				f.Properties.Primitive == "ae" &&
+				f.Properties.Mode == "gcm" &&
+				f.Properties.KeySize == 256 &&
+				f.Properties.QuantumStatus == types.QuantumSafe &&
+				f.RuleID == "cbom-rust-rustcrypto-aes-gcm"
+		}, "aes-gcm AES-256-GCM finding")
+	})
+
+	t.Run("aes-gcm Aes128Gcm key size 128", func(t *testing.T) {
+		code := []byte(`use aes_gcm::Aes128Gcm;
+fn f(key: &[u8]) { let _c = Aes128Gcm::new(key.into()); }`)
+		findings, err := s.ScanFile("test.rs", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Name == "AES-128-GCM" && f.Properties.KeySize == 128
+		}, "aes-gcm AES-128-GCM finding")
+	})
+
+	t.Run("rsa RsaPrivateKey::new literal key size 2048", func(t *testing.T) {
+		code := []byte(`use rsa::RsaPrivateKey;
+fn f() { let mut rng = rand::thread_rng(); let _k = RsaPrivateKey::new(&mut rng, 2048).unwrap(); }`)
+		findings, err := s.ScanFile("test.rs", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Name == "RSA" &&
+				f.Properties.Primitive == "pke" &&
+				f.Properties.KeySize == 2048 &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable &&
+				f.RuleID == "cbom-rust-rustcrypto-rsa"
+		}, "rsa keygen finding with key size 2048")
+	})
+
+	t.Run("rsa RsaPrivateKey::new const-propagated key size", func(t *testing.T) {
+		code := []byte(`use rsa::RsaPrivateKey;
+fn f() { let bits = 3072; let mut rng = rand::thread_rng(); let _k = RsaPrivateKey::new(&mut rng, bits).unwrap(); }`)
+		findings, err := s.ScanFile("test.rs", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Name == "RSA" && f.Properties.KeySize == 3072
+		}, "rsa keygen finding with const-propagated key size 3072")
+	})
+
+	// Zero-FP guard: detection is gated on the relevant `use` import. Without
+	// the aes_gcm / rsa import, identical-looking identifiers must NOT fire.
+	t.Run("no aes-gcm import means no finding", func(t *testing.T) {
+		code := []byte(`fn f(key: &[u8]) { let _c = Aes256Gcm::new(key.into()); }`)
+		findings, err := s.ScanFile("test.rs", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		for _, f := range findings {
+			if f.RuleID == "cbom-rust-rustcrypto-aes-gcm" {
+				t.Errorf("unexpected aes-gcm finding without import: %+v", f)
+			}
+		}
+	})
+
+	t.Run("no rsa import means no finding", func(t *testing.T) {
+		code := []byte(`fn f() { let mut rng = x(); let _k = RsaPrivateKey::new(&mut rng, 2048).unwrap(); }`)
+		findings, err := s.ScanFile("test.rs", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		for _, f := range findings {
+			if f.RuleID == "cbom-rust-rustcrypto-rsa" {
+				t.Errorf("unexpected rsa finding without import: %+v", f)
+			}
+		}
 	})
 }
 
