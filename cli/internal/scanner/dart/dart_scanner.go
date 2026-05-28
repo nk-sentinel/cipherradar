@@ -38,7 +38,28 @@ type dartPattern struct {
 	ruleID      string
 	cryptoFuncs []string
 	assetType   types.AssetType
+	// protocolType, when set, populates CryptoProperties.ProtocolType for
+	// protocol-asset findings (e.g. "tls"). Empty for algorithm findings.
+	protocolType string
+	// captureMode, when true, instructs ScanFile to extract a block-cipher
+	// mode of operation (gcm/cbc/ctr/...) from the matched line and populate
+	// CryptoProperties.Mode. Used by package:encrypt AES + Encrypter wrappers.
+	captureMode bool
+	// skipIfContains, when non-empty, suppresses this pattern's match on any
+	// line that also contains the given substring. Used to dedupe the
+	// standalone AES(...) detector against the Encrypter(AES(...)) wrapper so
+	// the wrapped idiom produces exactly one finding.
+	skipIfContains string
+	// quantumOverride, when non-empty, sets CryptoProperties.QuantumStatus
+	// directly instead of deriving it from family via the quantum table. Used
+	// for protocol assets (e.g. TLS) that have no algorithm-family entry.
+	quantumOverride types.QuantumStatus
 }
+
+// aesModeRE extracts the mode of operation from package:encrypt's
+// AESMode.<mode> enum (e.g. "AESMode.gcm" -> "gcm"). It is intentionally
+// tied to the AESMode enum so it cannot match unrelated identifiers.
+var aesModeRE = regexp.MustCompile(`\bAESMode\.([a-zA-Z0-9]+)`)
 
 // New creates a new DartScanner instance with all patterns precompiled.
 func New() *DartScanner {
@@ -84,13 +105,47 @@ func (s *DartScanner) ScanFile(path string, content []byte) ([]types.Finding, er
 		resolved := cp.ResolveLine(trimmed)
 
 		for _, pat := range s.patterns {
+			if pat.skipIfContains != "" && strings.Contains(resolved, pat.skipIfContains) {
+				continue
+			}
 			if pat.re.MatchString(resolved) {
 				qi := quantum.GetInfo(pat.family)
+
+				qStatus := qi.Status
+				if pat.quantumOverride != "" {
+					qStatus = pat.quantumOverride
+				}
+				props := types.CryptoProperties{
+					Primitive:        pat.primitive,
+					AlgorithmFamily:  pat.family,
+					QuantumStatus:    qStatus,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  pat.cryptoFuncs,
+					ProtocolType:     pat.protocolType,
+				}
+
+				name := pat.name
+				if pat.captureMode {
+					// Extract mode from the resolved line (AESMode.<mode>). When
+					// an explicit mode is present, refine the finding name to
+					// reflect the AEAD/mode identity (e.g. "AES-GCM").
+					if m := aesModeRE.FindStringSubmatch(resolved); m != nil {
+						mode := strings.ToLower(m[1])
+						props.Mode = mode
+						name = pat.name + "-" + strings.ToUpper(mode)
+						// GCM/CCM/EAX are authenticated-encryption modes.
+						switch mode {
+						case "gcm", "ccm", "eax", "ocb", "siv":
+							props.Primitive = "ae"
+							props.CryptoFunctions = []string{"encrypt", "decrypt", "tag"}
+						}
+					}
+				}
 
 				findings = append(findings, types.Finding{
 					ID:        nextFindingID(),
 					AssetType: pat.assetType,
-					Name:      pat.name,
+					Name:      name,
 					Location: types.Location{
 						File:      path,
 						StartLine: lineIdx + 1,
@@ -99,16 +154,10 @@ func (s *DartScanner) ScanFile(path string, content []byte) ([]types.Finding, er
 						EndCol:    len(trimmed),
 						Snippet:   trimmed,
 					},
-					Severity:   pat.severity,
-					Confidence: types.ConfidenceHigh,
-					Properties: types.CryptoProperties{
-						Primitive:        pat.primitive,
-						AlgorithmFamily:  pat.family,
-						QuantumStatus:    qi.Status,
-						NistQuantumLevel: qi.NistLevel,
-						CryptoFunctions:  pat.cryptoFuncs,
-					},
-					Description: fmt.Sprintf("Dart crypto: %s", pat.name),
+					Severity:    pat.severity,
+					Confidence:  types.ConfidenceHigh,
+					Properties:  props,
+					Description: fmt.Sprintf("Dart crypto: %s", name),
 					RuleID:      pat.ruleID,
 					Pass:        1,
 				})
@@ -294,6 +343,30 @@ func (s *DartScanner) initPatterns() {
 			cryptoFuncs: []string{"derive"},
 			assetType:   types.AssetAlgorithm,
 		},
+		// ECKeyGenerator (pointycastle EC key generation — ECDSA/ECDH keys).
+		// Tied to the exact generator constructor so it does not match the
+		// ECKeyGeneratorParameters(...) argument on adjacent lines.
+		{
+			re:          regexp.MustCompile(`\bECKeyGenerator\s*\(`),
+			family:      "ecdsa",
+			name:        "ECDSA",
+			primitive:   "signature",
+			severity:    types.SeverityInfo,
+			ruleID:      "cbom-dart-pointycastle-eckeygen",
+			cryptoFuncs: []string{"keygen"},
+			assetType:   types.AssetAlgorithm,
+		},
+		// Scrypt (pointycastle memory-hard password KDF).
+		{
+			re:          regexp.MustCompile(`\bScrypt\s*\(`),
+			family:      "scrypt",
+			name:        "scrypt",
+			primitive:   "kdf",
+			severity:    types.SeverityInfo,
+			ruleID:      "cbom-dart-pointycastle-scrypt",
+			cryptoFuncs: []string{"derive"},
+			assetType:   types.AssetAlgorithm,
+		},
 		// FortunaRandom
 		{
 			re:          regexp.MustCompile(`\bFortunaRandom\s*\(`),
@@ -332,27 +405,60 @@ func (s *DartScanner) initPatterns() {
 		// package:encrypt
 		// -------------------------------------------------------------------
 
-		// Encrypter (general encryption wrapper)
+		// Encrypter (package:encrypt general encryption wrapper). When the
+		// wrapped cipher declares an AESMode (e.g. AESMode.gcm), the mode is
+		// captured and the finding is refined to "AES-<MODE>". This is the
+		// primary detector for the common Encrypter(AES(...)) idiom, so the
+		// standalone AES(...) pattern below is gated to avoid double findings.
 		{
 			re:          regexp.MustCompile(`\bEncrypter\s*\(`),
 			family:      "aes",
-			name:        "Encrypter",
+			name:        "AES",
 			primitive:   "block-cipher",
 			severity:    types.SeverityInfo,
 			ruleID:      "cbom-dart-encrypt-encrypter",
 			cryptoFuncs: []string{"encrypt"},
 			assetType:   types.AssetAlgorithm,
+			captureMode: true,
 		},
-		// AES from package:encrypt (AES mode usage)
+		// AES from package:encrypt used standalone (not wrapped by Encrypter on
+		// the same line). Matches AES(Key...) / AES(key...). The negative
+		// lookbehind-style guard is emulated by requiring the line not contain
+		// "Encrypter(" (handled at match time below) — but to keep the regex
+		// self-contained we tie it to the AES(...,key) constructor shape and
+		// rely on Encrypter owning the wrapped case.
 		{
-			re:          regexp.MustCompile(`\bAES\s*\(\s*key\b`),
-			family:      "aes",
-			name:        "AES",
-			primitive:   "block-cipher",
-			severity:    types.SeverityInfo,
-			ruleID:      "cbom-dart-encrypt-aes",
-			cryptoFuncs: []string{"encrypt", "decrypt"},
-			assetType:   types.AssetAlgorithm,
+			re:             regexp.MustCompile(`\bAES\s*\(\s*[Kk]ey\b`),
+			family:         "aes",
+			name:           "AES",
+			primitive:      "block-cipher",
+			severity:       types.SeverityInfo,
+			ruleID:         "cbom-dart-encrypt-aes",
+			cryptoFuncs:    []string{"encrypt", "decrypt"},
+			assetType:      types.AssetAlgorithm,
+			captureMode:    true,
+			skipIfContains: "Encrypter(",
+		},
+
+		// -------------------------------------------------------------------
+		// dart:io — transport security / protocols
+		// -------------------------------------------------------------------
+
+		// SecureSocket / RawSecureSocket / SecureServerSocket are dart:io TLS
+		// endpoint primitives. Their presence indicates a TLS protocol usage.
+		// The pattern is tied to these exact dart:io class names so it does not
+		// match arbitrary identifiers containing "socket".
+		{
+			re:              regexp.MustCompile(`\b(?:Raw)?Secure(?:Server)?Socket\b`),
+			family:          "",
+			name:            "TLS",
+			primitive:       "",
+			severity:        types.SeverityInfo,
+			ruleID:          "cbom-dart-io-tls",
+			cryptoFuncs:     []string{"tls-handshake"},
+			assetType:       types.AssetProtocol,
+			protocolType:    "tls",
+			quantumOverride: types.QuantumVulnerable,
 		},
 	}
 }

@@ -150,11 +150,114 @@ func TestCryptoUsage(t *testing.T) {
 			f.Properties.AlgorithmFamily == "aes"
 	}, "Encrypter finding")
 
+	// AES-GCM via package:encrypt — mode must be captured as AEAD.
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.RuleID == "cbom-dart-encrypt-encrypter" &&
+			f.Properties.AlgorithmFamily == "aes" &&
+			f.Properties.Mode == "gcm" &&
+			f.Properties.Primitive == "ae" &&
+			f.Name == "AES-GCM"
+	}, "AES-GCM finding with mode=gcm and ae primitive")
+
+	// AES-CBC standalone — mode captured, block-cipher primitive.
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.RuleID == "cbom-dart-encrypt-aes" &&
+			f.Properties.Mode == "cbc" &&
+			f.Properties.Primitive == "block-cipher" &&
+			f.Name == "AES-CBC"
+	}, "AES-CBC standalone finding with mode=cbc")
+
+	// ECDSA / EC keygen via pointycastle (quantum-vulnerable).
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.RuleID == "cbom-dart-pointycastle-eckeygen" &&
+			f.Properties.AlgorithmFamily == "ecdsa" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "ECDSA keygen finding with QuantumVulnerable status")
+
+	// scrypt KDF via pointycastle.
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.RuleID == "cbom-dart-pointycastle-scrypt" &&
+			f.Properties.AlgorithmFamily == "scrypt" &&
+			f.Properties.Primitive == "kdf"
+	}, "scrypt KDF finding")
+
+	// TLS via dart:io SecureSocket (protocol asset).
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.RuleID == "cbom-dart-io-tls" &&
+			f.AssetType == types.AssetProtocol &&
+			f.Properties.ProtocolType == "tls" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "TLS protocol finding via SecureSocket")
+
 	// All findings must have Pass = 1
 	for _, f := range findings {
 		if f.Pass != 1 {
 			t.Errorf("finding %s has Pass=%d, expected 1", f.ID, f.Pass)
 		}
+	}
+}
+
+// TestNoFalsePositivesOnSubstrings verifies that identifiers merely containing
+// "AES" or "Socket" substrings (WebSocket, prose) do not trigger findings.
+func TestNoFalsePositivesOnSubstrings(t *testing.T) {
+	s := dart.New()
+	code := []byte(`
+final webSocketUrl = 'wss://example.com/feed';
+final phrase = 'PHRASES contain AES letters but are not crypto';
+final notAes = computeAesthetics();
+`)
+	findings, err := s.ScanFile("substrings.dart", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	if len(findings) != 0 {
+		for _, f := range findings {
+			t.Errorf("spurious finding: %s (%s) at line %d", f.Name, f.RuleID, f.Location.StartLine)
+		}
+	}
+}
+
+// TestEncrypterWrappedAESSingleFinding verifies the Encrypter(AES(...)) idiom
+// yields exactly one AES finding (no duplicate from the standalone AES detector).
+func TestEncrypterWrappedAESSingleFinding(t *testing.T) {
+	s := dart.New()
+	code := []byte(`final e = Encrypter(AES(key, mode: AESMode.gcm));`)
+	findings, err := s.ScanFile("wrapped.dart", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	count := 0
+	for _, f := range findings {
+		if f.Properties.AlgorithmFamily == "aes" {
+			count++
+			if f.Properties.Mode != "gcm" {
+				t.Errorf("expected mode=gcm, got %q", f.Properties.Mode)
+			}
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly 1 AES finding for wrapped idiom, got %d", count)
+	}
+}
+
+// TestECKeyGeneratorNoParamsDoubleMatch verifies the EC keygen detector matches
+// the generator constructor but not the ECKeyGeneratorParameters argument.
+func TestECKeyGeneratorNoParamsDoubleMatch(t *testing.T) {
+	s := dart.New()
+	code := []byte(`final g = ECKeyGenerator()..init(ECKeyGeneratorParameters(curve));`)
+	findings, err := s.ScanFile("eckeygen.dart", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	count := 0
+	for _, f := range findings {
+		if f.RuleID == "cbom-dart-pointycastle-eckeygen" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly 1 ECKeyGenerator finding, got %d", count)
 	}
 }
 
