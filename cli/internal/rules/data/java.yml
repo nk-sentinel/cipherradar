@@ -105,12 +105,28 @@ rules:
       maturity: stable
       default_enabled: true
       noise_risk: low
-    pattern: |
-      new HostnameVerifier() {
-        ...
-        public boolean verify(...) { return true; }
-        ...
-      }
+    pattern-either:
+      - pattern: |
+          new HostnameVerifier() {
+            ...
+            public boolean verify(...) { return true; }
+            ...
+          }
+      # Lambda form, anchored on the HostnameVerifier setter APIs so the
+      # bare `(a, b) -> true` literal cannot match unrelated 2-arg lambdas.
+      - pattern: $C.setDefaultHostnameVerifier((...) -> true)
+      - pattern: $C.setHostnameVerifier((...) -> true)
+      - pattern: HttpsURLConnection.setDefaultHostnameVerifier((...) -> true)
+      # Lambda assigned to a HostnameVerifier-typed variable.
+      - pattern: |
+          HostnameVerifier $V = (...) -> true;
+      # Lambda returned from a method that declares a HostnameVerifier
+      # return type. Anchored via pattern-inside on the declared return
+      # type so an unrelated `return (a, b) -> true` cannot match.
+      - patterns:
+          - pattern: return (...) -> true;
+          - pattern-inside: |
+              public HostnameVerifier $M(...) { ... }
 
   - id: cbom-java-ecb-mode-usage
     message: >
@@ -810,6 +826,66 @@ rules:
       - pattern: new Ed448PrivateKeyParameters(...)
       - pattern: new Ed448PublicKeyParameters(...)
 
+  # ── EdDSA pre-hash / context signature variants (BouncyCastle) ──
+  #
+  # Ed25519ph (pre-hashed) and Ed25519ctx (context) are distinct signer
+  # classes from the bare Ed25519Signer. They are quantum-vulnerable
+  # discrete-log signatures, so quantum-relevant is true.
+
+  - id: cbom-java-bc-ed25519ph
+    message: "Ed25519ph (pre-hashed EdDSA) signature scheme detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ED25519PH
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new Ed25519phSigner(...)
+
+  - id: cbom-java-bc-ed25519ctx
+    message: "Ed25519ctx (context EdDSA) signature scheme detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ED25519CTX
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new Ed25519ctxSigner(...)
+
+  # ── ISO 9796-2 signature scheme (BouncyCastle) ──
+  #
+  # RSA-based digital signature with message recovery. Quantum-vulnerable
+  # (integer factorization). Medium severity reflects legacy/weak status.
+
+  - id: cbom-java-bc-iso9796-2
+    message: "ISO 9796-2 signature scheme detected"
+    severity: MEDIUM
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ISO9796-2
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new ISO9796d2Signer(...)
+      - pattern: new ISO9796d2PSSSigner(...)
+
   # ── ElGamal asymmetric scheme (BouncyCastle) ──
 
   - id: cbom-java-bc-elgamal
@@ -1395,3 +1471,65 @@ rules:
     pattern-either:
       - pattern: new SipHash128(...)
       - pattern: new SipHash128()
+
+  # ── Phase D6: scrypt key-derivation function (BouncyCastle) ──
+  #
+  # BouncyCastle exposes scrypt via the static SCrypt.generate(...) helper
+  # (org.bouncycastle.crypto.generators.SCrypt). Memory-hard password-based
+  # KDF; quantum-safe.
+
+  - id: cbom-java-bc-scrypt
+    message: "scrypt key-derivation function detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: SCRYPT
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: SCrypt.generate(...)
+
+  # ── Phase D7: block-cipher padding schemes (BouncyCastle) ──
+  #
+  # Padding schemes are related crypto material rather than standalone
+  # algorithms. Match only the specific BouncyCastle padding constructors
+  # to stay zero-FP.
+
+  - id: cbom-java-bc-pkcs7-padding
+    message: "PKCS#7 padding scheme detected"
+    severity: INFO
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: related-crypto-material
+      cbom-primitive: PKCS7
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new PKCS7Padding(...)
+      - pattern: new PKCS7Padding()
+
+  - id: cbom-java-bc-zerobyte-padding
+    message: "Zero-byte padding scheme detected"
+    severity: LOW
+    languages: [java]
+    metadata:
+      category: inventory
+      cbom-asset-type: related-crypto-material
+      cbom-primitive: ZEROBYTE
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new ZeroBytePadding(...)
+      - pattern: new ZeroBytePadding()

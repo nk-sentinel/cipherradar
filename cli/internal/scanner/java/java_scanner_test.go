@@ -226,6 +226,22 @@ func TestBouncyCastleCrypto(t *testing.T) {
 			f.Properties.QuantumStatus == types.Broken
 	}, "Bouncy Castle MD5 digest finding with HIGH severity")
 
+	// BLAKE2b digest — BouncyCastle's real class name is Blake2bDigest
+	// (mixed case), which a prior upper-case-only map key missed.
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "blake2b" &&
+			f.Name == "BLAKE2b" &&
+			f.Properties.Primitive == "hash" &&
+			f.Properties.QuantumStatus == types.QuantumSafe
+	}, "Bouncy Castle BLAKE2b digest finding (new Blake2bDigest)")
+
+	// BLAKE2s digest — same mixed-case class name issue
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "blake2s" &&
+			f.Name == "BLAKE2s" &&
+			f.Properties.Primitive == "hash"
+	}, "Bouncy Castle BLAKE2s digest finding (new Blake2sDigest)")
+
 	// All findings must have Pass = 1
 	for _, f := range findings {
 		if f.Pass != 1 {
