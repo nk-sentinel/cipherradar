@@ -612,5 +612,15 @@ func (s *SwiftScanner) initSecurityPatterns() {
 			cryptoFuncs: []string{"parse"},
 			assetType:   types.AssetCertificate,
 		},
+		// TLS via Network.framework (NWProtocolTLS) — transport protocol usage.
+		{
+			re:          regexp.MustCompile(`\bNWProtocolTLS\b`),
+			family:      "tls",
+			name:        "TLS",
+			primitive:   "protocol",
+			severity:    types.SeverityInfo,
+			ruleID:      "cbom-swift-network-tls",
+			assetType:   types.AssetProtocol,
+		},
 	}
 }

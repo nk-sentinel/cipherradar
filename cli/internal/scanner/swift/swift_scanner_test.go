@@ -157,6 +157,11 @@ func TestCryptoUsage(t *testing.T) {
 			f.AssetType == types.AssetRelatedCryptoMaterial
 	}, "SymmetricKey finding")
 
+	// TLS via Network.framework (NWProtocolTLS)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "TLS" && f.AssetType == types.AssetProtocol
+	}, "NWProtocolTLS TLS finding")
+
 	// All findings must have Pass = 1
 	for _, f := range findings {
 		if f.Pass != 1 {

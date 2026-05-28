@@ -81,3 +81,6 @@ CCKeyDerivationPBKDF(CCPBKDFAlgorithm(kCCPBKDF2), password, passwordLen, salt, s
 
 let privateKey = SecKeyCreateRandomKey(attributes as CFDictionary, &error)
 let certificate = SecCertificateCreateWithData(nil, certData as CFData)
+
+// TLS via Network.framework
+let tlsOptions = NWProtocolTLS.Options()
