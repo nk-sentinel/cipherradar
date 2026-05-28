@@ -166,6 +166,91 @@ func TestCryptoUsage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// CCCrypt algorithm-argument inspection
+// ---------------------------------------------------------------------------
+
+func TestCCCryptAlgorithmInspection(t *testing.T) {
+	cases := []struct {
+		name      string
+		constant  string
+		findName  string
+		family    string
+		severity  types.Severity
+		primitive string
+	}{
+		{"DES", "kCCAlgorithmDES", "CCCrypt-DES", "des", types.SeverityHigh, "block-cipher"},
+		{"3DES", "kCCAlgorithm3DES", "CCCrypt-3DES", "3des", types.SeverityHigh, "block-cipher"},
+		{"RC4", "kCCAlgorithmRC4", "CCCrypt-RC4", "rc4", types.SeverityHigh, "stream-cipher"},
+		{"AES", "kCCAlgorithmAES", "CCCrypt-AES", "aes", types.SeverityInfo, "block-cipher"},
+		{"Blowfish", "kCCAlgorithmBlowfish", "CCCrypt-Blowfish", "blowfish", types.SeverityHigh, "block-cipher"},
+		{"CAST", "kCCAlgorithmCAST", "CCCrypt-CAST", "cast5", types.SeverityHigh, "block-cipher"},
+	}
+	s := swift.New()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			code := []byte("import CommonCrypto\nCCCrypt(CCOperation(kCCEncrypt), CCAlgorithm(" + tc.constant + "), 0, key, keyLen, nil, data, dataLen, out, outLen, &moved)\n")
+			findings, err := s.ScanFile("t.swift", code)
+			if err != nil {
+				t.Fatalf("ScanFile failed: %v", err)
+			}
+			// Exactly one CCCrypt-derived finding, and it is the specific one
+			// (no generic "CCCrypt" duplicate).
+			ccCount := 0
+			for _, f := range findings {
+				if f.Name == "CCCrypt" {
+					t.Errorf("generic CCCrypt finding should not be emitted alongside %s", tc.findName)
+				}
+				if f.RuleID != "" && len(f.RuleID) >= len("cbom-swift-commoncrypto-cccrypt") &&
+					f.RuleID[:len("cbom-swift-commoncrypto-cccrypt")] == "cbom-swift-commoncrypto-cccrypt" {
+					ccCount++
+				}
+			}
+			if ccCount != 1 {
+				t.Errorf("expected exactly 1 CCCrypt finding, got %d", ccCount)
+			}
+			assertFindingExists(t, findings, func(f types.Finding) bool {
+				return f.Name == tc.findName &&
+					f.Properties.AlgorithmFamily == tc.family &&
+					f.Properties.Primitive == tc.primitive &&
+					f.Severity == tc.severity
+			}, tc.findName+" finding")
+		})
+	}
+}
+
+func TestCCCryptGenericFallback(t *testing.T) {
+	// CCCrypt with no recognized kCCAlgorithm* constant (e.g. variable) keeps
+	// the generic finding.
+	code := []byte("import CommonCrypto\nCCCrypt(op, algo, 0, key, keyLen, nil, data, dataLen, out, outLen, &moved)\n")
+	s := swift.New()
+	findings, err := s.ScanFile("t.swift", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "CCCrypt" && f.RuleID == "cbom-swift-commoncrypto-cccrypt"
+	}, "generic CCCrypt fallback finding")
+}
+
+func TestCCCryptFixtureDESandRC4(t *testing.T) {
+	s := swift.New()
+	content := readFixture(t, "crypto_usage.swift")
+	findings, err := s.ScanFile("crypto_usage.swift", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "CCCrypt-DES" && f.Severity == types.SeverityHigh
+	}, "CCCrypt-DES finding")
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "CCCrypt-RC4" && f.Severity == types.SeverityHigh
+	}, "CCCrypt-RC4 finding")
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Name == "CCCrypt-AES"
+	}, "CCCrypt-AES finding")
+}
+
+// ---------------------------------------------------------------------------
 // Constant propagation tests
 // ---------------------------------------------------------------------------
 

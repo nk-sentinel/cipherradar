@@ -70,9 +70,105 @@ func TestDockerfileUnpinnedOpenSSLCount(t *testing.T) {
 			count++
 		}
 	}
-	// The test fixture has 2 unpinned openssl installs.
-	if count != 2 {
-		t.Errorf("expected 2 unpinned openssl findings, got %d", count)
+	// The test fixture has 4 unpinned openssl installs (apt-get, apt, apk, dnf);
+	// the pinned apk install must be excluded.
+	if count != 4 {
+		t.Errorf("expected 4 unpinned openssl findings, got %d", count)
+	}
+}
+
+func TestDockerfileAlpineYumDnfInstall(t *testing.T) {
+	cases := []struct {
+		name string
+		line string
+	}{
+		{"apk add", "RUN apk add openssl"},
+		{"apk add --no-cache", "RUN apk add --no-cache openssl"},
+		{"yum install", "RUN yum install -y openssl"},
+		{"dnf install", "RUN dnf install -y openssl"},
+	}
+	s := NewDockerfile()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			content := []byte("FROM alpine:3.18\n" + tc.line + "\n")
+			findings, err := s.ScanFile("Dockerfile", content)
+			if err != nil {
+				t.Fatalf("ScanFile returned error: %v", err)
+			}
+			found := false
+			for _, f := range findings {
+				if f.RuleID == "cbom-configfile-dockerfile-unpinned-openssl" {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("expected unpinned openssl finding for %q", tc.line)
+			}
+		})
+	}
+}
+
+func TestDockerfileCryptoLibInstall(t *testing.T) {
+	cases := []struct {
+		name string
+		line string
+	}{
+		{"libssl-dev", "RUN apt-get install -y libssl-dev"},
+		{"openssl-dev (alpine)", "RUN apk add openssl-dev"},
+		{"libssl1.1", "RUN apt-get install -y libssl1.1"},
+		{"openssl-libs (rhel)", "RUN dnf install -y openssl-libs"},
+	}
+	s := NewDockerfile()
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			content := []byte("FROM debian:bookworm\n" + tc.line + "\n")
+			findings, err := s.ScanFile("Dockerfile", content)
+			if err != nil {
+				t.Fatalf("ScanFile returned error: %v", err)
+			}
+			found := false
+			for _, f := range findings {
+				if f.RuleID == "cbom-configfile-dockerfile-unpinned-crypto-lib" {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("expected crypto library finding for %q", tc.line)
+			}
+		})
+	}
+}
+
+func TestDockerfileNoFalsePositiveOnArbitraryPackage(t *testing.T) {
+	content := []byte(`FROM debian:bookworm
+RUN apt-get install -y curl vim libpng-dev nginx
+EXPOSE 8080
+`)
+	s := NewDockerfile()
+	findings, err := s.ScanFile("Dockerfile", content)
+	if err != nil {
+		t.Fatalf("ScanFile returned error: %v", err)
+	}
+	if len(findings) != 0 {
+		t.Errorf("expected 0 findings for non-crypto packages, got %d: %+v", len(findings), findings)
+	}
+}
+
+func TestDockerfileTLSPort8443(t *testing.T) {
+	content := []byte("FROM alpine:3.18\nEXPOSE 8443/tcp\n")
+	s := NewDockerfile()
+	findings, err := s.ScanFile("Dockerfile", content)
+	if err != nil {
+		t.Fatalf("ScanFile returned error: %v", err)
+	}
+	found := false
+	for _, f := range findings {
+		if f.RuleID == "cbom-configfile-dockerfile-tls-port" && f.Name == "TLS endpoint: EXPOSE 8443" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("expected TLS port finding for EXPOSE 8443/tcp")
 	}
 }
 

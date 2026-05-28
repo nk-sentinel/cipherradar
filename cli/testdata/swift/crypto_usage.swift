@@ -51,6 +51,9 @@ let kaKey = Curve25519.KeyAgreement.PrivateKey()
 // ---------------------------------------------------------------------------
 
 var status = CCCrypt(CCOperation(kCCEncrypt), CCAlgorithm(kCCAlgorithmAES), 0, key, keyLength, iv, data, dataLength, buffer, bufferSize, &numBytesEncrypted)
+var desStatus = CCCrypt(CCOperation(kCCEncrypt), CCAlgorithm(kCCAlgorithmDES), CCOptions(kCCOptionECBMode), key, keyLength, nil, data, dataLength, buffer, bufferSize, &numBytesEncrypted)
+var rc4Status = CCCrypt(CCOperation(kCCEncrypt), CCAlgorithm(kCCAlgorithmRC4), CCOptions(0), key, keyLength, nil, data, dataLength, buffer, bufferSize, &numBytesEncrypted)
+var tdesStatus = CCCrypt(CCOperation(kCCEncrypt), CCAlgorithm(kCCAlgorithm3DES), 0, key, keyLength, iv, data, dataLength, buffer, bufferSize, &numBytesEncrypted)
 
 // ---------------------------------------------------------------------------
 // CommonCrypto: CCHmac
