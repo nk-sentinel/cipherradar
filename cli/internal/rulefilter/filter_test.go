@@ -72,6 +72,28 @@ func TestApply_OnlyInventory(t *testing.T) {
 	}
 }
 
+func TestApply_OnlyInventory_KeepsSecurityTaggedAssets(t *testing.T) {
+	// A weak-algorithm finding (e.g. MD5) is tagged security by ClassifyRule
+	// but carries a concrete AssetType — it IS a crypto asset and must appear
+	// in the inventory. A pure misconfig with no AssetType must NOT.
+	findings := []types.Finding{
+		mk("inv-stable", types.CategoryInventory, types.MaturityStable, true, types.NoiseRiskLow),
+		// security-tagged but a real algorithm asset (MD5/DES/RC4 class)
+		{RuleID: "cbom-py-md5", Name: "MD5", Category: types.CategorySecurity,
+			AssetType: types.AssetAlgorithm, Maturity: types.MaturityStable,
+			DefaultEnabled: true, NoiseRisk: types.NoiseRiskLow},
+		// pure security misconfig, no asset identity
+		{RuleID: "cbom-java-some-misconfig", Name: "misconfig", Category: types.CategorySecurity,
+			Maturity: types.MaturityStable, DefaultEnabled: true, NoiseRisk: types.NoiseRiskLow},
+	}
+	kept, _ := Apply(findings, Options{Categories: []types.Category{types.CategoryInventory}})
+	got := keptIDs(kept)
+	want := []string{"inv-stable", "cbom-py-md5"}
+	if !equal(got, want) {
+		t.Errorf("--only-inventory kept %v, want %v (security-tagged asset kept, misconfig dropped)", got, want)
+	}
+}
+
 func TestApply_OnlySecurity(t *testing.T) {
 	kept, _ := Apply(baseline(), Options{
 		Categories: []types.Category{types.CategorySecurity},
