@@ -71,6 +71,14 @@ func (s *JavaSecurityScanner) ScanFile(path string, content []byte) ([]types.Fin
 			findings = append(findings, s.scanDisabledAlgorithms(path, lineNum, lineStr, value, "TLS")...)
 		case "jdk.certpath.disabledAlgorithms":
 			findings = append(findings, s.scanDisabledAlgorithms(path, lineNum, lineStr, value, "certpath")...)
+		case "ssl.KeyManagerFactory.algorithm", "ssl.TrustManagerFactory.algorithm":
+			if f, ok := s.scanKeyManagerAlgorithm(path, lineNum, lineStr, key, value); ok {
+				findings = append(findings, f)
+			}
+		case "keystore.type":
+			if f, ok := s.scanKeystoreType(path, lineNum, lineStr, value); ok {
+				findings = append(findings, f)
+			}
 		}
 	}
 
@@ -129,6 +137,74 @@ func (s *JavaSecurityScanner) scanDisabledAlgorithms(path string, line int, snip
 	}
 
 	return findings
+}
+
+// keyManagerAlgorithms maps known JSSE KeyManager/TrustManager factory
+// algorithm names (case-insensitive) to a canonical display name. These name
+// the certificate/key-management algorithm the JVM uses for X.509 handling and
+// are inventory assets. The map gates emission so unknown/garbage values don't
+// produce spurious findings (strict zero-FP rule).
+var keyManagerAlgorithms = map[string]string{
+	"sunx509":    "SunX509",
+	"pkix":       "PKIX",
+	"x509":       "X509",
+	"newsunx509": "NewSunX509",
+	"ibmx509":    "IbmX509",
+}
+
+// scanKeyManagerAlgorithm emits an inventory asset for the JSSE
+// KeyManagerFactory/TrustManagerFactory algorithm (e.g. SunX509, PKIX). The
+// value is validated against a known-algorithm set so only real algorithm
+// names are reported.
+func (s *JavaSecurityScanner) scanKeyManagerAlgorithm(path string, line int, snippet, key, value string) (types.Finding, bool) {
+	canonical, ok := keyManagerAlgorithms[strings.ToLower(strings.TrimSpace(value))]
+	if !ok {
+		return types.Finding{}, false
+	}
+
+	factory := "KeyManagerFactory"
+	if strings.Contains(key, "TrustManagerFactory") {
+		factory = "TrustManagerFactory"
+	}
+
+	return makeFinding(
+		types.AssetAlgorithm,
+		canonical,
+		path, line, truncateSnippet(snippet),
+		types.SeverityInfo,
+		"java.security configures JSSE "+factory+" algorithm "+canonical,
+		"cbom-configfile-java-keymanager-algorithm",
+		types.CryptoProperties{AlgorithmFamily: strings.ToLower(canonical)},
+	), true
+}
+
+// keystoreTypes maps known Java keystore types (case-insensitive) to a
+// canonical display name. Gating on this set keeps emission tight.
+var keystoreTypes = map[string]string{
+	"pkcs12": "PKCS12",
+	"jks":    "JKS",
+	"jceks":  "JCEKS",
+	"bks":    "BKS",
+	"dks":    "DKS",
+}
+
+// scanKeystoreType emits a related-crypto-material asset for the configured
+// keystore type (e.g. PKCS12). Only recognized keystore types are reported.
+func (s *JavaSecurityScanner) scanKeystoreType(path string, line int, snippet, value string) (types.Finding, bool) {
+	canonical, ok := keystoreTypes[strings.ToLower(strings.TrimSpace(value))]
+	if !ok {
+		return types.Finding{}, false
+	}
+
+	return makeFinding(
+		types.AssetRelatedCryptoMaterial,
+		canonical,
+		path, line, truncateSnippet(snippet),
+		types.SeverityInfo,
+		"java.security configures keystore type "+canonical,
+		"cbom-configfile-java-keystore-type",
+		types.CryptoProperties{MaterialType: "key-store"},
+	), true
 }
 
 // joinContinuationLines joins lines ending with backslash for Java property files.
