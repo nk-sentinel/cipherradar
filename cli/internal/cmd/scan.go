@@ -16,7 +16,6 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/container"
 	"github.com/nk-sentinel/cipherradar/cli/internal/diff"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
-	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/yarax"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
 	pdfpkg "github.com/nk-sentinel/cipherradar/cli/internal/output/pdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/push"
@@ -24,6 +23,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/yarax"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 	"github.com/nk-sentinel/cipherradar/cli/internal/validation"
@@ -317,6 +317,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 	if err := applyBaseline(cmd, result); err != nil {
 		return err
 	}
+
+	// #30: stamp quantum posture (QuantumStatus + NistQuantumLevel) onto every
+	// finding with a resolvable algorithm family that a scanner left unlabeled.
+	// Pass-1 AST scanners label at emit time via quantum.GetInfo; Pass-2
+	// (OpenGrep) findings arrive here unlabeled. Doing it once on the finalized
+	// finding set — after filter/fingerprint/baseline, before any writer — gives
+	// every output format (CBOM, text, SARIF, PDF, policy) identical labels.
+	output.AnnotateQuantum(result)
 
 	// Surface CycloneDX enum normalization violations. ConvertScanResultWithTally
 	// converts the result and tallies any fall-through values that landed outside

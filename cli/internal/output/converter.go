@@ -509,6 +509,14 @@ func ConvertScanResultWithTally(result *types.ScanResult) (*BOM, validationTally
 			Tools:     []Tool{{Name: "CipherRadar", Version: AppVersion, Vendor: "nk-sentinel"}},
 		},
 	}
+	// #30: ensure every finding with a resolvable algorithm family carries
+	// quantum posture, regardless of which pass produced it. Pass-1 scanners
+	// label at emit time; Pass-2 (OpenGrep) findings are labeled here. Idempotent
+	// — scan.go also calls AnnotateQuantum on the pipeline so non-CBOM writers
+	// (text/sarif/pdf) get the same posture; the guard skips already-labeled
+	// findings, so running it again is a no-op.
+	AnnotateQuantum(result)
+
 	components := make([]Component, 0, len(result.Findings))
 	for i := range result.Findings {
 		components = append(components, convertFindingTally(&result.Findings[i], &tally))
