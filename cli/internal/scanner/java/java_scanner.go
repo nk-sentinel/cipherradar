@@ -825,6 +825,12 @@ var bcDigestAlgorithms = map[string]struct {
 	"SHA3Digest":    {family: "sha3-256", name: "SHA3"},
 	"BLAKE2bDigest": {family: "blake2b", name: "BLAKE2b"},
 	"BLAKE2sDigest": {family: "blake2s", name: "BLAKE2s"},
+	// BouncyCastle's actual class names use mixed case (Blake2bDigest,
+	// Blake2sDigest); keep the upper-case keys above for back-compat with
+	// callers that normalize, and add the real casing so constructors like
+	// new Blake2bDigest(256) are detected.
+	"Blake2bDigest": {family: "blake2b", name: "BLAKE2b"},
+	"Blake2sDigest": {family: "blake2s", name: "BLAKE2s"},
 }
 
 func (s *JavaScanner) detectBouncyCastle(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
