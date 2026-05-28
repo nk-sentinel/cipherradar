@@ -95,6 +95,9 @@ func (s *CppScanner) ScanFile(path string, content []byte) ([]types.Finding, err
 	// Detect OpenSSL HMAC usage
 	findings = append(findings, s.detectOpenSSLHMAC(root, path, content)...)
 
+	// Detect OpenSSL KDF usage (PBKDF2)
+	findings = append(findings, s.detectOpenSSLKDF(root, path, content)...)
+
 	// Detect OpenSSL PEM usage
 	findings = append(findings, s.detectOpenSSLPEM(root, path, content)...)
 
@@ -541,6 +544,42 @@ func (s *CppScanner) detectOpenSSLHMAC(root *sitter.Node, path string, content [
 				},
 				Description: fmt.Sprintf("HMAC via %s()", funcName),
 				RuleID:      "cbom-cpp-hmac",
+				Pass:        1,
+			})
+		}
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// OpenSSL KDF detection (PBKDF2)
+// ---------------------------------------------------------------------------
+
+func (s *CppScanner) detectOpenSSLKDF(root *sitter.Node, path string, content []byte) []types.Finding {
+	var findings []types.Finding
+
+	// PKCS5_PBKDF2_HMAC / PKCS5_PBKDF2_HMAC_SHA1 — password-based key derivation.
+	// Match the specific OpenSSL function names only to avoid false positives.
+	for _, funcName := range []string{"PKCS5_PBKDF2_HMAC", "PKCS5_PBKDF2_HMAC_SHA1"} {
+		for _, callNode := range findFunctionCalls(root, content, funcName) {
+			qi := quantum.GetInfo("pbkdf2")
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "PBKDF2",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        "kdf",
+					AlgorithmFamily:  "pbkdf2",
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{"keyderive"},
+				},
+				Description: fmt.Sprintf("PBKDF2 key derivation via %s()", funcName),
+				RuleID:      "cbom-cpp-pbkdf2",
 				Pass:        1,
 			})
 		}

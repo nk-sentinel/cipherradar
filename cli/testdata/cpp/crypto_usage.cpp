@@ -56,6 +56,16 @@ void hmac_sha256(const unsigned char *key, const unsigned char *data) {
     HMAC(EVP_sha256(), key, 32, data, 64, result, &len);
 }
 
+// OpenSSL PBKDF2 key derivation
+void pbkdf2_derive(const char *pass, const unsigned char *salt, unsigned char *out) {
+    PKCS5_PBKDF2_HMAC(pass, -1, salt, 16, 100000, EVP_sha256(), 32, out);
+}
+
+// OpenSSL PBKDF2 with SHA-1
+void pbkdf2_derive_sha1(const char *pass, const unsigned char *salt, unsigned char *out) {
+    PKCS5_PBKDF2_HMAC_SHA1(pass, -1, salt, 16, 100000, 32, out);
+}
+
 // OpenSSL PEM private key reading
 void read_private_key(const char *filename) {
     FILE *fp = fopen(filename, "r");
