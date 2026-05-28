@@ -16,6 +16,10 @@ jdk.certpath.disabledAlgorithms=MD2, MD5, SHA1 jdkCA & usage TLSServer, \
 # Crypto policy settings.
 security.useSystemPropertiesFile=true
 
+# JSSE key/trust manager factory algorithms (X.509 cert handling).
+ssl.KeyManagerFactory.algorithm=SunX509
+ssl.TrustManagerFactory.algorithm=PKIX
+
 # Keystore type.
 keystore.type=pkcs12
 

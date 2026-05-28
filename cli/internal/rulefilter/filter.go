@@ -133,10 +133,21 @@ func Apply(findings []types.Finding, opts Options) ([]types.Finding, Stats) {
 		}
 
 		// Step 2: category filter.
+		//
+		// Dual-category semantics: a finding's rule Category is its PRIMARY
+		// classification, but a finding that carries a concrete crypto asset
+		// identity (AssetType set) is ALSO part of the inventory regardless of
+		// whether its rule is tagged security. This makes --only-inventory a
+		// complete asset list — weak/broken algorithms (MD5, DES, RC4), which
+		// ClassifyRule deliberately tags security, still appear in the inventory
+		// because they ARE crypto assets. --only-security is unchanged.
 		if len(catSet) > 0 {
 			if _, ok := catSet[f.Category]; !ok {
-				stats.DroppedByCategory++
-				continue
+				_, wantInventory := catSet[types.CategoryInventory]
+				if !(wantInventory && hasAssetIdentity(f)) {
+					stats.DroppedByCategory++
+					continue
+				}
 			}
 		}
 
@@ -209,6 +220,20 @@ func isDefaultKeep(f types.Finding, opts Options, includeRuleSet map[string]stru
 	}
 
 	return true
+}
+
+// hasAssetIdentity reports whether a finding carries a concrete cryptographic
+// asset identity (algorithm, protocol, certificate, related-crypto-material).
+// Such findings belong in the inventory even when their rule is categorized
+// security, so --only-inventory yields a complete CBOM asset list.
+func hasAssetIdentity(f types.Finding) bool {
+	switch f.AssetType {
+	case types.AssetAlgorithm, types.AssetProtocol,
+		types.AssetCertificate, types.AssetRelatedCryptoMaterial:
+		return true
+	default:
+		return false
+	}
 }
 
 // WarnDeprecated writes an aggregated stderr warning for deprecated rules

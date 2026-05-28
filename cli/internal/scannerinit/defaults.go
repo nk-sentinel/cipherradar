@@ -8,6 +8,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/binary"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/config"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/configfile"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/cpp"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/csharp"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/custom"
@@ -45,6 +46,10 @@ func DefaultRegistry() *scanner.Registry {
 
 	// Config file scanner (dispatched by .env / .properties extensions)
 	r.Register(config.New())
+
+	// Infrastructure config scanners (nginx/httpd .conf, openssl .cnf,
+	// java.security, k8s .yaml, Dockerfile).
+	configfile.RegisterAll(r)
 
 	// Binary scanners (compiled files and archives)
 	r.Register(binary.New())

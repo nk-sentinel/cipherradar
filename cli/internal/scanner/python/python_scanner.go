@@ -2,6 +2,7 @@ package python
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -70,6 +71,18 @@ func (s *PythonScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 	// Detect PyCryptodome usage
 	pycryptoFindings := s.detectPyCryptodome(root, path, content, cp)
 	findings = append(findings, pycryptoFindings...)
+
+	// Detect PyCryptodome cipher/hash constructor calls (AES.new(...), ARC4.new(...), etc.)
+	pycryptoUsageFindings := s.detectPyCryptodomeUsage(root, path, content, cp)
+	findings = append(findings, pycryptoUsageFindings...)
+
+	// Detect pyca one-shot AEAD constructors (AESGCM, AESCCM, AESSIV, ChaCha20Poly1305)
+	pycaAEADFindings := s.detectPycaAEAD(root, path, content, cp)
+	findings = append(findings, pycaAEADFindings...)
+
+	// Detect weak PRNG (random module) used for security-sensitive values
+	weakRandomFindings := s.detectWeakRandom(root, path, content)
+	findings = append(findings, weakRandomFindings...)
 
 	// Detect hmac module usage
 	hmacFindings := s.detectHMAC(root, path, content, cp)
@@ -223,11 +236,11 @@ func (s *PythonScanner) detectHashlib(root *sitter.Node, path string, content []
 				severity := hashSeverity(algoFamily)
 
 				findings = append(findings, types.Finding{
-					ID:        nextFindingID(),
-					AssetType: types.AssetAlgorithm,
-					Name:      humanName,
-					Location:  scanner.NodeLocation(callNode, path, content),
-					Severity:  severity,
+					ID:         nextFindingID(),
+					AssetType:  types.AssetAlgorithm,
+					Name:       humanName,
+					Location:   scanner.NodeLocation(callNode, path, content),
+					Severity:   severity,
 					Confidence: types.ConfidenceHigh,
 					Properties: types.CryptoProperties{
 						Primitive:        "hash",
@@ -272,11 +285,11 @@ func (s *PythonScanner) handleHashlibNew(callNode, argsNode *sitter.Node, path s
 	severity := hashSeverity(algoFamily)
 
 	return &types.Finding{
-		ID:        nextFindingID(),
-		AssetType: types.AssetAlgorithm,
-		Name:      humanName,
-		Location:  scanner.NodeLocation(callNode, path, content),
-		Severity:  severity,
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       humanName,
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   severity,
 		Confidence: confidence,
 		Properties: types.CryptoProperties{
 			Primitive:        "hash",
@@ -319,11 +332,11 @@ func (s *PythonScanner) handleHashlibPbkdf2(callNode, argsNode *sitter.Node, pat
 	}
 
 	return &types.Finding{
-		ID:        nextFindingID(),
-		AssetType: types.AssetAlgorithm,
-		Name:      name,
-		Location:  scanner.NodeLocation(callNode, path, content),
-		Severity:  severity,
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       name,
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   severity,
 		Confidence: confidence,
 		Properties: types.CryptoProperties{
 			Primitive:        "kdf",
@@ -440,11 +453,11 @@ func (s *PythonScanner) detectCipherAlgorithms(root *sitter.Node, path string, c
 		humanName := buildCipherName(algoClassName, mode)
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      humanName,
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  severity,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       humanName,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   severity,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:        info.primitive,
@@ -506,20 +519,22 @@ var cryptoHashMap = map[string]struct {
 	family string
 	name   string
 }{
-	"SHA256":   {family: "sha-256", name: "SHA-256"},
-	"SHA384":   {family: "sha-384", name: "SHA-384"},
-	"SHA512":   {family: "sha-512", name: "SHA-512"},
-	"SHA224":   {family: "sha-256", name: "SHA-224"},
-	"SHA1":     {family: "sha1", name: "SHA-1"},
-	"MD5":      {family: "md5", name: "MD5"},
-	"BLAKE2b":  {family: "blake2b", name: "BLAKE2b"},
-	"BLAKE2s":  {family: "blake2s", name: "BLAKE2s"},
-	"SHA3_256": {family: "sha3-256", name: "SHA3-256"},
-	"SHA3_384": {family: "sha3-384", name: "SHA3-384"},
-	"SHA3_512": {family: "sha3-512", name: "SHA3-512"},
-	"SHAKE128": {family: "shake128", name: "SHAKE128"},
-	"SHAKE256": {family: "shake256", name: "SHAKE256"},
-	"SM3":      {family: "sm3", name: "SM3"},
+	"SHA256":     {family: "sha-256", name: "SHA-256"},
+	"SHA384":     {family: "sha-384", name: "SHA-384"},
+	"SHA512":     {family: "sha-512", name: "SHA-512"},
+	"SHA224":     {family: "sha-256", name: "SHA-224"},
+	"SHA512_224": {family: "sha-512", name: "SHA-512/224"},
+	"SHA512_256": {family: "sha-512", name: "SHA-512/256"},
+	"SHA1":       {family: "sha1", name: "SHA-1"},
+	"MD5":        {family: "md5", name: "MD5"},
+	"BLAKE2b":    {family: "blake2b", name: "BLAKE2b"},
+	"BLAKE2s":    {family: "blake2s", name: "BLAKE2s"},
+	"SHA3_256":   {family: "sha3-256", name: "SHA3-256"},
+	"SHA3_384":   {family: "sha3-384", name: "SHA3-384"},
+	"SHA3_512":   {family: "sha3-512", name: "SHA3-512"},
+	"SHAKE128":   {family: "shake128", name: "SHAKE128"},
+	"SHAKE256":   {family: "shake256", name: "SHAKE256"},
+	"SM3":        {family: "sm3", name: "SM3"},
 }
 
 func (s *PythonScanner) detectCryptoHashes(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
@@ -571,11 +586,11 @@ func (s *PythonScanner) detectCryptoHashes(root *sitter.Node, path string, conte
 		severity := hashSeverity(info.family)
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      info.name,
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  severity,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       info.name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   severity,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:        "hash",
@@ -648,11 +663,11 @@ func (s *PythonScanner) detectAsymmetricKeyGen(root *sitter.Node, path string, c
 				name = fmt.Sprintf("RSA-%d", keySize)
 			}
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      name,
-				Location:  scanner.NodeLocation(callNode, path, content),
-				Severity:  severity,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       name,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   severity,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "pke",
@@ -676,11 +691,11 @@ func (s *PythonScanner) detectAsymmetricKeyGen(root *sitter.Node, path string, c
 				name = fmt.Sprintf("EC-%s", curveName)
 			}
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      name,
-				Location:  scanner.NodeLocation(callNode, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       name,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "key-agree",
@@ -702,11 +717,11 @@ func (s *PythonScanner) detectAsymmetricKeyGen(root *sitter.Node, path string, c
 				name = fmt.Sprintf("DH-%d", keySize)
 			}
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      name,
-				Location:  scanner.NodeLocation(callNode, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       name,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "key-agree",
@@ -730,11 +745,11 @@ func (s *PythonScanner) detectAsymmetricKeyGen(root *sitter.Node, path string, c
 			}
 			sev := types.SeverityMedium
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      name,
-				Location:  scanner.NodeLocation(callNode, path, content),
-				Severity:  sev,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       name,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   sev,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "signature",
@@ -816,11 +831,11 @@ func (s *PythonScanner) detectEdDSAKeyGen(root *sitter.Node, path string, conten
 		}
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      name,
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  types.SeverityInfo,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityInfo,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:        primitive,
@@ -843,11 +858,11 @@ func (s *PythonScanner) detectEdDSAKeyGen(root *sitter.Node, path string, conten
 		if ih, ok := internalHash[algoFamily]; ok {
 			ihqi := GetQuantumInfo(ih.family)
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      ih.name,
-				Location:  scanner.NodeLocation(callNode, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       ih.name,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "hash",
@@ -913,11 +928,11 @@ func (s *PythonScanner) detectKDFs(root *sitter.Node, path string, content []byt
 			}
 
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      info.name,
-				Location:  scanner.NodeLocation(callNode, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       info.name,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:       "kdf",
@@ -989,7 +1004,7 @@ func extractKDFHashArg(argsNode *sitter.Node, content []byte) (string, string) {
 			"MD5": {"md5", "MD5"}, "SHA224": {"sha-224", "SHA-224"},
 			"SHA3_256": {"sha3-256", "SHA3-256"}, "SHA3_384": {"sha3-384", "SHA3-384"},
 			"SHA3_512": {"sha3-512", "SHA3-512"},
-			"BLAKE2b": {"blake2b", "BLAKE2b"}, "BLAKE2s": {"blake2s", "BLAKE2s"},
+			"BLAKE2b":  {"blake2b", "BLAKE2b"}, "BLAKE2s": {"blake2s", "BLAKE2s"},
 		}
 		for cls, info := range hashClasses {
 			if strings.Contains(valText, "hashes."+cls) || strings.Contains(valText, cls+"()") {
@@ -1068,15 +1083,15 @@ var sslProtocolMap = map[string]struct {
 	version  string
 	severity types.Severity
 }{
-	"PROTOCOL_TLS":      {name: "TLS", version: "", severity: types.SeverityInfo},
+	"PROTOCOL_TLS":        {name: "TLS", version: "", severity: types.SeverityInfo},
 	"PROTOCOL_TLS_CLIENT": {name: "TLS", version: "", severity: types.SeverityInfo},
 	"PROTOCOL_TLS_SERVER": {name: "TLS", version: "", severity: types.SeverityInfo},
-	"PROTOCOL_TLSv1":    {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"PROTOCOL_TLSv1_1":  {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
-	"PROTOCOL_TLSv1_2":  {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
-	"PROTOCOL_SSLv2":    {name: "SSL 2.0", version: "2.0", severity: types.SeverityHigh},
-	"PROTOCOL_SSLv3":    {name: "SSL 3.0", version: "3.0", severity: types.SeverityHigh},
-	"PROTOCOL_SSLv23":   {name: "SSL/TLS", version: "", severity: types.SeverityInfo},
+	"PROTOCOL_TLSv1":      {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
+	"PROTOCOL_TLSv1_1":    {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
+	"PROTOCOL_TLSv1_2":    {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
+	"PROTOCOL_SSLv2":      {name: "SSL 2.0", version: "2.0", severity: types.SeverityHigh},
+	"PROTOCOL_SSLv3":      {name: "SSL 3.0", version: "3.0", severity: types.SeverityHigh},
+	"PROTOCOL_SSLv23":     {name: "SSL/TLS", version: "", severity: types.SeverityInfo},
 }
 
 // sslTLSVersionMap maps ssl.TLSVersion.* constants to version info.
@@ -1155,11 +1170,11 @@ func (s *PythonScanner) detectSSLContext(root *sitter.Node, path string, content
 			description = fmt.Sprintf("Deprecated SSL/TLS protocol %s", info.name)
 		}
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetProtocol,
-			Name:      info.name,
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  info.severity,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetProtocol,
+			Name:       info.name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   info.severity,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				ProtocolType:    "tls",
@@ -1216,11 +1231,11 @@ func (s *PythonScanner) detectTLSVersion(root *sitter.Node, path string, content
 		}
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetProtocol,
-			Name:      info.name,
-			Location:  scanner.NodeLocation(attrNode, path, content),
-			Severity:  info.severity,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetProtocol,
+			Name:       info.name,
+			Location:   scanner.NodeLocation(attrNode, path, content),
+			Severity:   info.severity,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				ProtocolType:    "tls",
@@ -1267,11 +1282,11 @@ func (s *PythonScanner) detectCertNone(root *sitter.Node, path string, content [
 		}
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetProtocol,
-			Name:      "Certificate Validation Disabled",
-			Location:  scanner.NodeLocation(node, path, content),
-			Severity:  types.SeverityCritical,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetProtocol,
+			Name:       "Certificate Validation Disabled",
+			Location:   scanner.NodeLocation(node, path, content),
+			Severity:   types.SeverityCritical,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				ProtocolType: "tls",
@@ -1321,11 +1336,11 @@ func (s *PythonScanner) detectWrapSocket(root *sitter.Node, path string, content
 		}
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetProtocol,
-			Name:      "ssl.wrap_socket (deprecated)",
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  types.SeverityMedium,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetProtocol,
+			Name:       "ssl.wrap_socket (deprecated)",
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityMedium,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				ProtocolType: "tls",
@@ -1349,23 +1364,23 @@ var pyCryptoImportMap = map[string]struct {
 	name      string
 	primitive string
 }{
-	"AES":       {family: "aes", name: "AES", primitive: "block-cipher"},
-	"DES":       {family: "des", name: "DES", primitive: "block-cipher"},
-	"DES3":      {family: "3des", name: "3DES", primitive: "block-cipher"},
-	"Blowfish":  {family: "blowfish", name: "Blowfish", primitive: "block-cipher"},
-	"ARC4":      {family: "rc4", name: "RC4", primitive: "stream-cipher"},
-	"ChaCha20":  {family: "chacha20", name: "ChaCha20", primitive: "stream-cipher"},
-	"Salsa20":   {family: "salsa20", name: "Salsa20", primitive: "stream-cipher"},
-	"CAST":      {family: "cast5", name: "CAST5", primitive: "block-cipher"},
-	"SHA256":    {family: "sha-256", name: "SHA-256", primitive: "hash"},
-	"SHA1":      {family: "sha1", name: "SHA-1", primitive: "hash"},
-	"SHA512":    {family: "sha-512", name: "SHA-512", primitive: "hash"},
-	"SHA384":    {family: "sha-384", name: "SHA-384", primitive: "hash"},
-	"MD5":       {family: "md5", name: "MD5", primitive: "hash"},
-	"HMAC":      {family: "hmac", name: "HMAC", primitive: "mac"},
-	"RSA":       {family: "rsa", name: "RSA", primitive: "pke"},
-	"DSA":       {family: "dsa", name: "DSA", primitive: "signature"},
-	"ECC":       {family: "ec", name: "EC", primitive: "key-agree"},
+	"AES":      {family: "aes", name: "AES", primitive: "block-cipher"},
+	"DES":      {family: "des", name: "DES", primitive: "block-cipher"},
+	"DES3":     {family: "3des", name: "3DES", primitive: "block-cipher"},
+	"Blowfish": {family: "blowfish", name: "Blowfish", primitive: "block-cipher"},
+	"ARC4":     {family: "rc4", name: "RC4", primitive: "stream-cipher"},
+	"ChaCha20": {family: "chacha20", name: "ChaCha20", primitive: "stream-cipher"},
+	"Salsa20":  {family: "salsa20", name: "Salsa20", primitive: "stream-cipher"},
+	"CAST":     {family: "cast5", name: "CAST5", primitive: "block-cipher"},
+	"SHA256":   {family: "sha-256", name: "SHA-256", primitive: "hash"},
+	"SHA1":     {family: "sha1", name: "SHA-1", primitive: "hash"},
+	"SHA512":   {family: "sha-512", name: "SHA-512", primitive: "hash"},
+	"SHA384":   {family: "sha-384", name: "SHA-384", primitive: "hash"},
+	"MD5":      {family: "md5", name: "MD5", primitive: "hash"},
+	"HMAC":     {family: "hmac", name: "HMAC", primitive: "mac"},
+	"RSA":      {family: "rsa", name: "RSA", primitive: "pke"},
+	"DSA":      {family: "dsa", name: "DSA", primitive: "signature"},
+	"ECC":      {family: "ec", name: "EC", primitive: "key-agree"},
 }
 
 func (s *PythonScanner) detectPyCryptodome(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
@@ -1423,11 +1438,11 @@ func (s *PythonScanner) detectPyCryptodome(root *sitter.Node, path string, conte
 		}
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      info.name,
-			Location:  scanner.NodeLocation(stmtNode, path, content),
-			Severity:  severity,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       info.name,
+			Location:   scanner.NodeLocation(stmtNode, path, content),
+			Severity:   severity,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:        info.primitive,
@@ -1442,6 +1457,467 @@ func (s *PythonScanner) detectPyCryptodome(root *sitter.Node, path string, conte
 	}
 
 	return findings
+}
+
+// collectImportedNames returns the set of symbols imported via `from <module> import <name>`
+// statements whose module name satisfies modulePredicate. Used to gate usage/constructor
+// detection so we only flag calls to classes that were actually imported from the relevant
+// library (zero-FP discipline — a bare `AES.new(...)` in unrelated code is not flagged).
+func collectImportedNames(root *sitter.Node, content []byte, lang *sitter.Language, modulePredicate func(string) bool) map[string]bool {
+	imported := make(map[string]bool)
+
+	queryStr := `(import_from_statement
+		module_name: (dotted_name) @module)`
+	matches, err := scanner.QueryMatches(root, queryStr, lang, content)
+	if err != nil {
+		return imported
+	}
+
+	for _, match := range matches {
+		var moduleNode *sitter.Node
+		for _, capture := range match.Captures {
+			if capture.Index == 0 {
+				moduleNode = capture.Node
+			}
+		}
+		if moduleNode == nil {
+			continue
+		}
+		moduleName := scanner.NodeText(moduleNode, content)
+		if !modulePredicate(moduleName) {
+			continue
+		}
+		// The import statement is the parent of module_name. Walk its children for
+		// imported names (dotted_name / aliased_import) that follow the module name.
+		stmt := moduleNode.Parent()
+		if stmt == nil {
+			continue
+		}
+		for i := 0; i < int(stmt.NamedChildCount()); i++ {
+			child := stmt.NamedChild(i)
+			if child == nil || child == moduleNode {
+				continue
+			}
+			switch child.Type() {
+			case "dotted_name", "identifier":
+				imported[scanner.NodeText(child, content)] = true
+			case "aliased_import":
+				if nameNode := child.ChildByFieldName("name"); nameNode != nil {
+					imported[scanner.NodeText(nameNode, content)] = true
+				}
+			}
+		}
+	}
+
+	return imported
+}
+
+// ---------------------------------------------------------------------------
+// PyCryptodome usage detection (Crypto.Cipher.* / Crypto.Hash.* constructors)
+// ---------------------------------------------------------------------------
+
+// pyCryptoCipherUsageMap maps PyCryptodome Cipher class names to crypto info.
+// These are detected at the `ClassName.new(...)` call site (Pass 1) when the
+// class was imported from a Crypto.* / Cryptodome.* module.
+var pyCryptoCipherUsageMap = map[string]struct {
+	family    string
+	name      string
+	primitive string
+}{
+	"AES":               {family: "aes", name: "AES", primitive: "block-cipher"},
+	"DES":               {family: "des", name: "DES", primitive: "block-cipher"},
+	"DES3":              {family: "3des", name: "3DES", primitive: "block-cipher"},
+	"Blowfish":          {family: "blowfish", name: "Blowfish", primitive: "block-cipher"},
+	"ARC2":              {family: "rc2", name: "RC2", primitive: "block-cipher"},
+	"ARC4":              {family: "rc4", name: "ARC4", primitive: "stream-cipher"},
+	"CAST":              {family: "cast5", name: "CAST5", primitive: "block-cipher"},
+	"ChaCha20":          {family: "chacha20", name: "ChaCha20", primitive: "stream-cipher"},
+	"ChaCha20_Poly1305": {family: "chacha20-poly1305", name: "ChaCha20-Poly1305", primitive: "ae"},
+	"Salsa20":           {family: "salsa20", name: "Salsa20", primitive: "stream-cipher"},
+}
+
+// pyCryptoHashUsageMap maps PyCryptodome Hash class names to crypto info.
+var pyCryptoHashUsageMap = map[string]struct {
+	family string
+	name   string
+}{
+	"SHA256":   {family: "sha-256", name: "SHA-256"},
+	"SHA224":   {family: "sha-256", name: "SHA-224"},
+	"SHA384":   {family: "sha-384", name: "SHA-384"},
+	"SHA512":   {family: "sha-512", name: "SHA-512"},
+	"SHA1":     {family: "sha1", name: "SHA-1"},
+	"MD5":      {family: "md5", name: "MD5"},
+	"SHA3_256": {family: "sha3-256", name: "SHA3-256"},
+	"SHA3_384": {family: "sha3-384", name: "SHA3-384"},
+	"SHA3_512": {family: "sha3-512", name: "SHA3-512"},
+	"BLAKE2b":  {family: "blake2b", name: "BLAKE2b"},
+	"BLAKE2s":  {family: "blake2s", name: "BLAKE2s"},
+}
+
+// pyCryptoModeMap maps PyCryptodome AES.MODE_* constants to mode identifiers.
+var pyCryptoModeMap = map[string]string{
+	"MODE_ECB":     "ecb",
+	"MODE_CBC":     "cbc",
+	"MODE_CFB":     "cfb",
+	"MODE_OFB":     "ofb",
+	"MODE_CTR":     "ctr",
+	"MODE_GCM":     "gcm",
+	"MODE_EAX":     "eax",
+	"MODE_CCM":     "ccm",
+	"MODE_SIV":     "siv",
+	"MODE_OCB":     "ocb",
+	"MODE_OPENPGP": "openpgp",
+}
+
+// detectPyCryptodomeUsage detects PyCryptodome cipher/hash constructor calls such as
+// `AES.new(key, AES.MODE_GCM)`, `ARC4.new(key)`, `ChaCha20_Poly1305.new(key=key)` and
+// `BLAKE2b.new(data=data)`. Detection is gated on the class having been imported from a
+// Crypto.* / Cryptodome.* module to avoid false positives.
+func (s *PythonScanner) detectPyCryptodomeUsage(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
+	imported := collectImportedNames(root, content, s.lang, func(m string) bool {
+		return strings.HasPrefix(m, "Crypto.") || strings.HasPrefix(m, "Cryptodome.")
+	})
+	if len(imported) == 0 {
+		return nil
+	}
+
+	var findings []types.Finding
+
+	// Match: ClassName.new(...)
+	queryStr := `(call
+		function: (attribute
+			object: (identifier) @cls
+			attribute: (identifier) @method)
+		arguments: (argument_list) @args
+		(#eq? @method "new"))`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return nil
+	}
+
+	for _, match := range matches {
+		var clsNode, argsNode *sitter.Node
+		for _, capture := range match.Captures {
+			switch capture.Index {
+			case 0: // @cls
+				clsNode = capture.Node
+			case 2: // @args
+				argsNode = capture.Node
+			}
+		}
+		if clsNode == nil {
+			continue
+		}
+
+		className := scanner.NodeText(clsNode, content)
+		if !imported[className] {
+			continue
+		}
+
+		callNode := clsNode.Parent()
+		if callNode != nil {
+			callNode = callNode.Parent()
+		}
+		if callNode == nil {
+			callNode = clsNode
+		}
+
+		if info, ok := pyCryptoCipherUsageMap[className]; ok {
+			// Determine the mode from the second positional argument (AES.MODE_*).
+			mode := findPyCryptoMode(argsNode, content)
+			// ChaCha20-Poly1305 and one-shot AEADs carry an implicit AEAD mode.
+			humanName := info.name
+			if mode != "" {
+				humanName = buildCipherName(info.name, mode)
+			}
+			qi := GetQuantumInfo(info.family)
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       humanName,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   cipherSeverity(info.family, mode),
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        info.primitive,
+					AlgorithmFamily:  info.family,
+					Mode:             mode,
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{"encrypt", "decrypt"},
+				},
+				Description: fmt.Sprintf("Cipher %s via PyCryptodome", humanName),
+				RuleID:      fmt.Sprintf("cbom-python-pycryptodome-%s-usage", strings.ToLower(className)),
+				Pass:        1,
+			})
+			continue
+		}
+
+		if info, ok := pyCryptoHashUsageMap[className]; ok {
+			qi := GetQuantumInfo(info.family)
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       info.name,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   hashSeverity(info.family),
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        "hash",
+					AlgorithmFamily:  info.family,
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{"digest"},
+				},
+				Description: fmt.Sprintf("Hash %s via PyCryptodome", info.name),
+				RuleID:      fmt.Sprintf("cbom-python-pycryptodome-%s-usage", strings.ToLower(className)),
+				Pass:        1,
+			})
+		}
+	}
+
+	return findings
+}
+
+// findPyCryptoMode scans an argument list for a PyCryptodome MODE_* constant
+// (e.g. AES.MODE_GCM or a bare MODE_GCM) and returns its mode identifier.
+func findPyCryptoMode(argsNode *sitter.Node, content []byte) string {
+	if argsNode == nil {
+		return ""
+	}
+	text := argsNode.Content(content)
+	for modeConst, modeID := range pyCryptoModeMap {
+		if strings.Contains(text, modeConst) {
+			return modeID
+		}
+	}
+	return ""
+}
+
+// ---------------------------------------------------------------------------
+// pyca one-shot AEAD detection (cryptography.hazmat.primitives.ciphers.aead)
+// ---------------------------------------------------------------------------
+
+// pycaAEADMap maps pyca/cryptography one-shot AEAD class names to crypto info.
+var pycaAEADMap = map[string]struct {
+	family string
+	name   string
+	mode   string
+}{
+	"AESGCM":           {family: "aes", name: "AES-GCM", mode: "gcm"},
+	"AESGCMSIV":        {family: "aes", name: "AES-GCM-SIV", mode: "gcm-siv"},
+	"AESCCM":           {family: "aes", name: "AES-CCM", mode: "ccm"},
+	"AESSIV":           {family: "aes", name: "AES-SIV", mode: "siv"},
+	"AESOCB3":          {family: "aes", name: "AES-OCB3", mode: "ocb3"},
+	"ChaCha20Poly1305": {family: "chacha20-poly1305", name: "ChaCha20-Poly1305", mode: "aead"},
+}
+
+// detectPycaAEAD detects pyca/cryptography one-shot AEAD constructors such as
+// `AESGCM(key)`, `AESCCM(key)`, `AESSIV(key)`, `ChaCha20Poly1305(key)`. Detection is
+// gated on the class being imported from cryptography.hazmat.primitives.ciphers.aead.
+func (s *PythonScanner) detectPycaAEAD(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
+	imported := collectImportedNames(root, content, s.lang, func(m string) bool {
+		return m == "cryptography.hazmat.primitives.ciphers.aead"
+	})
+	if len(imported) == 0 {
+		return nil
+	}
+
+	var findings []types.Finding
+
+	// Match: AEADClass(...) — a direct call on an identifier.
+	queryStr := `(call
+		function: (identifier) @cls
+		arguments: (argument_list) @args)`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return nil
+	}
+
+	for _, match := range matches {
+		var clsNode *sitter.Node
+		for _, capture := range match.Captures {
+			if capture.Index == 0 { // @cls
+				clsNode = capture.Node
+			}
+		}
+		if clsNode == nil {
+			continue
+		}
+
+		className := scanner.NodeText(clsNode, content)
+		if !imported[className] {
+			continue
+		}
+		info, ok := pycaAEADMap[className]
+		if !ok {
+			continue
+		}
+
+		callNode := clsNode.Parent()
+		if callNode == nil {
+			callNode = clsNode
+		}
+
+		qi := GetQuantumInfo(info.family)
+		findings = append(findings, types.Finding{
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       info.name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityInfo,
+			Confidence: types.ConfidenceHigh,
+			Properties: types.CryptoProperties{
+				Primitive:        "ae",
+				AlgorithmFamily:  info.family,
+				Mode:             info.mode,
+				QuantumStatus:    qi.Status,
+				NistQuantumLevel: qi.NistLevel,
+				CryptoFunctions:  []string{"encrypt", "decrypt"},
+			},
+			Description: fmt.Sprintf("AEAD cipher %s via cryptography library", info.name),
+			RuleID:      fmt.Sprintf("cbom-python-cryptography-aead-%s", strings.ToLower(className)),
+			Pass:        1,
+		})
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// Weak PRNG (random module) for security-sensitive values
+// ---------------------------------------------------------------------------
+
+// weakRandomMethods are random module functions that produce values an attacker
+// could predict if used for security purposes.
+var weakRandomMethods = map[string]bool{
+	"randint":     true,
+	"randrange":   true,
+	"random":      true,
+	"choice":      true,
+	"choices":     true,
+	"sample":      true,
+	"getrandbits": true,
+	"uniform":     true,
+	"shuffle":     true,
+}
+
+// securityContextRE matches identifiers (enclosing function names or assignment
+// targets) that strongly imply a security-sensitive use of randomness. Gating on
+// this keeps detection zero-FP for the overwhelmingly common non-security uses of
+// the random module (games, sampling, jitter, tests).
+var securityContextRE = regexp.MustCompile(`(?i)token|password|passwd|secret|nonce|salt|\bkey\b|otp|session|csrf|crypt|auth|cred|apikey`)
+
+// detectWeakRandom flags random.<method>() calls used for security-sensitive values.
+// It requires (a) the `random` module to be imported and (b) the enclosing function
+// name to look security-related, so unrelated random usage is never flagged.
+func (s *PythonScanner) detectWeakRandom(root *sitter.Node, path string, content []byte) []types.Finding {
+	// Gate on `import random` being present.
+	if !hasRandomImport(root, content, s.lang) {
+		return nil
+	}
+
+	var findings []types.Finding
+
+	queryStr := `(call
+		function: (attribute
+			object: (identifier) @obj
+			attribute: (identifier) @method)
+		(#eq? @obj "random"))`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return nil
+	}
+
+	for _, match := range matches {
+		var methodNode *sitter.Node
+		for _, capture := range match.Captures {
+			if capture.Index == 1 { // @method
+				methodNode = capture.Node
+			}
+		}
+		if methodNode == nil {
+			continue
+		}
+		methodName := scanner.NodeText(methodNode, content)
+		if !weakRandomMethods[methodName] {
+			continue
+		}
+
+		callNode := methodNode.Parent()
+		if callNode != nil {
+			callNode = callNode.Parent()
+		}
+		if callNode == nil {
+			callNode = methodNode
+		}
+
+		if !inSecurityContext(callNode, content) {
+			continue
+		}
+
+		findings = append(findings, types.Finding{
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       "Weak PRNG (random)",
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityHigh,
+			Confidence: types.ConfidenceMedium,
+			Properties: types.CryptoProperties{
+				Primitive:       "drbg",
+				AlgorithmFamily: "random",
+				QuantumStatus:   types.QuantumSafe,
+				CryptoFunctions: []string{"generate"},
+			},
+			Description: "Non-cryptographic random.* used for a security-sensitive value; use secrets or os.urandom()",
+			RuleID:      "cbom-python-weak-random",
+			Pass:        1,
+		})
+	}
+
+	return findings
+}
+
+// hasRandomImport reports whether the file imports the stdlib random module.
+func hasRandomImport(root *sitter.Node, content []byte, lang *sitter.Language) bool {
+	queryStr := `(import_statement name: (dotted_name) @mod)`
+	matches, err := scanner.QueryMatches(root, queryStr, lang, content)
+	if err != nil {
+		return false
+	}
+	for _, match := range matches {
+		for _, capture := range match.Captures {
+			if scanner.NodeText(capture.Node, content) == "random" {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// inSecurityContext reports whether the enclosing function definition (or, lacking
+// one, the surrounding assignment target) has a name suggesting security-sensitive use.
+func inSecurityContext(node *sitter.Node, content []byte) bool {
+	for n := node; n != nil; n = n.Parent() {
+		switch n.Type() {
+		case "function_definition":
+			if nameNode := n.ChildByFieldName("name"); nameNode != nil {
+				if securityContextRE.MatchString(scanner.NodeText(nameNode, content)) {
+					return true
+				}
+			}
+		case "assignment":
+			if left := n.ChildByFieldName("left"); left != nil {
+				if securityContextRE.MatchString(scanner.NodeText(left, content)) {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // ---------------------------------------------------------------------------
@@ -1501,11 +1977,11 @@ func (s *PythonScanner) detectHMAC(root *sitter.Node, path string, content []byt
 		}
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      name,
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  types.SeverityInfo,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityInfo,
 			Confidence: confidence,
 			Properties: types.CryptoProperties{
 				Primitive:       "mac",
@@ -1552,7 +2028,7 @@ func lookupHashFamily(hashAlgo string) string {
 		"sha384": "sha-384", "sha-384": "sha-384",
 		"sha512": "sha-512", "sha-512": "sha-512",
 		"sha1": "sha1", "sha-1": "sha1",
-		"md5": "md5",
+		"md5":      "md5",
 		"sha3-256": "sha3-256", "sha3-384": "sha3-384", "sha3-512": "sha3-512",
 		"blake2b": "blake2b", "blake2s": "blake2s",
 	}
@@ -1845,11 +2321,11 @@ func (s *PythonScanner) detectPKCS1v15(root *sitter.Node, path string, content [
 		}
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      "RSA-PKCS1v15",
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  types.SeverityMedium,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       "RSA-PKCS1v15",
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityMedium,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:       "pke",
@@ -1890,11 +2366,11 @@ func (s *PythonScanner) detectPKCS1v15(root *sitter.Node, path string, content [
 		}
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      "RSA-PKCS1v15",
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  types.SeverityMedium,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       "RSA-PKCS1v15",
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityMedium,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:       "pke",

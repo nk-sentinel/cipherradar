@@ -92,6 +92,33 @@ rules:
       - pattern: import java.security.$X.$Y
       - pattern: import javax.net.ssl.$X.$Y
 
+  # ── PBKDF2 password-based key derivation (JCA, shared with Java) ──
+  #
+  # SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256") is the JCA entry
+  # point for PBKDF2. The algorithm string literal carries the digest, so
+  # cbom-primitive-from-metavar canonicalizes "PBKDF2WithHmacSHA256" ->
+  # PBKDF2-HMAC-SHA256. Matching the literal "PBKDF2..." spec keeps this
+  # tight (no FP on unrelated SecretKeyFactory algorithms like "DESede").
+  - id: cbom-kotlin-pbkdf2
+    message: "PBKDF2 password-based key derivation detected"
+    severity: WARNING
+    languages: [kotlin]
+    metadata:
+      category: inventory
+      cbom-asset-type: key-derivation-function
+      cbom-primitive-from-metavar: $ALGO
+      cbom-primitive-fallback: PBKDF2
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    patterns:
+      - pattern: SecretKeyFactory.getInstance("$ALGO")
+      - metavariable-regex:
+          metavariable: $ALGO
+          regex: ^PBKDF2.*
+
   # ── Phase D3: Version-specific TLS protocol attribution ──
 
   - id: cbom-kotlin-tlsv1_0
