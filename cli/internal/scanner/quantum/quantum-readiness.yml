@@ -1,5 +1,5 @@
 # CipherRadar quantum-readiness table
-# Last updated: 2026-05-25
+# Last updated: 2026-05-29
 # Each algorithm has a canonical `family` (always lowercase, used as map key).
 # `aliases` are silently mapped to the canonical family (Kyber → ML-KEM, etc).
 # `status`: quantum-vulnerable | quantum-safe | quantum-unknown | broken
@@ -72,6 +72,39 @@ algorithms:
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM / ML-DSA"
+  - family: schnorr
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-DSA (discrete-log signature, broken by Shor)"
+    aliases: [bip340, bip-340, schnorrkel]
+  - family: bls
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-DSA (pairing-based signature, broken by Shor)"
+    aliases: [bls12-381, bls12381, bls-signature, boneh-lynn-shacham]
+  - family: ecmqv
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM (EC Menezes-Qu-Vanstone key agreement)"
+    aliases: [mqv]
+  - family: paillier
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "No PQ homomorphic standard yet; track NIST FHE work (factoring-based, broken by Shor)"
+  - family: rabin
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-KEM / ML-DSA (factoring-based, broken by Shor)"
+  - family: ec-gdsa
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-DSA (EC German DSA, discrete-log signature)"
+    aliases: [ecgdsa]
+  - family: ec-kcdsa
+    status: quantum-vulnerable
+    nist_level: 0
+    recommendation: "Migrate to ML-DSA (EC Korean Certificate-based DSA)"
+    aliases: [eckcdsa]
 
   # ── Quantum-safe symmetric (Grover halves effective key size) ──
   - family: aes

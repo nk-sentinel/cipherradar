@@ -578,3 +578,97 @@ func assertNoFinding(t *testing.T, findings []types.Finding, match func(types.Fi
 		}
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tier-3 quantum families: BLS + Schnorr (issue #33)
+// ---------------------------------------------------------------------------
+
+func TestBLSPythonDetection(t *testing.T) {
+	s := python.New()
+
+	t.Run("aliased py_ecc.bls import is quantum-vulnerable", func(t *testing.T) {
+		code := []byte(`from py_ecc.bls import G2ProofOfPossession as bls
+def f(sk, m):
+    return bls.Sign(sk, m)
+`)
+		findings, err := s.ScanFile("t.py", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == "bls" &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable &&
+				f.RuleID == "cbom-python-bls-sign"
+		}, "BLS Sign finding with QuantumVulnerable status")
+	})
+
+	t.Run("direct symbol import Aggregate", func(t *testing.T) {
+		code := []byte(`from py_ecc.bls import G2Basic
+def f(sigs):
+    return G2Basic.Aggregate(sigs)
+`)
+		findings, err := s.ScanFile("t.py", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == "bls" &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable
+		}, "BLS Aggregate finding")
+	})
+}
+
+func TestSchnorrPythonDetection(t *testing.T) {
+	s := python.New()
+	code := []byte(`from coincurve import PrivateKey
+def sign(key, msg):
+    return key.sign_schnorr(msg)
+`)
+	findings, err := s.ScanFile("t.py", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "schnorr" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable &&
+			f.RuleID == "cbom-python-schnorr-sign"
+	}, "Schnorr sign_schnorr finding with QuantumVulnerable status")
+}
+
+// TestBLSSchnorrPythonZeroFalsePositive ensures BLS/Schnorr API method names
+// without an anchoring import produce no findings (hard zero-FP constraint).
+func TestBLSSchnorrPythonZeroFalsePositive(t *testing.T) {
+	s := python.New()
+	code := []byte(`# A model class with a coincidentally-named Sign method.
+class Model:
+    def Sign(self, sk, m):
+        return sk
+def go():
+    bls = Model()
+    return bls.Sign(b"x", b"y")
+`)
+	findings, err := s.ScanFile("noimport.py", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertNoFinding(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "bls" || f.Properties.AlgorithmFamily == "schnorr"
+	}, "BLS/Schnorr without anchoring import")
+}
+
+func TestQuantumFamiliesPythonFixture(t *testing.T) {
+	s := python.New()
+	content := readFixture(t, "quantum_families_usage.py")
+	findings, err := s.ScanFile("quantum_families_usage.py", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "bls" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "BLS finding in fixture")
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "schnorr" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Schnorr finding in fixture")
+}

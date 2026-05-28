@@ -455,3 +455,93 @@ func assertFindingExists(t *testing.T, findings []types.Finding, match func(type
 			f.Properties.QuantumStatus, f.Pass)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Tier-3 quantum families: @noble Schnorr + BLS (issue #33)
+// ---------------------------------------------------------------------------
+
+func TestNobleSchnorrDetection(t *testing.T) {
+	s := javascript.New()
+
+	t.Run("@noble/secp256k1 schnorr.sign is quantum-vulnerable", func(t *testing.T) {
+		code := []byte(`const { schnorr } = require('@noble/secp256k1');
+async function f(msg, priv) { return schnorr.sign(msg, priv); }
+`)
+		findings, err := s.ScanFile("t.js", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == "schnorr" &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable &&
+				f.RuleID == "cbom-js-schnorr-sign"
+		}, "Schnorr sign finding with QuantumVulnerable status")
+	})
+
+	t.Run("ESM import schnorr.verify", func(t *testing.T) {
+		code := []byte(`import { schnorr } from '@noble/curves/secp256k1';
+function f(sig, msg, pub) { return schnorr.verify(sig, msg, pub); }
+`)
+		findings, err := s.ScanFile("t.ts", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == "schnorr" &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable
+		}, "Schnorr verify finding")
+	})
+}
+
+func TestNobleBLSDetection(t *testing.T) {
+	s := javascript.New()
+	code := []byte(`const bls = require('@noble/bls12-381');
+async function f(msg, priv) { return bls.sign(msg, priv); }
+`)
+	findings, err := s.ScanFile("t.js", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "bls" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable &&
+			f.RuleID == "cbom-js-bls-sign"
+	}, "BLS sign finding with QuantumVulnerable status")
+}
+
+// TestNobleQuantumFamiliesZeroFalsePositive ensures schnorr/bls API shapes
+// without an anchoring import are never flagged (hard zero-FP constraint).
+func TestNobleQuantumFamiliesZeroFalsePositive(t *testing.T) {
+	s := javascript.New()
+	code := []byte(`// schnorr and bls are signature schemes; this file imports neither.
+const bls = { sign: (m, p) => p };
+const schnorr = { sign: (m, p) => p };
+function go() { return bls.sign('a', 'b') + schnorr.sign('a', 'b'); }
+`)
+	findings, err := s.ScanFile("noimport.js", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	for _, f := range findings {
+		if f.Properties.AlgorithmFamily == "bls" || f.Properties.AlgorithmFamily == "schnorr" {
+			t.Errorf("false positive: %s %s (no anchoring import present)", f.Name, f.RuleID)
+		}
+	}
+}
+
+func TestQuantumFamiliesJSFixture(t *testing.T) {
+	s := javascript.New()
+	content := readFixture(t, "quantum_families_usage.js")
+	findings, err := s.ScanFile("quantum_families_usage.js", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "schnorr" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Schnorr finding in fixture")
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "bls" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "BLS finding in fixture")
+}

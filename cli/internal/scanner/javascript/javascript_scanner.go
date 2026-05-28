@@ -90,6 +90,9 @@ func (s *JSScanner) ScanFile(path string, content []byte) ([]types.Finding, erro
 	webCryptoFindings := s.detectWebCrypto(root, path, content, cp, lang)
 	findings = append(findings, webCryptoFindings...)
 
+	// #33: Detect @noble Schnorr (BIP-340) and BLS12-381 signatures
+	findings = append(findings, s.detectNobleQuantumFamilies(root, path, content, lang)...)
+
 	return scanner.AnnotateFindings(findings), nil
 }
 
@@ -124,21 +127,21 @@ var cipherAlgorithms = map[string]struct {
 	primitive string
 	keySize   int
 }{
-	"aes-128-cbc": {family: "aes", name: "AES-128-CBC", mode: "cbc", primitive: "block-cipher", keySize: 128},
-	"aes-128-gcm": {family: "aes", name: "AES-128-GCM", mode: "gcm", primitive: "ae", keySize: 128},
-	"aes-128-ecb": {family: "aes", name: "AES-128-ECB", mode: "ecb", primitive: "block-cipher", keySize: 128},
-	"aes-192-cbc": {family: "aes", name: "AES-192-CBC", mode: "cbc", primitive: "block-cipher", keySize: 192},
-	"aes-192-gcm": {family: "aes", name: "AES-192-GCM", mode: "gcm", primitive: "ae", keySize: 192},
-	"aes-256-cbc": {family: "aes", name: "AES-256-CBC", mode: "cbc", primitive: "block-cipher", keySize: 256},
-	"aes-256-gcm": {family: "aes", name: "AES-256-GCM", mode: "gcm", primitive: "ae", keySize: 256},
-	"aes-256-ecb": {family: "aes", name: "AES-256-ECB", mode: "ecb", primitive: "block-cipher", keySize: 256},
-	"aes-256-ctr": {family: "aes", name: "AES-256-CTR", mode: "ctr", primitive: "block-cipher", keySize: 256},
-	"des":         {family: "des", name: "DES", mode: "", primitive: "block-cipher", keySize: 56},
-	"des-cbc":     {family: "des", name: "DES-CBC", mode: "cbc", primitive: "block-cipher", keySize: 56},
-	"des-ecb":     {family: "des", name: "DES-ECB", mode: "ecb", primitive: "block-cipher", keySize: 56},
-	"des-ede3":    {family: "3des", name: "3DES", mode: "", primitive: "block-cipher", keySize: 168},
+	"aes-128-cbc":  {family: "aes", name: "AES-128-CBC", mode: "cbc", primitive: "block-cipher", keySize: 128},
+	"aes-128-gcm":  {family: "aes", name: "AES-128-GCM", mode: "gcm", primitive: "ae", keySize: 128},
+	"aes-128-ecb":  {family: "aes", name: "AES-128-ECB", mode: "ecb", primitive: "block-cipher", keySize: 128},
+	"aes-192-cbc":  {family: "aes", name: "AES-192-CBC", mode: "cbc", primitive: "block-cipher", keySize: 192},
+	"aes-192-gcm":  {family: "aes", name: "AES-192-GCM", mode: "gcm", primitive: "ae", keySize: 192},
+	"aes-256-cbc":  {family: "aes", name: "AES-256-CBC", mode: "cbc", primitive: "block-cipher", keySize: 256},
+	"aes-256-gcm":  {family: "aes", name: "AES-256-GCM", mode: "gcm", primitive: "ae", keySize: 256},
+	"aes-256-ecb":  {family: "aes", name: "AES-256-ECB", mode: "ecb", primitive: "block-cipher", keySize: 256},
+	"aes-256-ctr":  {family: "aes", name: "AES-256-CTR", mode: "ctr", primitive: "block-cipher", keySize: 256},
+	"des":          {family: "des", name: "DES", mode: "", primitive: "block-cipher", keySize: 56},
+	"des-cbc":      {family: "des", name: "DES-CBC", mode: "cbc", primitive: "block-cipher", keySize: 56},
+	"des-ecb":      {family: "des", name: "DES-ECB", mode: "ecb", primitive: "block-cipher", keySize: 56},
+	"des-ede3":     {family: "3des", name: "3DES", mode: "", primitive: "block-cipher", keySize: 168},
 	"des-ede3-cbc": {family: "3des", name: "3DES-CBC", mode: "cbc", primitive: "block-cipher", keySize: 168},
-	"rc4":         {family: "rc4", name: "RC4", mode: "", primitive: "stream-cipher", keySize: 0},
+	"rc4":          {family: "rc4", name: "RC4", mode: "", primitive: "stream-cipher", keySize: 0},
 }
 
 func (s *JSScanner) detectNodeCrypto(root *sitter.Node, path string, content []byte, cp *ConstPropagator, lang *sitter.Language) []types.Finding {
@@ -764,15 +767,15 @@ var forgeCipherAlgorithms = map[string]struct {
 	mode      string
 	primitive string
 }{
-	"aes-cbc":     {family: "aes", name: "AES-CBC", mode: "cbc", primitive: "block-cipher"},
-	"aes-gcm":     {family: "aes", name: "AES-GCM", mode: "gcm", primitive: "ae"},
-	"aes-ecb":     {family: "aes", name: "AES-ECB", mode: "ecb", primitive: "block-cipher"},
-	"aes-ctr":     {family: "aes", name: "AES-CTR", mode: "ctr", primitive: "block-cipher"},
-	"des-cbc":     {family: "des", name: "DES-CBC", mode: "cbc", primitive: "block-cipher"},
-	"des-ecb":     {family: "des", name: "DES-ECB", mode: "ecb", primitive: "block-cipher"},
-	"3des-cbc":    {family: "3des", name: "3DES-CBC", mode: "cbc", primitive: "block-cipher"},
-	"3des-ecb":    {family: "3des", name: "3DES-ECB", mode: "ecb", primitive: "block-cipher"},
-	"rc4":         {family: "rc4", name: "RC4", mode: "", primitive: "stream-cipher"},
+	"aes-cbc":  {family: "aes", name: "AES-CBC", mode: "cbc", primitive: "block-cipher"},
+	"aes-gcm":  {family: "aes", name: "AES-GCM", mode: "gcm", primitive: "ae"},
+	"aes-ecb":  {family: "aes", name: "AES-ECB", mode: "ecb", primitive: "block-cipher"},
+	"aes-ctr":  {family: "aes", name: "AES-CTR", mode: "ctr", primitive: "block-cipher"},
+	"des-cbc":  {family: "des", name: "DES-CBC", mode: "cbc", primitive: "block-cipher"},
+	"des-ecb":  {family: "des", name: "DES-ECB", mode: "ecb", primitive: "block-cipher"},
+	"3des-cbc": {family: "3des", name: "3DES-CBC", mode: "cbc", primitive: "block-cipher"},
+	"3des-ecb": {family: "3des", name: "3DES-ECB", mode: "ecb", primitive: "block-cipher"},
+	"rc4":      {family: "rc4", name: "RC4", mode: "", primitive: "stream-cipher"},
 }
 
 func (s *JSScanner) detectForgeCipher(root *sitter.Node, path string, content []byte, cp *ConstPropagator, lang *sitter.Language) []types.Finding {
@@ -1092,9 +1095,9 @@ var webCryptoAlgorithms = map[string]struct {
 	primitive string
 	mode      string
 }{
-	"aes-gcm": {family: "aes", name: "AES-GCM", primitive: "ae", mode: "gcm"},
-	"aes-cbc": {family: "aes", name: "AES-CBC", primitive: "block-cipher", mode: "cbc"},
-	"aes-ctr": {family: "aes", name: "AES-CTR", primitive: "block-cipher", mode: "ctr"},
+	"aes-gcm":  {family: "aes", name: "AES-GCM", primitive: "ae", mode: "gcm"},
+	"aes-cbc":  {family: "aes", name: "AES-CBC", primitive: "block-cipher", mode: "cbc"},
+	"aes-ctr":  {family: "aes", name: "AES-CTR", primitive: "block-cipher", mode: "ctr"},
 	"rsa-oaep": {family: "rsa", name: "RSA-OAEP", primitive: "pke"},
 	"rsa-pss":  {family: "rsa", name: "RSA-PSS", primitive: "signature"},
 	"ecdsa":    {family: "ecdsa", name: "ECDSA", primitive: "signature"},
@@ -1265,6 +1268,218 @@ func (s *JSScanner) handleWebCryptoGenerateKey(callNode *sitter.Node, argsNode *
 		Description: fmt.Sprintf("Web Crypto generateKey with %s", name),
 		RuleID:      fmt.Sprintf("cbom-js-webcrypto-generateKey-%s", normalized),
 		Pass:        1,
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tier-3 quantum families: @noble Schnorr + BLS12-381 (issue #33)
+// ---------------------------------------------------------------------------
+
+// importSources scans the file for the string literal sources of ES `import`
+// and CommonJS `require()` statements. Used to anchor third-party library
+// detection so a bare `schnorr.sign(...)` is only flagged when the relevant
+// package was actually imported (zero-FP discipline).
+func (s *JSScanner) importSources(root *sitter.Node, content []byte, lang *sitter.Language) map[string]bool {
+	sources := make(map[string]bool)
+
+	// ES imports: import ... from "<src>"
+	importQuery := `(import_statement source: (string) @src)`
+	if matches, err := scanner.QueryMatches(root, importQuery, lang, content); err == nil {
+		for _, m := range matches {
+			for _, c := range m.Captures {
+				sources[stripJSQuotes(scanner.NodeText(c.Node, content))] = true
+			}
+		}
+	}
+
+	// CommonJS: require("<src>")
+	requireQuery := `(call_expression
+		function: (identifier) @fn
+		arguments: (arguments (string) @src)
+		(#eq? @fn "require"))`
+	if matches, err := scanner.QueryMatches(root, requireQuery, lang, content); err == nil {
+		for _, m := range matches {
+			for _, c := range m.Captures {
+				if c.Index == 1 {
+					sources[stripJSQuotes(scanner.NodeText(c.Node, content))] = true
+				}
+			}
+		}
+	}
+
+	return sources
+}
+
+// stripJSQuotes removes the surrounding quote characters from a JS string node.
+func stripJSQuotes(s string) string {
+	if len(s) >= 2 {
+		first, last := s[0], s[len(s)-1]
+		if (first == '"' || first == '\'' || first == '`') && first == last {
+			return s[1 : len(s)-1]
+		}
+	}
+	return s
+}
+
+// nobleSecpModules / nobleBLSModules list the package sources that anchor
+// Schnorr and BLS detection respectively.
+var nobleSecpModules = map[string]bool{
+	"@noble/secp256k1":           true,
+	"@noble/curves/secp256k1":    true,
+	"@noble/curves/secp256k1.js": true,
+	"@noble/curves":              true,
+	"secp256k1":                  true,
+	"bip-schnorr":                true,
+	"bip340":                     true,
+}
+
+var nobleBLSModules = map[string]bool{
+	"@noble/bls12-381":        true,
+	"@noble/curves/bls12-381": true,
+	"@chainsafe/bls":          true,
+	"bls-eth-wasm":            true,
+}
+
+func anyImported(sources map[string]bool, mods map[string]bool) bool {
+	for src := range sources {
+		if mods[src] {
+			return true
+		}
+	}
+	return false
+}
+
+// detectNobleQuantumFamilies detects @noble (and friends) Schnorr/BLS12-381
+// signature APIs. Both are quantum-vulnerable (discrete-log / pairing-based).
+//
+// Schnorr is anchored on a secp256k1 import AND the distinctive `schnorr.*`
+// namespace (e.g. `schnorr.sign`, `secp.schnorr.verify`). BLS is anchored on a
+// BLS12-381 import AND the `bls.sign` / `bls.verify` / `bls.aggregateSignatures`
+// API surface. Neither matches a bare word "schnorr"/"bls" in comments or vars.
+func (s *JSScanner) detectNobleQuantumFamilies(root *sitter.Node, path string, content []byte, lang *sitter.Language) []types.Finding {
+	sources := s.importSources(root, content, lang)
+	schnorrImported := anyImported(sources, nobleSecpModules)
+	blsImported := anyImported(sources, nobleBLSModules)
+	if !schnorrImported && !blsImported {
+		return nil
+	}
+
+	var findings []types.Finding
+
+	// Member-expression calls: <obj>.<method>(...)
+	queryStr := `(call_expression
+		function: (member_expression
+			object: (_) @obj
+			property: (property_identifier) @method))`
+	matches, err := scanner.QueryMatches(root, queryStr, lang, content)
+	if err != nil {
+		return nil
+	}
+
+	for _, match := range matches {
+		var objNode, methodNode *sitter.Node
+		for _, capture := range match.Captures {
+			switch capture.Index {
+			case 0:
+				objNode = capture.Node
+			case 1:
+				methodNode = capture.Node
+			}
+		}
+		if objNode == nil || methodNode == nil {
+			continue
+		}
+		objText := scanner.NodeText(objNode, content)
+		method := scanner.NodeText(methodNode, content)
+		callNode := getCallNode(methodNode)
+
+		// Schnorr: receiver is (or ends with) the `schnorr` namespace.
+		if schnorrImported && (objText == "schnorr" || strings.HasSuffix(objText, ".schnorr")) {
+			fn := schnorrFn(method)
+			if fn == "" {
+				continue
+			}
+			qi := quantum.GetInfo("schnorr")
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "Schnorr",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        "signature",
+					AlgorithmFamily:  "schnorr",
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{fn},
+				},
+				Description: fmt.Sprintf("Schnorr (BIP-340) signature via %s.%s() — quantum-vulnerable", objText, method),
+				RuleID:      "cbom-js-schnorr-" + fn,
+				Pass:        1,
+			})
+			continue
+		}
+
+		// BLS: receiver is the bls binding and method is a BLS signature op.
+		if blsImported && objText == "bls" {
+			fn := blsFn(method)
+			if fn == "" {
+				continue
+			}
+			qi := quantum.GetInfo("bls")
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "BLS12-381",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        "signature",
+					AlgorithmFamily:  "bls",
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{fn},
+				},
+				Description: fmt.Sprintf("BLS12-381 pairing-based signature via bls.%s() — quantum-vulnerable", method),
+				RuleID:      "cbom-js-bls-" + strings.ToLower(method),
+				Pass:        1,
+			})
+		}
+	}
+
+	return findings
+}
+
+// schnorrFn maps a @noble schnorr method name to a crypto-function label, or
+// "" if the method isn't a signature operation we attribute to Schnorr.
+func schnorrFn(method string) string {
+	switch method {
+	case "sign", "signAsync":
+		return "sign"
+	case "verify", "verifyAsync":
+		return "verify"
+	case "getPublicKey":
+		return "generate"
+	default:
+		return ""
+	}
+}
+
+// blsFn maps a BLS12-381 method name to a crypto-function label, or "".
+func blsFn(method string) string {
+	switch method {
+	case "sign":
+		return "sign"
+	case "verify", "verifyBatch", "verifyMultiple":
+		return "verify"
+	case "aggregateSignatures", "aggregatePublicKeys":
+		return "sign"
+	case "getPublicKey":
+		return "generate"
+	default:
+		return ""
 	}
 }
 

@@ -111,6 +111,12 @@ func (s *GoScanner) ScanFile(path string, content []byte) ([]types.Finding, erro
 	// Detect golang.org/x/crypto packages
 	findings = append(findings, s.detectXCrypto(root, path, content, imports, cp)...)
 
+	// Detect Schnorr (BIP-340) signatures (btcec/decred secp256k1)
+	findings = append(findings, s.detectSchnorr(root, path, content, imports)...)
+
+	// Detect BLS / BLS12-381 signatures (kilic / herumi / prysm)
+	findings = append(findings, s.detectBLS(root, path, content, imports)...)
+
 	return scanner.AnnotateFindings(findings), nil
 }
 
@@ -194,6 +200,27 @@ func aliasFor(imports map[string]string, path string) string {
 	for alias, p := range imports {
 		if p == path {
 			return alias
+		}
+	}
+	return ""
+}
+
+// aliasForAny returns the local alias for the first import path whose full
+// path equals, or whose final path segment equals, any of the supplied
+// candidate package paths/names. Used for third-party libraries that ship the
+// same package under several module paths (e.g. the "schnorr" sub-package of
+// both btcsuite/btcd and decred/dcrd). Matching the final segment keeps the
+// candidate list short while still being import-anchored (zero bare-word FP).
+func aliasForAny(imports map[string]string, candidates ...string) string {
+	for alias, p := range imports {
+		last := p
+		if idx := strings.LastIndex(p, "/"); idx >= 0 {
+			last = p[idx+1:]
+		}
+		for _, c := range candidates {
+			if p == c || last == c {
+				return alias
+			}
 		}
 	}
 	return ""
@@ -1557,6 +1584,116 @@ func (s *GoScanner) detectHKDF(root *sitter.Node, path string, content []byte, i
 			RuleID:      "cbom-go-hkdf-new",
 			Pass:        1,
 		})
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// Schnorr signatures (BIP-340 / Taproot) detection
+// ---------------------------------------------------------------------------
+//
+// Detected libraries (import-anchored, never bare-word "schnorr"):
+//   - github.com/btcsuite/btcd/btcec/v2/schnorr        (btcec/schnorr)
+//   - github.com/decred/dcrd/dcrec/secp256k1/v4/schnorr
+//   - github.com/decred/dcrd/dcrec/secp256k1/v4/schnorr/musig2
+// All ship the package as a final "schnorr" segment, so aliasForAny matches
+// on that segment without a long path list.
+
+func (s *GoScanner) detectSchnorr(root *sitter.Node, path string, content []byte, imports map[string]string) []types.Finding {
+	alias := aliasForAny(imports, "schnorr")
+	if alias == "" {
+		return nil
+	}
+
+	var findings []types.Finding
+
+	// schnorr.Sign / schnorr.Verify / schnorr.NewSignature / schnorr.ParseSignature
+	calls := map[string]string{
+		"Sign":           "sign",
+		"Verify":         "verify",
+		"NewSignature":   "sign",
+		"ParseSignature": "verify",
+	}
+	for funcName, fn := range calls {
+		for _, callNode := range s.findSelectorCalls(root, content, alias, funcName) {
+			qi := quantum.GetInfo("schnorr")
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "Schnorr",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        "signature",
+					AlgorithmFamily:  "schnorr",
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{fn},
+				},
+				Description: fmt.Sprintf("Schnorr (BIP-340) signature via %s.%s() — quantum-vulnerable", alias, funcName),
+				RuleID:      fmt.Sprintf("cbom-go-schnorr-%s", strings.ToLower(funcName)),
+				Pass:        1,
+			})
+		}
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// BLS / BLS12-381 signature detection (Ethereum eth2)
+// ---------------------------------------------------------------------------
+//
+// Detected libraries (import-anchored):
+//   - github.com/kilic/bls12-381                 (alias "bls12381")
+//   - github.com/herumi/bls-eth-go-binary/bls    (alias "bls")
+//   - github.com/prysmaticlabs/prysm/.../crypto/bls
+//   - github.com/protolambda/bls12-381-util
+// Matching is on the final path segment ("bls12-381", "bls12381", "bls"),
+// which is import-anchored — never a bare "bls" word in comments/identifiers.
+
+func (s *GoScanner) detectBLS(root *sitter.Node, path string, content []byte, imports map[string]string) []types.Finding {
+	alias := aliasForAny(imports, "bls12-381", "bls12381", "bls")
+	if alias == "" {
+		return nil
+	}
+
+	var findings []types.Finding
+
+	// Sign / Verify / aggregate / key-gen entry points across the common libs.
+	calls := map[string]string{
+		"Sign":                "sign",
+		"Verify":              "verify",
+		"SignatureFromBytes":  "verify",
+		"AggregateSignatures": "sign",
+		"RandKey":             "generate",
+		"NewG1":               "generate",
+		"NewG2":               "generate",
+	}
+	for funcName, fn := range calls {
+		for _, callNode := range s.findSelectorCalls(root, content, alias, funcName) {
+			qi := quantum.GetInfo("bls")
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "BLS12-381",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        "signature",
+					AlgorithmFamily:  "bls",
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{fn},
+				},
+				Description: fmt.Sprintf("BLS12-381 pairing-based signature via %s.%s() — quantum-vulnerable", alias, funcName),
+				RuleID:      fmt.Sprintf("cbom-go-bls-%s", strings.ToLower(funcName)),
+				Pass:        1,
+			})
+		}
 	}
 
 	return findings
