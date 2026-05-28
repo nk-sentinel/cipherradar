@@ -150,34 +150,40 @@ var jcaClassInfo = map[string]struct {
 	"Signature":        {primitive: "signature", ruleTag: "signature"},
 	"SecretKeySpec":    {primitive: "block-cipher", ruleTag: "secretkeyspec"},
 	"SSLContext":       {primitive: "", ruleTag: "sslcontext"},
+	"KeyAgreement":     {primitive: "key-agree", ruleTag: "keyagreement"},
 }
 
 // algorithmFamilyMap maps JCA algorithm names (uppercased) to quantum family names.
 var algorithmFamilyMap = map[string]string{
-	"AES":        "aes",
-	"DES":        "des",
-	"DESEDE":     "3des",
-	"BLOWFISH":   "blowfish",
-	"RC4":        "rc4",
-	"ARCFOUR":    "rc4",
-	"RSA":        "rsa",
-	"DSA":        "dsa",
-	"EC":         "ec",
-	"ECDSA":      "ecdsa",
-	"MD5":        "md5",
-	"SHA-1":      "sha1",
-	"SHA1":       "sha1",
-	"SHA-256":    "sha-256",
-	"SHA256":     "sha-256",
-	"SHA-384":    "sha-384",
-	"SHA384":     "sha-384",
-	"SHA-512":    "sha-512",
-	"SHA512":     "sha-512",
-	"HMACMD5":    "md5",
-	"HMACSHA1":   "sha1",
-	"HMACSHA256": "sha-256",
-	"HMACSHA384": "sha-384",
-	"HMACSHA512": "sha-512",
+	"AES":           "aes",
+	"DES":           "des",
+	"DESEDE":        "3des",
+	"BLOWFISH":      "blowfish",
+	"RC4":           "rc4",
+	"ARCFOUR":       "rc4",
+	"RSA":           "rsa",
+	"DSA":           "dsa",
+	"EC":            "ec",
+	"ECDSA":         "ecdsa",
+	"DH":            "dh",
+	"DIFFIEHELLMAN": "dh",
+	"ECDH":          "ecdh",
+	"X25519":        "x25519",
+	"X448":          "x448",
+	"MD5":           "md5",
+	"SHA-1":         "sha1",
+	"SHA1":          "sha1",
+	"SHA-256":       "sha-256",
+	"SHA256":        "sha-256",
+	"SHA-384":       "sha-384",
+	"SHA384":        "sha-384",
+	"SHA-512":       "sha-512",
+	"SHA512":        "sha-512",
+	"HMACMD5":       "md5",
+	"HMACSHA1":      "sha1",
+	"HMACSHA256":    "sha-256",
+	"HMACSHA384":    "sha-384",
+	"HMACSHA512":    "sha-512",
 }
 
 // lookupAlgoFamily returns the quantum family key for a given algorithm name.
@@ -262,6 +268,11 @@ func (s *KotlinScanner) detectJCA(root *sitter.Node, path string, content []byte
 			}
 		case "SSLContext":
 			finding := s.handleSSLContextGetInstance(callNode, argsNode, path, content, cp)
+			if finding != nil {
+				findings = append(findings, *finding)
+			}
+		case "KeyAgreement":
+			finding := s.handleKeyAgreementGetInstance(callNode, argsNode, path, content, cp)
 			if finding != nil {
 				findings = append(findings, *finding)
 			}
@@ -498,6 +509,41 @@ func (s *KotlinScanner) handleSignatureGetInstance(callNode, argsNode *sitter.No
 		},
 		Description: fmt.Sprintf("Signature %s via Signature.getInstance()", algoStr),
 		RuleID:      fmt.Sprintf("cbom-kotlin-jca-signature-%s", strings.ToLower(strings.ReplaceAll(algoStr, "/", "-"))),
+		Pass:        1,
+	}
+}
+
+// handleKeyAgreementGetInstance detects KeyAgreement.getInstance("DH" / "ECDH"
+// / "X25519" / "X448"). Mirrors the Java scanner: Kotlin code calls the same
+// JCA factory, so the algorithm string maps directly to a quantum family.
+func (s *KotlinScanner) handleKeyAgreementGetInstance(callNode, argsNode *sitter.Node, path string, content []byte, cp *ConstPropagator) *types.Finding {
+	algoStr, confidence := resolveFirstArg(argsNode, content, cp)
+	if algoStr == "" {
+		return nil
+	}
+
+	algoFamily := lookupAlgoFamily(algoStr)
+	if algoFamily == "" {
+		algoFamily = strings.ToLower(algoStr)
+	}
+	qi := quantum.GetInfo(algoFamily)
+
+	return &types.Finding{
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       strings.ToUpper(algoStr),
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   types.SeverityInfo,
+		Confidence: confidence,
+		Properties: types.CryptoProperties{
+			Primitive:        "key-agree",
+			AlgorithmFamily:  algoFamily,
+			QuantumStatus:    qi.Status,
+			NistQuantumLevel: qi.NistLevel,
+			CryptoFunctions:  []string{"keyagree"},
+		},
+		Description: fmt.Sprintf("Key agreement %s via KeyAgreement.getInstance()", algoStr),
+		RuleID:      fmt.Sprintf("cbom-kotlin-jca-keyagreement-%s", strings.ToLower(algoStr)),
 		Pass:        1,
 	}
 }

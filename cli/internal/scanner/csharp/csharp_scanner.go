@@ -122,7 +122,10 @@ var dotNetFactoryClasses = map[string]dotNetFactoryInfo{
 
 	// Asymmetric ciphers / key generation
 	"RSA":   {family: "rsa", name: "RSA", primitive: "pke", severity: types.SeverityInfo, ruleTag: "rsa", cryptoFunc: "generate"},
+	"DSA":   {family: "dsa", name: "DSA", primitive: "signature", severity: types.SeverityInfo, ruleTag: "dsa", cryptoFunc: "generate"},
 	"ECDsa": {family: "ecdsa", name: "ECDSA", primitive: "signature", severity: types.SeverityInfo, ruleTag: "ecdsa", cryptoFunc: "generate"},
+	// ECDiffieHellman is the standard .NET BCL ECDH key-agreement class.
+	"ECDiffieHellman": {family: "ecdh", name: "ECDH", primitive: "key-agree", severity: types.SeverityInfo, ruleTag: "ecdh", cryptoFunc: "keyagree"},
 
 	// Hashes
 	"SHA256": {family: "sha-256", name: "SHA-256", primitive: "hash", severity: types.SeverityInfo, ruleTag: "sha256", cryptoFunc: "digest"},
@@ -225,13 +228,13 @@ var bcEngineAlgorithms = map[string]struct {
 	name      string
 	primitive string
 }{
-	"AesEngine":  {family: "aes", name: "AES", primitive: "block-cipher"},
-	"DesEngine":  {family: "des", name: "DES", primitive: "block-cipher"},
-	"RsaEngine":  {family: "rsa", name: "RSA", primitive: "pke"},
-	"AESEngine":  {family: "aes", name: "AES", primitive: "block-cipher"},
-	"DESEngine":  {family: "des", name: "DES", primitive: "block-cipher"},
-	"RSAEngine":  {family: "rsa", name: "RSA", primitive: "pke"},
-	"RC4Engine":  {family: "rc4", name: "RC4", primitive: "stream-cipher"},
+	"AesEngine":    {family: "aes", name: "AES", primitive: "block-cipher"},
+	"DesEngine":    {family: "des", name: "DES", primitive: "block-cipher"},
+	"RsaEngine":    {family: "rsa", name: "RSA", primitive: "pke"},
+	"AESEngine":    {family: "aes", name: "AES", primitive: "block-cipher"},
+	"DESEngine":    {family: "des", name: "DES", primitive: "block-cipher"},
+	"RSAEngine":    {family: "rsa", name: "RSA", primitive: "pke"},
+	"RC4Engine":    {family: "rc4", name: "RC4", primitive: "stream-cipher"},
 	"DESedeEngine": {family: "3des", name: "3DES", primitive: "block-cipher"},
 }
 
@@ -240,12 +243,12 @@ var bcDigestAlgorithms = map[string]struct {
 	family string
 	name   string
 }{
-	"Sha256Digest":  {family: "sha-256", name: "SHA-256"},
-	"MD5Digest":     {family: "md5", name: "MD5"},
-	"SHA256Digest":  {family: "sha-256", name: "SHA-256"},
-	"Md5Digest":     {family: "md5", name: "MD5"},
-	"Sha1Digest":    {family: "sha1", name: "SHA-1"},
-	"SHA1Digest":    {family: "sha1", name: "SHA-1"},
+	"Sha256Digest": {family: "sha-256", name: "SHA-256"},
+	"MD5Digest":    {family: "md5", name: "MD5"},
+	"SHA256Digest": {family: "sha-256", name: "SHA-256"},
+	"Md5Digest":    {family: "md5", name: "MD5"},
+	"Sha1Digest":   {family: "sha1", name: "SHA-1"},
+	"SHA1Digest":   {family: "sha1", name: "SHA-1"},
 }
 
 func (s *CSharpScanner) detectBouncyCastle(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {

@@ -89,6 +89,9 @@ func (s *CppScanner) ScanFile(path string, content []byte) ([]types.Finding, err
 	// Detect OpenSSL RSA usage
 	findings = append(findings, s.detectOpenSSLRSA(root, path, content, cp)...)
 
+	// Detect OpenSSL asymmetric usage (DSA, DH, EC, ECDSA, ECDH)
+	findings = append(findings, s.detectOpenSSLAsymmetric(root, path, content)...)
+
 	// Detect OpenSSL AES usage
 	findings = append(findings, s.detectOpenSSLAES(root, path, content)...)
 
@@ -411,6 +414,73 @@ func (s *CppScanner) detectOpenSSLRSA(root *sitter.Node, path string, content []
 }
 
 // ---------------------------------------------------------------------------
+// OpenSSL asymmetric (DSA / DH / EC / ECDSA / ECDH) detection
+// ---------------------------------------------------------------------------
+
+// asymFuncInfo maps an OpenSSL function name to its quantum-vulnerable
+// algorithm family. These are the classic (pre-EVP) OpenSSL APIs whose name
+// unambiguously identifies the algorithm, so detection is high-confidence and
+// low false-positive risk.
+type cppAsymInfo struct {
+	family    string
+	name      string
+	primitive string
+	fn        string
+}
+
+var cppOpenSSLAsymFuncs = map[string]cppAsymInfo{
+	// DSA key/parameter generation.
+	"DSA_generate_key":           {family: "dsa", name: "DSA", primitive: "signature", fn: "generate"},
+	"DSA_generate_parameters_ex": {family: "dsa", name: "DSA", primitive: "signature", fn: "generate"},
+	// Diffie-Hellman key/parameter generation.
+	"DH_generate_key":           {family: "dh", name: "DH", primitive: "key-agree", fn: "keyagree"},
+	"DH_generate_parameters_ex": {family: "dh", name: "DH", primitive: "key-agree", fn: "keyagree"},
+	// Elliptic-curve key creation.
+	"EC_KEY_new_by_curve_name": {family: "ec", name: "EC", primitive: "pke", fn: "generate"},
+	"EC_KEY_generate_key":      {family: "ec", name: "EC", primitive: "pke", fn: "generate"},
+	// ECDSA signing/verification.
+	"ECDSA_sign":      {family: "ecdsa", name: "ECDSA", primitive: "signature", fn: "sign"},
+	"ECDSA_verify":    {family: "ecdsa", name: "ECDSA", primitive: "signature", fn: "verify"},
+	"ECDSA_do_sign":   {family: "ecdsa", name: "ECDSA", primitive: "signature", fn: "sign"},
+	"ECDSA_do_verify": {family: "ecdsa", name: "ECDSA", primitive: "signature", fn: "verify"},
+	// ECDH shared-secret derivation.
+	"ECDH_compute_key": {family: "ecdh", name: "ECDH", primitive: "key-agree", fn: "keyagree"},
+}
+
+// detectOpenSSLAsymmetric detects classic OpenSSL asymmetric APIs (DSA, DH,
+// EC, ECDSA, ECDH). The EVP_PKEY_CTX_new_id path is intentionally left to
+// detectOpenSSLRSA since its NID argument is not parsed here.
+func (s *CppScanner) detectOpenSSLAsymmetric(root *sitter.Node, path string, content []byte) []types.Finding {
+	var findings []types.Finding
+
+	for funcName, info := range cppOpenSSLAsymFuncs {
+		for _, callNode := range findFunctionCalls(root, content, funcName) {
+			qi := quantum.GetInfo(info.family)
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       info.name,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        info.primitive,
+					AlgorithmFamily:  info.family,
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{info.fn},
+				},
+				Description: fmt.Sprintf("%s via %s()", info.name, funcName),
+				RuleID:      fmt.Sprintf("cbom-cpp-openssl-%s", info.family),
+				Pass:        1,
+			})
+		}
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
 // OpenSSL AES detection
 // ---------------------------------------------------------------------------
 
@@ -627,20 +697,20 @@ var tlsMethodMap = map[string]struct {
 	version  string
 	severity types.Severity
 }{
-	"TLS_method":       {name: "TLS", version: "", severity: types.SeverityInfo},
-	"TLS_client_method": {name: "TLS", version: "", severity: types.SeverityInfo},
-	"TLS_server_method": {name: "TLS", version: "", severity: types.SeverityInfo},
-	"TLSv1_method":     {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLSv1_client_method": {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLSv1_server_method": {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLSv1_1_method":   {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
+	"TLS_method":            {name: "TLS", version: "", severity: types.SeverityInfo},
+	"TLS_client_method":     {name: "TLS", version: "", severity: types.SeverityInfo},
+	"TLS_server_method":     {name: "TLS", version: "", severity: types.SeverityInfo},
+	"TLSv1_method":          {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
+	"TLSv1_client_method":   {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
+	"TLSv1_server_method":   {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
+	"TLSv1_1_method":        {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
 	"TLSv1_1_client_method": {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
 	"TLSv1_1_server_method": {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
-	"TLSv1_2_method":   {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
+	"TLSv1_2_method":        {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
 	"TLSv1_2_client_method": {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
 	"TLSv1_2_server_method": {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
-	"SSLv23_method":    {name: "SSL 2.0/3.0", version: "2.0", severity: types.SeverityHigh},
-	"SSLv3_method":     {name: "SSL 3.0", version: "3.0", severity: types.SeverityHigh},
+	"SSLv23_method":         {name: "SSL 2.0/3.0", version: "2.0", severity: types.SeverityHigh},
+	"SSLv3_method":          {name: "SSL 3.0", version: "3.0", severity: types.SeverityHigh},
 }
 
 // tlsVersionConstants maps OpenSSL TLS version macro values for SSL_CTX_set_min_proto_version.

@@ -446,6 +446,41 @@ func TestFindingIDFormat(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// OpenSSL asymmetric (DSA / DH / EC / ECDSA / ECDH) — issue #34 Tier-1 gap fill
+// ---------------------------------------------------------------------------
+
+func TestOpenSSLAsymmetric(t *testing.T) {
+	s := cpp.New()
+	content := readFixture(t, "asymmetric_usage.cpp")
+	findings, err := s.ScanFile("asymmetric_usage.cpp", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	if len(findings) == 0 {
+		t.Fatal("expected findings from asymmetric_usage.cpp, got none")
+	}
+
+	cases := []struct {
+		family    string
+		primitive string
+	}{
+		{"dsa", "signature"},
+		{"dh", "key-agree"},
+		{"ec", "pke"},
+		{"ecdsa", "signature"},
+		{"ecdh", "key-agree"},
+	}
+	for _, tc := range cases {
+		tc := tc
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == tc.family &&
+				f.Properties.Primitive == tc.primitive &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable
+		}, tc.family+" finding flagged quantum-vulnerable")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

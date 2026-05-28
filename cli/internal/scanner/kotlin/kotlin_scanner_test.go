@@ -299,6 +299,31 @@ class T {
 }
 
 // ---------------------------------------------------------------------------
+// KeyAgreement detection (DH / ECDH / X25519 / X448) — issue #34 Tier-1 gap fill
+// ---------------------------------------------------------------------------
+
+func TestKeyAgreementUsage(t *testing.T) {
+	s := kotlin.New()
+	content := readFixture(t, "KeyAgreementUsage.kt")
+	findings, err := s.ScanFile("KeyAgreementUsage.kt", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	if len(findings) == 0 {
+		t.Fatal("expected findings from KeyAgreementUsage.kt, got none")
+	}
+
+	for _, family := range []string{"dh", "ecdh", "x25519", "x448"} {
+		family := family
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == family &&
+				f.Properties.Primitive == "key-agree" &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable
+		}, family+" key agreement flagged quantum-vulnerable")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
