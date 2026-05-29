@@ -100,6 +100,12 @@ func (s *PythonScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 	cryptoMACFindings := s.detectCryptoMACs(root, path, content)
 	findings = append(findings, cryptoMACFindings...)
 
+	// #33: Detect BLS12-381 signatures (py_ecc.bls / blspy / blst)
+	findings = append(findings, s.detectBLSPython(root, path, content)...)
+
+	// #33: Detect Schnorr (BIP-340) signatures (coincurve / secp256k1)
+	findings = append(findings, s.detectSchnorrPython(root, path, content)...)
+
 	// Detect SM2 (gmssl), ECIES (eciespy), and GOST (gostcrypto) usage
 	tier2Findings := s.detectTier2Asymmetric(root, path, content)
 	findings = append(findings, tier2Findings...)
@@ -1516,6 +1522,49 @@ func collectImportedNames(root *sitter.Node, content []byte, lang *sitter.Langua
 	return imported
 }
 
+// collectImportAliases is like collectImportedNames but returns the *local
+// alias* introduced by `from <module> import <symbol> as <alias>` (the "alias"
+// field of an aliased_import), for modules satisfying modulePredicate. Needed
+// because library usage typically references the alias, not the original symbol
+// (e.g. `from py_ecc.bls import G2ProofOfPossession as bls`).
+func collectImportAliases(root *sitter.Node, content []byte, lang *sitter.Language, modulePredicate func(string) bool) map[string]bool {
+	aliases := make(map[string]bool)
+
+	queryStr := `(import_from_statement
+		module_name: (dotted_name) @module)`
+	matches, err := scanner.QueryMatches(root, queryStr, lang, content)
+	if err != nil {
+		return aliases
+	}
+
+	for _, match := range matches {
+		var moduleNode *sitter.Node
+		for _, capture := range match.Captures {
+			if capture.Index == 0 {
+				moduleNode = capture.Node
+			}
+		}
+		if moduleNode == nil || !modulePredicate(scanner.NodeText(moduleNode, content)) {
+			continue
+		}
+		stmt := moduleNode.Parent()
+		if stmt == nil {
+			continue
+		}
+		for i := 0; i < int(stmt.NamedChildCount()); i++ {
+			child := stmt.NamedChild(i)
+			if child == nil || child.Type() != "aliased_import" {
+				continue
+			}
+			if aliasNode := child.ChildByFieldName("alias"); aliasNode != nil {
+				aliases[scanner.NodeText(aliasNode, content)] = true
+			}
+		}
+	}
+
+	return aliases
+}
+
 // ---------------------------------------------------------------------------
 // PyCryptodome usage detection (Crypto.Cipher.* / Crypto.Hash.* constructors)
 // ---------------------------------------------------------------------------
@@ -2774,4 +2823,208 @@ func (s *PythonScanner) detectCryptoMACs(root *sitter.Node, path string, content
 	}
 
 	return findings
+}
+
+// ---------------------------------------------------------------------------
+// Tier-3 quantum families: BLS + Schnorr (issue #33)
+// ---------------------------------------------------------------------------
+
+// blsSignMethods are the BLS API entry points (py_ecc.bls / blspy / blst).
+// Matched only when the receiver was imported from a BLS module, so a method
+// named "Sign"/"Verify" on unrelated objects is never flagged (zero-FP).
+var blsSignMethods = map[string]string{
+	"Sign":                "sign",
+	"Verify":              "verify",
+	"Aggregate":           "sign",
+	"AggregateVerify":     "verify",
+	"FastAggregateVerify": "verify",
+	"PrivToPub":           "generate",
+	"SkToPk":              "generate",
+	"KeyGen":              "generate",
+}
+
+// detectBLSPython detects py_ecc.bls / blspy usage such as
+// `bls.Sign(sk, msg)` or `G2ProofOfPossession.Aggregate(sigs)` when the
+// receiver name was imported from a BLS module.
+func (s *PythonScanner) detectBLSPython(root *sitter.Node, path string, content []byte) []types.Finding {
+	isBLSModule := func(m string) bool {
+		return strings.HasPrefix(m, "py_ecc.bls") || m == "py_ecc" ||
+			strings.HasPrefix(m, "blspy") || strings.HasPrefix(m, "blst")
+	}
+	imported := collectImportedNames(root, content, s.lang, isBLSModule)
+	// collectImportedNames records the original symbol; also capture aliases,
+	// since the common BLS pattern is
+	// `from py_ecc.bls import G2ProofOfPossession as bls`.
+	for alias := range collectImportAliases(root, content, s.lang, isBLSModule) {
+		imported[alias] = true
+	}
+	if len(imported) == 0 {
+		return nil
+	}
+
+	var findings []types.Finding
+
+	queryStr := `(call
+		function: (attribute
+			object: (identifier) @obj
+			attribute: (identifier) @method)
+		arguments: (argument_list) @args)`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return nil
+	}
+
+	for _, match := range matches {
+		var objNode, methodNode *sitter.Node
+		for _, capture := range match.Captures {
+			switch capture.Index {
+			case 0:
+				objNode = capture.Node
+			case 1:
+				methodNode = capture.Node
+			}
+		}
+		if objNode == nil || methodNode == nil {
+			continue
+		}
+		if !imported[scanner.NodeText(objNode, content)] {
+			continue
+		}
+		fn, ok := blsSignMethods[scanner.NodeText(methodNode, content)]
+		if !ok {
+			continue
+		}
+
+		callNode := objNode.Parent()
+		if callNode != nil {
+			callNode = callNode.Parent()
+		}
+		if callNode == nil {
+			callNode = objNode
+		}
+
+		qi := GetQuantumInfo("bls")
+		findings = append(findings, types.Finding{
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       "BLS12-381",
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityInfo,
+			Confidence: types.ConfidenceHigh,
+			Properties: types.CryptoProperties{
+				Primitive:        "signature",
+				AlgorithmFamily:  "bls",
+				QuantumStatus:    qi.Status,
+				NistQuantumLevel: qi.NistLevel,
+				CryptoFunctions:  []string{fn},
+			},
+			Description: fmt.Sprintf("BLS12-381 pairing-based signature via %s.%s() — quantum-vulnerable",
+				scanner.NodeText(objNode, content), scanner.NodeText(methodNode, content)),
+			RuleID: "cbom-python-bls-" + strings.ToLower(scanner.NodeText(methodNode, content)),
+			Pass:   1,
+		})
+	}
+
+	return findings
+}
+
+// detectSchnorrPython detects coincurve / secp256k1 Schnorr (BIP-340) usage.
+// The method names sign_schnorr / verify_schnorr are coincurve-specific and
+// only flagged when coincurve or secp256k1 is imported (zero-FP discipline).
+func (s *PythonScanner) detectSchnorrPython(root *sitter.Node, path string, content []byte) []types.Finding {
+	imported := collectImportedNames(root, content, s.lang, func(m string) bool {
+		return m == "coincurve" || strings.HasPrefix(m, "coincurve") ||
+			m == "secp256k1" || strings.HasPrefix(m, "secp256k1")
+	})
+	// Also accept `import coincurve` (module import, not from-import).
+	if len(imported) == 0 && !pythonHasPlainImport(root, content, s.lang, "coincurve", "secp256k1") {
+		return nil
+	}
+
+	var findings []types.Finding
+
+	// Match any `.sign_schnorr(...)` / `.verify_schnorr(...)` call.
+	queryStr := `(call
+		function: (attribute
+			attribute: (identifier) @method)
+		arguments: (argument_list) @args)`
+
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return nil
+	}
+
+	for _, match := range matches {
+		var methodNode *sitter.Node
+		for _, capture := range match.Captures {
+			if capture.Index == 0 {
+				methodNode = capture.Node
+			}
+		}
+		if methodNode == nil {
+			continue
+		}
+		methodName := scanner.NodeText(methodNode, content)
+		var fn string
+		switch methodName {
+		case "sign_schnorr":
+			fn = "sign"
+		case "verify_schnorr":
+			fn = "verify"
+		default:
+			continue
+		}
+
+		callNode := methodNode.Parent()
+		if callNode != nil {
+			callNode = callNode.Parent()
+		}
+		if callNode == nil {
+			callNode = methodNode
+		}
+
+		qi := GetQuantumInfo("schnorr")
+		findings = append(findings, types.Finding{
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       "Schnorr",
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityInfo,
+			Confidence: types.ConfidenceHigh,
+			Properties: types.CryptoProperties{
+				Primitive:        "signature",
+				AlgorithmFamily:  "schnorr",
+				QuantumStatus:    qi.Status,
+				NistQuantumLevel: qi.NistLevel,
+				CryptoFunctions:  []string{fn},
+			},
+			Description: fmt.Sprintf("Schnorr (BIP-340) signature via %s() — quantum-vulnerable", methodName),
+			RuleID:      "cbom-python-schnorr-" + fn,
+			Pass:        1,
+		})
+	}
+
+	return findings
+}
+
+// pythonHasPlainImport reports whether the file contains `import <mod>` (or a
+// dotted import beginning with <mod>) for any of the supplied module names.
+func pythonHasPlainImport(root *sitter.Node, content []byte, lang *sitter.Language, mods ...string) bool {
+	queryStr := `(import_statement (dotted_name) @mod)`
+	matches, err := scanner.QueryMatches(root, queryStr, lang, content)
+	if err != nil {
+		return false
+	}
+	for _, match := range matches {
+		for _, capture := range match.Captures {
+			name := scanner.NodeText(capture.Node, content)
+			for _, m := range mods {
+				if name == m || strings.HasPrefix(name, m+".") {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

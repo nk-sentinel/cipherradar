@@ -393,6 +393,121 @@ func TestFindingIDFormat(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Tier-3 quantum families: Schnorr + BLS (issue #33)
+// ---------------------------------------------------------------------------
+
+func TestSchnorrDetection(t *testing.T) {
+	s := golang.New()
+
+	t.Run("btcec schnorr Sign is quantum-vulnerable", func(t *testing.T) {
+		code := []byte(`package main
+import "github.com/btcsuite/btcd/btcec/v2/schnorr"
+func f(priv, msg []byte) { schnorr.Sign(priv, msg) }
+`)
+		findings, err := s.ScanFile("test.go", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == "schnorr" &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable &&
+				f.RuleID == "cbom-go-schnorr-sign"
+		}, "Schnorr Sign finding with QuantumVulnerable status")
+	})
+
+	t.Run("decred secp256k1 schnorr ParseSignature", func(t *testing.T) {
+		code := []byte(`package main
+import "github.com/decred/dcrd/dcrec/secp256k1/v4/schnorr"
+func f(b []byte) { schnorr.ParseSignature(b) }
+`)
+		findings, err := s.ScanFile("test.go", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == "schnorr" &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable
+		}, "Schnorr ParseSignature finding")
+	})
+}
+
+func TestBLSDetection(t *testing.T) {
+	s := golang.New()
+
+	t.Run("kilic bls12-381 group ctor is quantum-vulnerable", func(t *testing.T) {
+		code := []byte(`package main
+import bls12381 "github.com/kilic/bls12-381"
+func f() { bls12381.NewG1() }
+`)
+		findings, err := s.ScanFile("test.go", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == "bls" &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable &&
+				f.RuleID == "cbom-go-bls-newg1"
+		}, "BLS NewG1 finding with QuantumVulnerable status")
+	})
+
+	t.Run("herumi bls Sign", func(t *testing.T) {
+		code := []byte(`package main
+import "github.com/herumi/bls-eth-go-binary/bls"
+func f(sec, msg []byte) { bls.Sign(sec, msg) }
+`)
+		findings, err := s.ScanFile("test.go", code)
+		if err != nil {
+			t.Fatalf("ScanFile failed: %v", err)
+		}
+		assertFindingExists(t, findings, func(f types.Finding) bool {
+			return f.Properties.AlgorithmFamily == "bls" &&
+				f.Properties.QuantumStatus == types.QuantumVulnerable
+		}, "BLS Sign finding")
+	})
+}
+
+// TestSchnorrBLSZeroFalsePositive ensures bare words "schnorr"/"bls" without an
+// anchoring import never produce findings (the hard zero-FP constraint).
+func TestSchnorrBLSZeroFalsePositive(t *testing.T) {
+	s := golang.New()
+	code := []byte(`package main
+import "fmt"
+// schnorr and bls are great signature schemes for bls12-381 curves.
+func main() {
+	schnorr := "not a crypto call"
+	bls := schnorr + " bls12-381"
+	fmt.Println(bls)
+}
+`)
+	findings, err := s.ScanFile("noimport.go", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	for _, f := range findings {
+		if f.Properties.AlgorithmFamily == "schnorr" || f.Properties.AlgorithmFamily == "bls" {
+			t.Errorf("false positive: %s %s (no anchoring import present)", f.Name, f.RuleID)
+		}
+	}
+}
+
+func TestQuantumFamiliesFixture(t *testing.T) {
+	s := golang.New()
+	content := readFixture(t, "quantum_families_usage.go")
+	findings, err := s.ScanFile("quantum_families_usage.go", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "schnorr" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Schnorr finding in fixture")
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "bls" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "BLS finding in fixture")
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
