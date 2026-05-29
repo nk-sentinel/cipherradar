@@ -531,6 +531,34 @@ func TestRSAKeySize(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// DSA / ECDH factory detection — issue #34 Tier-1 gap fill
+// ---------------------------------------------------------------------------
+
+func TestAsymmetricUsage(t *testing.T) {
+	s := csharp.New()
+	content := readFixture(t, "AsymmetricUsage.cs")
+	findings, err := s.ScanFile("AsymmetricUsage.cs", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	if len(findings) == 0 {
+		t.Fatal("expected findings from AsymmetricUsage.cs, got none")
+	}
+
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "dsa" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "DSA finding flagged quantum-vulnerable")
+
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "ecdh" &&
+			f.Properties.Primitive == "key-agree" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "ECDH finding flagged quantum-vulnerable")
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
