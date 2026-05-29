@@ -10,6 +10,10 @@ import org.bouncycastle.crypto.engines.SM2Engine;
 import org.bouncycastle.crypto.signers.SM2Signer;
 import org.bouncycastle.crypto.engines.IESEngine;
 import org.bouncycastle.crypto.signers.ECGOST3410Signer;
+import org.bouncycastle.crypto.agreement.ECMQVBasicAgreement;
+import org.bouncycastle.crypto.signers.ECGDSASigner;
+import org.bouncycastle.crypto.signers.ECKCDSASigner;
+import org.bouncycastle.crypto.engines.PaillierEngine;
 
 public class BouncyCastleCrypto {
     // GOOD: AES via BC
@@ -74,5 +78,29 @@ public class BouncyCastleCrypto {
     // EXPECTED: EC-GOST R 34.10 | signature | | medium | quantum-vulnerable
     public void ecgost() {
         ECGOST3410Signer signer = new ECGOST3410Signer();
+    }
+
+    // ECMQV authenticated key agreement (quantum-vulnerable, #41)
+    // EXPECTED: ECMQV | key-exchange | ecmqv | medium | quantum-vulnerable
+    public void ecmqv() {
+        ECMQVBasicAgreement agreement = new ECMQVBasicAgreement();
+    }
+
+    // EC-GDSA signature (quantum-vulnerable, #41)
+    // EXPECTED: EC-GDSA | signature | ec-gdsa | medium | quantum-vulnerable
+    public void ecgdsa() {
+        ECGDSASigner signer = new ECGDSASigner();
+    }
+
+    // EC-KCDSA signature (quantum-vulnerable, #41)
+    // EXPECTED: EC-KCDSA | signature | ec-kcdsa | medium | quantum-vulnerable
+    public void eckcdsa() {
+        ECKCDSASigner signer = new ECKCDSASigner();
+    }
+
+    // Paillier homomorphic encryption (quantum-vulnerable, #41)
+    // EXPECTED: Paillier | pke | paillier | medium | quantum-vulnerable
+    public void paillier() {
+        PaillierEngine engine = new PaillierEngine();
     }
 }

@@ -271,6 +271,36 @@ func TestBouncyCastleCrypto(t *testing.T) {
 			f.Properties.QuantumStatus == types.QuantumVulnerable
 	}, "Bouncy Castle ECGOST3410Signer finding (quantum-vulnerable)")
 
+	// ECMQV key agreement (quantum-vulnerable, #41)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "ecmqv" &&
+			f.Name == "ECMQV" &&
+			f.Properties.Primitive == "key-exchange" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Bouncy Castle ECMQVBasicAgreement finding (quantum-vulnerable)")
+
+	// EC-GDSA signer (quantum-vulnerable, #41)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "ec-gdsa" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Bouncy Castle ECGDSASigner finding (quantum-vulnerable)")
+
+	// EC-KCDSA signer (quantum-vulnerable, #41)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "ec-kcdsa" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Bouncy Castle ECKCDSASigner finding (quantum-vulnerable)")
+
+	// Paillier homomorphic encryption (quantum-vulnerable, #41)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "paillier" &&
+			f.Name == "Paillier" &&
+			f.Properties.Primitive == "pke" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Bouncy Castle PaillierEngine finding (quantum-vulnerable)")
+
 	// All findings must have Pass = 1
 	for _, f := range findings {
 		if f.Pass != 1 {

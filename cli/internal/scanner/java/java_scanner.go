@@ -823,6 +823,15 @@ var bcAsymmetricAlgorithms = map[string]struct {
 	"GOST3410Signer":        {family: "gost", name: "GOST R 34.10", primitive: "signature"},
 	"ECGOST3410Signer":      {family: "gost", name: "EC-GOST R 34.10", primitive: "signature"},
 	"ECGOST3410_2012Signer": {family: "gost", name: "EC-GOST R 34.10-2012", primitive: "signature"},
+	// ECMQV — EC Menezes-Qu-Vanstone authenticated key agreement (#41).
+	"ECMQVBasicAgreement": {family: "ecmqv", name: "ECMQV", primitive: "key-exchange"},
+	"MQVBasicAgreement":   {family: "ecmqv", name: "MQV", primitive: "key-exchange"},
+	// EC-GDSA / EC-KCDSA — German and Korean EC DSA variants (#41).
+	"ECGDSASigner":  {family: "ec-gdsa", name: "EC-GDSA", primitive: "signature"},
+	"ECKCDSASigner": {family: "ec-kcdsa", name: "EC-KCDSA", primitive: "signature"},
+	// Paillier — additively-homomorphic factoring-based encryption (#41).
+	// BouncyCastle exposes this via the org.bouncycastle.crypto.engines.Paillier* engines.
+	"PaillierEngine": {family: "paillier", name: "Paillier", primitive: "pke"},
 }
 
 // bcModes maps Bouncy Castle mode class names to mode strings.
@@ -923,8 +932,11 @@ func (s *JavaScanner) detectBouncyCastle(root *sitter.Node, path string, content
 			}
 
 			cryptoFn := []string{"encrypt", "decrypt"}
-			if asymInfo.primitive == "signature" {
+			switch asymInfo.primitive {
+			case "signature":
 				cryptoFn = []string{"sign", "verify"}
+			case "key-exchange":
+				cryptoFn = []string{"key-agreement"}
 			}
 
 			findings = append(findings, types.Finding{

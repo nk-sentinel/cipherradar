@@ -588,6 +588,65 @@ func TestTier2AsymmetricUsage(t *testing.T) {
 	}
 }
 
+// Paillier homomorphic encryption via python-paillier / phe (#41).
+func TestPaillierUsage(t *testing.T) {
+	s := python.New()
+	content := readFixture(t, "paillier_usage.py")
+	findings, err := s.ScanFile("paillier_usage.py", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+
+	// Paillier keypair generation
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "paillier" &&
+			f.Name == "Paillier" &&
+			f.Properties.Primitive == "pke" &&
+			f.RuleID == "cbom-python-phe-paillier-keypair" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Paillier keypair (phe.generate_paillier_keypair) finding (quantum-vulnerable)")
+
+	// Paillier public key reconstruction
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "paillier" &&
+			f.RuleID == "cbom-python-phe-paillier-publickey" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Paillier PaillierPublicKey finding (quantum-vulnerable)")
+
+	// Paillier private key reconstruction
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "paillier" &&
+			f.RuleID == "cbom-python-phe-paillier-privatekey" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "Paillier PaillierPrivateKey finding (quantum-vulnerable)")
+
+	for _, f := range findings {
+		if f.Pass != 1 {
+			t.Errorf("finding %s has Pass=%d, expected 1", f.ID, f.Pass)
+		}
+	}
+}
+
+// TestPaillierNoFalsePositive ensures Paillier APIs are not flagged when the
+// phe library is not imported (zero-FP discipline, #41).
+func TestPaillierNoFalsePositive(t *testing.T) {
+	s := python.New()
+	src := []byte(`def generate_paillier_keypair():
+    return (1, 2)
+
+def f():
+    pub, priv = generate_paillier_keypair()
+    return pub
+`)
+	findings, err := s.ScanFile("no_phe_import.py", src)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertNoFinding(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "paillier"
+	}, "generate_paillier_keypair() without phe import must not be flagged as Paillier")
+}
+
 // TestTier2NoFalsePositive ensures Tier-2 APIs are not flagged when the
 // relevant library is not imported.
 func TestTier2NoFalsePositive(t *testing.T) {
