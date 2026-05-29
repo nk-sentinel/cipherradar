@@ -254,6 +254,23 @@ Refer to the original detection coverage in v1 — this section is unchanged.
 
 The ~85–90% overall figure is based on the real-world distribution of crypto patterns: ~80–85% of crypto API calls use direct literals or single-hop variables (Pass 1 territory). See ADR-004 for the full analysis.
 
+### Known limitations — misuse detection requiring data-flow
+
+Detection identifies *what* cryptographic asset is present; flagging *insecure
+configuration of a correctly-identified asset* sometimes needs semantic/taint
+analysis beyond anchored pattern matching. Two such cases are known deferred
+false negatives (the only 2 FNs on the benchmark corpus; both `quantum-safe`,
+i.e. security-hygiene not PQC-relevant) — tracked in **issue #45**:
+
+- **Fixed-seed `SecureRandom`** — `new SecureRandom(<literal bytes>)` is
+  predictable; distinguishing it from legitimate seeded use needs argument
+  analysis.
+- **Static / reused IV with a block cipher** — a constant `byte[]` IV flowing
+  into `Cipher.init(...)` needs data-flow to connect the IV field to the cipher.
+
+Both are deferred because naive rules would false-positive (legitimate seeded
+RNG, arbitrary 16-byte arrays), violating the zero-false-positive requirement.
+
 ---
 
 ## 8. Confidence Scoring
