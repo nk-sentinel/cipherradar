@@ -49,6 +49,13 @@ When a decision changes, the original ADR is kept and marked **Superseded**, and
 | [ADR-035](decisions/ADR-035-rule-lifecycle-and-deprecation-policy.md) | Rule Lifecycle & Deprecation Policy — category/maturity/default_enabled/noise_risk | Accepted | 2026-04-15 | `cli/internal/rulefilter/`, `cli/internal/explain/`, `scanner/rules/` |
 | [ADR-036](decisions/ADR-036-structured-logging-and-exit-codes.md) | Structured Logging, Redaction Defaults, Exit-Code Contract | Accepted | 2026-04-15 | `cli/pkg/log/`, `cli/internal/cmd/exitcode.go`, `cli/internal/validation/validator.go` |
 | [ADR-037](decisions/ADR-037-multi-output-and-format-dispatch.md) | Multi-Output Sinks, Extension Dispatch, TTY-Aware Defaults | Accepted | 2026-04-15 | `cli/internal/output/dispatch.go`, `cli/internal/output/table.go`, `cli/internal/cmd/scan.go`, `cli/internal/cmd/report.go` |
+| [ADR-038](decisions/ADR-038.md) | Installer Checksum Verification — SHA-256 of downloaded tool binaries | Accepted | 2026-05-18 | `cli/internal/tools/checksum.go`, `cli/internal/tools/installer.go` |
+| [ADR-039](decisions/ADR-039-yarax-binary-scanning.md) | YARA-X Integration for Binary Crypto Detection (Pass 3, opt-in) | Accepted | 2026-05-24 | `cli/internal/scanner/yarax/`, `scanner/yara-rules/`, `docs/08-roadmap.md`, ADR-026, ADR-038 |
+| [ADR-040](decisions/ADR-040-library-asset-type.md) | Library detections emit as CycloneDX `type=library` components | Accepted | 2026-05-25 | CBOM output, CycloneDX converter |
+
+> **Note on ADR-033:** ADR-033 (Remove Joern Pass 3) is recorded in the timeline section below under 2026-03-23 and supersedes the Pass 3 design from ADR-004 / ADR-011. It is listed here for index completeness:
+
+| [ADR-033](decisions/ADR-033-remove-joern-pass3.md) | Remove Joern (Pass 3) — All patterns covered by OpenGrep taint rules | Accepted | 2026-03-23 | `docs/03-detection-engine.md`, `docs/08-roadmap.md`, ADR-004, ADR-011 |
 
 ---
 
@@ -209,6 +216,28 @@ Kotlin External Annotator following IntelliJ's threading model. `collectInformat
 `HNDL_risk = data_sensitivity × quantum_vulnerability × time_factor` (continuous 0–1 score). Multiplicative model ensures quantum-safe findings correctly score 0.0. Mosca inequality urgency flag: `shelf_life + migration_time > quantum_timeline - current_year` triggers URGENT status. All parameters configurable (quantum deadline defaults to 2035).
 
 **ADR-010 updated:** `cradar-full` archive now bundles 3 tools (OpenGrep, Joern, YARA-X); size target updated from ~80–100 MB to ~300 MB.
+
+> **Superseded by ADR-033 (2026-03-23):** Joern was subsequently removed from the pipeline. Pass 3 is now opt-in YARA-X binary scanning (ADR-039), and `cradar-full` no longer bundles Joern. See the 2026-03-23 entry below.
+
+---
+
+### 2026-03-23 — ADR-033: Joern (Pass 3) Removed from the Detection Pipeline
+
+**ADR-033: Remove Joern (Pass 3)**
+The Pass 3 design from ADR-004 and ADR-011 (Joern CPG inter-procedural analysis, run nightly) was removed. An audit mapped every Joern query to an equivalent OpenGrep (Pass 2) taint rule, so the inter-procedural cases Joern was meant to cover are now handled by Pass 2 with no nightly JVM job, no ~300 MB bundle, and no JVM cold-start cost. Concretely: `joern` was dropped from `cradar install-tools`; the `--passes` default changed from `1,2,3` to `1,2`; `runPass3()` and the Joern import were removed from the scan command; pass validation now accepts `1,2` (with `3` re-purposed for binary scanning). The `cli/internal/joern/` package is retained in the source tree as archived reference but is **no longer imported or executed**. This supersedes the active-Pass-3 description in ADR-004, ADR-011, and the OQ-001/OQ-002 resolutions above (those rows are kept for history; Joern is no longer the mechanism that compensates for OpenGrep inter-file gaps — OpenGrep rules now cover them directly).
+
+---
+
+### 2026-05-24 — ADR-039: YARA-X Binary Scanning (Pass 3, opt-in)
+
+**ADR-039: YARA-X integration for binary crypto detection**
+With Joern removed, the Pass 3 slot is re-purposed for opt-in binary scanning. YARA-X (`yr`) is wired into the scan pipeline as a binary-content scanner in `cli/internal/scanner/yarax/`, discovered via the same lookup order as OpenGrep and soft-skipped when absent (matching lite installs). An embedded ruleset lives at `scanner/yara-rules/*.yar` (OpenSSL version strings, libsodium/BoringSSL/mbedTLS magic, embedded PEM blobs, RSA private-key markers, AES S-box / round-constant patterns). It registers for compiled-artifact extensions (`.so .dll .dylib .exe .class .jar .whl .a .o .wasm`) and runs in parallel with the existing native Go byte-pattern scanner (ADR-026). YARA-X is **opt-in** — enabled via `--passes 1,2,3` or `--deep`. The YARA-X download path inherits the SHA-256 verification pattern established by ADR-038.
+
+---
+
+### 2026-05-29 — Recall & Quantum-Coverage Expansion (issue #34)
+
+Expanded quantum-vulnerable family coverage landed across the language scanners and the shared quantum-readiness table (`cli/internal/scanner/quantum/quantum-readiness.yml`): added detection for SM2, ECIES, GOST (8 languages), Schnorr (BIP-340), and BLS12-381, plus classification entries for ECMQV, Paillier, Rabin, EC-GDSA, and EC-KCDSA. Pass-2 (OpenGrep) findings now carry quantum posture, and inventory-only scans return a complete asset list including weak algorithms. Per-language detection coverage is tracked authoritatively in `docs/quantum-coverage-matrix.md`.
 
 ---
 

@@ -18,7 +18,7 @@
 
 | Feature | Description |
 |---|---|
-| Multi-language scanning | 12+ languages via pluggable language analyzers backed by tree-sitter |
+| Multi-language scanning | 12 languages (Java, Kotlin, Python, JS/TS, C#, Go, C/C++, Rust, PHP, Ruby, Swift, Dart) via pluggable language analyzers backed by tree-sitter |
 | Git repository scanning | Clone and scan any Git URL (GitHub, GitLab, Bitbucket, self-hosted) |
 | Local path scanning | `cbom scan ./myproject` — zero configuration required |
 | Differential scanning | Scan only changed files since last commit; fast incremental mode |
@@ -54,12 +54,14 @@
 
 | Feature | Description |
 |---|---|
-| Quantum Vulnerability Classification | `quantum-vulnerable` (RSA, ECC, DH, DSA), `quantum-safe` (AES-256, SHA-3, ML-KEM), `quantum-unknown`, `broken` |
+| Quantum Vulnerability Classification | `quantum-vulnerable` (RSA, ECC, DH, DSA, plus SM2, ECIES, GOST, Schnorr/BIP-340, BLS12-381, ECMQV, Paillier, Rabin, EC-GDSA, EC-KCDSA), `quantum-safe` (AES-256, SHA-3, ML-KEM), `quantum-unknown`, `broken` |
 | NIST Quantum Security Level scoring | Map every algorithm to NIST PQC security level 0–6 |
+| Quantum coverage matrix | Per-language detection coverage for every quantum-vulnerable family, tracked authoritatively in `docs/quantum-coverage-matrix.md` |
+| Quantum posture on taint findings | Pass-2 (OpenGrep) findings carry quantum posture, so misuse findings are quantum-classified, not just inventory entries |
 | Quantum Risk Score per service | Aggregate quantum-vulnerable count weighted by usage frequency |
 | Migration Priority Queue | Rank services by quantum migration urgency |
 | "Harvest Now, Decrypt Later" risk flag | Flag algorithms protecting long-lived/high-value data as highest priority |
-| PQC Readiness Report | % quantum-safe, migration gaps, effort estimate |
+| PQC Readiness Report | % quantum-safe, migration gaps, effort estimate; backed by a complete asset inventory (inventory-only mode returns the full asset list, including weak algorithms) |
 | Migration path suggestions | For each quantum-vulnerable algorithm, suggest PQC replacement |
 | Hybrid scheme advisor | Suggest classical + PQC hybrid schemes where pure PQC is not yet feasible |
 | NIST IR 8547 deadline tracker | Countdown to 2030 deprecation and 2035 disallowed deadlines |
