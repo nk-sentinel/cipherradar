@@ -306,6 +306,46 @@ func hasPrefix(s, prefix string) bool {
 	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
 }
 
+// TestBouncyCastleAsymmetric verifies SM2 / ECIES / GOST detection added in #32.
+func TestBouncyCastleAsymmetric(t *testing.T) {
+	s := kotlin.New()
+	content := readFixture(t, "BouncyCastleAsymmetric.kt")
+	findings, err := s.ScanFile("BouncyCastleAsymmetric.kt", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "sm2" &&
+			f.Properties.Primitive == "pke" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "SM2 engine finding (quantum-vulnerable)")
+
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "sm2" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "SM2Signer finding (quantum-vulnerable)")
+
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "ecies" &&
+			f.Name == "ECIES" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "IESEngine (ECIES) finding (quantum-vulnerable)")
+
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "gost" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "ECGOST3410Signer finding (quantum-vulnerable)")
+
+	for _, f := range findings {
+		if f.Pass != 1 {
+			t.Errorf("finding %s has Pass=%d, expected 1", f.ID, f.Pass)
+		}
+	}
+}
+
 func assertFindingExists(t *testing.T, findings []types.Finding, match func(types.Finding) bool, description string) {
 	t.Helper()
 	for _, f := range findings {

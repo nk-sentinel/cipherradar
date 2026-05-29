@@ -142,3 +142,37 @@ rules:
       noise_risk: low
     pattern-either:
       - pattern: bcrypt::hash($PASSWORD, $COST)
+
+  # ── GOST R 34.11 / Streebog hash (RustCrypto streebog & gost94 crates) ──
+  #
+  # Tied to the specific RustCrypto crate types (Streebog256/512, Gost94*),
+  # so unrelated code is never matched. GOST hash is quantum-relevant: false.
+
+  - id: cbom-rust-gost-streebog
+    message: "GOST R 34.11 / Streebog hash detected"
+    severity: INFO
+    languages: [rust]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GOST3411
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: streebog::Streebog256::new()
+      - pattern: streebog::Streebog512::new()
+      - pattern: Streebog256::new()
+      - pattern: Streebog512::new()
+      - pattern: streebog::Streebog256::digest(...)
+      - pattern: streebog::Streebog512::digest(...)
+      - pattern: |
+          use streebog::Streebog256;
+      - pattern: |
+          use streebog::Streebog512;
+      - pattern: gost94::Gost94CryptoPro::new()
+      - pattern: gost94::Gost94Test::new()
+      - pattern: |
+          use gost94::Gost94CryptoPro;

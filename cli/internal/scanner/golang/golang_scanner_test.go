@@ -205,6 +205,72 @@ func TestXCryptoUsage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// tjfoc/gmsm SM2 tests (#32)
+// ---------------------------------------------------------------------------
+
+func TestSM2Usage(t *testing.T) {
+	s := golang.New()
+	content := readFixture(t, "sm2_usage.go")
+	findings, err := s.ScanFile("sm2_usage.go", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+
+	if len(findings) == 0 {
+		t.Fatal("expected SM2 findings from sm2_usage.go, got none")
+	}
+
+	// SM2 key generation (pke, quantum-vulnerable)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "sm2" &&
+			f.Name == "SM2" &&
+			f.Properties.Primitive == "pke" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "SM2 GenerateKey finding (quantum-vulnerable)")
+
+	// SM2 signature
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "sm2" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "SM2 Sign finding (quantum-vulnerable)")
+
+	for _, f := range findings {
+		if f.Pass != 1 {
+			t.Errorf("finding %s has Pass=%d, expected 1", f.ID, f.Pass)
+		}
+	}
+}
+
+// TestSM2NoFalsePositive ensures SM2 function names are not flagged when the
+// gmsm/sm2 package is not imported.
+func TestSM2NoFalsePositive(t *testing.T) {
+	s := golang.New()
+	code := []byte(`package main
+
+type sm2 struct{}
+
+func (sm2) Sign(msg []byte) {}
+func (sm2) Encrypt(data []byte) {}
+
+func f() {
+	var x sm2
+	x.Sign(nil)
+	x.Encrypt(nil)
+}
+`)
+	findings, err := s.ScanFile("nofp.go", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	for _, f := range findings {
+		if f.Properties.AlgorithmFamily == "sm2" {
+			t.Errorf("false positive: SM2 flagged without gmsm import (%s)", f.RuleID)
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------
 // Quantum tagging tests
 // ---------------------------------------------------------------------------
 

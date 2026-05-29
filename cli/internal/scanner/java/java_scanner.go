@@ -134,43 +134,43 @@ var jcaClassInfo = map[string]struct {
 	primitive string
 	ruleTag   string
 }{
-	"Cipher":          {primitive: "block-cipher", ruleTag: "cipher"},
-	"MessageDigest":   {primitive: "hash", ruleTag: "digest"},
+	"Cipher":           {primitive: "block-cipher", ruleTag: "cipher"},
+	"MessageDigest":    {primitive: "hash", ruleTag: "digest"},
 	"KeyPairGenerator": {primitive: "pke", ruleTag: "keypairgen"},
-	"KeyGenerator":    {primitive: "block-cipher", ruleTag: "keygen"},
-	"Mac":             {primitive: "mac", ruleTag: "mac"},
-	"Signature":       {primitive: "signature", ruleTag: "signature"},
-	"SecretKeySpec":   {primitive: "block-cipher", ruleTag: "secretkeyspec"},
-	"SSLContext":        {primitive: "", ruleTag: "sslcontext"},
+	"KeyGenerator":     {primitive: "block-cipher", ruleTag: "keygen"},
+	"Mac":              {primitive: "mac", ruleTag: "mac"},
+	"Signature":        {primitive: "signature", ruleTag: "signature"},
+	"SecretKeySpec":    {primitive: "block-cipher", ruleTag: "secretkeyspec"},
+	"SSLContext":       {primitive: "", ruleTag: "sslcontext"},
 	"KeyAgreement":     {primitive: "key-exchange", ruleTag: "keyagreement"},
 	"SecretKeyFactory": {primitive: "kdf", ruleTag: "secretkeyfactory"},
 }
 
 // algorithmFamilyMap maps JCA algorithm names (uppercased) to quantum family names.
 var algorithmFamilyMap = map[string]string{
-	"AES":       "aes",
-	"DES":       "des",
-	"DESEDE":    "3des",
-	"BLOWFISH":  "blowfish",
-	"RC4":       "rc4",
-	"ARCFOUR":   "rc4",
-	"RSA":       "rsa",
-	"DSA":       "dsa",
-	"EC":        "ec",
-	"ECDSA":     "ecdsa",
-	"DH":        "dh",
-	"ECDH":      "ecdh",
-	"MD5":       "md5",
-	"SHA-1":     "sha1",
-	"SHA1":      "sha1",
-	"SHA-256":   "sha-256",
-	"SHA256":    "sha-256",
-	"SHA-384":   "sha-384",
-	"SHA384":    "sha-384",
-	"SHA-512":   "sha-512",
-	"SHA512":    "sha-512",
-	"HMACMD5":   "md5",
-	"HMACSHA1":  "sha1",
+	"AES":        "aes",
+	"DES":        "des",
+	"DESEDE":     "3des",
+	"BLOWFISH":   "blowfish",
+	"RC4":        "rc4",
+	"ARCFOUR":    "rc4",
+	"RSA":        "rsa",
+	"DSA":        "dsa",
+	"EC":         "ec",
+	"ECDSA":      "ecdsa",
+	"DH":         "dh",
+	"ECDH":       "ecdh",
+	"MD5":        "md5",
+	"SHA-1":      "sha1",
+	"SHA1":       "sha1",
+	"SHA-256":    "sha-256",
+	"SHA256":     "sha-256",
+	"SHA-384":    "sha-384",
+	"SHA384":     "sha-384",
+	"SHA-512":    "sha-512",
+	"SHA512":     "sha-512",
+	"HMACMD5":    "md5",
+	"HMACSHA1":   "sha1",
 	"HMACSHA256": "sha-256",
 	"HMACSHA384": "sha-384",
 	"HMACSHA512": "sha-512",
@@ -800,6 +800,31 @@ var bcEngineAlgorithms = map[string]struct {
 	"CamelliaEngine": {family: "camellia", name: "Camellia", primitive: "block-cipher"},
 }
 
+// bcAsymmetricAlgorithms maps Bouncy Castle asymmetric engine/signer class
+// names to algorithm info. These cover quantum-vulnerable public-key schemes
+// that have a dedicated low-level BC class (constructed via `new XxxEngine()`
+// or `new XxxSigner()`), so detection is tied to the specific BC identifier
+// (zero false positives). The family names map onto entries already present in
+// quantum-readiness.yml (sm2 / ecies / gost / ec), so each finding is quantum
+// labeled immediately in Pass 1.
+var bcAsymmetricAlgorithms = map[string]struct {
+	family    string
+	name      string
+	primitive string
+}{
+	// SM2 — Chinese national EC scheme (signature + public-key encryption).
+	"SM2Engine": {family: "sm2", name: "SM2", primitive: "pke"},
+	"SM2Signer": {family: "sm2", name: "SM2", primitive: "signature"},
+	// ECIES — EC Integrated Encryption Scheme.
+	"IESEngine":   {family: "ecies", name: "ECIES", primitive: "pke"},
+	"ECIESEngine": {family: "ecies", name: "ECIES", primitive: "pke"},
+	"IESCipher":   {family: "ecies", name: "ECIES", primitive: "pke"},
+	// GOST R 34.10 signature schemes (classic and 2012 variants).
+	"GOST3410Signer":        {family: "gost", name: "GOST R 34.10", primitive: "signature"},
+	"ECGOST3410Signer":      {family: "gost", name: "EC-GOST R 34.10", primitive: "signature"},
+	"ECGOST3410_2012Signer": {family: "gost", name: "EC-GOST R 34.10-2012", primitive: "signature"},
+}
+
 // bcModes maps Bouncy Castle mode class names to mode strings.
 var bcModes = map[string]string{
 	"CBCBlockCipher": "cbc",
@@ -884,6 +909,40 @@ func (s *JavaScanner) detectBouncyCastle(root *sitter.Node, path string, content
 				},
 				Description: fmt.Sprintf("Bouncy Castle %s engine via new %s()", engineInfo.name, className),
 				RuleID:      fmt.Sprintf("cbom-java-bc-engine-%s", strings.ToLower(engineInfo.family)),
+				Pass:        1,
+			})
+			continue
+		}
+
+		// Check if it's an asymmetric engine/signer class (SM2, ECIES, GOST).
+		if asymInfo, ok := bcAsymmetricAlgorithms[className]; ok {
+			qi := quantum.GetInfo(asymInfo.family)
+			severity := types.SeverityInfo
+			if qi.Status == types.QuantumVulnerable || qi.Status == types.Broken {
+				severity = types.SeverityMedium
+			}
+
+			cryptoFn := []string{"encrypt", "decrypt"}
+			if asymInfo.primitive == "signature" {
+				cryptoFn = []string{"sign", "verify"}
+			}
+
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       asymInfo.name,
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   severity,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        asymInfo.primitive,
+					AlgorithmFamily:  asymInfo.family,
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  cryptoFn,
+				},
+				Description: fmt.Sprintf("Bouncy Castle %s via new %s()", asymInfo.name, className),
+				RuleID:      fmt.Sprintf("cbom-java-bc-%s-%s", asymInfo.family, strings.ToLower(className)),
 				Pass:        1,
 			})
 			continue
@@ -1089,10 +1148,10 @@ func (s *JavaScanner) detectSSL(root *sitter.Node, path string, content []byte, 
 				family string
 				name   string
 			}{
-				"RC4":    {family: "rc4", name: "RC4"},
-				"3DES":   {family: "3des", name: "3DES"},
-				"DES":    {family: "des", name: "DES"},
-				"AES":    {family: "aes", name: "AES"},
+				"RC4":  {family: "rc4", name: "RC4"},
+				"3DES": {family: "3des", name: "3DES"},
+				"DES":  {family: "des", name: "DES"},
+				"AES":  {family: "aes", name: "AES"},
 			}
 			for token, info := range cipherSuiteTokens {
 				if strings.Contains(argsText, token) {
@@ -1123,7 +1182,7 @@ func (s *JavaScanner) detectSSL(root *sitter.Node, path string, content []byte, 
 			for _, ver := range tlsVersions {
 				if strings.Contains(argsText, ver) {
 					// Avoid double-matching TLSv1 when TLSv1.1/1.2/1.3 present
-					if ver == "TLSv1" && (strings.Contains(argsText, "TLSv1.") ) {
+					if ver == "TLSv1" && (strings.Contains(argsText, "TLSv1.")) {
 						// Check it's standalone "TLSv1" not prefix of TLSv1.x
 						// Simple: if "TLSv1" appears AND no TLSv1.x follows, keep it
 						// This is imperfect but avoids most FPs

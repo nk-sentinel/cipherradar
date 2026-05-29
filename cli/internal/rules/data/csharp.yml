@@ -155,3 +155,47 @@ rules:
     pattern-either:
       - pattern: new Rfc2898DeriveBytes($PASSWORD, $SALT, $ITERATIONS)
       - pattern: new Rfc2898DeriveBytes($PASSWORD, $SALT, $ITERATIONS, $HASH)
+
+  # ── GOST R 34.10 signature (BouncyCastle.NET), quantum-vulnerable ──
+  #
+  # Tied to BouncyCastle's specific GOST signer/key-pair classes so unrelated
+  # code is never flagged. The GOST3410 token feeds the Pass-2 quantum
+  # classifier (gost family is quantum-vulnerable).
+
+  - id: cbom-csharp-bc-gost3410
+    message: "GOST R 34.10 signature (BouncyCastle) detected"
+    severity: INFO
+    languages: [csharp]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GOST3410
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new Gost3410Signer(...)
+      - pattern: new ECGost3410Signer(...)
+      - pattern: new Gost3410KeyPairGenerator(...)
+      - pattern: new ECGost3410KeyPairGenerator(...)
+
+  # ── GOST R 34.11 hash (BouncyCastle.NET) ──
+  - id: cbom-csharp-bc-gost3411
+    message: "GOST R 34.11 hash (BouncyCastle) detected"
+    severity: INFO
+    languages: [csharp]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GOST3411
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: new Gost3411Digest(...)
+      - pattern: new Gost3411_2012_256Digest(...)
+      - pattern: new Gost3411_2012_512Digest(...)

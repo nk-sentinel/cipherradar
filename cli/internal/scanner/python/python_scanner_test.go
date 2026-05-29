@@ -549,6 +549,69 @@ func TestWeakRandomUsage(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Tier-2 asymmetric tests: SM2 (gmssl), ECIES (eciespy), GOST (gostcrypto) (#32)
+// ---------------------------------------------------------------------------
+
+func TestTier2AsymmetricUsage(t *testing.T) {
+	s := python.New()
+	content := readFixture(t, "tier2_asymmetric_usage.py")
+	findings, err := s.ScanFile("tier2_asymmetric_usage.py", content)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+
+	// SM2 via gmssl
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "sm2" &&
+			f.Name == "SM2" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "SM2 (gmssl CryptSM2) finding (quantum-vulnerable)")
+
+	// ECIES via eciespy (encrypt + decrypt)
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "ecies" &&
+			f.Name == "ECIES" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "ECIES (eciespy) finding (quantum-vulnerable)")
+
+	// GOST R 34.10 signature via gostcrypto
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "gost" &&
+			f.Properties.Primitive == "signature" &&
+			f.Properties.QuantumStatus == types.QuantumVulnerable
+	}, "GOST R 34.10 signature (gostcrypto) finding (quantum-vulnerable)")
+
+	for _, f := range findings {
+		if f.Pass != 1 {
+			t.Errorf("finding %s has Pass=%d, expected 1", f.ID, f.Pass)
+		}
+	}
+}
+
+// TestTier2NoFalsePositive ensures Tier-2 APIs are not flagged when the
+// relevant library is not imported.
+func TestTier2NoFalsePositive(t *testing.T) {
+	s := python.New()
+	src := []byte(`def encrypt(pubkey, data):
+    return data
+
+def decrypt(privkey, data):
+    return data
+
+def f():
+    encrypt("k", b"x")
+    decrypt("k", b"x")
+`)
+	findings, err := s.ScanFile("no_import.py", src)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertNoFinding(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "ecies"
+	}, "encrypt()/decrypt() without eciespy import must not be flagged as ECIES")
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 

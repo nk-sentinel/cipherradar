@@ -227,3 +227,30 @@ rules:
     pattern-either:
       - pattern: password_hash($PASSWORD, PASSWORD_ARGON2I)
       - pattern: password_hash($PASSWORD, PASSWORD_ARGON2I, $OPTIONS)
+
+  # ── GOST R 34.11 hash via PHP hash() extension ──
+  #
+  # PHP's hash() exposes the GOST family ('gost', 'gost-crypto') and the
+  # Streebog variants ('streebog256', 'streebog512'). Tied to literal
+  # algorithm strings so no false positives on other hash() calls.
+
+  - id: cbom-php-hash-gost
+    message: "GOST R 34.11 hash detected"
+    severity: INFO
+    languages: [php]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: GOST3411
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: hash("gost", ...)
+      - pattern: hash("gost-crypto", ...)
+      - pattern: hash("streebog256", ...)
+      - pattern: hash("streebog512", ...)
+      - pattern: hash_init("gost")
+      - pattern: hash_init("gost-crypto")

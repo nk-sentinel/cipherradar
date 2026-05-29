@@ -100,6 +100,10 @@ func (s *PythonScanner) ScanFile(path string, content []byte) ([]types.Finding, 
 	cryptoMACFindings := s.detectCryptoMACs(root, path, content)
 	findings = append(findings, cryptoMACFindings...)
 
+	// Detect SM2 (gmssl), ECIES (eciespy), and GOST (gostcrypto) usage
+	tier2Findings := s.detectTier2Asymmetric(root, path, content)
+	findings = append(findings, tier2Findings...)
+
 	return scanner.AnnotateFindings(findings), nil
 }
 
@@ -1876,6 +1880,178 @@ func (s *PythonScanner) detectWeakRandom(root *sitter.Node, path string, content
 			RuleID:      "cbom-python-weak-random",
 			Pass:        1,
 		})
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// Tier-2 asymmetric detection: SM2 (gmssl), ECIES (eciespy), GOST (gostcrypto)
+// ---------------------------------------------------------------------------
+
+// collectModuleTokens returns the set of module/symbol tokens introduced by
+// `import ...` and `from ... import ...` statements. For dotted module names it
+// records both the full dotted path and the leading component (e.g. `gmssl.sm2`
+// yields {"gmssl.sm2", "gmssl"}). `from gmssl import sm2` records both the
+// module (`gmssl`) and the imported symbol (`sm2`). This lets Tier-2 detection
+// gate strictly on the relevant library actually being imported (zero FP).
+func collectModuleTokens(root *sitter.Node, content []byte, lang *sitter.Language) map[string]bool {
+	tokens := make(map[string]bool)
+	add := func(name string) {
+		if name == "" {
+			return
+		}
+		tokens[name] = true
+		if i := strings.Index(name, "."); i > 0 {
+			tokens[name[:i]] = true
+		}
+	}
+
+	// `import a`, `import a.b`, `import a as b`
+	for _, match := range queryAll(root, content, lang, `(import_statement (dotted_name) @mod)`) {
+		add(match)
+	}
+	for _, match := range queryAll(root, content, lang, `(import_statement (aliased_import (dotted_name) @mod))`) {
+		add(match)
+	}
+	// `from a.b import c` — record both the module path and each imported symbol.
+	for _, match := range queryAll(root, content, lang, `(import_from_statement module_name: (dotted_name) @mod)`) {
+		add(match)
+	}
+	for _, match := range queryAll(root, content, lang, `(import_from_statement name: (dotted_name) @sym)`) {
+		add(match)
+	}
+	for _, match := range queryAll(root, content, lang, `(import_from_statement (aliased_import (dotted_name) @sym))`) {
+		add(match)
+	}
+	return tokens
+}
+
+// queryAll runs a single-capture tree-sitter query and returns the text of
+// every captured node.
+func queryAll(root *sitter.Node, content []byte, lang *sitter.Language, queryStr string) []string {
+	var out []string
+	matches, err := scanner.QueryMatches(root, queryStr, lang, content)
+	if err != nil {
+		return out
+	}
+	for _, match := range matches {
+		for _, capture := range match.Captures {
+			out = append(out, scanner.NodeText(capture.Node, content))
+		}
+	}
+	return out
+}
+
+// tier2CallRule ties a specific call (object.method or bare function) to a
+// quantum-vulnerable algorithm family, gated on a required import token.
+type tier2CallRule struct {
+	requireImport string // import token that must be present (e.g. "gmssl")
+	object        string // selector object, e.g. "sm2"; "" matches bare calls
+	method        string // method/function name, e.g. "CryptSM2", "encrypt"
+	family        string // quantum family (sm2 / ecies / gost)
+	name          string // human-readable algorithm name
+	primitive     string
+	cryptoFn      string
+	ruleSuffix    string
+}
+
+// tier2Rules enumerates the precise APIs of the supported Tier-2 libraries.
+// Each rule is gated on its library import, so unrelated code that happens to
+// define an `encrypt()`/`decrypt()` function is never flagged.
+var tier2Rules = []tier2CallRule{
+	// SM2 — gmssl (`from gmssl import sm2` → `sm2.CryptSM2(...)`).
+	{requireImport: "gmssl", object: "sm2", method: "CryptSM2", family: "sm2", name: "SM2", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "gmssl-cryptsm2"},
+	{requireImport: "sm2", object: "", method: "CryptSM2", family: "sm2", name: "SM2", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "gmssl-cryptsm2"},
+	// ECIES — eciespy (`import ecies` / `from ecies import encrypt, decrypt`).
+	{requireImport: "ecies", object: "ecies", method: "encrypt", family: "ecies", name: "ECIES", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "eciespy-encrypt"},
+	{requireImport: "ecies", object: "ecies", method: "decrypt", family: "ecies", name: "ECIES", primitive: "pke", cryptoFn: "decrypt", ruleSuffix: "eciespy-decrypt"},
+	{requireImport: "ecies", object: "", method: "encrypt", family: "ecies", name: "ECIES", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "eciespy-encrypt"},
+	{requireImport: "ecies", object: "", method: "decrypt", family: "ecies", name: "ECIES", primitive: "pke", cryptoFn: "decrypt", ruleSuffix: "eciespy-decrypt"},
+	// GOST R 34.10 signature — gostcrypto (`gostsignature.new(...)`).
+	{requireImport: "gostcrypto", object: "gostsignature", method: "new", family: "gost", name: "GOST R 34.10", primitive: "signature", cryptoFn: "sign", ruleSuffix: "gostcrypto-signature"},
+	{requireImport: "gostsignature", object: "gostsignature", method: "new", family: "gost", name: "GOST R 34.10", primitive: "signature", cryptoFn: "sign", ruleSuffix: "gostcrypto-signature"},
+}
+
+func (s *PythonScanner) detectTier2Asymmetric(root *sitter.Node, path string, content []byte) []types.Finding {
+	imports := collectModuleTokens(root, content, s.lang)
+	if len(imports) == 0 {
+		return nil
+	}
+
+	var findings []types.Finding
+	seen := make(map[string]bool) // dedupe object.method/bare overlaps per location
+
+	for _, rule := range tier2Rules {
+		if !imports[rule.requireImport] {
+			continue
+		}
+
+		var queryStr string
+		if rule.object != "" {
+			// object.method(...)
+			queryStr = fmt.Sprintf(`(call
+				function: (attribute
+					object: (identifier) @obj
+					attribute: (identifier) @method)
+				(#eq? @obj "%s")
+				(#eq? @method "%s"))`, rule.object, rule.method)
+		} else {
+			// bare method(...)
+			queryStr = fmt.Sprintf(`(call
+				function: (identifier) @fn
+				(#eq? @fn "%s"))`, rule.method)
+		}
+
+		matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+		if err != nil {
+			continue
+		}
+
+		for _, match := range matches {
+			var anchor *sitter.Node
+			for _, capture := range match.Captures {
+				anchor = capture.Node
+			}
+			if anchor == nil {
+				continue
+			}
+
+			callNode := anchor
+			for callNode != nil && callNode.Type() != "call" {
+				callNode = callNode.Parent()
+			}
+			if callNode == nil {
+				callNode = anchor
+			}
+
+			loc := scanner.NodeLocation(callNode, path, content)
+			dedupeKey := fmt.Sprintf("%d:%d:%s", loc.StartLine, loc.StartCol, rule.family)
+			if seen[dedupeKey] {
+				continue
+			}
+			seen[dedupeKey] = true
+
+			qi := GetQuantumInfo(rule.family)
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       rule.name,
+				Location:   loc,
+				Severity:   types.SeverityMedium,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        rule.primitive,
+					AlgorithmFamily:  rule.family,
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{rule.cryptoFn},
+				},
+				Description: fmt.Sprintf("%s %s via %s", rule.name, rule.cryptoFn, rule.requireImport),
+				RuleID:      fmt.Sprintf("cbom-python-%s", rule.ruleSuffix),
+				Pass:        1,
+			})
+		}
 	}
 
 	return findings
