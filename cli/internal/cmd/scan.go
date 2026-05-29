@@ -55,7 +55,7 @@ func init() {
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (taint analysis + YARA-X binary scan)")
 
 	// Pre-commit hook support flags.
-	scanCmd.Flags().Bool("fast", false, "run Pass 1 only (no OpenGrep/Joern), skip files >100KB")
+	scanCmd.Flags().Bool("fast", false, "run Pass 1 only (no OpenGrep), skip files >100KB")
 	scanCmd.Flags().Bool("staged-only", false, "only scan files in git staging area (git diff --cached)")
 	scanCmd.Flags().String("fail-on", "", "exit non-zero if findings at or above this severity (critical, high, medium, low, info)")
 
