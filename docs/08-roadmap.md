@@ -1,7 +1,7 @@
 # Roadmap
 
-> **Document version:** v10
-> **Last updated:** 2026-03-22
+> **Document version:** v11
+> **Last updated:** 2026-05-29
 > **Status:** Active
 
 ---
@@ -20,6 +20,7 @@
 | v8 | 2026-03-21 | Phase 3 complete — all 19 milestones delivered, Docker deployment verified | Phase 3 close |
 | v9 | 2026-03-22 | Phase 4 complete — binary scanning, LLM remediation, IDE plugins, OTel enrichment, SonarQube plugin, HNDL risk model, agility score, pre-commit hook, CBOM attestation, ADR-026 through ADR-032 | Phase 4 close |
 | v10 | 2026-03-22 | Added Phase 4.5 (UI stabilization & UX polish) and Phase 6 (enterprise identity & SSO) | UX audit session |
+| v11 | 2026-05-29 | Corrected current-state claims: Pass 3 Joern removed (covered by OpenGrep taint rules), Pass 3 is now opt-in YARA-X binary scanning; recall/quantum-coverage work landed (SM2, ECIES, GOST, Schnorr/BIP-340, BLS12-381 + classification entries; quantum coverage matrix) | ADR-033, ADR-039 |
 
 ---
 
@@ -116,7 +117,7 @@ cradar report cbom.json [--output report.pdf] [--format pdf]
 - [x] **C#** analyzer (Roslyn, `System.Security.Cryptography`, BouncyCastle.NET)
 - [x] **Kotlin** analyzer (reusing Java library model + Kotlin extensions)
 - [x] **PHP** analyzer (`openssl_*`, `hash_*`, `password_hash`, `sodium_*`)
-- [x] **Pass 3: Joern integration** — deep inter-procedural analysis for Java, Kotlin, Python, JS, C/C++ *(added in v2 per ADR-004; runs nightly)*
+- [x] **Pass 3: Joern integration** — deep inter-procedural analysis for Java, Kotlin, Python, JS, C/C++ *(added in v2 per ADR-004; runs nightly)* — **REMOVED per ADR-033:** all inter-procedural patterns are now covered by OpenGrep (Pass 2) taint rules, so Joern was removed from the pipeline. The `--passes` default is `1,2`; the `cli/internal/joern/` package is archived (not imported). Pass 3 now refers to opt-in YARA-X binary scanning (see Phase 4).
 
 **Detection Expansion**
 - [x] Certificate parsing from embedded PEM files
@@ -166,7 +167,7 @@ cradar report cbom.json [--output report.pdf] [--format pdf]
 ### Deliverables
 
 **Language Completion**
-- [x] **C/C++** analyzer (OpenSSL, libsodium, mbedTLS — via Joern)
+- [x] **C/C++** analyzer (OpenSSL, libsodium, mbedTLS — tree-sitter AST/Pass-1 + OpenGrep Pass-2 rules; *originally planned via Joern, which was removed per ADR-033*)
 - [x] **Rust** analyzer (`ring`, `rustls`, `openssl` crate)
 - [x] **Swift** analyzer (CryptoKit, CommonCrypto)
 - [x] **Ruby** analyzer (OpenSSL, BCrypt, Digest)
@@ -176,6 +177,7 @@ cradar report cbom.json [--output report.pdf] [--format pdf]
 - [x] Container image layer scanning (OCI image → extract + scan filesystem)
 - [x] Config file expansion: nginx.conf, httpd.conf, openssl.cnf, java.security, k8s manifests, Dockerfiles
 - [x] SBOM ingestion + CBOM ↔ SBOM component linking
+- [x] Expanded quantum-vulnerable family coverage — recall/quantum-coverage work landed: SM2, ECIES, GOST (8 languages), Schnorr (BIP-340) and BLS12-381 detection, plus classification entries for ECMQV, Paillier, Rabin, EC-GDSA, EC-KCDSA; per-language coverage tracked in `docs/quantum-coverage-matrix.md`. Pass-2 findings now carry quantum posture, and inventory-only scans return a complete asset list including weak algorithms.
 
 **Full Compliance Engine**
 - [x] PCI-DSS v4.0 compliance mapping
@@ -223,7 +225,7 @@ cradar report cbom.json [--output report.pdf] [--format pdf]
 - [x] Pre-commit hook — fast regex scan; blocks hardcoded keys before commit
 
 **Advanced Detection**
-- [x] Binary / JAR / Python wheel scanning for crypto constants (when source unavailable)
+- [x] Binary / JAR / Python wheel scanning for crypto constants (when source unavailable) — hybrid Go byte-pattern matching (ADR-026) plus opt-in **YARA-X** binary scanning as Pass 3 (ADR-039); enabled via `--passes 1,2,3` or `--deep`
 - [x] "Harvest Now, Decrypt Later" risk model with data classification metadata integration
 - [x] Cryptographic Agility Score per service
 - [x] Custom source/sink configuration for in-house crypto wrappers
@@ -343,4 +345,4 @@ cradar report cbom.json [--output report.pdf] [--format pdf]
 | Taint analysis precision vs. performance trade-off | Configurable depth limit; separate "deep scan" mode from "fast scan" mode |
 | CycloneDX spec evolution | Official CycloneDX library abstracts schema changes; pin to library versions |
 | LLM remediation quality | Human review always required; never auto-apply; clear labelling as "suggested" |
-| C/C++ analysis speed (Joern) | Joern analysis is slow; run asynchronously; cache results per commit SHA |
+| C/C++ analysis speed (originally Joern-based) | *Historical:* Joern analysis was slow and was to run asynchronously with per-commit-SHA caching. Joern was removed per ADR-033; C/C++ is now handled by tree-sitter AST/Pass-1 + OpenGrep Pass-2 rules, so this risk no longer applies. |
