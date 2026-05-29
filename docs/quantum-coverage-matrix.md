@@ -117,3 +117,14 @@ false-positive risk or because no common API exists:
   distinguishing the key type needs argument inspection.
 - **ElGamal outside Java/Python**, **Ed448/X448 outside Java/Python/JS** — niche
   or library-specific APIs with no common idiom in those languages.
+
+### Quantum-vulnerable families: classify-only, no detector
+
+- **Rabin** (won't-fix) — present in `quantum-readiness.yml` as `quantum-vulnerable`,
+  so it classifies correctly if surfaced, but there is **no detection rule**. No
+  mainstream library exposes a stable, anchorable Rabin cryptosystem API (no
+  dedicated package or BouncyCastle engine class); a rule would have to match the
+  bare word "rabin", violating the zero-false-positive requirement. Tracked and
+  closed in epic #31 / follow-up #41.
+- **SRP / SPAKE (PAKE)** — scoped out of the current quantum-coverage effort as
+  lower priority; revisit in a future issue if needed.
