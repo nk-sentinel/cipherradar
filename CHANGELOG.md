@@ -4,6 +4,48 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.3.0-rc.2 — 2026-05-29
+
+Recall, detection, and quantum-posture hardening on top of rc.1's binary-scanning work.
+
+### Inventory recall — complete asset list under `--only-inventory`
+
+`--only-inventory` previously dropped weak/broken algorithms (MD5, DES, RC4, 3DES)
+because they are security-categorized. The rule filter is now a dual-category filter:
+security-tagged crypto assets that are also cryptographic *inventory* are retained,
+so `--only-inventory` returns a complete asset list rather than silently omitting the
+algorithms most worth inventorying.
+
+### Detection fixes (Pass 1 + Pass 2 false negatives)
+
+- **Python** — PyCryptodome usage, pyca/cryptography one-shot AEAD
+  (`AESGCM` / `AESCCM` / `AESSIV` / `ChaCha20Poly1305`), truncated SHA-512
+  (SHA-512/224, SHA-512/256), and weak/CSPRNG PRNG detection.
+- **Java** — BouncyCastle signers (ISO9796-2, Ed25519ph/Ed25519ctx), digests
+  (BLAKE2b / BLAKE2s), padding schemes, and scrypt; CSPRNG and PBKDF2/SunX509 gaps.
+- **Kotlin** — PBKDF2 detection.
+
+### Closed untested-language detection gaps
+
+Scanner false negatives closed across previously-untested languages and config
+targets: **Rust** (RustCrypto `aes-gcm`, `rsa` crate), **Dart** (AES-GCM mode,
+EC keygen, scrypt, TLS), **C++** (OpenSSL `PKCS5_PBKDF2_HMAC` KDF), **Swift**
+(CommonCrypto `CCCrypt` algorithms, `Network.framework` TLS), **Dockerfile**
+(install/EXPOSE gaps), and **k8s** YAML — plus registration of the config-file
+scanners (nginx / httpd / openssl.cnf / java.security / k8s).
+
+### Quantum posture on Pass-2 findings
+
+- Pass-2 (OpenGrep) findings now carry quantum posture — `quantumStatus` and
+  `nistQuantumSecurityLevel` — via a shared classifier, so Pass-1 and Pass-2
+  findings are labeled consistently.
+- New quantum-vulnerable detection: **SM2**, **ECIES**, **GOST** (8 languages),
+  **Schnorr** (BIP-340), and **BLS12-381**. Classification entries added for
+  **ECMQV**, **Paillier**, **Rabin**, **EC-GDSA**, and **EC-KCDSA**.
+- New doc `docs/quantum-coverage-matrix.md`.
+
+---
+
 ## 0.3.0-rc.1 — 2026-05-26
 
 New: Pass 3 binary crypto detection (YARA-X).
