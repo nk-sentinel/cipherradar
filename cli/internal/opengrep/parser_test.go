@@ -687,6 +687,12 @@ func TestCanonicalizePrimitive(t *testing.T) {
 		{"tls_version_1_3", "TLS-1.3"},
 		{"PBKDF2WithHmacSHA256", "PBKDF2-HMAC-SHA256"},
 		{"argon2id", "ARGON2ID"},
+		// Tier-2 tokens (#32): SM2 / ECIES / GOST must round-trip cleanly so
+		// the Pass-2 quantum classifier can map them to their families.
+		{"SM2", "SM2"},
+		{"ECIES", "ECIES"},
+		{"GOST3410", "GOST3410"},
+		{"GOST3411", "GOST3411"},
 		{"some_random_var", ""}, // non-canonical -> empty (caller uses fallback)
 		{"", ""},
 	}

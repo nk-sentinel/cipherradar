@@ -384,3 +384,28 @@ rules:
       - pattern: window.crypto.subtle
       - pattern: self.crypto.subtle
       - pattern: globalThis.crypto.subtle
+
+  # ── ECIES (eciesjs) — EC Integrated Encryption Scheme, quantum-vulnerable ──
+  #
+  # eciesjs is the de-facto JS/TS ECIES implementation. Tie detection to the
+  # package import so a generic encrypt()/decrypt() in unrelated code is never
+  # flagged. The ECIES primitive token feeds the Pass-2 quantum classifier.
+
+  - id: cbom-js-eciesjs
+    message: "ECIES (eciesjs) — EC Integrated Encryption Scheme detected"
+    severity: INFO
+    languages: [javascript, typescript]
+    metadata:
+      category: inventory
+      cbom-asset-type: algorithm
+      cbom-primitive: ECIES
+      confidence: high
+      quantum-relevant: true
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: const $X = require('eciesjs')
+      - pattern: import $X from 'eciesjs'
+      - pattern: import { ... } from 'eciesjs'
+      - pattern: import * as $X from 'eciesjs'

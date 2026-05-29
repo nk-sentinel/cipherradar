@@ -117,6 +117,9 @@ func (s *GoScanner) ScanFile(path string, content []byte) ([]types.Finding, erro
 	// Detect BLS / BLS12-381 signatures (kilic / herumi / prysm)
 	findings = append(findings, s.detectBLS(root, path, content, imports)...)
 
+	// Detect tjfoc/gmsm SM2 usage
+	findings = append(findings, s.detectSM2(root, path, content, imports)...)
+
 	return scanner.AnnotateFindings(findings), nil
 }
 
@@ -1266,6 +1269,60 @@ func (s *GoScanner) detectCryptoX509(root *sitter.Node, path string, content []b
 				},
 				Description: fmt.Sprintf("X.509 certificate parsing via %s.%s()", alias, funcName),
 				RuleID:      fmt.Sprintf("cbom-go-x509-%s", strings.ToLower(funcName)),
+				Pass:        1,
+			})
+		}
+	}
+
+	return findings
+}
+
+// ---------------------------------------------------------------------------
+// tjfoc/gmsm SM2 detection (Chinese national EC scheme, quantum-vulnerable)
+// ---------------------------------------------------------------------------
+
+// sm2Functions maps SM2 package function names to the crypto-function role and
+// primitive they represent. Detection is gated on the gmsm/sm2 import alias, so
+// a bare GenerateKey/Sign/Encrypt call in unrelated code is never flagged.
+var sm2Functions = map[string]struct {
+	cryptoFn  string
+	primitive string
+}{
+	"GenerateKey": {cryptoFn: "generate", primitive: "pke"},
+	"Sign":        {cryptoFn: "sign", primitive: "signature"},
+	"Verify":      {cryptoFn: "verify", primitive: "signature"},
+	"Encrypt":     {cryptoFn: "encrypt", primitive: "pke"},
+	"Decrypt":     {cryptoFn: "decrypt", primitive: "pke"},
+}
+
+func (s *GoScanner) detectSM2(root *sitter.Node, path string, content []byte, imports map[string]string) []types.Finding {
+	// tjfoc/gmsm is the de-facto Go SM2 implementation. Match its sm2 subpackage.
+	alias := aliasFor(imports, "github.com/tjfoc/gmsm/sm2")
+	if alias == "" {
+		return nil
+	}
+
+	var findings []types.Finding
+	qi := quantum.GetInfo("sm2")
+
+	for funcName, info := range sm2Functions {
+		for _, callNode := range s.findSelectorCalls(root, content, alias, funcName) {
+			findings = append(findings, types.Finding{
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "SM2",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityMedium,
+				Confidence: types.ConfidenceHigh,
+				Properties: types.CryptoProperties{
+					Primitive:        info.primitive,
+					AlgorithmFamily:  "sm2",
+					QuantumStatus:    qi.Status,
+					NistQuantumLevel: qi.NistLevel,
+					CryptoFunctions:  []string{info.cryptoFn},
+				},
+				Description: fmt.Sprintf("SM2 %s via %s.%s() — quantum-vulnerable", info.cryptoFn, alias, funcName),
+				RuleID:      fmt.Sprintf("cbom-go-sm2-%s", strings.ToLower(funcName)),
 				Pass:        1,
 			})
 		}

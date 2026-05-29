@@ -17,11 +17,11 @@ type opengrepOutput struct {
 
 // opengrepResult represents a single result from OpenGrep JSON output.
 type opengrepResult struct {
-	CheckID string          `json:"check_id"`
-	Path    string          `json:"path"`
-	Start   opengrepPos     `json:"start"`
-	End     opengrepPos     `json:"end"`
-	Extra   opengrepExtra   `json:"extra"`
+	CheckID string        `json:"check_id"`
+	Path    string        `json:"path"`
+	Start   opengrepPos   `json:"start"`
+	End     opengrepPos   `json:"end"`
+	Extra   opengrepExtra `json:"extra"`
 }
 
 // opengrepPos represents a position in a file.
@@ -54,10 +54,10 @@ type opengrepMetavar struct {
 //
 // CbomPrimitive / CbomPrimitiveFromMetavar / CbomPrimitiveFallback drive the
 // canonical-token resolution implemented in resolveAlgorithmPrimitive:
-//   1. static cbom-primitive wins (literal canonical token)
-//   2. else look up cbom-primitive-from-metavar (e.g. "$ALGO") against
-//      extra.metavars and canonicalize the captured text
-//   3. else use cbom-primitive-fallback (used when the metavar isn't a literal)
+//  1. static cbom-primitive wins (literal canonical token)
+//  2. else look up cbom-primitive-from-metavar (e.g. "$ALGO") against
+//     extra.metavars and canonicalize the captured text
+//  3. else use cbom-primitive-fallback (used when the metavar isn't a literal)
 type opengrepMetadata struct {
 	CbomAssetType            string `json:"cbom-asset-type"`
 	Confidence               string `json:"confidence"`
@@ -340,15 +340,16 @@ func resolveAlgorithmPrimitive(extra *opengrepExtra) string {
 // callers can fall back to a rule-provided default.
 //
 // Examples:
-//   md5                       -> MD5
-//   sha1, sha-1               -> SHA-1
-//   sha256, sha-256           -> SHA-256
-//   sha3_256                  -> SHA3-256
-//   AES/GCM/NoPadding         -> AES-GCM
-//   AES_256_GCM               -> AES-256-GCM
-//   TLSv1.0, tls_version_1_3  -> TLS-1.0, TLS-1.3
-//   PBKDF2WithHmacSHA256      -> PBKDF2-HMAC-SHA256
-//   some_random_var           -> "" (caller uses fallback)
+//
+//	md5                       -> MD5
+//	sha1, sha-1               -> SHA-1
+//	sha256, sha-256           -> SHA-256
+//	sha3_256                  -> SHA3-256
+//	AES/GCM/NoPadding         -> AES-GCM
+//	AES_256_GCM               -> AES-256-GCM
+//	TLSv1.0, tls_version_1_3  -> TLS-1.0, TLS-1.3
+//	PBKDF2WithHmacSHA256      -> PBKDF2-HMAC-SHA256
+//	some_random_var           -> "" (caller uses fallback)
 func canonicalizePrimitive(s string) string {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -468,6 +469,7 @@ func looksLikePrimitive(s string) bool {
 		"BLOWFISH", "CAMELLIA", "CAST", "IDEA", "SEED", "SERPENT", "SM3",
 		"SM4", "TWOFISH", "ARIA", "CHACHA", "XSALSA", "POLY1305", "BLAKE",
 		"RIPEMD", "TIGER", "WHIRLPOOL", "KECCAK", "GOST", "SKEIN",
+		"SM2", "ECIES", "IES",
 		"PBKDF", "HKDF", "SCRYPT", "BCRYPT", "ARGON", "HMAC", "GMAC", "CMAC",
 		"TLS", "SSL", "SSH", "IPSEC", "DTLS",
 		"KYBER", "ML-KEM", "ML-DSA", "DILITHIUM", "FALCON", "SPHINCS",
