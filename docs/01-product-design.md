@@ -75,7 +75,7 @@ No existing open tool provides: multi-language coverage, compliance mapping, qua
 ## 4. Product Goals
 
 ### Primary Goals
-1. **Comprehensive discovery** — find every cryptographic asset in source code, config, and containers across 12+ languages
+1. **Comprehensive discovery** — find every cryptographic asset in source code, config, and containers across 12 languages
 2. **Structured output** — emit valid CycloneDX 1.7 CBOM for every scan
 3. **Quantum classification** — automatically tag every finding with quantum vulnerability status and NIST PQC security level
 4. **Actionable guidance** — translate raw findings into compliance gaps, risk scores, and concrete remediation steps
@@ -93,7 +93,7 @@ No existing open tool provides: multi-language coverage, compliance mapping, qua
 
 | Metric | Target |
 |---|---|
-| Languages supported | 12+ by Phase 4 |
+| Languages supported | 12 (Java, Kotlin, Python, JS/TS, C#, Go, C/C++, Rust, PHP, Ruby, Swift, Dart) |
 | False positive rate | < 5% for High/Critical findings |
 | Scan time for 100k LOC repo | < 5 minutes |
 | CycloneDX spec compliance | 100% valid against CycloneDX 1.7 schema |

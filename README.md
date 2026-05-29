@@ -58,7 +58,7 @@ A CBOM inventories:
 | [ADR-001](docs/decisions/ADR-001-output-format.md) | Output Format — CycloneDX 1.7 |
 | [ADR-002](docs/decisions/ADR-002-parsing-backbone.md) | Parsing Backbone — tree-sitter |
 | [ADR-003](docs/decisions/ADR-003-codeql-independence.md) | No CodeQL dependency; no build required |
-| [ADR-004](docs/decisions/ADR-004-taint-engine-revision.md) | **Taint engine revised** — custom build replaced with Joern + OpenGrep |
+| [ADR-004](docs/decisions/ADR-004-taint-engine-revision.md) | **Taint engine revised** — 3-pass detection: tree-sitter (Pass 1) → OpenGrep taint rules (Pass 2) → YARA-X binary scanning (Pass 3). Joern was removed entirely per ADR-033. |
 | [ADR-005](docs/decisions/ADR-005-cli-language-and-deployment.md) | CLI in Go; Backend in Python/FastAPI |
 | [ADR-006](docs/decisions/ADR-006-rbac-design.md) | RBAC Design — Roles, Permissions, API Key Model |
 | [ADR-007](docs/decisions/ADR-007-communications-design.md) | Communications Design — Channels, Triggers, Notification Routing |
@@ -75,7 +75,7 @@ Source Code / Containers / Config Files
             │
             ▼
     CipherRadar Scanner
-    (Python, JS/TS, Java — 12+ on roadmap; AST + Taint + Regex)
+    (12 languages; 3-pass: tree-sitter AST → OpenGrep taint → YARA-X binary)
             │
             ▼
     CycloneDX 1.7 CBOM
@@ -86,7 +86,7 @@ Source Code / Containers / Config Files
             ├── Compliance Mapping (NIST / FIPS / PCI / CNSA 2.0)
             ├── Policy Engine (YAML-based, CI/CD gate)
             ├── Dashboard & Visualization
-            └── Reports (PDF / SARIF / HTML / CSV)
+            └── Reports (CycloneDX / SARIF / text / PDF / SonarQube Generic)
 ```
 
 ## Quick Start
@@ -136,7 +136,7 @@ docker compose -f deploy/docker-compose.dev.yml up db redis api frontend -d
 
 | Gap in Existing Tools | CipherRadar Solution |
 |---|---|
-| sonar-cryptography supports Java + Python only | 3 languages in Phase 1 (Python, JS/TS, Java), 12+ on the roadmap |
+| sonar-cryptography supports Java + Python only | 12 languages (Java, Kotlin, Python, JS/TS, C#, Go, C/C++, Rust, PHP, Ruby, Swift, Dart) plus config and binary scanning |
 | CBOMkit produces raw JSON with no guidance | Compliance mapping, risk scoring, remediation, dashboard |
 | No quantum migration workflow in any OSS tool | PQC readiness reports, NIST IR 8547 deadline tracking, migration Kanban |
 | No policy-as-code for cryptography | YAML policy engine with CI/CD build gates |

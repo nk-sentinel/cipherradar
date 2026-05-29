@@ -65,9 +65,9 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 - CLI renamed to `cradar` with `--push` flag
 - 5 output formats (CycloneDX, SARIF, text, PDF, SonarQube Generic)
 - 30 Go packages, 310+ backend tests
-- 25 ADRs (ADR-001 through ADR-033, with gaps)
+- 33 ADRs (ADR-001 through ADR-040, with gaps)
 
-**Skills available** (`~/.claude/commands/`) — 37 total:
+**Skills available** (`~/.claude/commands/`) — 36 total:
 
 *Go CLI (Workstream A):*
 - `/lint` — golangci-lint + go vet
@@ -81,7 +81,6 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 - `/build-cross` — build + verify all platforms
 - `/new-scanner` — scaffold a new language scanner
 - `/new-opengrep-rule` — scaffold an OpenGrep taint rule
-- `/new-joern-query` — scaffold a Joern CPG query script
 
 *Python Backend (Workstream B):*
 - `/lint-py` — ruff + mypy --strict
@@ -118,12 +117,12 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 
 ## Key Architecture Decisions
 
-17 ADRs total (ADR-001 through ADR-025, with gaps) in `docs/decisions/`. Decisions that affect day-to-day coding:
+33 ADRs total (ADR-001 through ADR-040, with gaps) in `docs/decisions/`. Decisions that affect day-to-day coding:
 
 - **ADR-001** — Output is CycloneDX 1.7. Never invent a custom schema.
 - **ADR-002** — tree-sitter is the parsing backbone for all languages.
 - **ADR-003** — No build required. Scanner must work on source-only codebases.
-- **ADR-004** — Detection is 2-pass: tree-sitter (Pass 1) → OpenGrep (Pass 2). Joern Pass 3 removed per ADR-033 — all patterns covered by OpenGrep taint rules with 19x better performance. 79 OpenGrep rules (41 security + 38 CBOM inventory).
+- **ADR-004** — Detection is 3-pass: tree-sitter AST + constant propagation (Pass 1) → OpenGrep taint rules (Pass 2) → YARA-X binary content scanning (Pass 3, opt-in per ADR-039). The original Joern Pass 3 was removed entirely per ADR-033 — its patterns are covered by OpenGrep taint rules with 19x better performance. Default is `--passes 1,2`; `--fast` = Pass 1 only; `--deep` = `1,2,3`. 206 OpenGrep rules across 12 language files (153 inventory + 53 security).
 - **ADR-005** — CLI in Go, backend in Python/FastAPI.
 - **ADR-008** — Monorepo. `scanner/` is shared between CLI and backend.
 - **ADR-011** — ~~Joern Pass 3 via subprocess~~ — superseded by ADR-033. Joern removed; all patterns covered by OpenGrep rules.

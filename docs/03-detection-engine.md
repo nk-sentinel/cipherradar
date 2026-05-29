@@ -1,8 +1,8 @@
 # Detection Engine
 
-> **Document version:** v2
-> **Last updated:** 2026-03-16
-> **Change:** Taint engine approach revised — see [ADR-004](decisions/ADR-004-taint-engine-revision.md) for full history and rationale.
+> **Document version:** v4
+> **Last updated:** 2026-05-29
+> **Change:** Pass 3 is now YARA-X binary content scanning — Joern was removed entirely (ADR-033) and replaced by YARA-X (ADR-039). See Change History for full lineage.
 
 ---
 
@@ -13,57 +13,67 @@
 | v1 | 2026-03-15 | Initial design — included "custom taint engine" as core component |
 | v2 | 2026-03-16 | **Custom taint engine replaced** with three-layer approach: tree-sitter constant propagation + Semgrep taint rules + Joern deep analysis. See ADR-004 for full decision rationale. |
 | v3 | 2026-03-18 | Pass 2 engine updated from Semgrep OSS to OpenGrep. Semgrep moved taint mode to commercial (Dec 2024); OpenGrep restores it under LGPL-2.1 with identical YAML rule format. See ADR-009. |
+| v4 | 2026-05-29 | **Pass 3 redefined.** The Joern-based CPG Pass 3 was prototyped and removed per [ADR-033](decisions/ADR-033-remove-joern-pass3.md) — `cli/internal/joern/` is now vestigial and imported nowhere. Pass 3 is now **YARA-X binary content scanning** (opt-in) per [ADR-039](decisions/ADR-039-yarax-binary-scanning.md). Pass-2 findings now also carry quantum posture — see [quantum-coverage-matrix.md](quantum-coverage-matrix.md). |
 
 ---
 
 ## 1. Overview
 
-The detection engine transforms raw source code into structured CycloneDX CBOM components. It uses three complementary layers, each with a different performance/accuracy trade-off:
+The detection engine transforms raw source code into structured CycloneDX CBOM components. It uses three complementary passes, each with a different performance/accuracy trade-off. Pass selection is controlled by `--passes` (default `1,2`), `--deep` (alias for `1,2,3`), and `--fast` (Pass 1 only):
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    DETECTION ENGINE (v2)                            │
+│                    DETECTION ENGINE (v4)                            │
 │                                                                     │
 │  Pass 1: tree-sitter + Constant Propagation    [always, fast]       │
 │  ├── Direct literals and single/multi-hop variable resolution       │
 │  ├── ~80% of all crypto findings                                    │
 │  └── Runtime: seconds                                               │
 │                                                                     │
-│  Pass 2: Semgrep Taint Rules                   [PR/push, moderate]  │
-│  ├── Declarative YAML rules per language                            │
-│  ├── ~8–10% additional findings                                     │
+│  Pass 2: OpenGrep Taint Rules                  [default, moderate]  │
+│  ├── Declarative YAML rules per language (taint mode)               │
+│  ├── ~8–10% additional findings; findings carry quantum posture     │
 │  └── Runtime: minutes                                               │
 │                                                                     │
-│  Pass 3: Joern (CPG-based)                     [nightly, deep]      │
-│  ├── Full Code Property Graph — inter-procedural taint              │
-│  ├── ~3–5% additional findings (hard cases)                        │
-│  └── Runtime: minutes to hours (large codebases)                   │
+│  Pass 3: YARA-X (binary content scanning)      [opt-in, --deep]    │
+│  ├── Scans compiled artifacts/binaries via the `yr` engine          │
+│  ├── Hard-coded keys, pinned certs, statically-linked crypto        │
+│  │   library banners, algorithm byte tables (e.g. AES S-box)        │
+│  └── Requires `yr` (cradar install-tools / cradar-full)            │
 │                                                                     │
 │  Unresolved: crypto call recorded, parameter marked unknown         │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-> **Why not a custom taint engine?** The original v1 design specified a "custom taint engine." This was revised after a feasibility analysis revealed it would require 6–12 months of engineering effort to reach production quality, while proven open-source tools (Joern, Semgrep) already solve the problem with higher accuracy. See [ADR-004](decisions/ADR-004-taint-engine-revision.md) for the full analysis.
+> **Why not a custom taint engine?** The original v1 design specified a "custom taint engine." This was revised after a feasibility analysis revealed it would require 6–12 months of engineering effort to reach production quality, while proven open-source tools already solve the problem with higher accuracy. See [ADR-004](decisions/ADR-004-taint-engine-revision.md) for the full analysis.
+>
+> **Historical note on Pass 3.** A Joern-based Pass 3 (Code Property Graph, inter-procedural taint) was prototyped and removed per [ADR-033](decisions/ADR-033-remove-joern-pass3.md); the `cli/internal/joern/` package is vestigial and imported nowhere at runtime. The current Pass 3 is YARA-X binary content scanning per [ADR-039](decisions/ADR-039-yarax-binary-scanning.md).
 
 ---
 
 ## 2. Language Coverage Matrix
 
-| Language | AST Parser | Pass 2 (Semgrep) | Pass 3 (Joern) | Crypto Libraries Modelled |
-|---|---|---|---|---|
-| **Java** | tree-sitter-java | Yes | Yes | JCA/JCE, Bouncy Castle, Google Tink, Spring Security Crypto, Apache Commons Crypto |
-| **Kotlin** | tree-sitter-kotlin | Yes | Yes | Same as Java + Kotlin-specific extensions |
-| **Python** | tree-sitter-python | Yes | Yes | `cryptography`, PyCryptodome, `hashlib`, `ssl`, PyNaCl, `pyOpenSSL`, `passlib` |
-| **JavaScript** | tree-sitter-javascript | Yes | Yes | `crypto` (Node.js), `node-forge`, `jsonwebtoken`, `bcrypt`, WebCrypto API |
-| **TypeScript** | tree-sitter-typescript | Yes | Yes | Same as JS + typed interfaces |
-| **C#** | tree-sitter-c-sharp | Yes | No (Joern roadmap) | `System.Security.Cryptography`, BouncyCastle.NET |
-| **Go** | tree-sitter-go | Yes | Yes | `crypto/*` stdlib, `golang.org/x/crypto` |
-| **C/C++** | tree-sitter-c | Yes | Yes | OpenSSL, libsodium, mbedTLS, WolfSSL, GnuTLS |
-| **Rust** | tree-sitter-rust | Yes | No (roadmap) | `ring`, `rustls`, `openssl` crate, `aes`, `rsa` |
-| **PHP** | tree-sitter-php | Yes | Yes | `openssl_*`, `hash_*`, `password_hash`, `sodium_*` |
-| **Swift** | tree-sitter-swift | Yes | No (roadmap) | CommonCrypto, CryptoKit, Security framework |
-| **Ruby** | tree-sitter-ruby | Yes | Yes | `OpenSSL`, `BCrypt`, `Digest`, `rbnacl` |
-| **Dart/Flutter** | tree-sitter-dart | Yes | No (roadmap) | `package:crypto`, `package:cryptography`, `pointycastle` |
+Pass 1 (tree-sitter) and Pass 2 (OpenGrep taint rules) operate **per language** — the matrix below tracks them. Pass 3 (YARA-X) is **not** a per-language pass: it scans compiled artifacts (binaries, JARs, wheels, OCI layers) for crypto signatures regardless of source language, so it is represented per-artifact in [§5](#5-pass-3-yara-x-binary-content-scanning) rather than as a column here.
+
+CipherRadar ships **12 language scanners**: Java, Kotlin, Python, JS/TS, C#, Go, C/C++, Rust, PHP, Ruby, Swift, Dart.
+
+| Language | AST Parser (Pass 1) | Pass 2 (OpenGrep) | Crypto Libraries Modelled |
+|---|---|---|---|
+| **Java** | tree-sitter-java | Yes | JCA/JCE, Bouncy Castle, Google Tink, Spring Security Crypto, Apache Commons Crypto |
+| **Kotlin** | tree-sitter-kotlin | Yes | Same as Java + Kotlin-specific extensions |
+| **Python** | tree-sitter-python | Yes | `cryptography`, PyCryptodome, `hashlib`, `ssl`, PyNaCl, `pyOpenSSL`, `passlib`; SM2/GOST/ECIES, Schnorr/BLS where modelled |
+| **JavaScript** | tree-sitter-javascript | Yes | `crypto` (Node.js), `node-forge`, `jsonwebtoken`, `bcrypt`, WebCrypto API; ECIES/Schnorr where modelled |
+| **TypeScript** | tree-sitter-typescript | Yes | Same as JS + typed interfaces |
+| **C#** | tree-sitter-c-sharp | Yes | `System.Security.Cryptography`, BouncyCastle.NET |
+| **Go** | tree-sitter-go | Yes | `crypto/*` stdlib, `golang.org/x/crypto`; SM2/GOST, BLS where modelled |
+| **C/C++** | tree-sitter-c | Yes | OpenSSL, libsodium, mbedTLS, WolfSSL, GnuTLS; GOST/SM2 engines where modelled |
+| **Rust** | tree-sitter-rust | Yes | `ring`, `rustls`, `openssl` crate, `aes`, `rsa`; Schnorr/BLS where modelled |
+| **PHP** | tree-sitter-php | Yes | `openssl_*`, `hash_*`, `password_hash`, `sodium_*` |
+| **Swift** | tree-sitter-swift | Yes | CommonCrypto, CryptoKit, Security framework |
+| **Ruby** | tree-sitter-ruby | Yes | `OpenSSL`, `BCrypt`, `Digest`, `rbnacl` |
+| **Dart/Flutter** | tree-sitter-dart | Yes | `package:crypto`, `package:cryptography`, `pointycastle` |
+
+In addition to the 12 language scanners, CipherRadar runs **config scanners** (nginx, httpd, `openssl.cnf`, `java.security`, Kubernetes manifests, Dockerfile) and **binary/artifact scanners** (JAR, Python wheel, OCI image layers) plus the YARA-X Pass-3 scanner.
 
 ---
 
@@ -96,7 +106,7 @@ This is **not** general taint analysis — it is constant propagation, a standar
 | Cross-file constants | `Constants.CIPHER_ALGO` declared in another file | Yes (symbol table pass) | Medium |
 | Conditional return | `if (legacy) return "DES"; return "AES/GCM"` | Partial — emits both | Low |
 | Config / env var | `System.getenv("ALGO")` | No — unresolved | Unresolved |
-| Deep multi-hop | 5+ function hops across multiple files | No — deferred to Pass 3 | Unresolved → Pass 3 |
+| Deep multi-hop | 5+ function hops across multiple files | No — beyond intra-procedural scope | Unresolved |
 
 ### Symbol Table Pass
 
@@ -107,17 +117,19 @@ Before Pass 1 runs on individual files, a **project-wide symbol table** is built
 
 ---
 
-## 4. Pass 2: Semgrep Taint Rules
+## 4. Pass 2: OpenGrep Taint Rules
+
+CipherRadar ships **206 OpenGrep rules** (153 inventory + 53 security) across 12 rule files (`scanner/rules/*.yml`). OpenGrep is the community fork of Semgrep used since ADR-009; the YAML rule format is identical to Semgrep's. Pass-2 findings are annotated with quantum posture (see [quantum-coverage-matrix.md](quantum-coverage-matrix.md)).
 
 ### What It Does
 
-Semgrep's taint mode allows declarative definition of:
+OpenGrep's taint mode allows declarative definition of:
 - **Sources** — where tainted (or in our case, constant) values originate
 - **Sinks** — crypto API call parameters
 - **Sanitisers** — (not relevant for CBOM; we want to catch all crypto usage)
 - **Propagators** — how taint flows through assignments and function calls
 
-### Example Semgrep Rule (Java)
+### Example OpenGrep Rule (Java)
 
 ```yaml
 rules:
@@ -154,54 +166,36 @@ rules:
 
 ---
 
-## 5. Pass 3: Joern (Code Property Graph)
+## 5. Pass 3: YARA-X (Binary Content Scanning)
+
+> **Historical note.** A Joern-based Pass 3 (Code Property Graph, inter-procedural taint) was prototyped and removed per [ADR-033](decisions/ADR-033-remove-joern-pass3.md). It is no longer a live component — the `cli/internal/joern/` package remains in the tree as vestigial dead code, imported nowhere at runtime. Pass 3 was redefined as YARA-X binary content scanning per [ADR-039](decisions/ADR-039-yarax-binary-scanning.md).
 
 ### What It Does
 
-Joern builds a **Code Property Graph (CPG)** — a unified graph that combines:
-- AST (Abstract Syntax Tree)
-- CFG (Control Flow Graph)
-- PDG (Program Dependence Graph)
-- Call graph
+Pass 3 scans **compiled artifacts and binary content** — not source — using the [YARA-X](https://virustotal.github.io/yara-x/) engine (`yr`). Where source-level passes can miss crypto that is statically linked, embedded, or shipped as data, YARA-X matches binary signatures to recover it. It detects:
 
-This enables full inter-procedural taint queries across the entire project:
+- **Hard-coded keys** embedded in binaries (symmetric key material, private-key blobs)
+- **Pinned certificates** baked into the artifact
+- **Statically-linked crypto library banners** — version strings / fingerprints of OpenSSL, libsodium, mbedTLS, BoringSSL, etc. linked into a binary
+- **Algorithm byte tables** — characteristic constant tables such as the AES S-box, SHA round constants, and similar lookup tables that identify an algorithm even when symbols are stripped
 
-```scala
-// Joern query: find all taint paths from string literals to Cipher.getInstance
-val source = cpg.literal.typeFullName("java.lang.String")
-val sink   = cpg.call.methodFullName("javax.crypto.Cipher.getInstance")
-sink.reachableByFlows(source).l
-```
+YARA-X runs over the artifact scanners' inputs (raw binaries, JARs, Python wheels, OCI image layers) as a universal scanner, so it complements rather than displaces the native JAR / wheel / binary scanners.
 
 ### When Pass 3 Runs
 
-- **Not** on every commit — too slow for interactive use
-- Triggered on: merge to main, nightly schedule, manual "deep scan" request
-- Results are stored and diff'd against the previous deep scan
-- New findings from Pass 3 are surfaced as `confidence: low` in the dashboard
+Pass 3 is **opt-in** and off by default:
 
-### Joern Language Support (Relevant to CipherRadar)
+- Default scan is `--passes 1,2` — Pass 3 does **not** run.
+- `--deep` is an alias for `--passes 1,2,3` and enables YARA-X binary scanning.
+- `--fast` runs Pass 1 only.
+- Pass 3 requires the `yr` (YARA-X) binary on `PATH`. Install it via `cradar install-tools`, or use the `cradar-full` distribution which bundles it. If Pass 3 is requested explicitly (via `--deep` or `--passes` including `3`) and `yr` is missing, the scan hard-fails rather than silently downgrading.
 
-| Language | Joern Support | Notes |
-|---|---|---|
-| Java | Full | Mature; production-grade |
-| Kotlin | Full | Via Java bytecode analysis |
-| JavaScript / TypeScript | Full | `joern-cli` with JS frontend |
-| Python | Full | CPython frontend |
-| C / C++ | Full | Original Joern use case; excellent |
-| PHP | Partial | PHP frontend available; maturing |
-| Go | Partial | Community frontend; maturing |
-| Ruby | Partial | Community frontend |
-| C# | Roadmap | Not yet available |
+### Why YARA-X
 
-### Joern Integration Approach
-
-Joern is a JVM tool (Scala). Integration options:
-1. **Subprocess**: CLI invocation with JSON output — simplest; no JVM in the Go CLI
-2. **HTTP API**: Joern exposes a REST API (`joern-server`) — recommended for the server deployment
-3. **Embedded**: Via JNI — complex; not recommended
-
-The subprocess / HTTP API approach is used. Joern results are ingested and merged with Pass 1 + Pass 2 findings, with deduplication by file + line + sink type.
+- Recovers crypto that source analysis cannot see (statically-linked / stripped / data-embedded)
+- Mature, fast Rust rules engine; no JVM dependency (unlike the removed Joern pass)
+- Signatures are auditable rules, consistent with the OpenGrep-rules philosophy
+- Cheap to keep off the default hot path and enable only when deep artifact analysis is needed
 
 ---
 
@@ -251,10 +245,11 @@ Refer to the original detection coverage in v1 — this section is unchanged.
 | Direct literal | ~98% | Pass 1 |
 | Single-hop variable | ~92% | Pass 1 |
 | Multi-hop same function | ~82% | Pass 1 + Pass 2 |
-| Cross-function same file | ~76% | Pass 2 (Semgrep) |
-| Cross-file constants class | ~70% | Pass 1 (symbol table) + Joern |
-| Deep multi-hop cross-file | ~55–65% | Pass 3 (Joern) |
-| Runtime / config-driven | ~0% (unresolvable by any tool) | Marked `unresolved` |
+| Cross-function same file | ~76% | Pass 2 (OpenGrep) |
+| Cross-file constants class | ~70% | Pass 1 (symbol table) + Pass 2 (OpenGrep) |
+| Deep multi-hop cross-file | ~55–65% | Pass 2 (OpenGrep taint); residual marked `unresolved` |
+| Crypto in compiled artifacts | (recovered) | Pass 3 (YARA-X, `--deep`) |
+| Runtime / config-driven | ~0% (unresolvable by source analysis) | Marked `unresolved` |
 | **Overall real-world** | **~85–90%** | Weighted by pattern prevalence |
 
 The ~85–90% overall figure is based on the real-world distribution of crypto patterns: ~80–85% of crypto API calls use direct literals or single-hop variables (Pass 1 territory). See ADR-004 for the full analysis.
@@ -269,7 +264,7 @@ Every finding carries an explicit confidence level:
 |---|---|---|
 | **High** | Algorithm is a literal constant directly passed to the API or resolved via single-hop constant propagation | `Cipher.getInstance("AES/CBC/PKCS5Padding")` |
 | **Medium** | Resolved via multi-hop constant propagation or cross-file symbol table | Algorithm via constants class |
-| **Low** | Resolved via Joern inter-procedural analysis — possible but not certain | Deep taint path across multiple files |
+| **Low** | Resolved via deeper Pass-2 taint flow or recovered from a binary signature (Pass 3 / YARA-X) — possible but not certain | Taint path across functions; statically-linked library banner |
 | **Unresolved** | Crypto API call confirmed; algorithm parameter is runtime-determined | `Cipher.getInstance(config.getAlgo())` |
 
 Low and Unresolved findings are reported separately. Policy rules can be configured to act — or not act — on Low/Unresolved findings. Unresolved findings are still valid CBOM entries: they record the crypto API call location for manual review.
@@ -278,4 +273,4 @@ Low and Unresolved findings are reported separately. Policy rules can be configu
 
 ## 9. Suppression
 
-Refer to the suppression mechanisms documented in v1 (inline comments, `.cbomignore` file) — unchanged in v2.
+Refer to the suppression mechanisms documented in v1 (inline comments, `.cradarignore` file) — unchanged. (Renamed from `.cbomignore` following the binary rename in [ADR-024](decisions/ADR-024-cli-binary-rename.md).)
