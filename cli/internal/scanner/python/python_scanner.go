@@ -2020,6 +2020,20 @@ var tier2Rules = []tier2CallRule{
 	// GOST R 34.10 signature — gostcrypto (`gostsignature.new(...)`).
 	{requireImport: "gostcrypto", object: "gostsignature", method: "new", family: "gost", name: "GOST R 34.10", primitive: "signature", cryptoFn: "sign", ruleSuffix: "gostcrypto-signature"},
 	{requireImport: "gostsignature", object: "gostsignature", method: "new", family: "gost", name: "GOST R 34.10", primitive: "signature", cryptoFn: "sign", ruleSuffix: "gostcrypto-signature"},
+
+	// Paillier — python-paillier / phe (additively-homomorphic, factoring-based,
+	// quantum-vulnerable). Gated on the `phe` import so unrelated `paillier`
+	// identifiers are never flagged (#41).
+	// `from phe import paillier` → `paillier.generate_paillier_keypair()`.
+	{requireImport: "phe", object: "paillier", method: "generate_paillier_keypair", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "generate", ruleSuffix: "phe-paillier-keypair"},
+	// `from phe import generate_paillier_keypair` → bare `generate_paillier_keypair()`.
+	{requireImport: "phe", object: "", method: "generate_paillier_keypair", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "generate", ruleSuffix: "phe-paillier-keypair"},
+	// `from phe import paillier` → `paillier.PaillierPublicKey(...)`.
+	{requireImport: "phe", object: "paillier", method: "PaillierPublicKey", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "phe-paillier-publickey"},
+	{requireImport: "phe", object: "paillier", method: "PaillierPrivateKey", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "decrypt", ruleSuffix: "phe-paillier-privatekey"},
+	// `from phe import PaillierPublicKey` → bare constructor calls.
+	{requireImport: "phe", object: "", method: "PaillierPublicKey", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "phe-paillier-publickey"},
+	{requireImport: "phe", object: "", method: "PaillierPrivateKey", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "decrypt", ruleSuffix: "phe-paillier-privatekey"},
 }
 
 func (s *PythonScanner) detectTier2Asymmetric(root *sitter.Node, path string, content []byte) []types.Finding {
