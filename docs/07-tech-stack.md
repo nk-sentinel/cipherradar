@@ -1,8 +1,8 @@
 # Technology Stack
 
-> **Document version:** v6
-> **Last updated:** 2026-03-18
-> **Change:** Phase 1 actuals: yaml.v3 replaces Koanf; internal CycloneDX structs replace cyclonedx-go; jsonschema/v6 added; Docker images renamed.
+> **Document version:** v7
+> **Last updated:** 2026-05-29
+> **Change:** Pass 3 engine is now YARA-X binary scanning (Joern removed, ADR-033 / ADR-039); CLI binary renamed `cbom`→`cradar` and tools dir `~/.cbom`→`~/.cradar` (ADR-024).
 
 ---
 
@@ -16,6 +16,7 @@
 | v4 | 2026-03-18 | Viper → Koanf; Celery → Taskiq; CycloneDX Go library implementation note (stack audit) |
 | v5 | 2026-03-18 | Two CLI distribution flavors; cbom install-tools; shared asset embedding via go:embed; module path confirmed |
 | v6 | 2026-03-18 | Phase 1 actuals: yaml.v3 replaces Koanf; internal CycloneDX structs replace cyclonedx-go; jsonschema/v6 added; Docker images renamed | Phase 1 close |
+| v7 | 2026-05-29 | **Detection engine Pass 3 changed.** Joern (CPG) removed entirely per [ADR-033](decisions/ADR-033-remove-joern-pass3.md); Pass 3 is now **YARA-X** binary content scanning per [ADR-039](decisions/ADR-039-yarax-binary-scanning.md). CLI binary renamed `cbom`→`cradar` and `cbom-full`→`cradar-full`; tools dir `~/.cbom`→`~/.cradar` per [ADR-024](decisions/ADR-024-cli-binary-rename.md). |
 
 ---
 
@@ -36,10 +37,10 @@
 |---|---|---|
 | Language | **Go** | Single binary distribution; fast; memory-safe; excellent concurrency for parallel file scanning |
 | Module path | `github.com/nk-sentinel/cipherradar/cli` | Binary not library; no vanity domain needed |
-| Build/dist | GoReleaser | Two flavors: `cbom` (lightweight, ~15 MB) and `cbom-full` (bundled OpenGrep + Joern, ~80–100 MB); cross-platform (macOS, Linux, Windows); checksums; GitHub Releases |
-| Tool installation | `cbom install-tools` subcommand | Downloads OpenGrep + Joern from their GitHub Releases to `~/.cbom/tools/`; for lightweight binary users with internet access |
+| Build/dist | GoReleaser | Two flavors: `cradar` (lightweight, ~15 MB) and `cradar-full` (bundled OpenGrep + YARA-X, ~80–100 MB); cross-platform (macOS, Linux, Windows); checksums; GitHub Releases. See [ADR-024](decisions/ADR-024-cli-binary-rename.md) |
+| Tool installation | `cradar install-tools` subcommand | Downloads OpenGrep + YARA-X (`yr`) from their GitHub Releases to `~/.cradar/tools/`; for lightweight binary users with internet access (Pass 3 / YARA-X requires `yr`) |
 | Shared asset embedding | `//go:embed` | Quantum algorithm table and library API models from `scanner/library-models/` embedded at compile time; no runtime file dependency; works air-gapped |
-| Config/policy parsing | **gopkg.in/yaml.v3** | Direct YAML parsing for .cbom.yml and policy.cbom.yml; lightweight, stdlib-compatible. Koanf v2 evaluated but deferred — yaml.v3 sufficient for Phase 1 |
+| Config/policy parsing | **gopkg.in/yaml.v3** | Direct YAML parsing for `.cradar.yml` and `policy.cradar.yml`; lightweight, stdlib-compatible. Koanf v2 evaluated but deferred — yaml.v3 sufficient for Phase 1 |
 | Output | Internal `cyclonedx17/` + `output/converter.go` | Custom CycloneDX 1.7 structs for full cryptoProperties support. `cyclonedx-go` evaluated but not adopted (supports 1.6 only; PR #257 stalled). Backend uses `cyclonedx-python-lib` v11.7.0 natively |
 | Schema validation | **santhosh-tekuri/jsonschema/v6** | CycloneDX 1.7 JSON Schema validation; official schema embedded via //go:embed |
 
@@ -53,8 +54,8 @@
 | TypeScript type resolution | TypeScript Compiler API (Node.js subprocess) | Type information critical for resolving crypto interface implementations |
 | Python AST | Python `ast` module (subprocess) | Native; accurate; handles Python 3.8–3.14 syntax evolution |
 | **Pass 1: Constant propagation** | Custom implementation over tree-sitter CSTs | Intra-procedural variable tracking + cross-file symbol table; covers ~80% of CBOM use cases; see ADR-004 |
-| **Pass 2: OpenGrep taint rules** | OpenGrep (LGPL-2.1) + custom YAML rules per language | Community fork of Semgrep v1.100.0; restores taint mode (moved to Semgrep commercial Dec 2024); identical YAML rule format; no SaaS/commercial licence restrictions; see ADR-009 |
-| **Pass 3: Joern CPG** | Joern (Apache 2.0, JVM/Scala) via subprocess/HTTP API | Full Code Property Graph — inter-procedural taint; covers ~3–5% of hard cases; runs nightly; see ADR-004 |
+| **Pass 2: OpenGrep taint rules** | OpenGrep (LGPL-2.1) + 206 custom YAML rules (153 inventory + 53 security) across 12 files | Community fork of Semgrep v1.100.0; restores taint mode (moved to Semgrep commercial Dec 2024); identical YAML rule format; no SaaS/commercial licence restrictions; default pass; findings carry quantum posture; see [ADR-009](decisions/ADR-009-opengrep-replaces-semgrep.md) |
+| **Pass 3: YARA-X binary scanning** | YARA-X (`yr`, Rust) via subprocess | Opt-in (`--deep`). Scans compiled artifacts for hard-coded keys, pinned certs, statically-linked crypto library banners, and algorithm byte tables (e.g. AES S-box). Replaced the prototyped-and-removed Joern CPG pass; see [ADR-033](decisions/ADR-033-remove-joern-pass3.md) (Joern removal) and [ADR-039](decisions/ADR-039-yarax-binary-scanning.md) (YARA-X) |
 
 **Why tree-sitter over language-specific parsers for everything?**
 tree-sitter provides: error-tolerant parsing (handles incomplete/broken code), incremental re-parsing (fast for diffs), and a unified CST query language (`(call_expression)`) across all languages. It is not semantically aware (no type resolution), but for the majority of crypto API detection — where we are matching call expressions against known library function names — this is sufficient. Semantic analysis is layered on top only where necessary.
@@ -108,7 +109,7 @@ tree-sitter provides: error-tolerant parsing (handles incomplete/broken code), i
 | GitHub Actions | GitHub Actions YAML + GitHub Checks API (Go) |
 | GitLab CI | GitLab CI YAML template + GitLab Security Dashboard SARIF upload |
 | Jenkins | Jenkins plugin (Java — thin wrapper calling the CLI binary) |
-| Pre-commit | Shell hook (thin wrapper calling `cbom scan --fast`) |
+| Pre-commit | Shell hook (thin wrapper calling `cradar scan --fast`) |
 | VS Code extension | TypeScript + VS Code Language Server Protocol |
 | IntelliJ plugin | Kotlin + IntelliJ Platform SDK |
 
