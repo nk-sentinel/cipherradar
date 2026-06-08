@@ -95,30 +95,61 @@ Source Code / Containers / Config Files
 # Build the CLI
 cd cli && go build -o cradar ./cmd/cradar
 
-# Scan a project
-cradar scan /path/to/project --format text
+# Scaffold .cradar.yml + policy.cradar.yml with commented defaults
+cradar init
+
+# Scan a project (text summary on a TTY, cyclonedx-json when piped)
+cradar scan /path/to/project
 
 # Generate CycloneDX 1.7 CBOM
-cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate
+cradar scan /path/to/project -o cbom.json --validate
 
-# Check against policy
+# Write multiple formats from a single scan (format sniffed from extension)
+cradar scan /path/to/project -o cbom.json -o report.pdf -o issues.sarif
+
+# Inventory-only CBOM (skip security findings)
+cradar scan /path/to/project --only-inventory -o inventory.json
+
+# Filter rules: pick specific rules, drop noisy ones, opt into experimental
+cradar scan /path/to/project --category security
+cradar scan /path/to/project --disable-rule cbom-python-weak-hash
+cradar scan /path/to/project --include-experimental --include-noisy
+
+# Baseline: acknowledge current findings, then surface only new ones
+cradar scan /path/to/project --update-baseline   # writes .cradar-baseline.json
+cradar scan /path/to/project                      # subsequent runs show only NEW findings
+cradar scan /path/to/project --no-baseline        # ignore the baseline
+
+# List and explain rules
+cradar rules list --category security
+cradar rules explain cbom-python-weak-hash
+
+# Check against policy (exit 1 if findings breach the threshold)
 cradar policy check cbom.json --policy policy.cradar.yml --fail-on high
 
 # Compare two scans
 cradar diff cbom-before.json cbom-after.json
 
 # Generate PDF report
-cradar scan /path/to/project --format pdf --output report.pdf
+cradar scan /path/to/project -o report.pdf
 
 # Scan and push results to CipherRadar portal
 cradar scan /path/to/project --push --project "my-service" --api-key $CRADAR_API_KEY
 
 # SonarQube generic issue export
-cradar scan /path/to/project --format sonarqube-generic --output issues.json
+cradar scan /path/to/project -o issues.sonar.json   # or --format sonarqube-generic
 
 # Scan a container image
-cradar scan --container alpine:latest --format cyclonedx-json --output cbom.json
+cradar scan --container alpine:latest -o cbom.json
+
+# Verbose logging (default sink: ~/.cradar/logs/*.jsonl)
+cradar scan /path/to/project --verbose
+
+# Shell completion
+cradar completion bash   # or zsh | fish | powershell
 ```
+
+> Full CLI reference: [`docs/guides/cli/`](docs/guides/cli/) — commands, configuration, output formats, and exit codes.
 
 ## Docker Deployment
 
