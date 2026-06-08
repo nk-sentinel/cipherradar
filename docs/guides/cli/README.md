@@ -66,6 +66,7 @@ alone gives you the inventory.
 |----------------------------------------------|-----------------------------------------------------------------------|
 | [`commands.md`](commands.md)                 | Every subcommand, every flag, with examples                            |
 | [`output-formats.md`](output-formats.md)     | The five output formats, extension dispatch, TTY-aware stdout defaults |
+| [`cbom-schema-reference.md`](cbom-schema-reference.md) | `component.type` / `assetType` values, per-field enums, which fields need action |
 | [`configuration.md`](configuration.md)       | `.cradar.yml` and `policy.cradar.yml` schemas with annotated examples  |
 | [`exit-codes.md`](exit-codes.md)             | Exit-code contract for CI pipelines                                    |
 | [`workflows.md`](workflows.md)               | Common recipes — CI gate, baseline, container scan, push, hooks, etc.  |
