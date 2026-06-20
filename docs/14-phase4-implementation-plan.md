@@ -2,7 +2,11 @@
 
 > **Document version:** v2
 > **Last updated:** 2026-03-22
-> **Status:** Complete
+> **Status:** Complete (historical record)
+
+> **⚠️ Historical note.** Any `/new-joern-query` reference is obsolete — Joern was
+> removed per [ADR-033](decisions/ADR-033-remove-joern-pass3.md); Pass 3 is now
+> YARA-X ([ADR-039](decisions/ADR-039-yarax-binary-scanning.md)).
 
 ---
 

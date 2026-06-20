@@ -43,6 +43,7 @@ cradar scan --container <image-ref> [flags]
 | `-o`, `--output strings` | `(stdout)` | Output file path. Repeat to write multiple artifacts in one scan; format is inferred from each extension. See [output formats](output-formats.md). |
 | `-f`, `--format string` | `(auto)` | Override the format when writing to stdout, or for a single `--output`. Valid: `cyclonedx-json`, `sarif`, `text`, `table`, `pdf`, `sonarqube-generic`. |
 | `--validate` | `false` | Validate output against the embedded CycloneDX 1.7 schema. Only meaningful when at least one sink produces `cyclonedx-json`. |
+| `--strict-validate` | `false` | Fail the scan if any output value falls outside the CycloneDX 1.7 closed enum sets. Default behavior is warn-only. |
 
 ### Pass / engine flags
 
@@ -94,6 +95,37 @@ when both are enabled; the two engines produce complementary findings (de-duplic
 `--only-inventory` without pass 2 deterministically returns zero findings (inventory rules live
 in Pass 2). `cradar` prints a hint on stderr in that case rather than failing silently.
 
+**Inventory vs security, and what each filter keeps.** A default scan (no category flag)
+emits **everything** — the full inventory plus all security findings; nothing is hidden.
+`--only-inventory` keeps inventory-tagged findings **plus any finding that carries a concrete
+crypto-asset identity**, so weak/broken algorithms (MD5, DES, RC4) — which are tagged
+`security` — still appear because they *are* crypto assets; it is a complete asset list.
+`--only-security` is the only filter that drops pure-inventory findings (an algorithm in use
+with no associated risk). Baseline suppression likewise only ever removes security findings,
+never inventory.
+
+### Scanning / ignore controls
+
+| Flag | Default | Description |
+|---|---|---|
+| `--no-default-ignores` | `false` | Disable the built-in default ignores (VCS, vendor/dependency dirs, build output, other tools' workdirs, cradar's own output, and minified/generated assets). See [configuration](configuration.md#default-ignores-and-cradarignore). |
+| `--no-gitignore` | `false` | Do not honor `.gitignore` during the scan. |
+
+By default `cradar` skips non-source paths so it never re-ingests its own output or
+vendored/build noise. A project-root `.cradarignore` (gitignore syntax) adds scan-specific
+exclusions. Config files, certificate/key material, and binaries are never default-ignored.
+
+### Keystore inspection
+
+| Flag | Default | Description |
+|---|---|---|
+| `--keystore-wordlist string` | | Path to a newline-delimited password list to try (in addition to the built-in defaults) when opening JKS / PKCS#12 keystores. Never downloads wordlists. |
+
+`cradar` inspects keystore files (`.jks`, `.keystore`, `.p12`, `.pfx`, `.truststore`),
+enumerating the certificates inside and flagging any store that opens with a well-known or
+default password. `.bks` (BouncyCastle) keystores are reported presence-only — see
+[ADR-041](../../decisions/ADR-041-keystore-password-policy.md).
+
 ### Hook / staged-only
 
 | Flag | Default | Description |
@@ -114,6 +146,7 @@ in Pass 2). `cradar` prints a hint on stderr in that case rather than failing si
 | `--baseline-file string` | `.cradar-baseline.json` | Path to the baseline file used for suppression. |
 | `--no-baseline` | `false` | Ignore the baseline file for this run. |
 | `--update-baseline` | `false` | Rewrite the baseline file from this run's security findings. |
+| `--baseline string` | | Path to a *previous scan's* CycloneDX JSON. Adds a "Changes vs Baseline" section to PDF reports. Distinct from `--baseline-file` (suppression). |
 
 Baseline applies after rule filters and fingerprinting, so every output writer and the `--fail-on`
 gate see the same suppressed set. Stale entries are reported on stderr.

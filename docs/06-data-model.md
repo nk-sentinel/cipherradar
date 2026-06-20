@@ -1,8 +1,8 @@
 # Data Model
 
-> **Document version:** v1
+> **Document version:** v2
 > **Created:** 2026-03-15
-> **Last updated:** 2026-03-15
+> **Last updated:** 2026-06-21
 > **Status:** Active
 
 ## Change History
@@ -10,6 +10,7 @@
 | Version | Date | Change | Triggered By |
 |---|---|---|---|
 | v1 | 2026-03-15 | Initial document | — |
+| v2 | 2026-06-21 | Certificate linked-component graph + `dependencies[]`, X.509 extensions, public-key refs; library `purl`/`version`/`group` identity ([ADR-040](decisions/ADR-040-library-asset-type.md)); keystore findings ([ADR-041](decisions/ADR-041-keystore-password-policy.md)); quantum migration properties | ADR-040, ADR-041, CBOM quality workstream |
 
 ---
 
@@ -130,12 +131,27 @@ Findings  (= PolicyViolations enriched with location + remediation)
       "issuerName": "CN=Let's Encrypt R3, O=Let's Encrypt, C=US",
       "notValidBefore": "2025-01-01T00:00:00Z",
       "notValidAfter": "2025-04-01T00:00:00Z",
-      "certificateAlgorithm": "SHA256withECDSA",
-      "certificateFormat": "X.509"
+      "signatureAlgorithmRef": "crypto/alg/sha256-ecdsa",
+      "subjectPublicKeyRef": "cert-tls-prod-1/subjectPublicKey",
+      "certificateFormat": "X.509",
+      "certificateExtension": "KeyUsage=digitalSignature; ExtendedKeyUsage=serverAuth; BasicConstraints=CA:false; SubjectAltName=DNS:api.example.com"
     }
   }
 }
 ```
+
+A parsed certificate is decomposed into a **linked dependency graph**: the cert
+component above plus a (deduplicated) signature-algorithm component, a per-cert
+subject-public-key `related-crypto-material` component, and a (deduplicated)
+public-key-algorithm component. The edges are emitted in the top-level
+`dependencies[]` array, and the synthetic algorithm components carry quantum
+posture (`quantumStatus`, `nistQuantumSecurityLevel`, `cradar:quantum:*`) so a
+cert signed with a quantum-vulnerable key surfaces its migration priority.
+Certificates are discovered as PEM (in source), DER (`.der`/`.cer`/`.crt`),
+PKCS#7 bundles (`.p7b`/`.p7c`), base64 data in Kubernetes Secrets, and inside
+JKS / PKCS#12 keystores. Keystores additionally yield a `cbom-keystore-present`
+finding (and `cbom-keystore-weak-password` when opened with a default password)
+per [ADR-041](decisions/ADR-041-keystore-password-policy.md).
 
 ### 2.4 Related Crypto Material Component
 
@@ -216,6 +232,30 @@ This enables queries like:
 - "Which services use TLS 1.2 or below?"
 - "Which services have any quantum-vulnerable key exchange?"
 - "Which algorithms are used by more than 10 services?" (migration blast radius)
+
+The same `dependencies[]` array also carries the certificate linked-graph edges
+(cert → signature-algorithm + subject-public-key → public-key-algorithm) described
+in §2.3.
+
+### 3.1 Library identity (`purl` / `version` / `group`)
+
+A crypto-library detection emits a `type: library` component (per
+[ADR-040](decisions/ADR-040-library-asset-type.md)). When the coarse detection
+hint resolves to a concrete dependency in a project manifest/lockfile, the
+component carries standard CycloneDX identity fields:
+
+```json
+{
+  "type": "library",
+  "name": "node-forge",
+  "version": "1.3.1",
+  "purl": "pkg:npm/node-forge@1.3.1"
+}
+```
+
+Resolution spans npm, PyPI, Maven/Gradle, Cargo, RubyGems, Go modules, and
+Dart/pub; the raw hint is always available as a `library` property even when no
+exact version can be pinned. Maven components additionally set `group` (groupId).
 
 ---
 

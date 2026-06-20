@@ -2,7 +2,14 @@
 
 > **Document version:** v4
 > **Last updated:** 2026-03-21
-> **Status:** Complete
+> **Status:** Complete (historical record)
+
+> **⚠️ Historical — Joern superseded.** This frozen plan references Joern C/C++
+> CPG analysis and the `/new-joern-query` skill. Joern was **removed** per
+> [ADR-033](decisions/ADR-033-remove-joern-pass3.md) (2026-03-23); its patterns are
+> covered by OpenGrep taint rules, and Pass 3 is now opt-in YARA-X
+> ([ADR-039](decisions/ADR-039-yarax-binary-scanning.md)). See
+> [03-detection-engine.md](03-detection-engine.md) for the current architecture.
 
 ---
 

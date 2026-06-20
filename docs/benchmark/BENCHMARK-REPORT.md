@@ -1,5 +1,12 @@
 # CipherRadar vs CBOMkit — Benchmark Comparison Report
 
+> **⚠️ Historical — Joern superseded.** The Pass-3 figures below evaluate Joern
+> CPG export, which was **removed** per
+> [ADR-033](../decisions/ADR-033-remove-joern-pass3.md) (the very performance
+> problems measured here drove that decision). Current Pass 3 is opt-in YARA-X
+> ([ADR-039](../decisions/ADR-039-yarax-binary-scanning.md)). Pass 1+2 numbers
+> remain representative.
+
 **Date:** 2026-03-23
 **CipherRadar version:** dev (Pass 1 tree-sitter + Pass 2 OpenGrep v1.16.5)
 **CBOMkit version:** 1.4.5 (sonar-cryptography plugin)
