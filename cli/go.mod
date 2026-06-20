@@ -4,7 +4,9 @@ go 1.26.1
 
 require (
 	github.com/google/go-containerregistry v0.21.3
+	github.com/hhrutter/pkcs7 v0.2.0
 	github.com/johnfercher/maroto/v2 v2.4.0
+	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82
 	github.com/spf13/cobra v1.10.2
@@ -12,6 +14,7 @@ require (
 	golang.org/x/crypto v0.49.0
 	gonum.org/v1/plot v0.17.0
 	gopkg.in/yaml.v3 v3.0.1
+	software.sslmate.com/src/go-pkcs12 v0.7.2
 )
 
 require (
@@ -30,7 +33,6 @@ require (
 	github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/hhrutter/lzw v1.0.0 // indirect
-	github.com/hhrutter/pkcs7 v0.2.0 // indirect
 	github.com/hhrutter/tiff v1.0.2 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/johnfercher/go-tree v1.1.0 // indirect

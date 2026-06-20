@@ -159,7 +159,24 @@ So `TLS 1.2` → `{ name: "TLS", protocolProperties: { type: "tls", version: "1.
 > algorithm components carry quantum posture (`quantumStatus`,
 > `nistQuantumSecurityLevel`, `cradar:quantum:*`), so a cert signed with a
 > quantum-vulnerable key surfaces its migration priority. Source formats
-> covered: PEM (in source), DER (`.der`/`.cer`/`.crt`).
+> covered: PEM (in source), DER (`.der`/`.cer`/`.crt`), PKCS#7 bundles
+> (`.p7b`/`.p7c`), and certificates inside keystores (below).
+
+### Keystores (JKS / PKCS#12)
+
+Keystore files (`.jks`, `.keystore`, `.p12`, `.pfx`, `.truststore`) are inspected:
+
+- A `cbom-keystore-present` finding is **always** emitted (path-stamped), noting
+  whether the store is locked or contains private-key material.
+- Embedded certificates are enumerated and modeled exactly like file
+  certificates (the linked graph above).
+- `cradar` tries a curated set of well-known/default passwords (JDK `changeit`,
+  `android`, `notasecret`, WebLogic demo stores, common weak values, plus the
+  filename) and any list passed via `--keystore-wordlist <file>`. If one opens
+  the store, a `cbom-keystore-weak-password` **security** finding (HIGH) is
+  emitted in addition to the inventory. `cradar` never downloads wordlists.
+- A store that no candidate opens is reported as present-but-locked, with no
+  cert enumeration.
 
 ### 4.4 `related-crypto-material` → `relatedCryptoMaterialProperties`
 

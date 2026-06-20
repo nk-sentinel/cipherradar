@@ -16,6 +16,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/golang"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/java"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/javascript"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keystore"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/kotlin"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/php"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/python"
@@ -55,6 +56,9 @@ func DefaultRegistry() *scanner.Registry {
 	r.Register(binary.New())
 	r.Register(binary.NewJARScanner())
 	r.Register(binary.NewWheelScanner())
+
+	// Keystore scanner (JKS / PKCS#12, dispatched by .jks/.p12/.pfx/... ext)
+	r.Register(keystore.New())
 
 	// Universal scanners (run on every file regardless of extension)
 	r.RegisterUniversal(regex.New())
