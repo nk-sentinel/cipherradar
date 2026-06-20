@@ -4,6 +4,82 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.4.0-rc.1 — 2026-06-21
+
+CBOM output-quality and coverage release: exact library identification, a
+certificate dependency graph, keystore inspection, and an actionable
+post-quantum migration payload — all schema-valid by construction.
+
+### Library identification with version + purl
+
+Crypto-library findings now resolve to an exact package and version and carry a
+CycloneDX `purl` (plus `group`/`version`). A new dependency-resolution pass
+parses project manifests/lockfiles and maps a detected library to its concrete
+package, disambiguating by import context and the file's own enclosing project.
+Ecosystems: **npm, PyPI, Maven/Gradle, Cargo, RubyGems, Go modules, Dart/pub**
+(others surface the library name only).
+
+### Certificates — linked-component graph, extensions, more formats
+
+- Parsed certificates decompose into a CycloneDX dependency graph (a `dependencies[]`
+  array): the cert plus deduplicated signature-algorithm and public-key-algorithm
+  components and a per-cert public-key material component. The algorithm
+  sub-components carry quantum posture, so a cert signed with a quantum-vulnerable
+  key surfaces its migration priority.
+- `certificateExtension` now reports KeyUsage, ExtendedKeyUsage, BasicConstraints,
+  and SubjectAltName; `certificateFormat` distinguishes X.509 / DER / PKCS7.
+- New source formats: binary **DER** (`.der`/`.cer`/`.crt`), **PKCS#7** bundles
+  (`.p7b`/`.p7c`), and base64 certificates embedded in **Kubernetes Secret** data.
+
+### Keystore inspection
+
+JKS and PKCS#12 keystores (`.jks`/`.keystore`/`.p12`/`.pfx`/`.truststore`) are
+inspected: certificates inside are enumerated, and a store that opens with a
+well-known/default password (curated set, plus an opt-in `--keystore-wordlist`)
+is flagged as a security finding. BKS is reported presence-only (no pure-Go
+parser; see ADR-041). `cradar` never downloads wordlists.
+
+### Post-quantum migration export
+
+The CBOM now carries an actionable migration payload (previously PDF-only):
+`parameterSetIdentifier` is populated, and namespaced properties expose an
+HNDL-aware `cradar:quantum:priority`, a `recommendation`, and a structured
+`cradar:quantum:migrationTarget`.
+
+### Key-size capture from method-chaining
+
+Key size is now captured from the JCA `getInstance(...)` + `initialize(N)` /
+`init(N)` idiom (Java, Kotlin) and the C# `KeySize` property assignment — not
+just from algorithm names or direct call arguments.
+
+### Scan hygiene
+
+- Built-in **default ignores** (vendor/build/tool-workdir directories, cradar's
+  own output, minified/generated assets) plus `.gitignore` and `.cradarignore`
+  support, so cradar no longer re-ingests its own output or dependency noise
+  (gh #46). Disable with `--no-default-ignores` / `--no-gitignore`.
+- The high-entropy base64 detector no longer false-positives on Subresource-
+  Integrity hashes (`sha256-`/`sha384-`/`sha512-`), e.g. npm `package-lock.json`
+  `integrity` values.
+
+### Fixes
+
+- CBOM output is now schema-valid by construction: out-of-enum `algorithmFamily`
+  values are omitted and unknown related-crypto-material types fall back to
+  `other`, instead of emitting values that failed CycloneDX 1.7 validation.
+- A package name shared across ecosystems (e.g. `bcrypt` = npm + gem) resolves
+  to the ecosystem of the finding's own project.
+
+### New flags
+
+`--keystore-wordlist`, `--no-default-ignores`, `--no-gitignore`.
+
+### Decisions & docs
+
+- ADR-040 addendum (purl on library components), ADR-041 (keystore password
+  policy). Full documentation integrity audit; data-model and tech-stack docs
+  synced; release-notes phrasing corrected (gh #47).
+
 ## 0.3.0-rc.2 — 2026-05-29
 
 Recall, detection, and quantum-posture hardening on top of rc.1's binary-scanning work.
