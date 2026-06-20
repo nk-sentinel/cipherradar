@@ -64,6 +64,88 @@ func TestJavaScannerExtensions(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// Key-size method-chaining tests (JCA initialize()/init())
+// ---------------------------------------------------------------------------
+
+func scanJava(t *testing.T, src string) []types.Finding {
+	t.Helper()
+	findings, err := java.New().ScanFile("Test.java", []byte(src))
+	if err != nil {
+		t.Fatalf("ScanFile error: %v", err)
+	}
+	return findings
+}
+
+func TestKeyGenInitializeKeySize(t *testing.T) {
+	t.Run("KeyPairGenerator.initialize", func(t *testing.T) {
+		f := scanJava(t, `class T { void m() {
+			KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+			kpg.initialize(2048);
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 2048
+		}, "RSA keypairgen with KeySize=2048 from initialize()")
+	})
+
+	t.Run("KeyGenerator.init", func(t *testing.T) {
+		f := scanJava(t, `class T { void m() {
+			KeyGenerator kg = KeyGenerator.getInstance("AES");
+			kg.init(256);
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "aes" && x.Properties.KeySize == 256
+		}, "AES keygen with KeySize=256 from init()")
+	})
+
+	t.Run("const var size", func(t *testing.T) {
+		f := scanJava(t, `class T { void m() {
+			int KS = 3072;
+			KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+			kpg.initialize(KS);
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 3072
+		}, "RSA with KeySize=3072 resolved from const var")
+	})
+
+	t.Run("EC spec form not regressed", func(t *testing.T) {
+		f := scanJava(t, `class T { void m() {
+			KeyPairGenerator kpg = KeyPairGenerator.getInstance("EC");
+			kpg.initialize(new ECGenParameterSpec("secp256r1"));
+		}}`)
+		// The EC keypairgen finding must NOT get a bogus int KeySize from the spec arg.
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "ec" &&
+				x.RuleID == "cbom-java-jca-keypairgen-ec" && x.Properties.KeySize == 0
+		}, "EC keypairgen with no bogus KeySize from ECGenParameterSpec")
+	})
+
+	t.Run("two generators distinct sizes", func(t *testing.T) {
+		f := scanJava(t, `class T { void m() {
+			KeyPairGenerator a = KeyPairGenerator.getInstance("RSA");
+			a.initialize(2048);
+			KeyGenerator b = KeyGenerator.getInstance("AES");
+			b.init(128);
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 2048
+		}, "RSA=2048")
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "aes" && x.Properties.KeySize == 128
+		}, "AES=128")
+	})
+
+	t.Run("no init leaves KeySize unset", func(t *testing.T) {
+		f := scanJava(t, `class T { void m() {
+			KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 0
+		}, "RSA keypairgen with KeySize=0 when no initialize()")
+	})
+}
+
+// ---------------------------------------------------------------------------
 // JCA/JCE tests
 // ---------------------------------------------------------------------------
 
