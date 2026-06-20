@@ -43,6 +43,25 @@ CycloneDX defines many component types; `cradar` emits exactly **two**:
 > **Migration note (ADR-040):** if you previously filtered on
 > `cryptoProperties.assetType == "library"`, switch to `component.type == "library"`.
 
+### Library identification (`group` / `version` / `purl`)
+
+When a detected crypto library resolves to a concrete dependency in a project
+manifest/lockfile, `cradar` emits standard CycloneDX component identity fields:
+
+| Field | Example | Notes |
+|---|---|---|
+| `name` | `node-forge` | Upgraded to the concrete package name when resolved. |
+| `version` | `1.3.1` | From the lockfile (npm `package-lock.json`, Python `poetry.lock`/`Pipfile.lock`/pinned `requirements.txt`, Maven `pom.xml`/`gradle.lockfile`). |
+| `group` | `org.bouncycastle` | Maven groupId only. |
+| `purl` | `pkg:npm/node-forge@1.3.1` | Package URL; version-less (`pkg:npm/node-forge`) when the package is unambiguous but no manifest pin was found. |
+
+The raw detection hint is always available as a `library` property in
+`properties[]`, even when no concrete package/version could be resolved.
+Supported ecosystems today: **npm, PyPI, Maven/Gradle**. Findings in other
+ecosystems surface the library name but no purl. `group`/`version`/`purl` may
+also appear on a `cryptographic-asset` component when its detection carried a
+library hint (e.g. PHP mcrypt); its `cryptoProperties` are unaffected.
+
 ---
 
 ## 3. `cryptoProperties.assetType` — the four crypto sub-types
