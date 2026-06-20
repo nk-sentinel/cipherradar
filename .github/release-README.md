@@ -8,7 +8,7 @@ CipherRadar is a source-code-first Cryptography Bill of Materials (CBOM) scanner
 |---|---|
 | `cradar` (or `cradar.exe`) | The CLI binary |
 | `opengrep` (`opengrep.exe`) | OpenGrep — taint-analysis engine for Pass 2 (cradar-full only) |
-| `yr` (`yr.exe`) | YARA-X — binary-scanning engine (cradar-full only; reserved for upcoming binary-scan features) |
+| `yr` (`yr.exe`) | YARA-X — binary content-scanning engine for Pass 3 (cradar-full only; opt-in via `--deep` / `--passes 3`) |
 | `LICENSE` | Project license |
 | `CHANGELOG.md` | What changed in this release and prior releases |
 | `docs/` | Full CLI usage guide — start at `docs/README.md` |

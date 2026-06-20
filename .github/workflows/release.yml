@@ -66,7 +66,7 @@ jobs:
             ```
 
             ### What's Included
-            - **cradar** (lightweight, ~15 MB): 2-pass scanner (tree-sitter + OpenGrep), 12+ languages, CycloneDX 1.7 output
+            - **cradar** (lightweight, ~15 MB): 3-pass scanner (tree-sitter → OpenGrep → YARA-X; Pass 3 opt-in via `--deep`), 12 languages, CycloneDX 1.7 output
             - **cradar-full** (~55 MB): Same binary + OpenGrep + YARA-X pre-bundled for air-gapped environments
 
             `checksums.txt` (SHA-256 of every archive) is attached once all platform builds complete.
