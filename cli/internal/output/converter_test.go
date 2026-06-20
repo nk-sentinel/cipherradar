@@ -221,3 +221,73 @@ func TestConverter_QuantumNotApplicable_OmitsProperty(t *testing.T) {
 		}
 	}
 }
+
+func propValue(comp Component, name string) (string, bool) {
+	for _, p := range comp.Properties {
+		if p.Name == name {
+			return p.Value, true
+		}
+	}
+	return "", false
+}
+
+func TestConverter_QuantumMigrationProps(t *testing.T) {
+	// Quantum-vulnerable RSA public-key encryption → critical (HNDL) + targets.
+	rsa := convertFinding(&types.Finding{
+		ID: "1", Name: "RSA", AssetType: types.AssetAlgorithm,
+		Properties: types.CryptoProperties{
+			AlgorithmFamily: "rsa", Primitive: "pke",
+			QuantumStatus: types.QuantumVulnerable, KeySize: 2048,
+		},
+	})
+	if v, ok := propValue(rsa, "cradar:quantum:priority"); !ok || v != "critical" {
+		t.Errorf("RSA priority = %q (ok=%v), want critical", v, ok)
+	}
+	if _, ok := propValue(rsa, "cradar:quantum:recommendation"); !ok {
+		t.Error("RSA recommendation property missing")
+	}
+	if _, ok := propValue(rsa, "cradar:quantum:migrationTarget"); !ok {
+		t.Error("RSA migrationTarget property missing")
+	}
+
+	// Quantum-safe ML-KEM → priority none.
+	mlkem := convertFinding(&types.Finding{
+		ID: "2", Name: "ML-KEM", AssetType: types.AssetAlgorithm,
+		Properties: types.CryptoProperties{
+			AlgorithmFamily: "ml-kem", Primitive: "kem", QuantumStatus: types.QuantumSafe,
+		},
+	})
+	if v, ok := propValue(mlkem, "cradar:quantum:priority"); !ok || v != "none" {
+		t.Errorf("ML-KEM priority = %q (ok=%v), want none", v, ok)
+	}
+
+	// Not-applicable → no migration props at all.
+	lib := convertFinding(&types.Finding{
+		ID: "3", Name: "openssl", AssetType: types.AssetType("library"),
+		Properties: types.CryptoProperties{QuantumStatus: types.QuantumNotApplicable},
+	})
+	if _, ok := propValue(lib, "cradar:quantum:priority"); ok {
+		t.Error("not-applicable finding should have no quantum priority property")
+	}
+}
+
+func TestDeriveParameterSet(t *testing.T) {
+	cases := []struct {
+		prim, family string
+		keySize      int
+		want         string
+	}{
+		{"ML-KEM-768", "ml-kem", 0, "768"},
+		{"AES-256-GCM", "aes", 0, "256"},
+		{"", "rsa", 2048, "2048"},
+		{"", "ec", 256, "256"},
+		{"", "", 0, ""},
+	}
+	for _, tc := range cases {
+		p := &types.CryptoProperties{AlgorithmPrimitive: tc.prim, AlgorithmFamily: tc.family, KeySize: tc.keySize}
+		got := deriveParameterSet(p)
+		if got != tc.want {
+			t.Errorf("deriveParameterSet(prim=%q fam=%q ks=%d) = %q, want %q", tc.prim, tc.family, tc.keySize, got, tc.want)
+		}
+	}
+}

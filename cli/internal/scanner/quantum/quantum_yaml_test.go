@@ -62,3 +62,46 @@ func TestYAMLLastUpdatedComment(t *testing.T) {
 		t.Error("quantum-readiness.yml should carry a Last updated: comment")
 	}
 }
+
+func TestPriority_HNDLModel(t *testing.T) {
+	cases := []struct {
+		status    types.QuantumStatus
+		primitive string
+		want      types.QuantumPriority
+	}{
+		{types.QuantumVulnerable, "pke", types.QuantumPriorityCritical},       // RSA-OAEP
+		{types.QuantumVulnerable, "key-agree", types.QuantumPriorityCritical}, // ECDH
+		{types.QuantumVulnerable, "kem", types.QuantumPriorityCritical},
+		{types.QuantumVulnerable, "signature", types.QuantumPriorityHigh}, // ECDSA
+		{types.QuantumVulnerable, "hash", types.QuantumPriorityMedium},
+		{types.QuantumVulnerable, "", types.QuantumPriorityMedium},
+		{types.Broken, "hash", types.QuantumPriorityCritical}, // MD5
+		{types.Broken, "block-cipher", types.QuantumPriorityCritical},
+		{types.QuantumSafe, "kem", types.QuantumPriorityNone}, // ML-KEM
+		{types.QuantumSafe, "block-cipher", types.QuantumPriorityNone},
+		{types.QuantumUnknown, "pke", ""},
+		{types.QuantumNotApplicable, "pke", ""},
+	}
+	for _, tc := range cases {
+		if got := Priority(tc.status, tc.primitive); got != tc.want {
+			t.Errorf("Priority(%q, %q) = %q, want %q", tc.status, tc.primitive, got, tc.want)
+		}
+	}
+}
+
+func TestMigrationTarget_Populated(t *testing.T) {
+	// Vulnerable families carry a structured migration target.
+	for _, fam := range []string{"rsa", "ecdsa", "dh", "md5", "des"} {
+		if got := GetInfo(fam).MigrationTarget; got == "" {
+			t.Errorf("GetInfo(%q).MigrationTarget is empty, want non-empty", fam)
+		}
+	}
+	// Quantum-safe families have no migration target.
+	if got := GetInfo("ml-kem").MigrationTarget; got != "" {
+		t.Errorf("GetInfo(ml-kem).MigrationTarget = %q, want empty", got)
+	}
+	// Aliases resolve to the same target.
+	if GetInfo("rsa-oaep").MigrationTarget != GetInfo("rsa").MigrationTarget {
+		t.Error("alias rsa-oaep should share rsa's migration target")
+	}
+}

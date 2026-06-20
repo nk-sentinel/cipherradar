@@ -181,13 +181,17 @@ name/value pairs, emitted by `buildFindingProperties`) and in a few risk-bearing
 |---|---|---|
 | `severity` = `critical` / `high` | `properties[]` | Security misuse (weak cipher, ECB, hardcoded key/IV, MD5, short RSA key). Triage and remediate. This is what `cradar policy check --fail-on` gates on. |
 | `quantumStatus` = `quantum-vulnerable` / `broken` | `properties[]` | Quantum-vulnerable algorithm (RSA/ECC/DH/DSA). Plan PQC migration (NIST IR 8547 — 2030/2035). |
+| `cradar:quantum:priority` = `critical` / `high` / `medium` | `properties[]` | HNDL-aware migration urgency. `critical` = broken, **or** quantum-vulnerable key-exchange/encryption (harvest-now-decrypt-later); `high` = quantum-vulnerable signature; `medium` = other vulnerable primitive; `none` = quantum-safe. |
+| `cradar:quantum:recommendation` | `properties[]` | Free-text migration guidance for the algorithm. |
+| `cradar:quantum:migrationTarget` | `properties[]` | Structured PQC replacement, e.g. `ML-KEM (FIPS 203)` / `ML-DSA (FIPS 204)`. |
 | `nistQuantumSecurityLevel` low/`0` | `algorithmProperties` | Same quantum-readiness axis, expressed numerically. |
 | `notValidAfter` near/past now | `certificateProperties` | Certificate expiring or expired. Rotate. |
 | `state` = `compromised` | `relatedCryptoMaterialProperties` | Key/material flagged compromised. Revoke and re-key. |
 
 `quantumStatus` values: `quantum-safe`, `quantum-vulnerable`, `broken`,
 `quantum-unknown`, `not-applicable`. `severity` values: `critical`, `high`, `medium`,
-`low`, `info`.
+`low`, `info`. The `cradar:quantum:*` properties are emitted only when the
+finding has a definitive quantum status (vulnerable / broken / safe).
 
 ### Inventory vs action, at a glance
 

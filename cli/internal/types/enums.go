@@ -105,3 +105,22 @@ const (
 	// the quantum status field rather than render "Unknown".
 	QuantumNotApplicable QuantumStatus = "not-applicable"
 )
+
+// QuantumPriority is the post-quantum migration urgency derived from an asset's
+// quantum status and primitive. It follows the Harvest-Now-Decrypt-Later (HNDL)
+// model: key-exchange/encryption assets are most urgent because data captured
+// today is decryptable once a CRQC exists, whereas signatures only need to be
+// safe by the migration deadline.
+type QuantumPriority string
+
+const (
+	// QuantumPriorityCritical: act now — either classically broken, or a
+	// quantum-vulnerable key-exchange/encryption asset (HNDL-exposed).
+	QuantumPriorityCritical QuantumPriority = "critical"
+	// QuantumPriorityHigh: quantum-vulnerable signature — migrate before a CRQC.
+	QuantumPriorityHigh QuantumPriority = "high"
+	// QuantumPriorityMedium: quantum-vulnerable but lower-exposure primitive.
+	QuantumPriorityMedium QuantumPriority = "medium"
+	// QuantumPriorityNone: quantum-safe; no migration required.
+	QuantumPriorityNone QuantumPriority = "none"
+)
