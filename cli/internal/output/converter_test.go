@@ -402,3 +402,28 @@ func TestDeriveParameterSet(t *testing.T) {
 		}
 	}
 }
+
+func TestNormalizeAlgorithmFamily_UnknownOmitted(t *testing.T) {
+	// Known values map; unknown values must be omitted (empty) so the CBOM stays
+	// schema-valid rather than emitting an out-of-enum algorithmFamily.
+	if got := normalizeAlgorithmFamily("aes"); got != cyclonedx17.AlgorithmFamilyAES {
+		t.Errorf("aes = %q, want AES", got)
+	}
+	if got := normalizeAlgorithmFamily("chacha20-poly1305"); got != cyclonedx17.AlgorithmFamilyChaCha20 {
+		t.Errorf("chacha20-poly1305 = %q, want ChaCha20", got)
+	}
+	for _, bad := range []string{"random", "sslv3", "sunx509", "pkix", "openssl"} {
+		if got := normalizeAlgorithmFamily(bad); got != "" {
+			t.Errorf("unknown family %q = %q, want \"\" (omitted)", bad, got)
+		}
+	}
+}
+
+func TestNormalizeRelatedCryptoMaterialType_UnknownFallsBackToOther(t *testing.T) {
+	if got := normalizeRelatedCryptoMaterialType("private-key"); got != cyclonedx17.RelatedCryptoMaterialTypePrivateKey {
+		t.Errorf("private-key = %q, want private-key", got)
+	}
+	if got := normalizeRelatedCryptoMaterialType("key-store"); got != cyclonedx17.RelatedCryptoMaterialTypeOther {
+		t.Errorf("key-store = %q, want other", got)
+	}
+}
