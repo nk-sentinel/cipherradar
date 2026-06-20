@@ -207,3 +207,7 @@ output or vendored/build noise (gh #46). Precedence (lowest to highest):
 Config files (`nginx.conf`, `openssl.cnf`, `java.security`, Dockerfile, k8s YAML),
 certificate/key material (`certs/`, `*.pem`, `*.key`), and binaries are **not**
 default-ignored so they remain scannable.
+
+`--no-default-ignores` and `--no-gitignore` are **CLI-only** controls — there are no
+`.cradar.yml` keys for them. `.cradarignore` is the file-based mechanism for project-specific
+scan exclusions.
