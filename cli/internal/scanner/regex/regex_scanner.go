@@ -4,10 +4,6 @@ package regex
 
 import (
 	"bytes"
-	"crypto/dsa"
-	"crypto/ecdsa"
-	"crypto/ed25519"
-	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
@@ -15,10 +11,12 @@ import (
 	"regexp"
 	"strings"
 	"sync/atomic"
-	"time"
 	"unicode/utf8"
 
+	"github.com/hhrutter/pkcs7"
+
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/certutil"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -106,6 +104,13 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 			return scanner.AnnotateFindings(findings), nil
 		}
 		// Not a DER cert (e.g. a PEM .crt) — fall through to the text path.
+	}
+
+	// PKCS#7 certificate bundles / chains (.p7b/.p7c), DER or PEM-wrapped.
+	if pkcs7Exts[ext] {
+		if findings := s.parsePKCS7Certificates(path, content); len(findings) > 0 {
+			return scanner.AnnotateFindings(findings), nil
+		}
 	}
 
 	// Skip likely-binary files: if the first 512 bytes contain a NUL, bail out.
@@ -569,61 +574,36 @@ func (s *RegexScanner) parseCertificateBlocks(path string, content []byte) []typ
 
 // buildCertFinding creates a finding for a successfully parsed X.509 certificate.
 func buildCertFinding(cert *x509.Certificate, path string, lineNum int) types.Finding {
-	severity := types.SeverityInfo
-	state := "active"
-	category := types.CategoryInventory
-	now := time.Now()
-	if now.After(cert.NotAfter) {
-		severity = types.SeverityHigh
-		state = "expired"
-		category = types.CategorySecurity
-	} else if cert.NotAfter.Before(now.Add(30 * 24 * time.Hour)) {
-		severity = types.SeverityMedium
-		state = "expiring-soon"
-		category = types.CategorySecurity
-	}
-
-	sigAlgo := cert.SignatureAlgorithm.String()
-	pubAlgo, pubSize := certPublicKeyInfo(cert)
-
-	return types.Finding{
-		ID:        nextID(),
-		AssetType: types.AssetCertificate,
-		Name:      fmt.Sprintf("X.509 Certificate (%s)", cert.Subject.CommonName),
-		Location: types.Location{
-			File:      path,
-			StartLine: lineNum,
-			StartCol:  1,
-			EndLine:   lineNum,
-			EndCol:    1,
-			Snippet:   "-----BEGIN CERTIFICATE-----",
-		},
-		Severity:   severity,
-		Confidence: types.ConfidenceHigh,
-		Properties: types.CryptoProperties{
-			SubjectName:               cert.Subject.String(),
-			IssuerName:                cert.Issuer.String(),
-			NotValidBefore:            cert.NotBefore.Format(time.RFC3339),
-			NotValidAfter:             cert.NotAfter.Format(time.RFC3339),
-			SignatureAlgorithm:        sigAlgo,
-			CertificateFormat:         "X.509",
-			SubjectPublicKeyAlgorithm: pubAlgo,
-			SubjectPublicKeySize:      pubSize,
-			CertificateExtensions:     certExtensionSummaries(cert),
-			State:                     state,
-			AlgorithmPrimitive:        "CERTIFICATE-X509",
-		},
-		Description: fmt.Sprintf("X.509 certificate for %q signed with %s (expires %s)",
-			cert.Subject.CommonName, sigAlgo, cert.NotAfter.Format("2006-01-02")),
-		RuleID:   "cbom-regex-pem-certificate-parsed",
-		Category: category,
-		Maturity: types.MaturityStable,
-		Pass:     1,
-	}
+	return certutil.BuildFinding(cert, path, lineNum, nextID,
+		"cbom-regex-pem-certificate-parsed", "X.509", "-----BEGIN CERTIFICATE-----",
+		"X.509 certificate for ")
 }
 
 // derCertExts are file extensions that may hold a binary DER-encoded cert.
 var derCertExts = map[string]bool{".der": true, ".cer": true, ".crt": true}
+
+// pkcs7Exts are PKCS#7 certificate-bundle extensions.
+var pkcs7Exts = map[string]bool{".p7b": true, ".p7c": true}
+
+// parsePKCS7Certificates parses a PKCS#7 bundle (DER or PEM-wrapped) and emits a
+// finding per embedded certificate.
+func (s *RegexScanner) parsePKCS7Certificates(path string, content []byte) []types.Finding {
+	der := content
+	if block, _ := pem.Decode(content); block != nil {
+		der = block.Bytes
+	}
+	p7, err := pkcs7.Parse(der)
+	if err != nil || p7 == nil || len(p7.Certificates) == 0 {
+		return nil
+	}
+	findings := make([]types.Finding, 0, len(p7.Certificates))
+	for _, c := range p7.Certificates {
+		f := buildCertFinding(c, path, 1)
+		f.Properties.CertificateFormat = "PKCS7"
+		findings = append(findings, f)
+	}
+	return findings
+}
 
 // parseDERCertificates parses one or more concatenated DER X.509 certificates
 // from raw bytes. Returns nil if the content is not DER (e.g. a PEM file).
@@ -639,121 +619,6 @@ func (s *RegexScanner) parseDERCertificates(path string, content []byte) []types
 		findings = append(findings, f)
 	}
 	return findings
-}
-
-// certPublicKeyInfo returns the certificate's public-key algorithm name and key
-// size in bits, derived from the parsed key (no parameter inference needed).
-func certPublicKeyInfo(cert *x509.Certificate) (string, int) {
-	switch pub := cert.PublicKey.(type) {
-	case *rsa.PublicKey:
-		return "RSA", pub.N.BitLen()
-	case *ecdsa.PublicKey:
-		return "ECDSA", pub.Curve.Params().BitSize
-	case ed25519.PublicKey:
-		return "Ed25519", 256
-	case *dsa.PublicKey:
-		if pub.P != nil {
-			return "DSA", pub.P.BitLen()
-		}
-		return "DSA", 0
-	default:
-		// Fall back to the x509 enum string for unknown key types.
-		return cert.PublicKeyAlgorithm.String(), 0
-	}
-}
-
-// certExtensionSummaries renders the security-relevant X.509 extensions
-// (KeyUsage, ExtendedKeyUsage, BasicConstraints, SubjectAltName) as compact
-// strings for the certificateExtension field.
-func certExtensionSummaries(cert *x509.Certificate) []string {
-	var out []string
-	if ku := keyUsageNames(cert.KeyUsage); len(ku) > 0 {
-		out = append(out, "KeyUsage="+strings.Join(ku, ","))
-	}
-	if eku := extKeyUsageNames(cert.ExtKeyUsage); len(eku) > 0 {
-		out = append(out, "ExtendedKeyUsage="+strings.Join(eku, ","))
-	}
-	if cert.BasicConstraintsValid {
-		bc := "BasicConstraints=CA:false"
-		if cert.IsCA {
-			bc = "BasicConstraints=CA:true"
-			if cert.MaxPathLen > 0 || cert.MaxPathLenZero {
-				bc += fmt.Sprintf(",pathlen:%d", cert.MaxPathLen)
-			}
-		}
-		out = append(out, bc)
-	}
-	if san := subjectAltNames(cert); len(san) > 0 {
-		out = append(out, "SubjectAltName="+strings.Join(san, ","))
-	}
-	return out
-}
-
-func keyUsageNames(ku x509.KeyUsage) []string {
-	pairs := []struct {
-		bit  x509.KeyUsage
-		name string
-	}{
-		{x509.KeyUsageDigitalSignature, "digitalSignature"},
-		{x509.KeyUsageContentCommitment, "contentCommitment"},
-		{x509.KeyUsageKeyEncipherment, "keyEncipherment"},
-		{x509.KeyUsageDataEncipherment, "dataEncipherment"},
-		{x509.KeyUsageKeyAgreement, "keyAgreement"},
-		{x509.KeyUsageCertSign, "keyCertSign"},
-		{x509.KeyUsageCRLSign, "cRLSign"},
-		{x509.KeyUsageEncipherOnly, "encipherOnly"},
-		{x509.KeyUsageDecipherOnly, "decipherOnly"},
-	}
-	var names []string
-	for _, p := range pairs {
-		if ku&p.bit != 0 {
-			names = append(names, p.name)
-		}
-	}
-	return names
-}
-
-func extKeyUsageNames(ekus []x509.ExtKeyUsage) []string {
-	name := map[x509.ExtKeyUsage]string{
-		x509.ExtKeyUsageServerAuth:      "serverAuth",
-		x509.ExtKeyUsageClientAuth:      "clientAuth",
-		x509.ExtKeyUsageCodeSigning:     "codeSigning",
-		x509.ExtKeyUsageEmailProtection: "emailProtection",
-		x509.ExtKeyUsageTimeStamping:    "timeStamping",
-		x509.ExtKeyUsageOCSPSigning:     "OCSPSigning",
-		x509.ExtKeyUsageAny:             "any",
-	}
-	var names []string
-	for _, e := range ekus {
-		if n, ok := name[e]; ok {
-			names = append(names, n)
-		}
-	}
-	return names
-}
-
-// subjectAltNames collects DNS/IP/email/URI SANs, capped to keep the summary
-// compact on certificates with large SAN lists.
-func subjectAltNames(cert *x509.Certificate) []string {
-	const maxSAN = 10
-	var sans []string
-	for _, d := range cert.DNSNames {
-		sans = append(sans, "DNS:"+d)
-	}
-	for _, ip := range cert.IPAddresses {
-		sans = append(sans, "IP:"+ip.String())
-	}
-	for _, e := range cert.EmailAddresses {
-		sans = append(sans, "email:"+e)
-	}
-	for _, u := range cert.URIs {
-		sans = append(sans, "URI:"+u.String())
-	}
-	if len(sans) > maxSAN {
-		extra := len(sans) - maxSAN
-		sans = append(sans[:maxSAN], fmt.Sprintf("(+%d more)", extra))
-	}
-	return sans
 }
 
 // pemBeginRe matches any PEM BEGIN header line.

@@ -23,6 +23,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keystore"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/yarax"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -61,6 +62,9 @@ func init() {
 
 	// Container image scanning.
 	scanCmd.Flags().String("container", "", "scan a container image (reference or local .tar path)")
+
+	// Keystore inspection: extra candidate passwords for JKS/PKCS12 unlocking.
+	scanCmd.Flags().String("keystore-wordlist", "", "path to a newline-delimited password list to try (in addition to built-in defaults) when opening keystores")
 
 	// Rule lifecycle + category filter flags (docs/cli-improvements-plan.md item 1).
 	scanCmd.Flags().StringSlice("category", nil, "limit findings to categories (inventory, security); repeatable")
@@ -118,6 +122,23 @@ func runScan(cmd *cobra.Command, args []string) error {
 
 	// Auto-sync custom rules from portal if api_url is configured (D27).
 	syncCustomRules(cmd)
+
+	// Load any user-supplied keystore password wordlist (in addition to the
+	// built-in defaults) before scanning begins.
+	if wl, _ := cmd.Flags().GetString("keystore-wordlist"); wl != "" {
+		if data, rerr := os.ReadFile(wl); rerr == nil {
+			var words []string
+			for _, line := range strings.Split(string(data), "\n") {
+				if w := strings.TrimRight(line, "\r"); w != "" {
+					words = append(words, w)
+				}
+			}
+			keystore.SetUserWordlist(words)
+			lg.Info("keystore wordlist loaded", "path", wl, "count", len(words))
+		} else {
+			fmt.Fprintf(cmd.ErrOrStderr(), "WARNING: could not read --keystore-wordlist %q: %v\n", wl, rerr)
+		}
+	}
 
 	// Parse passes flag. --deep is an alias for --passes 1,2,3 (the
 	// full pipeline including Pass 3 YARA-X binary scanning). --fast
