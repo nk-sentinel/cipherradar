@@ -25,16 +25,29 @@ func keystoreTypeName(ext string) string {
 	}
 }
 
+// presenceReason explains why a keystore's contents were not enumerated.
+type presenceReason int
+
+const (
+	reasonLocked      presenceReason = iota // password-protected, no candidate opened it
+	reasonUnsupported                       // format not parseable in pure Go (e.g. BKS)
+)
+
 // keystorePresenceFinding records that a keystore file exists at path. It is
 // always emitted (inventory + the fact that a keystore is committed is itself
-// noteworthy). When the store could not be opened it notes the locked state.
-func keystorePresenceFinding(path, ext string, opened, hasPrivateKey bool) types.Finding {
+// noteworthy). When the store could not be opened, reason explains why.
+func keystorePresenceFinding(path, ext string, opened, hasPrivateKey bool, reason presenceReason) types.Finding {
 	kind := keystoreTypeName(ext)
 	desc := fmt.Sprintf("%s keystore present at %s", kind, path)
 	severity := types.SeverityInfo
 	category := types.CategoryInventory
 	if !opened {
-		desc += " — content locked (password-protected; could not enumerate)"
+		switch reason {
+		case reasonUnsupported:
+			desc += " — format not parsed (no pure-Go parser); contents not enumerated"
+		default:
+			desc += " — content locked (password-protected; could not enumerate)"
+		}
 	} else if hasPrivateKey {
 		desc += " — contains private-key material"
 	}

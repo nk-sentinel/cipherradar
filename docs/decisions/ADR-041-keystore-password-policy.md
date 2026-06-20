@@ -42,7 +42,11 @@ credentials changes the tool's character and risk profile.
 ## Consequences
 
 - The default-password set is a maintained constant; additions are low-risk.
-- BKS (BouncyCastle keystores) are attempted via the JKS loader on a best-effort
-  basis; full BKS support is out of scope.
-- Base64-encoded certificates embedded in config/secret files are not yet
-  extracted (tracked as a follow-up).
+- BKS (BouncyCastle keystores) are **presence-only**: there is no pure-Go BKS
+  parser (the format is BouncyCastle/Java-specific), so a `.bks` file yields a
+  path-stamped presence finding noting "format not parsed" — it is not run
+  through the JKS loader and is never misreported as password-locked. Full BKS
+  enumeration would require a Java dependency and is out of scope.
+- Base64-encoded certificates embedded in Kubernetes Secret data are now
+  decoded (`cbom-configfile-k8s-cert`); inline PEM in any text config was
+  already covered by the universal regex scanner.
