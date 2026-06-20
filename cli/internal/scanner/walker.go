@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/ignore"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 	logpkg "github.com/nk-sentinel/cipherradar/cli/pkg/log"
 )
@@ -62,6 +63,11 @@ type ScanOptions struct {
 	// FileList is the explicit set of relative file paths to scan (used with StagedOnly).
 	FileList []string
 
+	// NoDefaultIgnores disables the built-in default ignore set (gh #46).
+	NoDefaultIgnores bool
+	// NoGitignore disables honoring .gitignore during the walk.
+	NoGitignore bool
+
 	// Progress, if non-nil, is invoked once per scanned file with the
 	// detected language (may be empty if no extension match) and the
 	// relative path. Used for stderr heartbeat / verbose output.
@@ -98,6 +104,10 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 		}
 	}
 
+	// Build the ignore matcher (built-in defaults + .gitignore + .cradarignore),
+	// gh #46. Default ignores and .gitignore can be disabled via opts.
+	ignoreMatcher := ignore.New(root, !opts.NoDefaultIgnores, !opts.NoGitignore)
+
 	// Phase 1: Walk the directory tree and collect scan jobs.
 	// The walk itself is sequential (os.WalkDir is not concurrent-safe).
 	var jobs []scanJob
@@ -113,11 +123,13 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 		}
 
 		if d.IsDir() {
-			// Skip common non-source directories
-			name := d.Name()
-			if name == ".git" || name == "node_modules" || name == "__pycache__" ||
-				name == "vendor" || name == ".venv" || name == "venv" ||
-				name == "dist" || name == "build" || name == ".idea" || name == ".vscode" {
+			// Skip non-source directories (built-in defaults + .gitignore +
+			// .cradarignore). The scan root itself is never skipped.
+			if path == root {
+				return nil
+			}
+			rel, _ := filepath.Rel(root, path)
+			if ignoreMatcher.SkipDir(rel, d.Name()) {
 				return filepath.SkipDir
 			}
 			return nil
@@ -127,6 +139,11 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 
 		// In staged-only mode, skip files not in the allow set.
 		if allowSet != nil && !allowSet[relPath] {
+			return nil
+		}
+
+		// Apply ignore rules (built-in defaults + .gitignore + .cradarignore).
+		if ignoreMatcher.SkipFile(relPath) {
 			return nil
 		}
 

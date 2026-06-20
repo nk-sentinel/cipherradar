@@ -67,6 +67,10 @@ func init() {
 	// Keystore inspection: extra candidate passwords for JKS/PKCS12 unlocking.
 	scanCmd.Flags().String("keystore-wordlist", "", "path to a newline-delimited password list to try (in addition to built-in defaults) when opening keystores")
 
+	// Default-ignore controls (gh #46).
+	scanCmd.Flags().Bool("no-default-ignores", false, "disable built-in default ignores (vendor/build/tool dirs, cradar's own output, minified assets)")
+	scanCmd.Flags().Bool("no-gitignore", false, "do not honor .gitignore during the scan")
+
 	// Rule lifecycle + category filter flags (docs/cli-improvements-plan.md item 1).
 	scanCmd.Flags().StringSlice("category", nil, "limit findings to categories (inventory, security); repeatable")
 	scanCmd.Flags().Bool("only-inventory", false, "shortcut for --category inventory")
@@ -188,10 +192,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 	})
 
 	// Build scan options.
+	noDefaultIgnores, _ := cmd.Flags().GetBool("no-default-ignores")
+	noGitignore, _ := cmd.Flags().GetBool("no-gitignore")
 	scanOpts := scanner.ScanOptions{
-		Fast:       fast,
-		StagedOnly: stagedOnly,
-		Progress:   emitter.WalkedFile,
+		Fast:             fast,
+		StagedOnly:       stagedOnly,
+		Progress:         emitter.WalkedFile,
+		NoDefaultIgnores: noDefaultIgnores,
+		NoGitignore:      noGitignore,
 	}
 
 	// Load .cradar.yml (optional) so custom_wrappers can seed the registry

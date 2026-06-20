@@ -44,6 +44,7 @@ require (
 	github.com/pdfcpu/pdfcpu v0.11.1 // indirect
 	github.com/phpdave11/gofpdf v1.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/vbatts/tar-split v0.12.2 // indirect
 	golang.org/x/image v0.37.0 // indirect
