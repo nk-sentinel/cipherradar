@@ -162,19 +162,29 @@ func (ix *Index) finalize() {
 // nearest to fromFile and walking up to the project root. fromFile may be
 // absolute or relative to the same root passed to Build.
 func (ix *Index) Resolve(eco Ecosystem, name, fromFile string) (Package, bool) {
+	if p, ok := ix.ResolveAncestor(eco, name, fromFile); ok {
+		return p, true
+	}
+	// Fallback: any manifest in the project declaring the package.
 	key := normalizeName(eco, name)
-	fromDir := filepath.Dir(fromFile)
-	// First pass: prefer a manifest dir that is an ancestor of fromFile.
 	for _, dir := range ix.dirs {
-		if !isAncestorDir(dir, fromDir) {
-			continue
-		}
 		if p, ok := ix.lookup(dir, eco, key); ok {
 			return p, true
 		}
 	}
-	// Fallback: any manifest in the project declaring the package.
+	return Package{}, false
+}
+
+// ResolveAncestor is like Resolve but only matches a manifest that is an
+// ancestor of fromFile (no cross-tree fallback). Lets callers prefer the file's
+// own ecosystem when the same package name exists in multiple ecosystems.
+func (ix *Index) ResolveAncestor(eco Ecosystem, name, fromFile string) (Package, bool) {
+	key := normalizeName(eco, name)
+	fromDir := filepath.Dir(fromFile)
 	for _, dir := range ix.dirs {
+		if !isAncestorDir(dir, fromDir) {
+			continue
+		}
 		if p, ok := ix.lookup(dir, eco, key); ok {
 			return p, true
 		}

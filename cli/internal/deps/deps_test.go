@@ -270,3 +270,22 @@ func TestParsePubspecLock_AndPurl(t *testing.T) {
 		t.Errorf("purl = %q", BuildPurl(p))
 	}
 }
+
+func TestResolveLibrary_AncestorEcosystemPreference(t *testing.T) {
+	// bcrypt exists as both an npm package and a Ruby gem. A finding in a Ruby
+	// file must resolve to the gem (its own ancestor manifest), not the npm
+	// package elsewhere in the repo.
+	root := t.TempDir()
+	writeFile(t, root, "js/package-lock.json", `{"lockfileVersion":3,"packages":{"node_modules/bcrypt":{"version":"5.1.1"}}}`)
+	writeFile(t, root, "rb/Gemfile.lock", "GEM\n  specs:\n    bcrypt (3.1.20)\n")
+	rbFile := writeFile(t, root, "rb/app.rb", "require 'bcrypt'\n")
+	ix, _ := Build(root)
+
+	p, ok := ResolveLibrary(ix, "openssl-or-bcrypt-or-digest", "require 'bcrypt'", rbFile)
+	if !ok {
+		t.Fatal("expected bcrypt to resolve")
+	}
+	if p.Ecosystem != EcosystemGem || p.Version != "3.1.20" {
+		t.Errorf("ruby bcrypt resolved to %s/%s@%s, want gem/bcrypt@3.1.20", p.Ecosystem, p.Name, p.Version)
+	}
+}
