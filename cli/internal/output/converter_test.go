@@ -209,6 +209,82 @@ func TestConvertScanResult_TallyAccumulates(t *testing.T) {
 	}
 }
 
+func certFinding(id, subject, pubAlgo string, keySize int) types.Finding {
+	return types.Finding{
+		ID: id, AssetType: types.AssetCertificate,
+		Name: "X.509 Certificate (" + subject + ")",
+		Properties: types.CryptoProperties{
+			AlgorithmPrimitive:        "CERTIFICATE-X509",
+			SubjectName:               "CN=" + subject,
+			SignatureAlgorithm:        "SHA256-RSA",
+			CertificateFormat:         "X.509",
+			SubjectPublicKeyAlgorithm: pubAlgo,
+			SubjectPublicKeySize:      keySize,
+			CertificateExtensions:     []string{"KeyUsage=digitalSignature", "BasicConstraints=CA:false"},
+		},
+	}
+}
+
+func findComp(bom *BOM, ref string) (Component, bool) {
+	for _, c := range bom.Components {
+		if c.BOMRef == ref {
+			return c, true
+		}
+	}
+	return Component{}, false
+}
+
+func TestConverter_CertificateLinkedGraph(t *testing.T) {
+	result := &types.ScanResult{Target: "/tmp/x", Findings: []types.Finding{
+		certFinding("c1", "a.example.com", "RSA", 2048),
+		certFinding("c2", "b.example.com", "RSA", 2048), // shares SHA256-RSA + RSA-2048
+	}}
+	bom, _ := ConvertScanResultWithTally(result)
+
+	c1, ok := findComp(bom, "c1")
+	if !ok || c1.CryptoProperties.CertificateProperties == nil {
+		t.Fatal("cert c1 missing")
+	}
+	cp := c1.CryptoProperties.CertificateProperties
+	if cp.SignatureAlgorithmRef == "" || cp.SubjectPublicKeyRef == "" {
+		t.Errorf("cert refs not wired: sig=%q key=%q", cp.SignatureAlgorithmRef, cp.SubjectPublicKeyRef)
+	}
+	if cp.CertificateExtension == "" {
+		t.Error("certificateExtension should be populated")
+	}
+	// Shared signature-algorithm component exists exactly once.
+	sigCount := 0
+	for _, c := range bom.Components {
+		if c.BOMRef == cp.SignatureAlgorithmRef {
+			sigCount++
+		}
+	}
+	if sigCount != 1 {
+		t.Errorf("expected exactly 1 shared sig-algo component, got %d", sigCount)
+	}
+	// Per-cert public-key material component exists and references the pubkey algo.
+	keyComp, ok := findComp(bom, cp.SubjectPublicKeyRef)
+	if !ok || keyComp.CryptoProperties.RelatedCryptoMaterialProperties == nil {
+		t.Fatal("subject public-key component missing")
+	}
+	if keyComp.CryptoProperties.RelatedCryptoMaterialProperties.AlgorithmRef == "" {
+		t.Error("public-key component should reference the pubkey-algorithm component")
+	}
+	if keyComp.CryptoProperties.RelatedCryptoMaterialProperties.Size != 2048 {
+		t.Errorf("public-key size = %d, want 2048", keyComp.CryptoProperties.RelatedCryptoMaterialProperties.Size)
+	}
+	// Dependency edges recorded for the cert.
+	var certDep *Dependency
+	for i := range bom.Dependencies {
+		if bom.Dependencies[i].Ref == "c1" {
+			certDep = &bom.Dependencies[i]
+		}
+	}
+	if certDep == nil || len(certDep.DependsOn) < 2 {
+		t.Errorf("cert c1 should depend on sig-algo + public-key, got %+v", certDep)
+	}
+}
+
 func TestConverter_QuantumNotApplicable_OmitsProperty(t *testing.T) {
 	f := &types.Finding{
 		ID: "1", Name: "openssl", AssetType: types.AssetType("library"),

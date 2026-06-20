@@ -146,10 +146,20 @@ So `TLS 1.2` → `{ name: "TLS", protocolProperties: { type: "tls", version: "1.
 | `notValidBefore` | RFC3339 | Validity start. |
 | `notValidAfter` | RFC3339 | Validity end. **Action signal** (expiry) — see §5. |
 | `certificateAlgorithm` | string | e.g. `SHA256withECDSA`. |
-| `signatureAlgorithmRef` | string | `bom-ref` to the signature algorithm component. |
-| `subjectPublicKeyRef` | string | `bom-ref` to the public-key material component. |
-| `certificateFormat` | string | e.g. `X.509`. |
-| `certificateExtension` | string | e.g. `pem`, `der`. |
+| `signatureAlgorithmRef` | string | `bom-ref` to the signature-algorithm component (emitted as a linked `algorithm` component, shared/deduped across certs). |
+| `subjectPublicKeyRef` | string | `bom-ref` to the per-cert public-key `related-crypto-material` component (which itself references a public-key `algorithm` component via `algorithmRef`). |
+| `certificateFormat` | string | `X.509` for a successfully parsed cert; `DER` for a parsed binary cert; `PEM` when only the PEM block was seen. |
+| `certificateExtension` | string | Security-relevant X.509 extensions, `;`-joined: `KeyUsage=...`, `ExtendedKeyUsage=...`, `BasicConstraints=CA:true/false`, `SubjectAltName=...`. |
+
+> **Certificate dependency graph.** A parsed certificate is decomposed into a
+> linked graph: the cert component, a (deduplicated) signature-algorithm
+> component, a per-cert subject-public-key material component, and a
+> (deduplicated) public-key-algorithm component. The edges appear in the
+> top-level `dependencies[]` array (`{ ref, dependsOn[] }`). The synthetic
+> algorithm components carry quantum posture (`quantumStatus`,
+> `nistQuantumSecurityLevel`, `cradar:quantum:*`), so a cert signed with a
+> quantum-vulnerable key surfaces its migration priority. Source formats
+> covered: PEM (in source), DER (`.der`/`.cer`/`.crt`).
 
 ### 4.4 `related-crypto-material` → `relatedCryptoMaterialProperties`
 

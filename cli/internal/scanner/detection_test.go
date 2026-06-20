@@ -227,11 +227,12 @@ func TestCertificateParsing(t *testing.T) {
 		logFindings(t, findings)
 	}
 
-	// Should also have a certificate parse attempt (either parsed or unparseable)
+	// Should also have a certificate parse attempt. A successfully parsed cert
+	// now reports certificateFormat "X.509"; an unparseable block keeps "PEM".
 	certParsed := findMatch(findings, func(f types.Finding) bool {
 		return (f.RuleID == "cbom-regex-pem-certificate-parsed" || f.RuleID == "cbom-regex-pem-certificate-parse") &&
 			f.AssetType == types.AssetCertificate &&
-			f.Properties.CertificateFormat == "PEM"
+			(f.Properties.CertificateFormat == "X.509" || f.Properties.CertificateFormat == "PEM")
 	})
 	if certParsed == nil {
 		t.Error("expected certificate parsing finding")
