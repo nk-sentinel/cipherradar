@@ -11,10 +11,12 @@ import (
 	"regexp"
 	"strings"
 	"sync/atomic"
-	"time"
 	"unicode/utf8"
 
+	"github.com/hhrutter/pkcs7"
+
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/certutil"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -93,6 +95,22 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 	ext := strings.ToLower(filepath.Ext(path))
 	if regexSkipExts[ext] {
 		return nil, nil
+	}
+
+	// Binary DER-encoded certificate files (.der/.cer/.crt) won't pass the
+	// text/binary heuristics below, so handle them up front by extension.
+	if derCertExts[ext] {
+		if findings := s.parseDERCertificates(path, content); len(findings) > 0 {
+			return scanner.AnnotateFindings(findings), nil
+		}
+		// Not a DER cert (e.g. a PEM .crt) — fall through to the text path.
+	}
+
+	// PKCS#7 certificate bundles / chains (.p7b/.p7c), DER or PEM-wrapped.
+	if pkcs7Exts[ext] {
+		if findings := s.parsePKCS7Certificates(path, content); len(findings) > 0 {
+			return scanner.AnnotateFindings(findings), nil
+		}
 	}
 
 	// Skip likely-binary files: if the first 512 bytes contain a NUL, bail out.
@@ -364,11 +382,11 @@ func (s *RegexScanner) compilePEMPatterns() {
 func (s *RegexScanner) compileAlgoPatterns() {
 	// Broken / weak algorithms -> MEDIUM severity
 	brokenAlgos := []struct {
-		pattern  string
-		name     string
-		family   string
-		prim     string
-		quantum  types.QuantumStatus
+		pattern string
+		name    string
+		family  string
+		prim    string
+		quantum types.QuantumStatus
 	}{
 		{`\bMD5\b`, "MD5", "md5", "hash", types.Broken},
 		{`\bSHA-?1\b`, "SHA-1", "sha", "hash", types.QuantumVulnerable},
@@ -577,53 +595,51 @@ func (s *RegexScanner) parseCertificateBlocks(path string, content []byte) []typ
 
 // buildCertFinding creates a finding for a successfully parsed X.509 certificate.
 func buildCertFinding(cert *x509.Certificate, path string, lineNum int) types.Finding {
-	severity := types.SeverityInfo
-	state := "active"
-	category := types.CategoryInventory
-	now := time.Now()
-	if now.After(cert.NotAfter) {
-		severity = types.SeverityHigh
-		state = "expired"
-		category = types.CategorySecurity
-	} else if cert.NotAfter.Before(now.Add(30 * 24 * time.Hour)) {
-		severity = types.SeverityMedium
-		state = "expiring-soon"
-		category = types.CategorySecurity
-	}
+	return certutil.BuildFinding(cert, path, lineNum, nextID,
+		"cbom-regex-pem-certificate-parsed", "X.509", "-----BEGIN CERTIFICATE-----",
+		"X.509 certificate for ")
+}
 
-	sigAlgo := cert.SignatureAlgorithm.String()
+// derCertExts are file extensions that may hold a binary DER-encoded cert.
+var derCertExts = map[string]bool{".der": true, ".cer": true, ".crt": true}
 
-	return types.Finding{
-		ID:        nextID(),
-		AssetType: types.AssetCertificate,
-		Name:      fmt.Sprintf("X.509 Certificate (%s)", cert.Subject.CommonName),
-		Location: types.Location{
-			File:      path,
-			StartLine: lineNum,
-			StartCol:  1,
-			EndLine:   lineNum,
-			EndCol:    1,
-			Snippet:   "-----BEGIN CERTIFICATE-----",
-		},
-		Severity:   severity,
-		Confidence: types.ConfidenceHigh,
-		Properties: types.CryptoProperties{
-			SubjectName:        cert.Subject.String(),
-			IssuerName:         cert.Issuer.String(),
-			NotValidBefore:     cert.NotBefore.Format(time.RFC3339),
-			NotValidAfter:      cert.NotAfter.Format(time.RFC3339),
-			SignatureAlgorithm: sigAlgo,
-			CertificateFormat:  "PEM",
-			State:              state,
-			AlgorithmPrimitive: "CERTIFICATE-X509",
-		},
-		Description: fmt.Sprintf("X.509 certificate for %q signed with %s (expires %s)",
-			cert.Subject.CommonName, sigAlgo, cert.NotAfter.Format("2006-01-02")),
-		RuleID:   "cbom-regex-pem-certificate-parsed",
-		Category: category,
-		Maturity: types.MaturityStable,
-		Pass:     1,
+// pkcs7Exts are PKCS#7 certificate-bundle extensions.
+var pkcs7Exts = map[string]bool{".p7b": true, ".p7c": true}
+
+// parsePKCS7Certificates parses a PKCS#7 bundle (DER or PEM-wrapped) and emits a
+// finding per embedded certificate.
+func (s *RegexScanner) parsePKCS7Certificates(path string, content []byte) []types.Finding {
+	der := content
+	if block, _ := pem.Decode(content); block != nil {
+		der = block.Bytes
 	}
+	p7, err := pkcs7.Parse(der)
+	if err != nil || p7 == nil || len(p7.Certificates) == 0 {
+		return nil
+	}
+	findings := make([]types.Finding, 0, len(p7.Certificates))
+	for _, c := range p7.Certificates {
+		f := buildCertFinding(c, path, 1)
+		f.Properties.CertificateFormat = "PKCS7"
+		findings = append(findings, f)
+	}
+	return findings
+}
+
+// parseDERCertificates parses one or more concatenated DER X.509 certificates
+// from raw bytes. Returns nil if the content is not DER (e.g. a PEM file).
+func (s *RegexScanner) parseDERCertificates(path string, content []byte) []types.Finding {
+	certs, err := x509.ParseCertificates(content)
+	if err != nil || len(certs) == 0 {
+		return nil
+	}
+	findings := make([]types.Finding, 0, len(certs))
+	for _, c := range certs {
+		f := buildCertFinding(c, path, 1)
+		f.Properties.CertificateFormat = "DER"
+		findings = append(findings, f)
+	}
+	return findings
 }
 
 // pemBeginRe matches any PEM BEGIN header line.

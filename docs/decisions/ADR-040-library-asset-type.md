@@ -39,3 +39,15 @@ JSON shape changes.
   to `component.type == "library"`. Documented as a breaking change in CHANGELOG.
 - The reverse direction (component.type == "library" → cryptoProperties.assetType)
   is no longer a round-trip; this is correct per CycloneDX 1.7 schema.
+
+## Addendum (2026-06-21): purl + version on library components
+
+Library components now carry the standard CycloneDX `group`, `version`, and
+`purl` identity fields when the coarse `cbom-library` detection hint resolves to
+a concrete dependency in a project manifest/lockfile (npm, PyPI, Maven/Gradle).
+Resolution is performed by `cli/internal/deps` as a post-baseline enrichment
+pass and consumed by the converter. This strengthens — does not change — the
+ADR-040 decision: library presence is still a `type: library` component with no
+`cryptoProperties`; it simply gains the identity fields CycloneDX intends for
+SBOM library entries. The raw hint remains available as a `library` property for
+findings that cannot be pinned to a concrete package/version.

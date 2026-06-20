@@ -189,6 +189,50 @@ func TestConvertFinding_LibraryAssetType_EmitsLibraryComponent(t *testing.T) {
 	}
 }
 
+func propValue(comp Component, name string) (string, bool) {
+	for _, p := range comp.Properties {
+		if p.Name == name {
+			return p.Value, true
+		}
+	}
+	return "", false
+}
+
+func TestConvertFinding_LibraryIdentity(t *testing.T) {
+	// A library finding enriched with a resolved package emits purl/version/group
+	// and upgrades the display name to the concrete package.
+	lib := convertFinding(&types.Finding{
+		ID: "1", Name: "node-forge", AssetType: types.AssetType("library"),
+		Properties: types.CryptoProperties{
+			Library: "node-forge", LibraryVersion: "1.3.1",
+			LibraryPurl: "pkg:npm/node-forge@1.3.1",
+		},
+	})
+	if lib.Version != "1.3.1" || lib.Purl != "pkg:npm/node-forge@1.3.1" {
+		t.Errorf("library component identity = version %q purl %q", lib.Version, lib.Purl)
+	}
+	if v, ok := propValue(lib, "library"); !ok || v != "node-forge" {
+		t.Errorf("library property = %q (ok=%v)", v, ok)
+	}
+
+	// A crypto-asset finding (e.g. PHP mcrypt) with a maven library hint gets the
+	// purl/group without losing cryptoProperties.
+	maven := convertFinding(&types.Finding{
+		ID: "2", Name: "RSA", AssetType: types.AssetAlgorithm,
+		Properties: types.CryptoProperties{
+			AlgorithmFamily: "rsa", Library: "bouncycastle",
+			LibraryGroup: "org.bouncycastle", LibraryVersion: "1.77",
+			LibraryPurl: "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.77",
+		},
+	})
+	if maven.Group != "org.bouncycastle" || maven.Purl == "" {
+		t.Errorf("crypto-asset library identity = group %q purl %q", maven.Group, maven.Purl)
+	}
+	if maven.CryptoProperties == nil {
+		t.Error("crypto-asset must retain cryptoProperties when carrying a library purl")
+	}
+}
+
 func TestConvertScanResult_TallyAccumulates(t *testing.T) {
 	result := &types.ScanResult{
 		Target: "/tmp/x",
@@ -209,6 +253,82 @@ func TestConvertScanResult_TallyAccumulates(t *testing.T) {
 	}
 }
 
+func certFinding(id, subject, pubAlgo string, keySize int) types.Finding {
+	return types.Finding{
+		ID: id, AssetType: types.AssetCertificate,
+		Name: "X.509 Certificate (" + subject + ")",
+		Properties: types.CryptoProperties{
+			AlgorithmPrimitive:        "CERTIFICATE-X509",
+			SubjectName:               "CN=" + subject,
+			SignatureAlgorithm:        "SHA256-RSA",
+			CertificateFormat:         "X.509",
+			SubjectPublicKeyAlgorithm: pubAlgo,
+			SubjectPublicKeySize:      keySize,
+			CertificateExtensions:     []string{"KeyUsage=digitalSignature", "BasicConstraints=CA:false"},
+		},
+	}
+}
+
+func findComp(bom *BOM, ref string) (Component, bool) {
+	for _, c := range bom.Components {
+		if c.BOMRef == ref {
+			return c, true
+		}
+	}
+	return Component{}, false
+}
+
+func TestConverter_CertificateLinkedGraph(t *testing.T) {
+	result := &types.ScanResult{Target: "/tmp/x", Findings: []types.Finding{
+		certFinding("c1", "a.example.com", "RSA", 2048),
+		certFinding("c2", "b.example.com", "RSA", 2048), // shares SHA256-RSA + RSA-2048
+	}}
+	bom, _ := ConvertScanResultWithTally(result)
+
+	c1, ok := findComp(bom, "c1")
+	if !ok || c1.CryptoProperties.CertificateProperties == nil {
+		t.Fatal("cert c1 missing")
+	}
+	cp := c1.CryptoProperties.CertificateProperties
+	if cp.SignatureAlgorithmRef == "" || cp.SubjectPublicKeyRef == "" {
+		t.Errorf("cert refs not wired: sig=%q key=%q", cp.SignatureAlgorithmRef, cp.SubjectPublicKeyRef)
+	}
+	if cp.CertificateExtension == "" {
+		t.Error("certificateExtension should be populated")
+	}
+	// Shared signature-algorithm component exists exactly once.
+	sigCount := 0
+	for _, c := range bom.Components {
+		if c.BOMRef == cp.SignatureAlgorithmRef {
+			sigCount++
+		}
+	}
+	if sigCount != 1 {
+		t.Errorf("expected exactly 1 shared sig-algo component, got %d", sigCount)
+	}
+	// Per-cert public-key material component exists and references the pubkey algo.
+	keyComp, ok := findComp(bom, cp.SubjectPublicKeyRef)
+	if !ok || keyComp.CryptoProperties.RelatedCryptoMaterialProperties == nil {
+		t.Fatal("subject public-key component missing")
+	}
+	if keyComp.CryptoProperties.RelatedCryptoMaterialProperties.AlgorithmRef == "" {
+		t.Error("public-key component should reference the pubkey-algorithm component")
+	}
+	if keyComp.CryptoProperties.RelatedCryptoMaterialProperties.Size != 2048 {
+		t.Errorf("public-key size = %d, want 2048", keyComp.CryptoProperties.RelatedCryptoMaterialProperties.Size)
+	}
+	// Dependency edges recorded for the cert.
+	var certDep *Dependency
+	for i := range bom.Dependencies {
+		if bom.Dependencies[i].Ref == "c1" {
+			certDep = &bom.Dependencies[i]
+		}
+	}
+	if certDep == nil || len(certDep.DependsOn) < 2 {
+		t.Errorf("cert c1 should depend on sig-algo + public-key, got %+v", certDep)
+	}
+}
+
 func TestConverter_QuantumNotApplicable_OmitsProperty(t *testing.T) {
 	f := &types.Finding{
 		ID: "1", Name: "openssl", AssetType: types.AssetType("library"),
@@ -218,6 +338,76 @@ func TestConverter_QuantumNotApplicable_OmitsProperty(t *testing.T) {
 	for _, p := range comp.Properties {
 		if p.Name == "quantumStatus" {
 			t.Errorf("property quantumStatus should be omitted for not-applicable; got value=%q", p.Value)
+		}
+	}
+}
+
+func propValue(comp Component, name string) (string, bool) {
+	for _, p := range comp.Properties {
+		if p.Name == name {
+			return p.Value, true
+		}
+	}
+	return "", false
+}
+
+func TestConverter_QuantumMigrationProps(t *testing.T) {
+	// Quantum-vulnerable RSA public-key encryption → critical (HNDL) + targets.
+	rsa := convertFinding(&types.Finding{
+		ID: "1", Name: "RSA", AssetType: types.AssetAlgorithm,
+		Properties: types.CryptoProperties{
+			AlgorithmFamily: "rsa", Primitive: "pke",
+			QuantumStatus: types.QuantumVulnerable, KeySize: 2048,
+		},
+	})
+	if v, ok := propValue(rsa, "cradar:quantum:priority"); !ok || v != "critical" {
+		t.Errorf("RSA priority = %q (ok=%v), want critical", v, ok)
+	}
+	if _, ok := propValue(rsa, "cradar:quantum:recommendation"); !ok {
+		t.Error("RSA recommendation property missing")
+	}
+	if _, ok := propValue(rsa, "cradar:quantum:migrationTarget"); !ok {
+		t.Error("RSA migrationTarget property missing")
+	}
+
+	// Quantum-safe ML-KEM → priority none.
+	mlkem := convertFinding(&types.Finding{
+		ID: "2", Name: "ML-KEM", AssetType: types.AssetAlgorithm,
+		Properties: types.CryptoProperties{
+			AlgorithmFamily: "ml-kem", Primitive: "kem", QuantumStatus: types.QuantumSafe,
+		},
+	})
+	if v, ok := propValue(mlkem, "cradar:quantum:priority"); !ok || v != "none" {
+		t.Errorf("ML-KEM priority = %q (ok=%v), want none", v, ok)
+	}
+
+	// Not-applicable → no migration props at all.
+	lib := convertFinding(&types.Finding{
+		ID: "3", Name: "openssl", AssetType: types.AssetType("library"),
+		Properties: types.CryptoProperties{QuantumStatus: types.QuantumNotApplicable},
+	})
+	if _, ok := propValue(lib, "cradar:quantum:priority"); ok {
+		t.Error("not-applicable finding should have no quantum priority property")
+	}
+}
+
+func TestDeriveParameterSet(t *testing.T) {
+	cases := []struct {
+		prim, family string
+		keySize      int
+		want         string
+	}{
+		{"ML-KEM-768", "ml-kem", 0, "768"},
+		{"AES-256-GCM", "aes", 0, "256"},
+		{"", "rsa", 2048, "2048"},
+		{"", "ec", 256, "256"},
+		{"", "", 0, ""},
+	}
+	for _, tc := range cases {
+		p := &types.CryptoProperties{AlgorithmPrimitive: tc.prim, AlgorithmFamily: tc.family, KeySize: tc.keySize}
+		got := deriveParameterSet(p)
+		if got != tc.want {
+			t.Errorf("deriveParameterSet(prim=%q fam=%q ks=%d) = %q, want %q", tc.prim, tc.family, tc.keySize, got, tc.want)
 		}
 	}
 }

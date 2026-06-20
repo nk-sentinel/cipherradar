@@ -12,6 +12,7 @@ package kotlin
 
 import (
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -201,8 +202,19 @@ func lookupAlgoFamily(algo string) string {
 	return strings.ToLower(algo)
 }
 
+// keyGenReceiver records a KeyPairGenerator/KeyGenerator getInstance finding
+// whose key size may be set on a later .initialize(N)/.init(N) call against the
+// assigned receiver variable.
+type keyGenReceiver struct {
+	varName    string
+	findingIdx int
+	declByte   uint32
+	isKeyPair  bool
+}
+
 func (s *KotlinScanner) detectJCA(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding
+	var receivers []keyGenReceiver
 
 	// Query for ClassName.getInstance("...") calls
 	// Under the Java grammar, Kotlin method calls parse as method_invocation nodes.
@@ -256,11 +268,17 @@ func (s *KotlinScanner) detectJCA(root *sitter.Node, path string, content []byte
 			finding := s.handleKeyPairGeneratorGetInstance(callNode, argsNode, path, content, cp)
 			if finding != nil {
 				findings = append(findings, *finding)
+				if v, db, ok := receiverVarOfCall(callNode, content); ok {
+					receivers = append(receivers, keyGenReceiver{v, len(findings) - 1, db, true})
+				}
 			}
 		case "KeyGenerator":
 			finding := s.handleKeyGeneratorGetInstance(callNode, argsNode, path, content, cp)
 			if finding != nil {
 				findings = append(findings, *finding)
+				if v, db, ok := receiverVarOfCall(callNode, content); ok {
+					receivers = append(receivers, keyGenReceiver{v, len(findings) - 1, db, false})
+				}
 			}
 		case "Mac":
 			finding := s.handleMacGetInstance(callNode, argsNode, path, content, cp)
@@ -288,6 +306,8 @@ func (s *KotlinScanner) detectJCA(root *sitter.Node, path string, content []byte
 	// Detect SecretKeySpec constructor calls: new SecretKeySpec(bytes, "AES")
 	// In Kotlin this is typically SecretKeySpec(bytes, "AES") without "new",
 	// but the Java grammar may still parse it. Also detect Java-style "new".
+	s.applyKeyGenInitSizes(root, content, cp, findings, receivers)
+
 	findings = append(findings, s.detectSecretKeySpec(root, path, content, cp)...)
 
 	return findings
@@ -982,6 +1002,83 @@ func (s *KotlinScanner) detectSSL(root *sitter.Node, path string, content []byte
 // ---------------------------------------------------------------------------
 // Helper functions
 // ---------------------------------------------------------------------------
+
+// receiverVarOfCall walks up from a method_invocation to recover the variable it
+// is assigned to (e.g. `val kpg = KeyPairGenerator.getInstance(...)` -> "kpg").
+// Kotlin `val`/`var` declarations parse as variable_declarator under the Java
+// grammar. Returns ok=false for calls with no simple identifier receiver
+// (e.g. apply{}/also{} implicit receivers, which are not supported).
+func receiverVarOfCall(callNode *sitter.Node, content []byte) (string, uint32, bool) {
+	n := callNode
+	for i := 0; i < 4 && n != nil; i++ {
+		parent := n.Parent()
+		if parent == nil {
+			break
+		}
+		switch parent.Type() {
+		case "variable_declarator":
+			if nameNode := parent.ChildByFieldName("name"); nameNode != nil && nameNode.Type() == "identifier" {
+				return scanner.NodeText(nameNode, content), parent.StartByte(), true
+			}
+		case "assignment_expression":
+			if leftNode := parent.ChildByFieldName("left"); leftNode != nil && leftNode.Type() == "identifier" {
+				return scanner.NodeText(leftNode, content), parent.StartByte(), true
+			}
+		}
+		n = parent
+	}
+	return "", 0, false
+}
+
+// kotlinInitCallRe matches `recv.init(N)` / `recv.initialize(N)` where N is an
+// integer literal or an identifier resolvable via constant propagation.
+var kotlinInitCallRe = regexp.MustCompile(`(\w+)\s*\.\s*(init|initialize)\s*\(\s*(\w+)\s*\)`)
+
+// applyKeyGenInitSizes patches the KeySize of KeyPairGenerator/KeyGenerator
+// findings from later recv.initialize(N)/recv.init(N) calls. Kotlin (which has
+// no statement terminators) is mis-parsed by the Java tree-sitter grammar —
+// chained calls land in ERROR nodes — so this scan is text-based, consistent
+// with the Kotlin ConstPropagator's own regex fallback. ECGenParameterSpec
+// overloads carry a non-numeric argument and are naturally ignored.
+func (s *KotlinScanner) applyKeyGenInitSizes(root *sitter.Node, content []byte, cp *ConstPropagator, findings []types.Finding, receivers []keyGenReceiver) {
+	if len(receivers) == 0 {
+		return
+	}
+	for _, m := range kotlinInitCallRe.FindAllSubmatchIndex(content, -1) {
+		recvName := string(content[m[2]:m[3]])
+		method := string(content[m[4]:m[5]])
+		arg := string(content[m[6]:m[7]])
+		size, err := strconv.Atoi(arg)
+		if err != nil {
+			if v, ok := cp.Resolve(arg); ok {
+				size, _ = strconv.Atoi(v)
+			}
+		}
+		if size <= 0 {
+			continue
+		}
+		callByte := uint32(m[0])
+
+		best := -1
+		var bestByte uint32
+		for i, r := range receivers {
+			if r.varName != recvName || r.isKeyPair != (method == "initialize") {
+				continue
+			}
+			if r.declByte <= callByte && (best == -1 || r.declByte > bestByte) {
+				best, bestByte = i, r.declByte
+			}
+		}
+		if best == -1 {
+			continue
+		}
+		idx := receivers[best].findingIdx
+		findings[idx].Properties.KeySize = size
+		if base := findings[idx].Name; base != "" && !strings.ContainsRune(base, '-') {
+			findings[idx].Name = fmt.Sprintf("%s-%d", base, size)
+		}
+	}
+}
 
 // getCallNode walks up from a method name node to find the enclosing method_invocation.
 func getCallNode(node *sitter.Node) *sitter.Node {

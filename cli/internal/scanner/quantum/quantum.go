@@ -19,9 +19,10 @@ var quantumYAML []byte
 
 // Info holds the quantum readiness classification for a crypto algorithm.
 type Info struct {
-	Status         types.QuantumStatus
-	NistLevel      int    // 0 if not applicable
-	Recommendation string // migration guidance
+	Status          types.QuantumStatus
+	NistLevel       int    // 0 if not applicable
+	Recommendation  string // migration guidance (free text)
+	MigrationTarget string // structured replacement target, e.g. "ML-KEM / ML-DSA"
 }
 
 // yamlSchema mirrors the structure of quantum-readiness.yml.
@@ -32,11 +33,12 @@ type yamlSchema struct {
 }
 
 type yamlAlgorithmEntry struct {
-	Family         string   `yaml:"family"`
-	Status         string   `yaml:"status"`
-	NistLevel      int      `yaml:"nist_level"`
-	Recommendation string   `yaml:"recommendation"`
-	Aliases        []string `yaml:"aliases"`
+	Family          string   `yaml:"family"`
+	Status          string   `yaml:"status"`
+	NistLevel       int      `yaml:"nist_level"`
+	Recommendation  string   `yaml:"recommendation"`
+	MigrationTarget string   `yaml:"migration_target"`
+	Aliases         []string `yaml:"aliases"`
 }
 
 var (
@@ -68,9 +70,10 @@ func init() {
 	for _, a := range s.Algorithms {
 		fam := strings.ToLower(a.Family)
 		info := Info{
-			Status:         types.QuantumStatus(a.Status),
-			NistLevel:      a.NistLevel,
-			Recommendation: a.Recommendation,
+			Status:          types.QuantumStatus(a.Status),
+			NistLevel:       a.NistLevel,
+			Recommendation:  a.Recommendation,
+			MigrationTarget: a.MigrationTarget,
 		}
 		table[fam] = info
 		for _, alias := range a.Aliases {
@@ -125,4 +128,35 @@ func normalizeFamily(s string) string {
 	}
 	stripped := familySuffixRE.ReplaceAllString(lower, "")
 	return stripped
+}
+
+// Priority returns the post-quantum migration urgency for an asset given its
+// quantum status and CycloneDX primitive (e.g. "pke", "key-agree", "kem",
+// "signature", "hash"). It follows the Harvest-Now-Decrypt-Later model:
+//
+//   - broken (classically): critical, regardless of primitive.
+//   - quantum-vulnerable key-exchange/encryption (pke, key-agree, kem): critical
+//     — captured ciphertext is retroactively decryptable once a CRQC exists.
+//   - quantum-vulnerable signature: high — only needs to be safe by the deadline.
+//   - quantum-vulnerable other primitive: medium.
+//   - quantum-safe: none.
+//   - unknown / not-applicable: empty (caller should omit).
+func Priority(status types.QuantumStatus, primitive string) types.QuantumPriority {
+	switch status {
+	case types.Broken:
+		return types.QuantumPriorityCritical
+	case types.QuantumSafe:
+		return types.QuantumPriorityNone
+	case types.QuantumVulnerable:
+		switch strings.ToLower(strings.TrimSpace(primitive)) {
+		case "pke", "key-agree", "kem":
+			return types.QuantumPriorityCritical
+		case "signature":
+			return types.QuantumPriorityHigh
+		default:
+			return types.QuantumPriorityMedium
+		}
+	default:
+		return ""
+	}
 }

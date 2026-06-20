@@ -4,9 +4,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/cyclonedx17"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -430,12 +432,19 @@ func normalizeRelatedCryptoMaterialType(internal string) cyclonedx17.RelatedCryp
 
 // BOM represents a complete CycloneDX 1.7 CBOM document.
 type BOM struct {
-	BOMFormat    string      `json:"bomFormat"`
-	SpecVersion  string      `json:"specVersion"`
-	Version      int         `json:"version"`
-	SerialNumber string      `json:"serialNumber,omitempty"`
-	Metadata     *Metadata   `json:"metadata,omitempty"`
-	Components   []Component `json:"components,omitempty"`
+	BOMFormat    string       `json:"bomFormat"`
+	SpecVersion  string       `json:"specVersion"`
+	Version      int          `json:"version"`
+	SerialNumber string       `json:"serialNumber,omitempty"`
+	Metadata     *Metadata    `json:"metadata,omitempty"`
+	Components   []Component  `json:"components,omitempty"`
+	Dependencies []Dependency `json:"dependencies,omitempty"`
+}
+
+// Dependency is a CycloneDX 1.7 dependency-graph edge: ref dependsOn others.
+type Dependency struct {
+	Ref       string   `json:"ref"`
+	DependsOn []string `json:"dependsOn,omitempty"`
 }
 
 // Metadata for the BOM.
@@ -456,6 +465,9 @@ type Component struct {
 	Type             string                        `json:"type"`
 	BOMRef           string                        `json:"bom-ref,omitempty"`
 	Name             string                        `json:"name"`
+	Group            string                        `json:"group,omitempty"`
+	Version          string                        `json:"version,omitempty"`
+	Purl             string                        `json:"purl,omitempty"`
 	Description      string                        `json:"description,omitempty"`
 	CryptoProperties *cyclonedx17.CryptoProperties `json:"cryptoProperties,omitempty"`
 	Properties       []Property                    `json:"properties,omitempty"`
@@ -517,15 +529,63 @@ func ConvertScanResultWithTally(result *types.ScanResult) (*BOM, validationTally
 	// findings, so running it again is a no-op.
 	AnnotateQuantum(result)
 
-	components := make([]Component, 0, len(result.Findings))
+	acc := &componentAccumulator{seenRefs: map[string]bool{}, deps: map[string][]string{}}
 	for i := range result.Findings {
-		components = append(components, convertFindingTally(&result.Findings[i], &tally))
+		f := &result.Findings[i]
+		comp := convertFindingTally(f, &tally)
+		acc.add(comp)
+		// Certificates expand into a linked graph: the cert plus synthetic
+		// signature-algorithm and subject-public-key components, wired by ref.
+		if comp.CryptoProperties != nil && comp.CryptoProperties.AssetType == "certificate" {
+			expandCertificateGraph(&acc.components[len(acc.components)-1], f, acc)
+		}
 	}
-	sort.Slice(components, func(i, j int) bool {
-		return components[i].BOMRef < components[j].BOMRef
+	sort.Slice(acc.components, func(i, j int) bool {
+		return acc.components[i].BOMRef < acc.components[j].BOMRef
 	})
-	bom.Components = components
+	bom.Components = acc.components
+	bom.Dependencies = acc.flushDependencies()
 	return bom, tally
+}
+
+// componentAccumulator collects components while deduplicating shared synthetic
+// components by content-addressed bom-ref, and records dependency-graph edges.
+type componentAccumulator struct {
+	components []Component
+	seenRefs   map[string]bool
+	deps       map[string][]string
+}
+
+func (a *componentAccumulator) add(c Component) {
+	a.components = append(a.components, c)
+	if c.BOMRef != "" {
+		a.seenRefs[c.BOMRef] = true
+	}
+}
+
+// addUnique appends c only if its ref has not been seen (for shared, content-
+// addressed synthetic components). Returns the ref either way.
+func (a *componentAccumulator) addUnique(c Component) string {
+	if !a.seenRefs[c.BOMRef] {
+		a.add(c)
+	}
+	return c.BOMRef
+}
+
+func (a *componentAccumulator) dependsOn(ref string, on ...string) {
+	a.deps[ref] = append(a.deps[ref], on...)
+}
+
+func (a *componentAccumulator) flushDependencies() []Dependency {
+	if len(a.deps) == 0 {
+		return nil
+	}
+	out := make([]Dependency, 0, len(a.deps))
+	for ref, on := range a.deps {
+		out = append(out, Dependency{Ref: ref, DependsOn: on})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Ref < out[j].Ref })
+	return out
 }
 
 // ConvertScanResult converts a types.ScanResult to a CycloneDX 1.7 BOM.
@@ -545,7 +605,7 @@ func convertFindingTally(f *types.Finding, tally *validationTally) Component {
 	// yara-x library signatures) emit as regular CycloneDX components with
 	// type: library, no cryptoProperties. They are not cryptographic assets.
 	if string(f.AssetType) == "library" {
-		return Component{
+		comp := Component{
 			Type:        "library",
 			BOMRef:      f.ID,
 			Name:        f.Name,
@@ -557,6 +617,8 @@ func convertFindingTally(f *types.Finding, tally *validationTally) Component {
 			},
 			Properties: buildFindingProperties(f),
 		}
+		applyLibraryIdentity(&comp, f)
+		return comp
 	}
 
 	// Existing cryptographic-asset path unchanged below this line.
@@ -574,7 +636,23 @@ func convertFindingTally(f *types.Finding, tally *validationTally) Component {
 	cp := convertCryptoProperties(f, tally)
 	comp.CryptoProperties = cp
 	comp.Properties = buildFindingProperties(f)
+	// Some crypto-asset findings (e.g. PHP mcrypt) also carry a library hint —
+	// attach purl/version/group without disturbing cryptoProperties.
+	applyLibraryIdentity(&comp, f)
 	return comp
+}
+
+// applyLibraryIdentity attaches resolved library group/version/purl (populated
+// by the dependency-enrichment pass) to a component. For library components it
+// also upgrades the display name to the concrete package when available.
+func applyLibraryIdentity(comp *Component, f *types.Finding) {
+	p := &f.Properties
+	if comp.Type == "library" && p.LibraryPurl != "" && p.Library != "" {
+		comp.Name = p.Library
+	}
+	comp.Group = p.LibraryGroup
+	comp.Version = p.LibraryVersion
+	comp.Purl = p.LibraryPurl
 }
 
 // buildFindingProperties creates CycloneDX properties from finding metadata.
@@ -586,14 +664,38 @@ func buildFindingProperties(f *types.Finding) []Property {
 	if f.RuleID != "" {
 		props = append(props, Property{Name: "ruleId", Value: f.RuleID})
 	}
+	if f.Properties.Library != "" {
+		props = append(props, Property{Name: "library", Value: f.Properties.Library})
+	}
 	if f.Properties.QuantumStatus != "" && f.Properties.QuantumStatus != types.QuantumNotApplicable {
 		props = append(props, Property{Name: "quantumStatus", Value: string(f.Properties.QuantumStatus)})
+		props = appendQuantumMigrationProps(props, &f.Properties)
 	}
 	if f.Fingerprint != "" {
 		props = append(props, Property{Name: "fingerprint", Value: f.Fingerprint})
 	}
 	if f.Pass > 0 {
 		props = append(props, Property{Name: "detectionPass", Value: fmt.Sprintf("%d", f.Pass)})
+	}
+	return props
+}
+
+// appendQuantumMigrationProps adds the HNDL-aware migration payload — priority,
+// recommendation, and structured replacement target — as namespaced CycloneDX
+// properties so downstream consumers (migration pipelines, dashboards) can act
+// on them without re-deriving the quantum table. Called only when the finding
+// has a definitive quantum status.
+func appendQuantumMigrationProps(props []Property, p *types.CryptoProperties) []Property {
+	primitive := string(resolvePrimitive(p))
+	if prio := quantum.Priority(p.QuantumStatus, primitive); prio != "" {
+		props = append(props, Property{Name: "cradar:quantum:priority", Value: string(prio)})
+	}
+	info := quantum.GetInfo(p.AlgorithmFamily)
+	if info.Recommendation != "" {
+		props = append(props, Property{Name: "cradar:quantum:recommendation", Value: info.Recommendation})
+	}
+	if info.MigrationTarget != "" {
+		props = append(props, Property{Name: "cradar:quantum:migrationTarget", Value: info.MigrationTarget})
 	}
 	return props
 }
@@ -660,15 +762,16 @@ func convertCryptoProperties(f *types.Finding, tally *validationTally) *cycloned
 	return cp
 }
 
-// convertAlgorithmProperties maps types.CryptoProperties to CycloneDX AlgorithmProperties.
+// resolvePrimitive maps the internal primitive/AlgorithmPrimitive token to a
+// CycloneDX 1.7 primitive enum value.
 //
-// Primitive precedence:
+// Precedence:
 //   - If types.CryptoProperties.AlgorithmPrimitive is set, first check the
 //     canonicalTokenPrimitive map (handles "MD5", "AES-256-GCM", etc.).
 //   - Then try primitiveMap (handles CycloneDX 1.7 enum strings like "hash").
 //   - Unknown tokens fall back to PrimitiveOther (never passed through raw).
 //   - If AlgorithmPrimitive is unset, use the legacy Primitive field via normalizePrimitive.
-func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.AlgorithmProperties {
+func resolvePrimitive(p *types.CryptoProperties) cyclonedx17.Primitive {
 	primitive := normalizePrimitive(p.Primitive)
 	if p.AlgorithmPrimitive != "" {
 		// First check the canonical-token map (handles MD5, AES-256-GCM, etc.).
@@ -685,9 +788,45 @@ func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.Algorith
 			}
 		}
 	}
+	return primitive
+}
+
+// pqcParamPrefixes are PQC token prefixes (e.g. ML-KEM-768) whose suffix is the
+// parameter set identifier (768).
+var pqcParamPrefixes = []string{"ML-KEM-", "ML-DSA-", "SLH-DSA-", "KYBER-", "DILITHIUM-", "FALCON-", "SPHINCS-"}
+
+// deriveParameterSet computes a CycloneDX parameterSetIdentifier — the parameter
+// value alone (e.g. "256", "2048", "768"), since the component name already
+// carries the algorithm family (decomposed style, per the CBOM schema reference).
+// Returns "" if nothing reliable can be derived.
+func deriveParameterSet(p *types.CryptoProperties) string {
+	tok := strings.ToUpper(strings.TrimSpace(p.AlgorithmPrimitive))
+	// 1. PQC tokens: the suffix after the family prefix is the parameter set.
+	for _, pre := range pqcParamPrefixes {
+		if strings.HasPrefix(tok, pre) {
+			return strings.TrimPrefix(tok, pre)
+		}
+	}
+	// 2. Classical parameterized token (e.g. AES-256-GCM): first numeric segment.
+	for _, part := range strings.Split(tok, "-") {
+		if _, err := strconv.Atoi(part); err == nil {
+			return part
+		}
+	}
+	// 3. Fall back to the explicit key size.
+	if p.KeySize > 0 {
+		return strconv.Itoa(p.KeySize)
+	}
+	return ""
+}
+
+// convertAlgorithmProperties maps types.CryptoProperties to CycloneDX AlgorithmProperties.
+func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.AlgorithmProperties {
+	family := normalizeAlgorithmFamily(p.AlgorithmFamily)
 	ap := &cyclonedx17.AlgorithmProperties{
-		Primitive:                primitive,
-		AlgorithmFamily:          normalizeAlgorithmFamily(p.AlgorithmFamily),
+		Primitive:                resolvePrimitive(p),
+		AlgorithmFamily:          family,
+		ParameterSetIdentifier:   deriveParameterSet(p),
 		Mode:                     normalizeMode(p.Mode),
 		Padding:                  normalizePadding(p.Padding),
 		ClassicalSecurityLevel:   p.ClassicalSecurity,
@@ -731,12 +870,119 @@ func convertProtocolProperties(p *types.CryptoProperties) *cyclonedx17.ProtocolP
 // convertCertificateProperties maps types.CryptoProperties to CycloneDX CertificateProperties.
 func convertCertificateProperties(p *types.CryptoProperties) *cyclonedx17.CertificateProperties {
 	return &cyclonedx17.CertificateProperties{
-		SubjectName:       p.SubjectName,
-		IssuerName:        p.IssuerName,
-		NotValidBefore:    p.NotValidBefore,
-		NotValidAfter:     p.NotValidAfter,
-		CertificateFormat: p.CertificateFormat,
+		SubjectName:          p.SubjectName,
+		IssuerName:           p.IssuerName,
+		NotValidBefore:       p.NotValidBefore,
+		NotValidAfter:        p.NotValidAfter,
+		CertificateFormat:    p.CertificateFormat,
+		CertificateExtension: strings.Join(p.CertificateExtensions, "; "),
 	}
+}
+
+// algSlug normalizes an algorithm token into a content-addressed bom-ref slug.
+func algSlug(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	s = strings.ReplaceAll(s, " ", "-")
+	return s
+}
+
+// certPublicKeyPrimitive maps a certificate public-key algorithm to a CycloneDX
+// primitive. RSA cert keys are used for encryption/verification (pke); the EC /
+// EdDSA / DSA families are signature primitives in this context.
+func certPublicKeyPrimitive(pubAlgo string) cyclonedx17.Primitive {
+	switch strings.ToUpper(pubAlgo) {
+	case "RSA":
+		return cyclonedx17.PrimitivePKE
+	case "ECDSA", "ED25519", "DSA":
+		return cyclonedx17.PrimitiveSignature
+	default:
+		return cyclonedx17.PrimitiveOther
+	}
+}
+
+// syntheticAlgorithmComponent builds a deduplicated algorithm component (with
+// quantum posture + migration properties) for a certificate's signature or
+// public-key algorithm.
+func syntheticAlgorithmComponent(ref, name, family string, primitive cyclonedx17.Primitive, keySize int) Component {
+	info := quantum.GetInfo(family)
+	ap := &cyclonedx17.AlgorithmProperties{
+		Primitive:                primitive,
+		AlgorithmFamily:          normalizeAlgorithmFamily(family),
+		NistQuantumSecurityLevel: info.NistLevel,
+	}
+	if keySize > 0 {
+		ap.ParameterSetIdentifier = strconv.Itoa(keySize)
+		ap.ClassicalSecurityLevel = keySize
+	}
+	props := []Property{}
+	if info.Status != "" && info.Status != types.QuantumNotApplicable && info.Status != types.QuantumUnknown {
+		props = append(props, Property{Name: "quantumStatus", Value: string(info.Status)})
+		props = appendQuantumMigrationProps(props, &types.CryptoProperties{
+			QuantumStatus: info.Status, AlgorithmFamily: family, Primitive: string(primitive),
+		})
+	}
+	return Component{
+		Type:             "cryptographic-asset",
+		BOMRef:           ref,
+		Name:             name,
+		CryptoProperties: &cyclonedx17.CryptoProperties{AssetType: "algorithm", AlgorithmProperties: ap},
+		Properties:       props,
+	}
+}
+
+// expandCertificateGraph wires a parsed certificate into a CycloneDX dependency
+// graph: it emits a (shared) signature-algorithm component, a (shared)
+// public-key-algorithm component, and a per-cert public-key material component,
+// then sets the cert's refs and records dependency edges. No-op for certs that
+// failed to parse (no public-key algorithm captured).
+func expandCertificateGraph(cert *Component, f *types.Finding, acc *componentAccumulator) {
+	p := &f.Properties
+	if p.SubjectPublicKeyAlgorithm == "" || cert.CryptoProperties == nil || cert.CryptoProperties.CertificateProperties == nil {
+		return
+	}
+	cp := cert.CryptoProperties.CertificateProperties
+	var dependsOn []string
+
+	// Signature-algorithm component (shared, content-addressed).
+	if p.SignatureAlgorithm != "" {
+		sigRef := "crypto/alg/" + algSlug(p.SignatureAlgorithm)
+		sigFamily := sigFamilyFromPublicKey(p.SubjectPublicKeyAlgorithm)
+		acc.addUnique(syntheticAlgorithmComponent(sigRef, p.SignatureAlgorithm, sigFamily, cyclonedx17.PrimitiveSignature, 0))
+		cp.SignatureAlgorithmRef = sigRef
+		dependsOn = append(dependsOn, sigRef)
+	}
+
+	// Public-key-algorithm component (shared) + per-cert key material component.
+	pubAlgRef := "crypto/alg/" + algSlug(fmt.Sprintf("%s-%d", p.SubjectPublicKeyAlgorithm, p.SubjectPublicKeySize))
+	acc.addUnique(syntheticAlgorithmComponent(
+		pubAlgRef, p.SubjectPublicKeyAlgorithm, strings.ToLower(p.SubjectPublicKeyAlgorithm),
+		certPublicKeyPrimitive(p.SubjectPublicKeyAlgorithm), p.SubjectPublicKeySize))
+
+	keyRef := cert.BOMRef + "/subjectPublicKey"
+	acc.add(Component{
+		Type:   "cryptographic-asset",
+		BOMRef: keyRef,
+		Name:   fmt.Sprintf("%s public key", p.SubjectPublicKeyAlgorithm),
+		CryptoProperties: &cyclonedx17.CryptoProperties{
+			AssetType: "related-crypto-material",
+			RelatedCryptoMaterialProperties: &cyclonedx17.RelatedCryptoMaterialProperties{
+				Type:         cyclonedx17.RelatedCryptoMaterialTypePublicKey,
+				Size:         p.SubjectPublicKeySize,
+				AlgorithmRef: pubAlgRef,
+			},
+		},
+	})
+	cp.SubjectPublicKeyRef = keyRef
+	dependsOn = append(dependsOn, keyRef)
+
+	acc.dependsOn(cert.BOMRef, dependsOn...)
+	acc.dependsOn(keyRef, pubAlgRef)
+}
+
+// sigFamilyFromPublicKey returns the quantum-relevant algorithm family for a
+// certificate signature, derived from the signing key type.
+func sigFamilyFromPublicKey(pubAlgo string) string {
+	return strings.ToLower(pubAlgo)
 }
 
 // convertRelatedCryptoMaterialProperties maps types.CryptoProperties to CycloneDX RelatedCryptoMaterialProperties.

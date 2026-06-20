@@ -33,6 +33,13 @@ type CryptoProperties struct {
 	// (e.g. "cryptography", "bouncycastle"). Populated by the parser from the
 	// rule's cbom-library metadata. Empty when not a library-import rule.
 	Library string `json:"library,omitempty"`
+	// LibraryGroup, LibraryVersion, and LibraryPurl are populated by the
+	// dependency-enrichment pass (cli/internal/deps) when the coarse Library
+	// hint resolves to a concrete package in a project manifest/lockfile.
+	// LibraryGroup is the Maven groupId (empty for npm/pypi).
+	LibraryGroup   string `json:"library_group,omitempty"`
+	LibraryVersion string `json:"library_version,omitempty"`
+	LibraryPurl    string `json:"library_purl,omitempty"`
 
 	// ProtocolType is the protocol type (e.g. "tls", "ssh", "ipsec").
 	ProtocolType string `json:"protocol_type,omitempty"`
@@ -53,6 +60,14 @@ type CryptoProperties struct {
 	SignatureAlgorithm string `json:"signature_algorithm,omitempty"`
 	// CertificateFormat is the certificate encoding format (e.g. "X.509", "PEM").
 	CertificateFormat string `json:"certificate_format,omitempty"`
+	// SubjectPublicKeyAlgorithm is the certificate's public-key algorithm
+	// (e.g. "RSA", "ECDSA", "Ed25519"). Used to emit a linked key component.
+	SubjectPublicKeyAlgorithm string `json:"subject_public_key_algorithm,omitempty"`
+	// SubjectPublicKeySize is the certificate's public-key size in bits.
+	SubjectPublicKeySize int `json:"subject_public_key_size,omitempty"`
+	// CertificateExtensions holds formatted X.509 extension summaries
+	// (KeyUsage, ExtendedKeyUsage, BasicConstraints, SubjectAltName).
+	CertificateExtensions []string `json:"certificate_extensions,omitempty"`
 
 	// MaterialType is the type of cryptographic material (e.g. "private-key", "public-key", "shared-secret", "iv", "nonce", "seed", "salt", "password").
 	MaterialType string `json:"material_type,omitempty"`

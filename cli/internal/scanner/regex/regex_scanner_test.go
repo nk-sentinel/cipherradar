@@ -1,9 +1,15 @@
 package regex
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"math/big"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -362,6 +368,71 @@ func TestBase64Key_DoesNotSuppressGenuineKey(t *testing.T) {
 				t.Errorf("expected genuine base64 key to be detected, got 0 findings")
 			}
 		})
+	}
+}
+
+func makeTestCert(t *testing.T) []byte {
+	t.Helper()
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber:          big.NewInt(1),
+		Subject:               pkix.Name{CommonName: "cert.test"},
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		DNSNames:              []string{"cert.test", "www.cert.test"},
+		BasicConstraintsValid: true,
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return der
+}
+
+func TestCertEnrichment_PublicKeyAndExtensions(t *testing.T) {
+	cert, err := x509.ParseCertificate(makeTestCert(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := buildCertFinding(cert, "cert.pem", 1).Properties
+	if p.SubjectPublicKeyAlgorithm != "RSA" || p.SubjectPublicKeySize != 2048 {
+		t.Errorf("public key = %s/%d, want RSA/2048", p.SubjectPublicKeyAlgorithm, p.SubjectPublicKeySize)
+	}
+	if p.CertificateFormat != "X.509" {
+		t.Errorf("format = %q, want X.509", p.CertificateFormat)
+	}
+	joined := strings.Join(p.CertificateExtensions, " | ")
+	for _, want := range []string{"digitalSignature", "ExtendedKeyUsage=serverAuth", "BasicConstraints=CA:false", "SubjectAltName="} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("extensions %q missing %q", joined, want)
+		}
+	}
+}
+
+func TestScanFile_DERCertificate(t *testing.T) {
+	findings, err := New().ScanFile("cert.der", makeTestCert(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var certF *types.Finding
+	for i := range findings {
+		if findings[i].AssetType == types.AssetCertificate {
+			certF = &findings[i]
+		}
+	}
+	if certF == nil {
+		t.Fatal("expected a certificate finding from DER bytes")
+	}
+	if certF.Properties.CertificateFormat != "DER" {
+		t.Errorf("format = %q, want DER", certF.Properties.CertificateFormat)
+	}
+	if certF.Properties.SubjectPublicKeySize != 2048 {
+		t.Errorf("pubkey size = %d, want 2048", certF.Properties.SubjectPublicKeySize)
 	}
 }
 

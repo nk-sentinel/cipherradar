@@ -43,6 +43,25 @@ CycloneDX defines many component types; `cradar` emits exactly **two**:
 > **Migration note (ADR-040):** if you previously filtered on
 > `cryptoProperties.assetType == "library"`, switch to `component.type == "library"`.
 
+### Library identification (`group` / `version` / `purl`)
+
+When a detected crypto library resolves to a concrete dependency in a project
+manifest/lockfile, `cradar` emits standard CycloneDX component identity fields:
+
+| Field | Example | Notes |
+|---|---|---|
+| `name` | `node-forge` | Upgraded to the concrete package name when resolved. |
+| `version` | `1.3.1` | From the lockfile (npm `package-lock.json`, Python `poetry.lock`/`Pipfile.lock`/pinned `requirements.txt`, Maven `pom.xml`/`gradle.lockfile`). |
+| `group` | `org.bouncycastle` | Maven groupId only. |
+| `purl` | `pkg:npm/node-forge@1.3.1` | Package URL; version-less (`pkg:npm/node-forge`) when the package is unambiguous but no manifest pin was found. |
+
+The raw detection hint is always available as a `library` property in
+`properties[]`, even when no concrete package/version could be resolved.
+Supported ecosystems today: **npm, PyPI, Maven/Gradle**. Findings in other
+ecosystems surface the library name but no purl. `group`/`version`/`purl` may
+also appear on a `cryptographic-asset` component when its detection carried a
+library hint (e.g. PHP mcrypt); its `cryptoProperties` are unaffected.
+
 ---
 
 ## 3. `cryptoProperties.assetType` — the four crypto sub-types
@@ -146,10 +165,37 @@ So `TLS 1.2` → `{ name: "TLS", protocolProperties: { type: "tls", version: "1.
 | `notValidBefore` | RFC3339 | Validity start. |
 | `notValidAfter` | RFC3339 | Validity end. **Action signal** (expiry) — see §5. |
 | `certificateAlgorithm` | string | e.g. `SHA256withECDSA`. |
-| `signatureAlgorithmRef` | string | `bom-ref` to the signature algorithm component. |
-| `subjectPublicKeyRef` | string | `bom-ref` to the public-key material component. |
-| `certificateFormat` | string | e.g. `X.509`. |
-| `certificateExtension` | string | e.g. `pem`, `der`. |
+| `signatureAlgorithmRef` | string | `bom-ref` to the signature-algorithm component (emitted as a linked `algorithm` component, shared/deduped across certs). |
+| `subjectPublicKeyRef` | string | `bom-ref` to the per-cert public-key `related-crypto-material` component (which itself references a public-key `algorithm` component via `algorithmRef`). |
+| `certificateFormat` | string | `X.509` for a successfully parsed cert; `DER` for a parsed binary cert; `PEM` when only the PEM block was seen. |
+| `certificateExtension` | string | Security-relevant X.509 extensions, `;`-joined: `KeyUsage=...`, `ExtendedKeyUsage=...`, `BasicConstraints=CA:true/false`, `SubjectAltName=...`. |
+
+> **Certificate dependency graph.** A parsed certificate is decomposed into a
+> linked graph: the cert component, a (deduplicated) signature-algorithm
+> component, a per-cert subject-public-key material component, and a
+> (deduplicated) public-key-algorithm component. The edges appear in the
+> top-level `dependencies[]` array (`{ ref, dependsOn[] }`). The synthetic
+> algorithm components carry quantum posture (`quantumStatus`,
+> `nistQuantumSecurityLevel`, `cradar:quantum:*`), so a cert signed with a
+> quantum-vulnerable key surfaces its migration priority. Source formats
+> covered: PEM (in source), DER (`.der`/`.cer`/`.crt`), PKCS#7 bundles
+> (`.p7b`/`.p7c`), and certificates inside keystores (below).
+
+### Keystores (JKS / PKCS#12)
+
+Keystore files (`.jks`, `.keystore`, `.p12`, `.pfx`, `.truststore`) are inspected:
+
+- A `cbom-keystore-present` finding is **always** emitted (path-stamped), noting
+  whether the store is locked or contains private-key material.
+- Embedded certificates are enumerated and modeled exactly like file
+  certificates (the linked graph above).
+- `cradar` tries a curated set of well-known/default passwords (JDK `changeit`,
+  `android`, `notasecret`, WebLogic demo stores, common weak values, plus the
+  filename) and any list passed via `--keystore-wordlist <file>`. If one opens
+  the store, a `cbom-keystore-weak-password` **security** finding (HIGH) is
+  emitted in addition to the inventory. `cradar` never downloads wordlists.
+- A store that no candidate opens is reported as present-but-locked, with no
+  cert enumeration.
 
 ### 4.4 `related-crypto-material` → `relatedCryptoMaterialProperties`
 
@@ -181,13 +227,17 @@ name/value pairs, emitted by `buildFindingProperties`) and in a few risk-bearing
 |---|---|---|
 | `severity` = `critical` / `high` | `properties[]` | Security misuse (weak cipher, ECB, hardcoded key/IV, MD5, short RSA key). Triage and remediate. This is what `cradar policy check --fail-on` gates on. |
 | `quantumStatus` = `quantum-vulnerable` / `broken` | `properties[]` | Quantum-vulnerable algorithm (RSA/ECC/DH/DSA). Plan PQC migration (NIST IR 8547 — 2030/2035). |
+| `cradar:quantum:priority` = `critical` / `high` / `medium` | `properties[]` | HNDL-aware migration urgency. `critical` = broken, **or** quantum-vulnerable key-exchange/encryption (harvest-now-decrypt-later); `high` = quantum-vulnerable signature; `medium` = other vulnerable primitive; `none` = quantum-safe. |
+| `cradar:quantum:recommendation` | `properties[]` | Free-text migration guidance for the algorithm. |
+| `cradar:quantum:migrationTarget` | `properties[]` | Structured PQC replacement, e.g. `ML-KEM (FIPS 203)` / `ML-DSA (FIPS 204)`. |
 | `nistQuantumSecurityLevel` low/`0` | `algorithmProperties` | Same quantum-readiness axis, expressed numerically. |
 | `notValidAfter` near/past now | `certificateProperties` | Certificate expiring or expired. Rotate. |
 | `state` = `compromised` | `relatedCryptoMaterialProperties` | Key/material flagged compromised. Revoke and re-key. |
 
 `quantumStatus` values: `quantum-safe`, `quantum-vulnerable`, `broken`,
 `quantum-unknown`, `not-applicable`. `severity` values: `critical`, `high`, `medium`,
-`low`, `info`.
+`low`, `info`. The `cradar:quantum:*` properties are emitted only when the
+finding has a definitive quantum status (vulnerable / broken / safe).
 
 ### Inventory vs action, at a glance
 

@@ -139,8 +139,17 @@ var dotNetFactoryClasses = map[string]dotNetFactoryInfo{
 // .NET factory-method detection (Xxx.Create())
 // ---------------------------------------------------------------------------
 
+// csKeySizeReceiver records a factory finding (e.g. RSA.Create()) whose key
+// size may be set on a later `recv.KeySize = N` property assignment.
+type csKeySizeReceiver struct {
+	varName    string
+	findingIdx int
+	declByte   uint32
+}
+
 func (s *CSharpScanner) detectDotNetCrypto(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding
+	var receivers []csKeySizeReceiver
 
 	// Query for ClassName.Create(...) calls
 	// Under the Java grammar, C# method calls parse as method_invocation nodes.
@@ -213,9 +222,123 @@ func (s *CSharpScanner) detectDotNetCrypto(root *sitter.Node, path string, conte
 		}
 
 		findings = append(findings, finding)
+		// Track the receiver for a possible later `recv.KeySize = N`.
+		if finding.Properties.KeySize == 0 {
+			if v, db, ok := receiverVarOfCall(callNode, content); ok {
+				receivers = append(receivers, csKeySizeReceiver{v, len(findings) - 1, db})
+			}
+		}
 	}
 
+	s.applyKeySizePropertyAssignments(root, content, cp, findings, receivers)
+
 	return findings
+}
+
+// receiverVarOfCall walks up from a method_invocation to recover the variable it
+// is assigned to (e.g. `var rsa = RSA.Create()` -> "rsa").
+func receiverVarOfCall(callNode *sitter.Node, content []byte) (string, uint32, bool) {
+	n := callNode
+	for i := 0; i < 4 && n != nil; i++ {
+		parent := n.Parent()
+		if parent == nil {
+			break
+		}
+		switch parent.Type() {
+		case "variable_declarator":
+			if nameNode := parent.ChildByFieldName("name"); nameNode != nil && nameNode.Type() == "identifier" {
+				return scanner.NodeText(nameNode, content), parent.StartByte(), true
+			}
+			// Some grammars expose the name as the first identifier child.
+			if first := parent.Child(0); first != nil && first.Type() == "identifier" {
+				return scanner.NodeText(first, content), parent.StartByte(), true
+			}
+		case "assignment_expression":
+			if leftNode := parent.ChildByFieldName("left"); leftNode != nil && leftNode.Type() == "identifier" {
+				return scanner.NodeText(leftNode, content), parent.StartByte(), true
+			}
+		}
+		n = parent
+	}
+	return "", 0, false
+}
+
+// applyKeySizePropertyAssignments patches the KeySize of factory findings from
+// later `recv.KeySize = N` property assignments (the C# analog of the JCA
+// initialize() idiom).
+func (s *CSharpScanner) applyKeySizePropertyAssignments(root *sitter.Node, content []byte, cp *ConstPropagator, findings []types.Finding, receivers []csKeySizeReceiver) {
+	if len(receivers) == 0 {
+		return
+	}
+	queryStr := `(assignment_expression
+		left: (field_access) @lhs
+		right: (_) @rhs)`
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return
+	}
+	for _, match := range matches {
+		var lhs, rhs *sitter.Node
+		for _, capture := range match.Captures {
+			switch capture.Index {
+			case 0:
+				lhs = capture.Node
+			case 1:
+				rhs = capture.Node
+			}
+		}
+		if lhs == nil || rhs == nil || lhs.ChildCount() < 2 {
+			continue
+		}
+		recvNode := lhs.Child(0)
+		fieldNode := lhs.Child(int(lhs.ChildCount()) - 1)
+		if recvNode == nil || fieldNode == nil || recvNode.Type() != "identifier" {
+			continue
+		}
+		if scanner.NodeText(fieldNode, content) != "KeySize" {
+			continue
+		}
+		size := intFromNode(rhs, content, cp)
+		if size <= 0 {
+			continue
+		}
+		recvName := scanner.NodeText(recvNode, content)
+		callByte := lhs.StartByte()
+		best := -1
+		var bestByte uint32
+		for i, r := range receivers {
+			if r.varName != recvName {
+				continue
+			}
+			if r.declByte <= callByte && (best == -1 || r.declByte > bestByte) {
+				best, bestByte = i, r.declByte
+			}
+		}
+		if best == -1 {
+			continue
+		}
+		idx := receivers[best].findingIdx
+		findings[idx].Properties.KeySize = size
+		if base := findings[idx].Name; base != "" && !strings.ContainsRune(base, '-') {
+			findings[idx].Name = fmt.Sprintf("%s-%d", base, size)
+		}
+	}
+}
+
+// intFromNode resolves a node to an integer: a numeric literal, or an
+// identifier resolvable via constant propagation.
+func intFromNode(n *sitter.Node, content []byte, cp *ConstPropagator) int {
+	switch n.Type() {
+	case "decimal_integer_literal", "hex_integer_literal":
+		v, _ := strconv.Atoi(scanner.NodeText(n, content))
+		return v
+	case "identifier":
+		if val, ok := cp.Resolve(scanner.NodeText(n, content)); ok {
+			v, _ := strconv.Atoi(val)
+			return v
+		}
+	}
+	return 0
 }
 
 // ---------------------------------------------------------------------------

@@ -1,7 +1,7 @@
 # Phase 4.5 — Post-Implementation Bug Tracker
 
 > **Created:** 2026-03-28
-> **Last updated:** 2026-04-16
+> **Last updated:** 2026-06-20
 > **Status:** Active — most HIGH/MEDIUM bugs resolved; remaining items tracked below
 
 ---
@@ -27,7 +27,7 @@
 - **Error:** `NameError: name 'uuid' is not defined` during Taskiq broker import; previously misreported as `AttributeError: ... no attribute 'broker'`
 - **Impact:** Scanner worker container restarted in a loop. No scans could be triggered.
 - **Root cause:** `import uuid` was placed under a `if TYPE_CHECKING:` guard so it wasn't imported at runtime. Taskiq evaluates type hints via `get_type_hints()` on every `@broker.task` decoration, which requires `uuid` to be importable at module load time.
-- **Fix:** Moved `import uuid` to a top-level import in `backend/app/workers/scan_worker.py`. Worker now starts cleanly and 2 listeners spin up as expected.
+- **Fix:** Moved `import uuid` to a top-level import in `backend/app/workers/scan_worker.py`. Worker now starts cleanly and 2 listeners spin up as expected. Final runtime import ordering settled in `e0e6009` (current on main).
 - **Pre-existing:** Yes — not introduced by Phase 4.5 changes.
 
 ### BUG-013: JWT fingerprint breaks behind reverse proxies
@@ -69,7 +69,7 @@
 - **Severity:** HIGH
 - **Component:** `backend/app/services/portfolio_service.py`
 - **Issue:** Portfolio summary/compliance/quantum results cached in Redis with 300s TTL. When underlying data changes (seed, scan complete, new project), cache returns stale results including zeros. Extremely misleading — dashboard shows "no data" when DB has 437 findings.
-- **Mitigation:** Set `PORTFOLIO_CACHE_TTL = 0` to disable caching. Queries are fast on indexed columns.
+- **Mitigation:** Set `PORTFOLIO_CACHE_TTL = 0` to disable caching (commit `c08e97b`, current on main). Queries are fast on indexed columns.
 - **Proper fix needed:** Implement cache invalidation — bust portfolio cache keys when:
   - Scan completes (new findings)
   - Project created/deleted
