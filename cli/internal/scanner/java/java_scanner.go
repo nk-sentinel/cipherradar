@@ -185,8 +185,19 @@ func lookupAlgoFamily(algo string) string {
 	return strings.ToLower(algo)
 }
 
+// keyGenReceiver records a KeyPairGenerator/KeyGenerator getInstance finding
+// whose key size may be set on a later .initialize(N)/.init(N) call against the
+// assigned receiver variable.
+type keyGenReceiver struct {
+	varName    string // LHS variable, e.g. "kpg"
+	findingIdx int    // index into the findings slice to patch
+	declByte   uint32 // start byte of the declaration (for ordering/shadowing)
+	isKeyPair  bool   // true => KeyPairGenerator (expect initialize); false => KeyGenerator (expect init)
+}
+
 func (s *JavaScanner) detectJCA(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding
+	var receivers []keyGenReceiver
 
 	// Query for ClassName.getInstance("...") calls
 	// In Java tree-sitter grammar, this is a method_invocation with object and name
@@ -269,11 +280,17 @@ func (s *JavaScanner) detectJCA(root *sitter.Node, path string, content []byte, 
 			finding := s.handleKeyPairGeneratorGetInstance(callNode, argsNode, path, content, cp)
 			if finding != nil {
 				findings = append(findings, *finding)
+				if v, db, ok := receiverVarOfCall(callNode, content); ok {
+					receivers = append(receivers, keyGenReceiver{v, len(findings) - 1, db, true})
+				}
 			}
 		case "KeyGenerator":
 			finding := s.handleKeyGeneratorGetInstance(callNode, argsNode, path, content, cp)
 			if finding != nil {
 				findings = append(findings, *finding)
+				if v, db, ok := receiverVarOfCall(callNode, content); ok {
+					receivers = append(receivers, keyGenReceiver{v, len(findings) - 1, db, false})
+				}
 			}
 		case "Mac":
 			finding := s.handleMacGetInstance(callNode, argsNode, path, content, cp)
@@ -334,10 +351,126 @@ func (s *JavaScanner) detectJCA(root *sitter.Node, path string, content []byte, 
 		}
 	}
 
+	// Apply key sizes from later .initialize(N)/.init(N) calls on the
+	// receiver variables of KeyPairGenerator/KeyGenerator findings.
+	s.applyKeyGenInitSizes(root, content, cp, findings, receivers)
+
 	// Detect SecretKeySpec constructor calls: new SecretKeySpec(bytes, "AES")
 	findings = append(findings, s.detectSecretKeySpec(root, path, content, cp)...)
 
 	return findings
+}
+
+// receiverVarOfCall walks up from a method_invocation to recover the variable it
+// is assigned to (e.g. `KeyPairGenerator kpg = ...getInstance(...)` -> "kpg").
+// Returns the variable name, the declaration's start byte, and ok=false if the
+// call has no simple identifier receiver (e.g. a bare statement).
+func receiverVarOfCall(callNode *sitter.Node, content []byte) (string, uint32, bool) {
+	n := callNode
+	for i := 0; i < 4 && n != nil; i++ {
+		parent := n.Parent()
+		if parent == nil {
+			break
+		}
+		switch parent.Type() {
+		case "variable_declarator":
+			if nameNode := parent.ChildByFieldName("name"); nameNode != nil && nameNode.Type() == "identifier" {
+				return scanner.NodeText(nameNode, content), parent.StartByte(), true
+			}
+		case "assignment_expression":
+			if leftNode := parent.ChildByFieldName("left"); leftNode != nil && leftNode.Type() == "identifier" {
+				return scanner.NodeText(leftNode, content), parent.StartByte(), true
+			}
+		}
+		n = parent
+	}
+	return "", 0, false
+}
+
+// applyKeyGenInitSizes finds `recv.initialize(N)` / `recv.init(N)` calls and
+// patches the KeySize of the matching getInstance finding. Only integer
+// arguments are honored, so AlgorithmParameterSpec overloads (e.g.
+// ECGenParameterSpec) are ignored and EC curve sizing is left intact.
+func (s *JavaScanner) applyKeyGenInitSizes(root *sitter.Node, content []byte, cp *ConstPropagator, findings []types.Finding, receivers []keyGenReceiver) {
+	if len(receivers) == 0 {
+		return
+	}
+	queryStr := `(method_invocation
+		object: (identifier) @recv
+		name: (identifier) @m
+		arguments: (argument_list) @args)`
+	matches, err := scanner.QueryMatches(root, queryStr, s.lang, content)
+	if err != nil {
+		return
+	}
+	for _, match := range matches {
+		var recvNode, mNode, argsNode *sitter.Node
+		for _, capture := range match.Captures {
+			switch capture.Index {
+			case 0:
+				recvNode = capture.Node
+			case 1:
+				mNode = capture.Node
+			case 2:
+				argsNode = capture.Node
+			}
+		}
+		if recvNode == nil || mNode == nil || argsNode == nil {
+			continue
+		}
+		method := scanner.NodeText(mNode, content)
+		if method != "init" && method != "initialize" {
+			continue
+		}
+		size := resolveNthArgInt(argsNode, 0, content, cp)
+		if size <= 0 {
+			continue
+		}
+		recvName := scanner.NodeText(recvNode, content)
+		callByte := getCallNode(mNode).StartByte()
+
+		// Select the matching receiver: same variable name, generator kind
+		// consistent with the method, and the nearest declaration at or before
+		// this call (handles reassignment/shadowing).
+		best := -1
+		var bestByte uint32
+		for i, r := range receivers {
+			if r.varName != recvName {
+				continue
+			}
+			if r.isKeyPair && method != "initialize" {
+				continue
+			}
+			if !r.isKeyPair && method != "init" {
+				continue
+			}
+			if r.declByte <= callByte && (best == -1 || r.declByte > bestByte) {
+				best, bestByte = i, r.declByte
+			}
+		}
+		if best == -1 {
+			// No declaration precedes the call; fall back to the nearest following one.
+			for i, r := range receivers {
+				if r.varName != recvName {
+					continue
+				}
+				if r.isKeyPair != (method == "initialize") {
+					continue
+				}
+				if best == -1 || r.declByte < bestByte {
+					best, bestByte = i, r.declByte
+				}
+			}
+		}
+		if best == -1 {
+			continue
+		}
+		idx := receivers[best].findingIdx
+		findings[idx].Properties.KeySize = size
+		if base := findings[idx].Name; base != "" && !strings.ContainsRune(base, '-') {
+			findings[idx].Name = fmt.Sprintf("%s-%d", base, size)
+		}
+	}
 }
 
 func (s *JavaScanner) handleCipherGetInstance(callNode, argsNode *sitter.Node, path string, content []byte, cp *ConstPropagator, classInfo struct {

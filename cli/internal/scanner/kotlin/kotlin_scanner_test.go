@@ -371,6 +371,46 @@ func TestBouncyCastleAsymmetric(t *testing.T) {
 	}
 }
 
+func TestKotlinKeyGenInitializeKeySize(t *testing.T) {
+	scan := func(src string) []types.Finding {
+		f, err := kotlin.New().ScanFile("Test.kt", []byte(src))
+		if err != nil {
+			t.Fatalf("ScanFile error: %v", err)
+		}
+		return f
+	}
+
+	t.Run("initialize", func(t *testing.T) {
+		f := scan(`fun m() {
+			val kpg = KeyPairGenerator.getInstance("RSA")
+			kpg.initialize(2048)
+		}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 2048
+		}, "RSA keypairgen with KeySize=2048")
+	})
+
+	t.Run("init", func(t *testing.T) {
+		f := scan(`fun m() {
+			val kg = KeyGenerator.getInstance("AES")
+			kg.init(256)
+		}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "aes" && x.Properties.KeySize == 256
+		}, "AES keygen with KeySize=256")
+	})
+
+	t.Run("EC spec not regressed", func(t *testing.T) {
+		f := scan(`fun m() {
+			val kpg = KeyPairGenerator.getInstance("EC")
+			kpg.initialize(ECGenParameterSpec("secp256r1"))
+		}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "ec" && x.Properties.KeySize == 0
+		}, "EC keypairgen with no bogus KeySize")
+	})
+}
+
 func assertFindingExists(t *testing.T, findings []types.Finding, match func(types.Finding) bool, description string) {
 	t.Helper()
 	for _, f := range findings {

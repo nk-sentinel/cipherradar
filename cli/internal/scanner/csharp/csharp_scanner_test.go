@@ -566,6 +566,46 @@ func hasPrefix(s, prefix string) bool {
 	return len(s) >= len(prefix) && s[:len(prefix)] == prefix
 }
 
+func TestCSharpKeySizePropertyAssignment(t *testing.T) {
+	scan := func(src string) []types.Finding {
+		f, err := csharp.New().ScanFile("Test.cs", []byte(src))
+		if err != nil {
+			t.Fatalf("ScanFile error: %v", err)
+		}
+		return f
+	}
+
+	t.Run("KeySize property assignment", func(t *testing.T) {
+		f := scan(`class T { void M() {
+			var rsa = RSA.Create();
+			rsa.KeySize = 2048;
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 2048
+		}, "RSA with KeySize=2048 from property assignment")
+	})
+
+	t.Run("KeySize via const", func(t *testing.T) {
+		f := scan(`class T { void M() {
+			int bits = 3072;
+			var rsa = RSA.Create();
+			rsa.KeySize = bits;
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 3072
+		}, "RSA with KeySize=3072 resolved from const")
+	})
+
+	t.Run("Create(2048) ctor-arg still works", func(t *testing.T) {
+		f := scan(`class T { void M() {
+			var rsa = RSA.Create(2048);
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 2048
+		}, "RSA.Create(2048) ctor-arg regression")
+	})
+}
+
 func assertFindingExists(t *testing.T, findings []types.Finding, match func(types.Finding) bool, description string) {
 	t.Helper()
 	for _, f := range findings {
