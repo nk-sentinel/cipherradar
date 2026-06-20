@@ -342,15 +342,6 @@ func TestConverter_QuantumNotApplicable_OmitsProperty(t *testing.T) {
 	}
 }
 
-func propValue(comp Component, name string) (string, bool) {
-	for _, p := range comp.Properties {
-		if p.Name == name {
-			return p.Value, true
-		}
-	}
-	return "", false
-}
-
 func TestConverter_QuantumMigrationProps(t *testing.T) {
 	// Quantum-vulnerable RSA public-key encryption → critical (HNDL) + targets.
 	rsa := convertFinding(&types.Finding{
