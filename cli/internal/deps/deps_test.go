@@ -175,3 +175,84 @@ func TestIndex_NearestAncestor(t *testing.T) {
 		t.Errorf("root version = %q, want 1.0.0", p2.Version)
 	}
 }
+
+func TestBuildPurl_MoreEcosystems(t *testing.T) {
+	cases := []struct {
+		p    Package
+		want string
+	}{
+		{Package{Ecosystem: EcosystemCargo, Name: "ring", Version: "0.16.20"}, "pkg:cargo/ring@0.16.20"},
+		{Package{Ecosystem: EcosystemGem, Name: "bcrypt", Version: "3.1.18"}, "pkg:gem/bcrypt@3.1.18"},
+		{Package{Ecosystem: EcosystemGolang, Name: "golang.org/x/crypto", Version: "v0.17.0"}, "pkg:golang/golang.org/x/crypto@v0.17.0"},
+	}
+	for _, tc := range cases {
+		if got := BuildPurl(tc.p); got != tc.want {
+			t.Errorf("BuildPurl(%+v) = %q, want %q", tc.p, got, tc.want)
+		}
+	}
+}
+
+func TestParseCargoLock(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, dir, "Cargo.lock", "[[package]]\nname = \"ring\"\nversion = \"0.16.20\"\n\n[[package]]\nname = \"serde\"\nversion = \"1.0.0\"\n")
+	pkgs, err := parseCargoLock(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, p := range pkgs {
+		got[p.Name] = p.Version
+	}
+	if got["ring"] != "0.16.20" {
+		t.Errorf("ring = %q, want 0.16.20", got["ring"])
+	}
+}
+
+func TestParseGemfileLock(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, dir, "Gemfile.lock", "GEM\n  remote: https://rubygems.org/\n  specs:\n    bcrypt (3.1.18)\n    json (2.6.3)\n\nPLATFORMS\n  ruby\n")
+	pkgs, err := parseGemfileLock(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, p := range pkgs {
+		got[p.Name] = p.Version
+	}
+	if got["bcrypt"] != "3.1.18" {
+		t.Errorf("bcrypt = %q, want 3.1.18", got["bcrypt"])
+	}
+}
+
+func TestParseGoMod(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, dir, "go.mod", "module example.com/m\n\ngo 1.21\n\nrequire golang.org/x/crypto v0.17.0\n\nrequire (\n\tgithub.com/foo/bar v1.2.3 // indirect\n)\n")
+	pkgs, err := parseGoMod(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]Package{}
+	for _, p := range pkgs {
+		got[p.Name] = p
+	}
+	if got["golang.org/x/crypto"].Version != "v0.17.0" || !got["golang.org/x/crypto"].Direct {
+		t.Errorf("x/crypto = %+v, want v0.17.0 direct", got["golang.org/x/crypto"])
+	}
+	if got["github.com/foo/bar"].Direct {
+		t.Error("foo/bar marked // indirect should not be Direct")
+	}
+}
+
+func TestResolveLibrary_RustCargo(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "Cargo.lock", "[[package]]\nname = \"ring\"\nversion = \"0.17.7\"\n")
+	src := writeFile(t, dir, "main.rs", "use ring::digest;\n")
+	ix, _ := Build(dir)
+	p, ok := ResolveLibrary(ix, "ring-or-rustls-or-openssl", "use ring::digest;", src)
+	if !ok || p.Name != "ring" || p.Version != "0.17.7" {
+		t.Fatalf("got %+v ok=%v, want ring@0.17.7", p, ok)
+	}
+	if BuildPurl(p) != "pkg:cargo/ring@0.17.7" {
+		t.Errorf("purl = %q", BuildPurl(p))
+	}
+}
