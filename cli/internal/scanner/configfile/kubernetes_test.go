@@ -1,8 +1,18 @@
 package configfile
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/base64"
+	"encoding/pem"
+	"math/big"
 	"os"
 	"testing"
+	"time"
+
+	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
 func TestKubernetesName(t *testing.T) {
@@ -88,5 +98,44 @@ func TestKubernetesEmptyFile(t *testing.T) {
 	}
 	if len(findings) != 0 {
 		t.Errorf("expected 0 findings for empty file, got %d", len(findings))
+	}
+}
+
+func TestKubernetesSecretBase64Cert(t *testing.T) {
+	// Generate a self-signed cert, PEM-encode, base64 it, embed in a TLS Secret.
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(7),
+		Subject:      pkix.Name{CommonName: "k8s.test"},
+		NotBefore:    time.Now().Add(-time.Hour),
+		NotAfter:     time.Now().Add(365 * 24 * time.Hour),
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, &key.PublicKey, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pemB := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	b64 := base64.StdEncoding.EncodeToString(pemB)
+
+	manifest := "apiVersion: v1\nkind: Secret\ntype: kubernetes.io/tls\nmetadata:\n  name: tls\ndata:\n  tls.crt: " + b64 + "\n"
+
+	findings, err := NewKubernetes().ScanFile("secret.yaml", []byte(manifest))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var certF *types.Finding
+	for i := range findings {
+		if findings[i].RuleID == "cbom-configfile-k8s-cert" {
+			certF = &findings[i]
+		}
+	}
+	if certF == nil {
+		t.Fatal("expected a decoded certificate finding from k8s secret data")
+	}
+	if certF.Properties.SubjectPublicKeyAlgorithm != "RSA" || certF.Properties.SubjectPublicKeySize != 2048 {
+		t.Errorf("pubkey = %s/%d, want RSA/2048", certF.Properties.SubjectPublicKeyAlgorithm, certF.Properties.SubjectPublicKeySize)
 	}
 }
