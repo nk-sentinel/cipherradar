@@ -4,9 +4,11 @@ import (
 	"crypto/rand"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/cyclonedx17"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -588,12 +590,33 @@ func buildFindingProperties(f *types.Finding) []Property {
 	}
 	if f.Properties.QuantumStatus != "" && f.Properties.QuantumStatus != types.QuantumNotApplicable {
 		props = append(props, Property{Name: "quantumStatus", Value: string(f.Properties.QuantumStatus)})
+		props = appendQuantumMigrationProps(props, &f.Properties)
 	}
 	if f.Fingerprint != "" {
 		props = append(props, Property{Name: "fingerprint", Value: f.Fingerprint})
 	}
 	if f.Pass > 0 {
 		props = append(props, Property{Name: "detectionPass", Value: fmt.Sprintf("%d", f.Pass)})
+	}
+	return props
+}
+
+// appendQuantumMigrationProps adds the HNDL-aware migration payload — priority,
+// recommendation, and structured replacement target — as namespaced CycloneDX
+// properties so downstream consumers (migration pipelines, dashboards) can act
+// on them without re-deriving the quantum table. Called only when the finding
+// has a definitive quantum status.
+func appendQuantumMigrationProps(props []Property, p *types.CryptoProperties) []Property {
+	primitive := string(resolvePrimitive(p))
+	if prio := quantum.Priority(p.QuantumStatus, primitive); prio != "" {
+		props = append(props, Property{Name: "cradar:quantum:priority", Value: string(prio)})
+	}
+	info := quantum.GetInfo(p.AlgorithmFamily)
+	if info.Recommendation != "" {
+		props = append(props, Property{Name: "cradar:quantum:recommendation", Value: info.Recommendation})
+	}
+	if info.MigrationTarget != "" {
+		props = append(props, Property{Name: "cradar:quantum:migrationTarget", Value: info.MigrationTarget})
 	}
 	return props
 }
@@ -660,15 +683,16 @@ func convertCryptoProperties(f *types.Finding, tally *validationTally) *cycloned
 	return cp
 }
 
-// convertAlgorithmProperties maps types.CryptoProperties to CycloneDX AlgorithmProperties.
+// resolvePrimitive maps the internal primitive/AlgorithmPrimitive token to a
+// CycloneDX 1.7 primitive enum value.
 //
-// Primitive precedence:
+// Precedence:
 //   - If types.CryptoProperties.AlgorithmPrimitive is set, first check the
 //     canonicalTokenPrimitive map (handles "MD5", "AES-256-GCM", etc.).
 //   - Then try primitiveMap (handles CycloneDX 1.7 enum strings like "hash").
 //   - Unknown tokens fall back to PrimitiveOther (never passed through raw).
 //   - If AlgorithmPrimitive is unset, use the legacy Primitive field via normalizePrimitive.
-func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.AlgorithmProperties {
+func resolvePrimitive(p *types.CryptoProperties) cyclonedx17.Primitive {
 	primitive := normalizePrimitive(p.Primitive)
 	if p.AlgorithmPrimitive != "" {
 		// First check the canonical-token map (handles MD5, AES-256-GCM, etc.).
@@ -685,9 +709,45 @@ func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.Algorith
 			}
 		}
 	}
+	return primitive
+}
+
+// pqcParamPrefixes are PQC token prefixes (e.g. ML-KEM-768) whose suffix is the
+// parameter set identifier (768).
+var pqcParamPrefixes = []string{"ML-KEM-", "ML-DSA-", "SLH-DSA-", "KYBER-", "DILITHIUM-", "FALCON-", "SPHINCS-"}
+
+// deriveParameterSet computes a CycloneDX parameterSetIdentifier — the parameter
+// value alone (e.g. "256", "2048", "768"), since the component name already
+// carries the algorithm family (decomposed style, per the CBOM schema reference).
+// Returns "" if nothing reliable can be derived.
+func deriveParameterSet(p *types.CryptoProperties) string {
+	tok := strings.ToUpper(strings.TrimSpace(p.AlgorithmPrimitive))
+	// 1. PQC tokens: the suffix after the family prefix is the parameter set.
+	for _, pre := range pqcParamPrefixes {
+		if strings.HasPrefix(tok, pre) {
+			return strings.TrimPrefix(tok, pre)
+		}
+	}
+	// 2. Classical parameterized token (e.g. AES-256-GCM): first numeric segment.
+	for _, part := range strings.Split(tok, "-") {
+		if _, err := strconv.Atoi(part); err == nil {
+			return part
+		}
+	}
+	// 3. Fall back to the explicit key size.
+	if p.KeySize > 0 {
+		return strconv.Itoa(p.KeySize)
+	}
+	return ""
+}
+
+// convertAlgorithmProperties maps types.CryptoProperties to CycloneDX AlgorithmProperties.
+func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.AlgorithmProperties {
+	family := normalizeAlgorithmFamily(p.AlgorithmFamily)
 	ap := &cyclonedx17.AlgorithmProperties{
-		Primitive:                primitive,
-		AlgorithmFamily:          normalizeAlgorithmFamily(p.AlgorithmFamily),
+		Primitive:                resolvePrimitive(p),
+		AlgorithmFamily:          family,
+		ParameterSetIdentifier:   deriveParameterSet(p),
 		Mode:                     normalizeMode(p.Mode),
 		Padding:                  normalizePadding(p.Padding),
 		ClassicalSecurityLevel:   p.ClassicalSecurity,

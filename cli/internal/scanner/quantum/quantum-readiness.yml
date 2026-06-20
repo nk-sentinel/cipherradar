@@ -18,92 +18,113 @@ algorithms:
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM (encryption) or ML-DSA (signatures)"
+    migration_target: "ML-KEM (FIPS 203) for key establishment; ML-DSA (FIPS 204) for signatures"
     aliases: [rsa-pss, rsa-oaep, rsaes-pkcs1, rsassa-pkcs1, rsassa-pss]
   - family: dsa
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-DSA"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
   - family: dh
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM"
+    migration_target: "ML-KEM (FIPS 203)"
     aliases: [ffdh, diffie-hellman]
   - family: ecdsa
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-DSA"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
   - family: ecdh
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM"
+    migration_target: "ML-KEM (FIPS 203)"
   - family: ec
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM (key agreement) or ML-DSA (signatures)"
+    migration_target: "ML-KEM (FIPS 203) for key establishment; ML-DSA (FIPS 204) for signatures"
   - family: ed25519
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-DSA"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
   - family: ed448
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-DSA"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
   - family: x25519
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM"
+    migration_target: "ML-KEM (FIPS 203)"
   - family: x448
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM"
+    migration_target: "ML-KEM (FIPS 203)"
   - family: elgamal
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM"
+    migration_target: "ML-KEM (FIPS 203)"
   - family: ecies
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM + symmetric cipher composition"
+    migration_target: "ML-KEM (FIPS 203)"
   - family: sm2
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-DSA"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
   - family: gost
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM / ML-DSA"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
   - family: schnorr
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-DSA (discrete-log signature, broken by Shor)"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
     aliases: [bip340, bip-340, schnorrkel]
   - family: bls
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-DSA (pairing-based signature, broken by Shor)"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
     aliases: [bls12-381, bls12381, bls-signature, boneh-lynn-shacham]
   - family: ecmqv
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM (EC Menezes-Qu-Vanstone key agreement)"
+    migration_target: "ML-KEM (FIPS 203)"
     aliases: [mqv]
   - family: paillier
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "No PQ homomorphic standard yet; track NIST FHE work (factoring-based, broken by Shor)"
+    migration_target: "ML-KEM (FIPS 203)"
   - family: rabin
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-KEM / ML-DSA (factoring-based, broken by Shor)"
+    migration_target: "ML-KEM (FIPS 203)"
   - family: ec-gdsa
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-DSA (EC German DSA, discrete-log signature)"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
     aliases: [ecgdsa]
   - family: ec-kcdsa
     status: quantum-vulnerable
     nist_level: 0
     recommendation: "Migrate to ML-DSA (EC Korean Certificate-based DSA)"
+    migration_target: "ML-DSA (FIPS 204) or SLH-DSA (FIPS 205)"
     aliases: [eckcdsa]
 
   # ── Quantum-safe symmetric (Grover halves effective key size) ──
@@ -313,70 +334,87 @@ algorithms:
     status: broken
     nist_level: 0
     recommendation: "Do not use — collision attacks practical since 2004"
+    migration_target: "SHA-256 or SHA-3 (FIPS 202)"
   - family: md4
     status: broken
     nist_level: 0
     recommendation: "Do not use — collision attacks trivial"
+    migration_target: "SHA-256 or SHA-3 (FIPS 202)"
   - family: md2
     status: broken
     nist_level: 0
     recommendation: "Do not use — collision attacks practical"
+    migration_target: "SHA-256 or SHA-3 (FIPS 202)"
   - family: sha-1
     status: broken
     nist_level: 0
     recommendation: "Do not use — collision attacks practical since 2017"
+    migration_target: "SHA-256 or SHA-3 (FIPS 202)"
     aliases: [sha1]
   - family: des
     status: broken
     nist_level: 0
     recommendation: "Do not use — 56-bit key is trivially brutable"
+    migration_target: "AES-256 (FIPS 197)"
   - family: 3des
     status: broken
     nist_level: 0
     recommendation: "Deprecated by NIST (2024) — migrate to AES"
+    migration_target: "AES-256 (FIPS 197)"
     aliases: [tripledes, triple-des]
   - family: rc2
     status: broken
     nist_level: 0
     recommendation: "Do not use — multiple known attacks"
+    migration_target: "AES-256 (FIPS 197)"
   - family: rc4
     status: broken
     nist_level: 0
     recommendation: "Do not use — RFC 7465 (banned in TLS)"
+    migration_target: "AES-256 (FIPS 197)"
   - family: rc5
     status: broken
     nist_level: 0
     recommendation: "Do not use — distinguishing attacks known"
+    migration_target: "AES-256 (FIPS 197)"
   - family: rc6
     status: broken
     nist_level: 0
     recommendation: "Do not use — distinguishing attacks known"
+    migration_target: "AES-256 (FIPS 197)"
   - family: ripemd
     status: broken
     nist_level: 0
     recommendation: "RIPEMD-160 not yet broken but deprecated; use SHA-256+"
+    migration_target: "SHA-256 or SHA-3 (FIPS 202)"
     aliases: [ripemd-160, ripemd160]
   - family: blowfish
     status: broken
     nist_level: 0
     recommendation: "64-bit block size makes it weak for modern use; use AES"
+    migration_target: "AES-256 (FIPS 197)"
   - family: idea
     status: broken
     nist_level: 0
     recommendation: "Patent expired but rarely used; prefer AES"
+    migration_target: "AES-256 (FIPS 197)"
   - family: cast5
     status: broken
     nist_level: 0
     recommendation: "64-bit block size makes it weak for modern use; use AES"
+    migration_target: "AES-256 (FIPS 197)"
   - family: cast6
     status: broken
     nist_level: 0
     recommendation: "Use AES; CAST6 is rarely audited"
+    migration_target: "AES-256 (FIPS 197)"
   - family: skipjack
     status: broken
     nist_level: 0
     recommendation: "Deprecated NSA cipher; use AES"
+    migration_target: "AES-256 (FIPS 197)"
   - family: whirlpool
     status: broken
     nist_level: 0
     recommendation: "Rarely audited; prefer SHA-3 / BLAKE3"
+    migration_target: "SHA-256 or SHA-3 (FIPS 202)"
