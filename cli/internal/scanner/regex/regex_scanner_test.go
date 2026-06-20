@@ -319,6 +319,58 @@ func filterByRulePrefix(findings []types.Finding, prefix string) []types.Finding
 	return filtered
 }
 
+// TestBase64Key_SuppressesSRIIntegrity guards against the false positive where
+// Subresource-Integrity hashes (e.g. package-lock.json "integrity" values) were
+// reported as "potential key material". We key off the SRI value shape
+// (sha256-/sha384-/sha512- prefix), never the field name.
+func TestBase64Key_SuppressesSRIIntegrity(t *testing.T) {
+	cases := []struct {
+		name string
+		line string
+	}{
+		{"sha512", `      "integrity": "sha512-Elp+iwUx5rN5Y8xLt5GRoG20WGoDCQ1Fb1LiGtvwbDavuSk0jhDeZdckHAuzcDzccnkvrEjyWfRx18ggAAAA=="`},
+		{"sha384", `  "integrity": "sha384-oqVuAfXRKap7fdgcCY5uykM6+R9GqQ8K/uxy9rx7HNQlGYl1kPzQho1wx4JwY8wC"`},
+		{"sha256", `    "integrity": "sha256-AbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbA="`},
+		{"uppercase prefix", `  "x": "SHA512-Elp+iwUx5rN5Y8xLt5GRoG20WGoDCQ1Fb1LiGtvwbDavuSk0jhDeZdckHAuzcDzccnkvrEjyWfRx18ggAAAA=="`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := New()
+			findings, err := s.ScanFile("package-lock.json", []byte(tc.line+"\n"))
+			if err != nil {
+				t.Fatalf("ScanFile returned error: %v", err)
+			}
+			if got := filterByRuleID(findings, "cbom-regex-base64-key"); len(got) != 0 {
+				t.Errorf("expected SRI hash to be suppressed, got %d base64-key findings", len(got))
+			}
+		})
+	}
+}
+
+// TestBase64Key_DoesNotSuppressGenuineKey ensures the SRI guard only suppresses
+// the sha###- shape and does not silence real embedded key material.
+func TestBase64Key_DoesNotSuppressGenuineKey(t *testing.T) {
+	cases := []struct {
+		name string
+		line string
+	}{
+		{"raw base64 key", `const KEY = "MIIBVgIBADANBgkqhkiG9w0BAQEFAASCAUAwggE8AgEAAkEAq1234567890ABCDEFGH=="`},
+		{"sha512sum no hyphen", `  "sha512sum": "AbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAbAb=="`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := New()
+			findings, err := s.ScanFile("config.txt", []byte(tc.line+"\n"))
+			if err != nil {
+				t.Fatalf("ScanFile returned error: %v", err)
+			}
+			if got := filterByRuleID(findings, "cbom-regex-base64-key"); len(got) == 0 {
+				t.Errorf("expected genuine base64 key to be detected, got 0 findings")
+			}
+		})
+	}
+}
+
 func makeTestCert(t *testing.T) []byte {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)

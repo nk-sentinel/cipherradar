@@ -264,6 +264,14 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 		// --- High-entropy base64 detection ---
 		b64Locs := s.base64KeyRe.FindAllIndex(line, -1)
 		for _, loc := range b64Locs {
+			// Skip Subresource-Integrity / npm-lockfile integrity hashes
+			// (e.g. "integrity": "sha512-<base64>"). These are download
+			// digests, not key material. We key off the value SHAPE — a
+			// sha256-/sha384-/sha512- prefix immediately before the match —
+			// never the field name, so genuine keys are unaffected.
+			if looksLikeSRI(line, loc[0]) {
+				continue
+			}
 			snippet := strings.TrimSpace(lineStr)
 			findings = append(findings, types.Finding{
 				ID:        nextID(),
@@ -462,6 +470,19 @@ func isUUID(line string, start, end int) bool {
 		}
 	}
 	return false
+}
+
+// looksLikeSRI reports whether the base64 match starting at `start` is the
+// digest of a Subresource-Integrity value, i.e. immediately preceded by a
+// `sha256-`, `sha384-`, or `sha512-` prefix (case-insensitive). The `-` is not
+// in the base64 character class, so the regex match begins exactly after it.
+func looksLikeSRI(line []byte, start int) bool {
+	const prefixLen = 7 // len("sha512-")
+	if start < prefixLen || line[start-1] != '-' {
+		return false
+	}
+	algo := strings.ToLower(string(line[start-prefixLen : start-1]))
+	return algo == "sha256" || algo == "sha384" || algo == "sha512"
 }
 
 // looksLikeGitHash checks if the line context suggests a git commit hash.
