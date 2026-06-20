@@ -189,6 +189,50 @@ func TestConvertFinding_LibraryAssetType_EmitsLibraryComponent(t *testing.T) {
 	}
 }
 
+func propValue(comp Component, name string) (string, bool) {
+	for _, p := range comp.Properties {
+		if p.Name == name {
+			return p.Value, true
+		}
+	}
+	return "", false
+}
+
+func TestConvertFinding_LibraryIdentity(t *testing.T) {
+	// A library finding enriched with a resolved package emits purl/version/group
+	// and upgrades the display name to the concrete package.
+	lib := convertFinding(&types.Finding{
+		ID: "1", Name: "node-forge", AssetType: types.AssetType("library"),
+		Properties: types.CryptoProperties{
+			Library: "node-forge", LibraryVersion: "1.3.1",
+			LibraryPurl: "pkg:npm/node-forge@1.3.1",
+		},
+	})
+	if lib.Version != "1.3.1" || lib.Purl != "pkg:npm/node-forge@1.3.1" {
+		t.Errorf("library component identity = version %q purl %q", lib.Version, lib.Purl)
+	}
+	if v, ok := propValue(lib, "library"); !ok || v != "node-forge" {
+		t.Errorf("library property = %q (ok=%v)", v, ok)
+	}
+
+	// A crypto-asset finding (e.g. PHP mcrypt) with a maven library hint gets the
+	// purl/group without losing cryptoProperties.
+	maven := convertFinding(&types.Finding{
+		ID: "2", Name: "RSA", AssetType: types.AssetAlgorithm,
+		Properties: types.CryptoProperties{
+			AlgorithmFamily: "rsa", Library: "bouncycastle",
+			LibraryGroup: "org.bouncycastle", LibraryVersion: "1.77",
+			LibraryPurl: "pkg:maven/org.bouncycastle/bcprov-jdk18on@1.77",
+		},
+	})
+	if maven.Group != "org.bouncycastle" || maven.Purl == "" {
+		t.Errorf("crypto-asset library identity = group %q purl %q", maven.Group, maven.Purl)
+	}
+	if maven.CryptoProperties == nil {
+		t.Error("crypto-asset must retain cryptoProperties when carrying a library purl")
+	}
+}
+
 func TestConvertScanResult_TallyAccumulates(t *testing.T) {
 	result := &types.ScanResult{
 		Target: "/tmp/x",

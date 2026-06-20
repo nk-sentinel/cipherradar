@@ -465,6 +465,9 @@ type Component struct {
 	Type             string                        `json:"type"`
 	BOMRef           string                        `json:"bom-ref,omitempty"`
 	Name             string                        `json:"name"`
+	Group            string                        `json:"group,omitempty"`
+	Version          string                        `json:"version,omitempty"`
+	Purl             string                        `json:"purl,omitempty"`
 	Description      string                        `json:"description,omitempty"`
 	CryptoProperties *cyclonedx17.CryptoProperties `json:"cryptoProperties,omitempty"`
 	Properties       []Property                    `json:"properties,omitempty"`
@@ -602,7 +605,7 @@ func convertFindingTally(f *types.Finding, tally *validationTally) Component {
 	// yara-x library signatures) emit as regular CycloneDX components with
 	// type: library, no cryptoProperties. They are not cryptographic assets.
 	if string(f.AssetType) == "library" {
-		return Component{
+		comp := Component{
 			Type:        "library",
 			BOMRef:      f.ID,
 			Name:        f.Name,
@@ -614,6 +617,8 @@ func convertFindingTally(f *types.Finding, tally *validationTally) Component {
 			},
 			Properties: buildFindingProperties(f),
 		}
+		applyLibraryIdentity(&comp, f)
+		return comp
 	}
 
 	// Existing cryptographic-asset path unchanged below this line.
@@ -631,7 +636,23 @@ func convertFindingTally(f *types.Finding, tally *validationTally) Component {
 	cp := convertCryptoProperties(f, tally)
 	comp.CryptoProperties = cp
 	comp.Properties = buildFindingProperties(f)
+	// Some crypto-asset findings (e.g. PHP mcrypt) also carry a library hint —
+	// attach purl/version/group without disturbing cryptoProperties.
+	applyLibraryIdentity(&comp, f)
 	return comp
+}
+
+// applyLibraryIdentity attaches resolved library group/version/purl (populated
+// by the dependency-enrichment pass) to a component. For library components it
+// also upgrades the display name to the concrete package when available.
+func applyLibraryIdentity(comp *Component, f *types.Finding) {
+	p := &f.Properties
+	if comp.Type == "library" && p.LibraryPurl != "" && p.Library != "" {
+		comp.Name = p.Library
+	}
+	comp.Group = p.LibraryGroup
+	comp.Version = p.LibraryVersion
+	comp.Purl = p.LibraryPurl
 }
 
 // buildFindingProperties creates CycloneDX properties from finding metadata.
@@ -642,6 +663,9 @@ func buildFindingProperties(f *types.Finding) []Property {
 	}
 	if f.RuleID != "" {
 		props = append(props, Property{Name: "ruleId", Value: f.RuleID})
+	}
+	if f.Properties.Library != "" {
+		props = append(props, Property{Name: "library", Value: f.Properties.Library})
 	}
 	if f.Properties.QuantumStatus != "" && f.Properties.QuantumStatus != types.QuantumNotApplicable {
 		props = append(props, Property{Name: "quantumStatus", Value: string(f.Properties.QuantumStatus)})

@@ -14,6 +14,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/baseline"
 	"github.com/nk-sentinel/cipherradar/cli/internal/config"
 	"github.com/nk-sentinel/cipherradar/cli/internal/container"
+	"github.com/nk-sentinel/cipherradar/cli/internal/deps"
 	"github.com/nk-sentinel/cipherradar/cli/internal/diff"
 	"github.com/nk-sentinel/cipherradar/cli/internal/opengrep"
 	"github.com/nk-sentinel/cipherradar/cli/internal/output"
@@ -346,6 +347,11 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// finding set — after filter/fingerprint/baseline, before any writer — gives
 	// every output format (CBOM, text, SARIF, PDF, policy) identical labels.
 	output.AnnotateQuantum(result)
+
+	// Resolve crypto-library findings to concrete packages + versions + purl by
+	// parsing project manifests/lockfiles (npm, Python, Maven/Gradle). Runs after
+	// baseline, before any writer, so name/version/purl reach all output formats.
+	enrichLibraries(cmd, result)
 
 	// Surface CycloneDX enum normalization violations. ConvertScanResultWithTally
 	// converts the result and tallies any fall-through values that landed outside
@@ -939,6 +945,46 @@ func loadScanConfig(cmd *cobra.Command) *config.Config {
 		return nil
 	}
 	return cfg
+}
+
+// enrichLibraries resolves each finding's coarse cbom-library hint to a concrete
+// package + version + purl using project manifests/lockfiles, stashing the
+// result on the finding's CryptoProperties for the converter to emit. It is a
+// best-effort pass: no manifests (or a non-directory target, e.g. a container
+// scan) simply means library names surface without versions.
+func enrichLibraries(cmd *cobra.Command, result *types.ScanResult) {
+	root := result.Target
+	if root == "" {
+		return
+	}
+	if fi, err := os.Stat(root); err != nil || !fi.IsDir() {
+		return
+	}
+	ix, _ := deps.Build(root)
+	unresolved := 0
+	for i := range result.Findings {
+		f := &result.Findings[i]
+		if f.Properties.Library == "" {
+			continue
+		}
+		// Finding paths are root-relative; rejoin so nearest-ancestor manifest
+		// resolution shares the index's coordinate space.
+		fromFile := filepath.Join(root, f.Location.File)
+		p, ok := deps.ResolveLibrary(ix, f.Properties.Library, f.Location.Snippet, fromFile)
+		if !ok {
+			continue
+		}
+		f.Properties.LibraryGroup = p.Group
+		f.Properties.LibraryVersion = p.Version
+		f.Properties.LibraryPurl = deps.BuildPurl(p)
+		if p.Version == "" {
+			unresolved++
+		}
+	}
+	if unresolved > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(),
+			"NOTE: %d crypto library finding(s) detected without a resolved version (no matching manifest pin)\n", unresolved)
+	}
 }
 
 // applyBaseline handles baseline load/apply/update for a scan run. On success
