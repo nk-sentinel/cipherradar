@@ -79,6 +79,52 @@ func parseGemfileLock(path string) ([]Package, error) {
 	return pkgs, sc.Err()
 }
 
+// --- Dart: pubspec.lock -------------------------------------------------------
+
+var (
+	pubPkgNameRE = regexp.MustCompile(`^  ([A-Za-z0-9_]+):\s*$`)
+	pubVersionRE = regexp.MustCompile(`^\s+version:\s*"?([^"\s]+)"?\s*$`)
+)
+
+// parsePubspecLock parses a Dart pubspec.lock. Package names are 2-space-indented
+// keys under "packages:"; each block has a version: line.
+func parsePubspecLock(path string) ([]Package, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	var pkgs []Package
+	inPackages := false
+	cur := ""
+	sc := bufio.NewScanner(f)
+	for sc.Scan() {
+		line := sc.Text()
+		if strings.TrimSpace(line) == "packages:" {
+			inPackages = true
+			continue
+		}
+		if line != "" && line[0] != ' ' {
+			inPackages = false
+		}
+		if !inPackages {
+			continue
+		}
+		if m := pubPkgNameRE.FindStringSubmatch(line); m != nil {
+			cur = m[1]
+			pkgs = append(pkgs, Package{Ecosystem: EcosystemPub, Name: cur, Direct: true, ManifestPath: path})
+			continue
+		}
+		if cur != "" {
+			if m := pubVersionRE.FindStringSubmatch(line); m != nil {
+				pkgs[len(pkgs)-1].Version = m[1]
+				cur = ""
+			}
+		}
+	}
+	return pkgs, sc.Err()
+}
+
 // --- Go: go.mod ---------------------------------------------------------------
 
 // goRequireRE matches a require line "module vX.Y.Z" (inside or outside a block).

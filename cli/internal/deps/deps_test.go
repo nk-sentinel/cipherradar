@@ -256,3 +256,17 @@ func TestResolveLibrary_RustCargo(t *testing.T) {
 		t.Errorf("purl = %q", BuildPurl(p))
 	}
 }
+
+func TestParsePubspecLock_AndPurl(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "pubspec.lock", "packages:\n  pointycastle:\n    dependency: \"direct main\"\n    source: hosted\n    version: \"3.7.3\"\n  http:\n    dependency: transitive\n    version: \"1.0.0\"\n")
+	src := writeFile(t, dir, "main.dart", "import 'package:pointycastle/export.dart';\n")
+	ix, _ := Build(dir)
+	p, ok := ResolveLibrary(ix, "dart-crypto-or-pointycastle", "import 'package:pointycastle/export.dart';", src)
+	if !ok || p.Name != "pointycastle" || p.Version != "3.7.3" {
+		t.Fatalf("got %+v ok=%v, want pointycastle@3.7.3", p, ok)
+	}
+	if BuildPurl(p) != "pkg:pub/pointycastle@3.7.3" {
+		t.Errorf("purl = %q", BuildPurl(p))
+	}
+}

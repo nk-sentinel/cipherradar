@@ -99,6 +99,9 @@ func Build(root string) (*Index, []Warning) {
 		case "go.mod":
 			pkgs, perr := parseGoMod(path)
 			add(dir, pkgs, perr, path)
+		case "pubspec.lock":
+			pkgs, perr := parsePubspecLock(path)
+			add(dir, pkgs, perr, path)
 		}
 		return nil
 	})

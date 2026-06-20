@@ -63,6 +63,10 @@ var libTargets = map[string][]libTarget{
 	// Go: the standard library's crypto/* — no purl.
 	"go-crypto": {{stdlib: true}},
 
+	// Dart / pub.dev (both are real pub packages, not stdlib).
+	"pointycastle": {{eco: EcosystemPub, pkg: "pointycastle", snippet: rx(`pointycastle`)}},
+	"dart-crypto":  {{eco: EcosystemPub, pkg: "crypto", snippet: rx(`crypto`)}},
+
 	// PHP mcrypt extension; name surfaced, no purl.
 	"mcrypt": {{}},
 }

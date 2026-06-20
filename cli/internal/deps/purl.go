@@ -18,6 +18,7 @@ const (
 	EcosystemCargo  Ecosystem = "cargo"
 	EcosystemGem    Ecosystem = "gem"
 	EcosystemGolang Ecosystem = "golang"
+	EcosystemPub    Ecosystem = "pub"
 )
 
 // Package is a resolved dependency.
