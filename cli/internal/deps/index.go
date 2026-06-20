@@ -90,6 +90,18 @@ func Build(root string) (*Index, []Warning) {
 		case "build.gradle", "build.gradle.kts":
 			pkgs, perr := parseBuildGradle(path)
 			add(dir, pkgs, perr, path)
+		case "cargo.lock":
+			pkgs, perr := parseCargoLock(path)
+			add(dir, pkgs, perr, path)
+		case "gemfile.lock":
+			pkgs, perr := parseGemfileLock(path)
+			add(dir, pkgs, perr, path)
+		case "go.mod":
+			pkgs, perr := parseGoMod(path)
+			add(dir, pkgs, perr, path)
+		case "pubspec.lock":
+			pkgs, perr := parsePubspecLock(path)
+			add(dir, pkgs, perr, path)
 		}
 		return nil
 	})

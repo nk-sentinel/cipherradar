@@ -12,9 +12,13 @@ import (
 type Ecosystem string
 
 const (
-	EcosystemNPM   Ecosystem = "npm"
-	EcosystemPyPI  Ecosystem = "pypi"
-	EcosystemMaven Ecosystem = "maven"
+	EcosystemNPM    Ecosystem = "npm"
+	EcosystemPyPI   Ecosystem = "pypi"
+	EcosystemMaven  Ecosystem = "maven"
+	EcosystemCargo  Ecosystem = "cargo"
+	EcosystemGem    Ecosystem = "gem"
+	EcosystemGolang Ecosystem = "golang"
+	EcosystemPub    Ecosystem = "pub"
 )
 
 // Package is a resolved dependency.
@@ -61,6 +65,15 @@ func BuildPurl(p Package) string {
 	case EcosystemPyPI:
 		// PyPI names are case-insensitive; canonicalize to lowercase.
 		b.WriteString(encodePurlSegment(strings.ToLower(p.Name)))
+	case EcosystemGolang:
+		// Go module paths keep their slashes as namespace separators.
+		segs := strings.Split(p.Name, "/")
+		for i, s := range segs {
+			if i > 0 {
+				b.WriteString("/")
+			}
+			b.WriteString(encodePurlSegment(s))
+		}
 	default:
 		b.WriteString(encodePurlSegment(p.Name))
 	}

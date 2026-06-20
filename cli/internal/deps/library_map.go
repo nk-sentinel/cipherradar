@@ -32,11 +32,13 @@ var libTargets = map[string][]libTarget{
 	"ssl":               {{stdlib: true}},
 
 	// JavaScript / npm
-	"node-forge":    {{eco: EcosystemNPM, pkg: "node-forge", snippet: rx(`forge`)}},
-	"forge":         {{eco: EcosystemNPM, pkg: "node-forge", snippet: rx(`forge`)}},
-	"jwt":           {{eco: EcosystemNPM, pkg: "jsonwebtoken", snippet: rx(`jsonwebtoken|jwt`)}},
-	"jsonwebtoken":  {{eco: EcosystemNPM, pkg: "jsonwebtoken", snippet: rx(`jsonwebtoken|jwt`)}},
-	"bcrypt":        {{eco: EcosystemNPM, pkg: "bcrypt", snippet: rx(`bcrypt`)}},
+	"node-forge":   {{eco: EcosystemNPM, pkg: "node-forge", snippet: rx(`forge`)}},
+	"forge":        {{eco: EcosystemNPM, pkg: "node-forge", snippet: rx(`forge`)}},
+	"jwt":          {{eco: EcosystemNPM, pkg: "jsonwebtoken", snippet: rx(`jsonwebtoken|jwt`)}},
+	"jsonwebtoken": {{eco: EcosystemNPM, pkg: "jsonwebtoken", snippet: rx(`jsonwebtoken|jwt`)}},
+	// bcrypt exists as both an npm package and a Ruby gem; the project's
+	// manifest disambiguates which one is actually present.
+	"bcrypt":        {{eco: EcosystemNPM, pkg: "bcrypt", snippet: rx(`bcrypt`)}, {eco: EcosystemGem, pkg: "bcrypt", snippet: rx(`bcrypt`)}},
 	"argon2":        {{eco: EcosystemNPM, pkg: "argon2", snippet: rx(`argon2`)}},
 	"crypto-js":     {{eco: EcosystemNPM, pkg: "crypto-js", snippet: rx(`crypto-js`)}},
 	"nodejs-crypto": {{stdlib: true}},
@@ -47,9 +49,26 @@ var libTargets = map[string][]libTarget{
 	"bouncycastleprovider": {{eco: EcosystemMaven, pkg: "bcprov-jdk18on", group: "org.bouncycastle"}},
 	"jca":                  {{stdlib: true}},
 
-	// Other ecosystems we don't resolve versions for yet → name only / stdlib.
+	// Rust / Cargo
+	"ring":    {{eco: EcosystemCargo, pkg: "ring", snippet: rx(`ring`)}},
+	"rustls":  {{eco: EcosystemCargo, pkg: "rustls", snippet: rx(`rustls`)}},
+	"openssl": {{eco: EcosystemCargo, pkg: "openssl", snippet: rx(`openssl`)}},
+
+	// Ruby / RubyGems: openssl + digest are stdlib (no purl); bcrypt handled above.
+	"digest": {{stdlib: true}},
+
+	// Python additional
+	"pycrypto": {{eco: EcosystemPyPI, pkg: "pycryptodome", snippet: rx(`Crypto\.|Cryptodome`)}},
+
+	// Go: the standard library's crypto/* — no purl.
 	"go-crypto": {{stdlib: true}},
-	"mcrypt":    {{}}, // PHP extension; name surfaced, no purl
+
+	// Dart / pub.dev (both are real pub packages, not stdlib).
+	"pointycastle": {{eco: EcosystemPub, pkg: "pointycastle", snippet: rx(`pointycastle`)}},
+	"dart-crypto":  {{eco: EcosystemPub, pkg: "crypto", snippet: rx(`crypto`)}},
+
+	// PHP mcrypt extension; name surfaced, no purl.
+	"mcrypt": {{}},
 }
 
 // expandCandidates splits a coarse cbom-library token (e.g.
