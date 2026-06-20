@@ -42,7 +42,21 @@ credentials changes the tool's character and risk profile.
 ## Consequences
 
 - The default-password set is a maintained constant; additions are low-risk.
-- BKS (BouncyCastle keystores) are attempted via the JKS loader on a best-effort
-  basis; full BKS support is out of scope.
-- Base64-encoded certificates embedded in config/secret files are not yet
-  extracted (tracked as a follow-up).
+- **Known limitation — BKS keystores are presence-only.** There is no pure-Go
+  BKS parser (the format is BouncyCastle/Java-specific), so a `.bks` file yields
+  a path-stamped presence finding noting "format not parsed" — it is not run
+  through the JKS loader and is never misreported as password-locked.
+  **Why not via the JDK?** Enumerating BKS would mean shelling out to Java's
+  `keytool`, but `keytool` reads JKS/JCEKS/PKCS12 natively and **cannot** read
+  BKS without the BouncyCastle provider JAR (`-providerclass
+  org.bouncycastle.jce.provider.BouncyCastleProvider -providerpath bcprov.jar`).
+  So even a machine with Java installed cannot enumerate BKS unless `bcprov.jar`
+  is also provisioned. A `keytool` subprocess path is therefore **deliberately
+  not implemented**: it would add a Java runtime dependency (breaking the
+  pure-Go / no-runtime default) and BKS would still need a separate BouncyCastle
+  JAR. **Workaround:** convert the store out-of-band
+  (`keytool -importkeystore -srcstoretype BKS -deststoretype PKCS12`) and scan
+  the resulting `.p12`, which cradar reads natively.
+- Base64-encoded certificates embedded in Kubernetes Secret data are now
+  decoded (`cbom-configfile-k8s-cert`); inline PEM in any text config was
+  already covered by the universal regex scanner.

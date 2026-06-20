@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -156,5 +157,32 @@ func TestUserWordlistUnlocks(t *testing.T) {
 	}
 	if got := countCerts(after); got != 1 {
 		t.Errorf("expected 1 cert after wordlist unlock, got %d", got)
+	}
+}
+
+func TestBKS_PresenceOnlyNotMisreportedAsLocked(t *testing.T) {
+	// Any bytes with a .bks extension: we can't parse BKS, but we must report
+	// presence honestly (format not parsed) — not as a password-locked store.
+	findings, err := New().ScanFile("truststore.bks", []byte("\xfe\xed\xfe\xed\x00\x00\x00\x02 not-a-real-bks"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasRule(findings, "cbom-keystore-present") {
+		t.Fatal("expected a presence finding for the .bks file")
+	}
+	if countCerts(findings) != 0 {
+		t.Errorf("BKS should not enumerate certs, got %d", countCerts(findings))
+	}
+	var present *types.Finding
+	for i := range findings {
+		if findings[i].RuleID == "cbom-keystore-present" {
+			present = &findings[i]
+		}
+	}
+	if present == nil || !strings.Contains(present.Description, "format not parsed") {
+		t.Errorf("BKS presence finding should say 'format not parsed', got: %q", present.Description)
+	}
+	if strings.Contains(present.Description, "password") {
+		t.Errorf("BKS finding must not blame a password: %q", present.Description)
 	}
 }

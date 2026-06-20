@@ -69,6 +69,14 @@ func (s *Scanner) ScanFile(path string, content []byte) ([]types.Finding, error)
 	candidates := passwordCandidates(path)
 	ext := strings.ToLower(filepath.Ext(path))
 
+	// BKS is a BouncyCastle-proprietary format with no pure-Go parser; report
+	// its presence honestly rather than misattributing the failure to a password.
+	if ext == ".bks" {
+		return scanner.AnnotateFindings([]types.Finding{
+			keystorePresenceFinding(path, ext, false, false, reasonUnsupported),
+		}), nil
+	}
+
 	var certs []*x509.Certificate
 	var matchedPwd string
 	var opened, hasPrivateKey bool
@@ -77,11 +85,11 @@ func (s *Scanner) ScanFile(path string, content []byte) ([]types.Finding, error)
 	case ".p12", ".pfx":
 		certs, matchedPwd, opened = openPKCS12(content, candidates)
 		hasPrivateKey = opened // DecodeChain implies a key entry was present
-	default: // .jks, .keystore, .truststore, .bks (best effort via JKS loader)
+	default: // .jks, .keystore, .truststore (best effort via JKS loader)
 		certs, matchedPwd, opened, hasPrivateKey = openJKS(content, candidates)
 	}
 
-	findings := []types.Finding{keystorePresenceFinding(path, ext, opened, hasPrivateKey)}
+	findings := []types.Finding{keystorePresenceFinding(path, ext, opened, hasPrivateKey, reasonLocked)}
 
 	if !opened {
 		return scanner.AnnotateFindings(findings), nil
