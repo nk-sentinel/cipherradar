@@ -118,7 +118,22 @@ func ResolveLibrary(ix *Index, libToken, snippet, fromFile string) (Package, boo
 	}
 
 	// Index confirmation — the manifest both disambiguates and supplies a version.
+	// Pass 1 prefers a manifest that is an ancestor of the finding's file, so a
+	// package name present in multiple ecosystems (e.g. bcrypt = npm + gem)
+	// resolves to the one matching the file's own project. Pass 2 allows the
+	// cross-tree fallback.
 	if ix != nil && !ix.Empty() {
+		for _, t := range targets {
+			if t.stdlib || t.pkg == "" {
+				continue
+			}
+			if p, ok := ix.ResolveAncestor(t.eco, t.pkg, fromFile); ok {
+				if p.Group == "" {
+					p.Group = t.group
+				}
+				return p, true
+			}
+		}
 		for _, t := range targets {
 			if t.stdlib || t.pkg == "" {
 				continue
