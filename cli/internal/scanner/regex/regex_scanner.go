@@ -366,16 +366,12 @@ func (s *RegexScanner) compilePEMPatterns() {
 			category:     types.CategoryInventory,
 			primitive:    "PUBLIC-KEY",
 		},
-		{
-			re:           regexp.MustCompile(`-----BEGIN CERTIFICATE-----`),
-			name:         "Certificate",
-			assetType:    types.AssetCertificate,
-			severity:     types.SeverityInfo,
-			materialType: "",
-			ruleID:       "cbom-regex-pem-certificate",
-			category:     types.CategoryInventory,
-			primitive:    "CERTIFICATE-X509",
-		},
+		// NOTE: BEGIN CERTIFICATE is intentionally NOT a pemPattern. PEM
+		// certificate blocks are handled exclusively by parseCertificateBlocks
+		// (called from ScanFile), which emits exactly one finding per block —
+		// fully parsed (subject/issuer/extensions/format) when valid, or
+		// "unparseable" otherwise. A generic regex pattern here would emit a
+		// second, bare "Certificate" finding for the same bytes (double-count).
 	}
 }
 
@@ -408,9 +404,13 @@ func (s *RegexScanner) compileAlgoPatterns() {
 		prim    string
 		quantum types.QuantumStatus
 	}{
-		{`\bSHA-?256\b`, "SHA-256", "sha", "hash", types.QuantumVulnerable},
-		{`\bAES-?128\b`, "AES-128", "aes", "block-cipher", types.QuantumVulnerable},
-		{`\bAES-?256\b`, "AES-256", "aes", "block-cipher", types.QuantumVulnerable},
+		{`\bSHA-?256\b`, "SHA-256", "sha", "hash", types.QuantumSafe},
+		{`\bAES-?128\b`, "AES-128", "aes", "block-cipher", types.QuantumSafe},
+		{`\bAES-?256\b`, "AES-256", "aes", "block-cipher", types.QuantumSafe},
+		// RSA is quantum-vulnerable (Shor); it lives in this list only because it
+		// is not a *broken* primitive. SHA-256/AES-128/AES-256 are quantum-safe
+		// (≥128-bit PQ security) — labeling them vulnerable produced a false HNDL
+		// migration priority on quantum-safe inventory.
 		{`\bRSA\b`, "RSA", "rsa", "pke", types.QuantumVulnerable},
 	}
 

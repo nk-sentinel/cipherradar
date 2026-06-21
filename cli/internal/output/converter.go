@@ -854,10 +854,38 @@ func convertAlgorithmProperties(p *types.CryptoProperties) *cyclonedx17.Algorith
 	return ap
 }
 
+// validProtocolTypes is the closed set of protocolProperties.type values the
+// CycloneDX 1.7 schema permits. Emitting anything outside it fails --validate
+// (ADR-001).
+var validProtocolTypes = map[string]bool{
+	"tls": true, "ssh": true, "ipsec": true, "ike": true, "sstp": true,
+	"wpa": true, "dtls": true, "quic": true, "eap-aka": true,
+	"eap-aka-prime": true, "prins": true, "5g-aka": true,
+	"other": true, "unknown": true,
+}
+
+// normalizeProtocolType maps an internal protocol token to a CycloneDX 1.7
+// schema-valid protocolProperties.type. SSL has no enum value of its own — it
+// folds into the TLS family (the SSL version, e.g. "SSLv3", is preserved in the
+// version field). Valid values pass through; anything else becomes "other".
+func normalizeProtocolType(internal string) string {
+	if internal == "" {
+		return ""
+	}
+	key := strings.ToLower(strings.TrimSpace(internal))
+	if key == "ssl" {
+		return "tls"
+	}
+	if validProtocolTypes[key] {
+		return key
+	}
+	return "other"
+}
+
 // convertProtocolProperties maps types.CryptoProperties to CycloneDX ProtocolProperties.
 func convertProtocolProperties(p *types.CryptoProperties) *cyclonedx17.ProtocolProperties {
 	pp := &cyclonedx17.ProtocolProperties{
-		Type:    p.ProtocolType,
+		Type:    normalizeProtocolType(p.ProtocolType),
 		Version: p.ProtocolVersion,
 	}
 

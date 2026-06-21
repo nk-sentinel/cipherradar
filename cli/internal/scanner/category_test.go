@@ -31,7 +31,7 @@ func TestClassifyRule(t *testing.T) {
 		{"cbom-go-tls-10", types.SeverityMedium, types.CategorySecurity},
 		// Inventory tokens
 		{"cbom-python-cryptography-import", types.SeverityInfo, types.CategoryInventory},
-		{"cbom-regex-pem-certificate", types.SeverityInfo, types.CategoryInventory},
+		{"cbom-regex-pem-certificate-parse", types.SeverityInfo, types.CategoryInventory},
 		{"cbom-rust-rustls-cipher-suite", types.SeverityInfo, types.CategoryInventory},
 		{"cbom-java-jca-keysize", types.SeverityInfo, types.CategoryInventory},
 		// Severity fallback
