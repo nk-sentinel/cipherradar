@@ -427,3 +427,29 @@ func TestNormalizeRelatedCryptoMaterialType_UnknownFallsBackToOther(t *testing.T
 		t.Errorf("key-store = %q, want other", got)
 	}
 }
+
+func TestNormalizeProtocolType_SchemaValid(t *testing.T) {
+	// SSL has no CycloneDX 1.7 enum value — it must fold into the TLS family
+	// (the SSL version is preserved separately in protocolProperties.version).
+	for _, ssl := range []string{"ssl", "SSL", " Ssl "} {
+		if got := normalizeProtocolType(ssl); got != "tls" {
+			t.Errorf("normalizeProtocolType(%q) = %q, want tls", ssl, got)
+		}
+	}
+	// Valid enum values pass through (case-insensitive).
+	for _, ok := range []string{"tls", "ssh", "dtls", "ipsec", "quic", "5g-aka"} {
+		if got := normalizeProtocolType(ok); got != ok {
+			t.Errorf("normalizeProtocolType(%q) = %q, want unchanged", ok, got)
+		}
+	}
+	if got := normalizeProtocolType("SSH"); got != "ssh" {
+		t.Errorf("normalizeProtocolType(SSH) = %q, want ssh", got)
+	}
+	// Unknown protocols fall back to other; empty stays empty (omitted).
+	if got := normalizeProtocolType("wireguard"); got != "other" {
+		t.Errorf("normalizeProtocolType(wireguard) = %q, want other", got)
+	}
+	if got := normalizeProtocolType(""); got != "" {
+		t.Errorf("normalizeProtocolType(\"\") = %q, want \"\"", got)
+	}
+}
