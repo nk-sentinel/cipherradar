@@ -4,6 +4,48 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.4.0-rc.2 — 2026-06-21
+
+Quality, schema-correctness, and supply-chain hardening follow-up to rc.1.
+A full regression + non-functional + FP/FN/TP pass drove every change below;
+CBOM output is now clean under strict CycloneDX 1.7 enum validation.
+
+### CBOM schema correctness
+- Protocol findings emit a schema-valid `protocolProperties.type`: SSL now folds
+  into the `tls` family (the SSL version is preserved in `version`) instead of
+  the out-of-enum `ssl`, which had failed `--validate` on any repo with SSL
+  detections.
+- KDF inventory rules report `assetType: algorithm` (with the KDF primitive)
+  rather than the non-enum `key-derivation-function` — output is now clean under
+  `--strict-validate` (zero normalization violations).
+
+### Detection quality
+- PEM certificates are no longer double-counted: the deep certificate parser is
+  the single source for `BEGIN CERTIFICATE` blocks (one finding per block, fully
+  parsed or marked unparseable).
+- SHA-256, AES-128, and AES-256 are correctly classified quantum-safe — they no
+  longer carry a false harvest-now-decrypt-later migration priority.
+- Pass 3 (YARA-X) findings carry clean algorithm/family/version/material
+  metadata, and build-output directories (`dist/`, `build/`, `bin/`, …) are
+  scanned under `--deep`/`--passes 3` without needing `--no-default-ignores`.
+
+### Reporting
+- Scans report the full elapsed time across all passes, not just Pass 1.
+- Dependency/library resolution from `package-lock.json` is deterministic.
+
+### Supply chain & CI
+- Release and CI pipelines gate on security scans: `govulncheck` (SCA) is a hard
+  gate and `gosec` (SAST) runs advisory, so a build with a reachable
+  vulnerability is never published.
+- Cleared all reachable Go vulnerabilities (toolchain 1.26.4; `x/crypto`,
+  `x/image` updated).
+
+### Release process
+- GitHub Release notes are generated from the curated CHANGELOG section for the
+  tag instead of the raw per-PR list.
+
+---
+
 ## 0.4.0-rc.1 — 2026-06-21
 
 CBOM output-quality and coverage release: exact library identification, a
