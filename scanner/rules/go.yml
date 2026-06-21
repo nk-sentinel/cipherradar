@@ -153,7 +153,7 @@ rules:
     languages: [go]
     metadata:
       category: inventory
-      cbom-asset-type: key-derivation-function
+      cbom-asset-type: algorithm
       cbom-primitive: SCRYPT
       confidence: high
       quantum-relevant: false
@@ -172,7 +172,7 @@ rules:
     languages: [go]
     metadata:
       category: inventory
-      cbom-asset-type: key-derivation-function
+      cbom-asset-type: algorithm
       cbom-primitive: ARGON2ID
       confidence: high
       quantum-relevant: false
