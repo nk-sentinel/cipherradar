@@ -48,45 +48,76 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
 
+      # Assemble human-readable release notes. The "What's Changed" summary is
+      # the curated, grouped section for this version from CHANGELOG.md — NOT the
+      # auto-generated per-PR firehose (generate_release_notes is off below). The
+      # CHANGELOG is the single source of truth; keep it current per release.
+      - name: Assemble release notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Extract this version's section: from its "## <version> …" heading up
+          # to (but excluding) the next "## " heading. Literal prefix match — no
+          # regex, so version metachars (. -) can't misbehave.
+          awk -v ver="## ${VERSION}" '
+            substr($0,1,length(ver))==ver && (substr($0,length(ver)+1,1)==" " || substr($0,length(ver)+1,1)=="") {flag=1; next}
+            /^## / && flag {flag=0}
+            flag {print}
+          ' CHANGELOG.md > changelog-section.md
+          if [ ! -s changelog-section.md ]; then
+            echo "::warning::No CHANGELOG.md section found for ${VERSION}; release notes will omit the change summary. Add a '## ${VERSION}' section to CHANGELOG.md before tagging."
+          fi
+          {
+            echo "## CipherRadar ${GITHUB_REF_NAME}"
+            echo
+            echo "### Downloads"
+            echo
+            echo "| Platform | Lightweight | Full (+ OpenGrep + YARA-X) |"
+            echo "|---|---|---|"
+            echo "| Linux x86_64 | \`cradar_*_linux_amd64.tar.gz\` | \`cradar-full_*_linux_amd64.tar.gz\` |"
+            echo "| macOS ARM64 | \`cradar_*_darwin_arm64.tar.gz\` | \`cradar-full_*_darwin_arm64.tar.gz\` |"
+            echo "| Windows x86_64 | \`cradar_*_windows_amd64.zip\` | \`cradar-full_*_windows_amd64.zip\` |"
+            echo
+            if [ -s changelog-section.md ]; then
+              echo "## What's Changed"
+              cat changelog-section.md
+              echo
+            fi
+            echo "### Quick Start"
+            echo '```bash'
+            echo "# Download and extract"
+            echo 'tar xzf cradar_*_$(uname -s | tr A-Z a-z)_$(uname -m).tar.gz'
+            echo
+            echo "# Scan a project"
+            echo "./cradar scan /path/to/project --format text"
+            echo
+            echo "# Generate CycloneDX 1.7 CBOM"
+            echo "./cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate"
+            echo
+            echo "# Install OpenGrep + YARA-X (if using lightweight)"
+            echo "./cradar install-tools"
+            echo '```'
+            echo
+            echo "### What's Included"
+            echo "- **cradar** (lightweight, ~15 MB): 3-pass scanner (tree-sitter → OpenGrep → YARA-X; Pass 3 opt-in via \`--deep\`), 12 languages, CycloneDX 1.7 output"
+            echo "- **cradar-full** (~55 MB): Same binary + OpenGrep + YARA-X pre-bundled for air-gapped environments"
+            echo
+            echo "\`checksums.txt\` (SHA-256 of every archive) is attached once all platform builds complete."
+            echo
+            echo "See [CHANGELOG](https://github.com/nk-sentinel/cipherradar/blob/main/CHANGELOG.md) for full details."
+          } > RELEASE_NOTES.md
+          echo "=== assembled release notes ==="
+          cat RELEASE_NOTES.md
+        shell: bash
+
       - name: Create the GitHub Release shell
         uses: softprops/action-gh-release@v2
         with:
           name: "CipherRadar ${{ github.ref_name }}"
           draft: false
-          generate_release_notes: true
-          body: |
-            ## CipherRadar ${{ github.ref_name }}
-
-            ### Downloads
-
-            | Platform | Lightweight | Full (+ OpenGrep + YARA-X) |
-            |---|---|---|
-            | Linux x86_64 | `cradar_*_linux_amd64.tar.gz` | `cradar-full_*_linux_amd64.tar.gz` |
-            | macOS ARM64 | `cradar_*_darwin_arm64.tar.gz` | `cradar-full_*_darwin_arm64.tar.gz` |
-            | Windows x86_64 | `cradar_*_windows_amd64.zip` | `cradar-full_*_windows_amd64.zip` |
-
-            ### Quick Start
-            ```bash
-            # Download and extract
-            tar xzf cradar_*_$(uname -s | tr A-Z a-z)_$(uname -m).tar.gz
-
-            # Scan a project
-            ./cradar scan /path/to/project --format text
-
-            # Generate CycloneDX 1.7 CBOM
-            ./cradar scan /path/to/project --format cyclonedx-json --output cbom.json --validate
-
-            # Install OpenGrep + YARA-X (if using lightweight)
-            ./cradar install-tools
-            ```
-
-            ### What's Included
-            - **cradar** (lightweight, ~15 MB): 3-pass scanner (tree-sitter → OpenGrep → YARA-X; Pass 3 opt-in via `--deep`), 12 languages, CycloneDX 1.7 output
-            - **cradar-full** (~55 MB): Same binary + OpenGrep + YARA-X pre-bundled for air-gapped environments
-
-            `checksums.txt` (SHA-256 of every archive) is attached once all platform builds complete.
-
-            See [CHANGELOG](https://github.com/nk-sentinel/cipherradar/blob/main/CHANGELOG.md) for full details.
+          # Off by design: we ship a curated, grouped summary from CHANGELOG.md
+          # instead of the per-PR auto list, which had grown too long to scan.
+          generate_release_notes: false
+          body_path: RELEASE_NOTES.md
 
   build:
     needs: create-release
