@@ -374,6 +374,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Stamp the full scan wall-clock. Both StartTime and EndTime were previously
+	// set inside the scanner (ScanDir / container.ScanImage) and only spanned
+	// Pass 1, so the reported "complete in" duration omitted Pass 2/3, baseline,
+	// enrichment, and conversion — making a minute-long scan read as a few ms.
+	// Set the true span here, before any writer (text/PDF) or the summary renders it.
+	result.StartTime = startedAt
+	result.EndTime = time.Now()
+
 	// Resolve output destinations (ADR-037: repeatable --output).
 	// Precedence for each destination's format: extension dispatch >
 	// --format override (applied when exactly one output and --format set) >
