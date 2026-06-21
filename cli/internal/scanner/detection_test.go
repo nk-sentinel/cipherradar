@@ -217,17 +217,9 @@ func TestCertificateParsing(t *testing.T) {
 		t.Fatalf("ScanFile failed: %v", err)
 	}
 
-	// Should find the certificate header
-	certHeader := findMatch(findings, func(f types.Finding) bool {
-		return f.RuleID == "cbom-regex-pem-certificate" &&
-			f.AssetType == types.AssetCertificate
-	})
-	if certHeader == nil {
-		t.Error("expected certificate PEM header finding")
-		logFindings(t, findings)
-	}
-
-	// Should also have a certificate parse attempt. A successfully parsed cert
+	// The certificate is detected solely by parseCertificateBlocks now (the
+	// generic cbom-regex-pem-certificate header pattern was removed to avoid
+	// double-counting). A successfully parsed cert
 	// now reports certificateFormat "X.509"; an unparseable block keeps "PEM".
 	certParsed := findMatch(findings, func(f types.Finding) bool {
 		return (f.RuleID == "cbom-regex-pem-certificate-parsed" || f.RuleID == "cbom-regex-pem-certificate-parse") &&

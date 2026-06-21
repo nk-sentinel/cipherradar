@@ -52,7 +52,10 @@ func TestPEMDetection(t *testing.T) {
 	// Check specific PEM types are found
 	assertFindingExists(t, pemFindings, "RSA Private Key", "cbom-regex-pem-rsa-private")
 	assertFindingExists(t, pemFindings, "EC Private Key", "cbom-regex-pem-ec-private")
-	assertFindingExists(t, pemFindings, "Certificate", "cbom-regex-pem-certificate")
+	// The CERTIFICATE block is handled by parseCertificateBlocks (not a generic
+	// pemPattern), so it surfaces as a parsed X.509 finding, not a bare
+	// "Certificate". Assert by rule ID since the name embeds the subject CN.
+	assertRuleFired(t, pemFindings, "cbom-regex-pem-certificate-parsed")
 
 	// Verify severity for private keys is HIGH
 	for _, f := range pemFindings {
@@ -115,12 +118,21 @@ safe_hash = "SHA-256"
 		}
 	}
 
-	// Safe algorithms should be INFO severity
+	// Safe algorithms should be INFO severity AND quantum-safe (regression guard:
+	// AES-256/SHA-256 were once mislabeled quantum-vulnerable, producing a false
+	// HNDL migration priority on quantum-safe inventory).
 	for _, f := range algoFindings {
-		if f.Name == "AES-256" || f.Name == "SHA-256" {
+		if f.Name == "AES-256" || f.Name == "SHA-256" || f.Name == "AES-128" {
 			if f.Severity != types.SeverityInfo {
 				t.Errorf("expected INFO severity for safe algo %q, got %s", f.Name, f.Severity)
 			}
+			if f.Properties.QuantumStatus != types.QuantumSafe {
+				t.Errorf("expected quantum-safe for %q, got %q", f.Name, f.Properties.QuantumStatus)
+			}
+		}
+		// RSA stays quantum-vulnerable even in this "non-broken" list.
+		if f.Name == "RSA" && f.Properties.QuantumStatus != types.QuantumVulnerable {
+			t.Errorf("expected quantum-vulnerable for RSA, got %q", f.Properties.QuantumStatus)
 		}
 	}
 }
@@ -275,7 +287,6 @@ func TestPEMFindingsAreInventory(t *testing.T) {
 		"cbom-regex-pem-pkcs8-private":     "PRIVATE-KEY-PEM",
 		"cbom-regex-pem-encrypted-private": "PRIVATE-KEY-PEM",
 		"cbom-regex-pem-public":            "PUBLIC-KEY",
-		"cbom-regex-pem-certificate":       "CERTIFICATE-X509",
 		"cbom-regex-pem-certificate-parse": "CERTIFICATE-X509",
 	}
 
@@ -302,9 +313,9 @@ func TestPEMFindingsAreInventory(t *testing.T) {
 	if !seenRules["cbom-regex-pem-ec-private"] {
 		t.Error("expected cbom-regex-pem-ec-private to fire on fixture")
 	}
-	if !seenRules["cbom-regex-pem-certificate"] {
-		t.Error("expected cbom-regex-pem-certificate to fire on fixture")
-	}
+	// The CERTIFICATE block in the fixture is an expired cert, so it is now a
+	// security finding (cbom-regex-pem-certificate-parsed), not an inventory one
+	// — deliberately not asserted here. See TestPEMDetection for cert coverage.
 }
 
 // --- helpers ---
@@ -444,6 +455,22 @@ func filterByRuleID(findings []types.Finding, ruleID string) []types.Finding {
 		}
 	}
 	return filtered
+}
+
+// assertRuleFired asserts at least one finding has the given rule ID, without
+// pinning the finding name (useful for parsed-cert findings whose name embeds
+// the subject CN).
+func assertRuleFired(t *testing.T, findings []types.Finding, ruleID string) {
+	t.Helper()
+	for _, f := range findings {
+		if f.RuleID == ruleID {
+			return
+		}
+	}
+	t.Errorf("expected a finding with ruleID=%q, not found among %d findings", ruleID, len(findings))
+	for _, f := range findings {
+		t.Logf("  found: name=%q ruleID=%q", f.Name, f.RuleID)
+	}
 }
 
 func assertFindingExists(t *testing.T, findings []types.Finding, name, ruleID string) {
