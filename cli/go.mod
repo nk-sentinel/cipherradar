@@ -1,17 +1,18 @@
 module github.com/nk-sentinel/cipherradar/cli
 
-go 1.26.1
+go 1.26.4
 
 require (
 	github.com/google/go-containerregistry v0.21.3
 	github.com/hhrutter/pkcs7 v0.2.0
 	github.com/johnfercher/maroto/v2 v2.4.0
 	github.com/pavlo-v-chernykh/keystore-go/v4 v4.5.0
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/smacker/go-tree-sitter v0.0.0-20240827094217-dd81d9e9be82
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	golang.org/x/crypto v0.49.0
+	golang.org/x/crypto v0.53.0
 	gonum.org/v1/plot v0.17.0
 	gopkg.in/yaml.v3 v3.0.1
 	software.sslmate.com/src/go-pkcs12 v0.7.2
@@ -44,13 +45,12 @@ require (
 	github.com/pdfcpu/pdfcpu v0.11.1 // indirect
 	github.com/phpdave11/gofpdf v1.4.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/sirupsen/logrus v1.9.4 // indirect
 	github.com/vbatts/tar-split v0.12.2 // indirect
-	golang.org/x/image v0.37.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.42.0 // indirect
-	golang.org/x/text v0.35.0 // indirect
+	golang.org/x/image v0.43.0 // indirect
+	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/text v0.38.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gotest.tools/v3 v3.5.2 // indirect
 )
