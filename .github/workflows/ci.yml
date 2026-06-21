@@ -64,6 +64,36 @@ jobs:
         run: |
           ./cradar scan ../scanner/rules/ --format text --passes 1 | head -20
 
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache-dependency-path: cli/go.sum
+
+      # SCA — hard gate. govulncheck does reachability analysis over the build
+      # graph (stdlib + modules) and exits non-zero on any *reachable*
+      # vulnerability, so a CLI with a known-exploitable dependency/stdlib vuln
+      # cannot pass CI (or, via the same step in release.yml, be released).
+      - name: govulncheck (SCA)
+        working-directory: cli
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      # SAST — report-only for now (baseline triage tracked in #74). Excludes
+      # test fixtures, which intentionally contain weak crypto. Flip
+      # continue-on-error to false once the baseline is clean/annotated.
+      - name: gosec (SAST, advisory)
+        working-directory: cli
+        continue-on-error: true
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -quiet -exclude-dir=testdata ./...
+
   validate-rules:
     runs-on: ubuntu-latest
     steps:
