@@ -33,6 +33,21 @@ jobs:
           fi
         shell: bash
 
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache-dependency-path: cli/go.sum
+
+      # SCA gate — block the release if the CLI has any reachable vulnerability
+      # (stdlib or dependency). Runs before the GitHub Release is created so a
+      # vulnerable build is never published. govulncheck exits non-zero on
+      # reachable vulns.
+      - name: govulncheck (SCA release gate)
+        working-directory: cli
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
       - name: Create the GitHub Release shell
         uses: softprops/action-gh-release@v2
         with:
