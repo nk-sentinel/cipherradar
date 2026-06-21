@@ -983,6 +983,13 @@ func enrichLibraries(cmd *cobra.Command, result *types.ScanResult) {
 		if f.Properties.Library == "" {
 			continue
 		}
+		// Pass-3 (YARA-X binary) library detections carry their own version from
+		// the binary; resolving them against the project's *source* manifests
+		// would attach a wrong purl (e.g. a binary OpenSSL matching the repo's
+		// Rust openssl crate). Leave binary findings to their YARA-derived version.
+		if f.Pass == 3 {
+			continue
+		}
 		// Finding paths are root-relative; rejoin so nearest-ancestor manifest
 		// resolution shares the index's coordinate space.
 		fromFile := filepath.Join(root, f.Location.File)

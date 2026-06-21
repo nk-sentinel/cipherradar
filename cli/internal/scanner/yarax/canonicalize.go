@@ -114,6 +114,67 @@ func applyMeta(f *types.Finding, m yaraMeta) {
 
 	f.Properties.AlgorithmPrimitive = resolvePrimitive(m.CbomPrimitive)
 	f.Properties.Library = m.CbomLibrary
+
+	// Pass-3 findings default Name/RuleID to the raw YARA rule id (e.g.
+	// "md5_constants"). Upgrade to a clean, consumer-facing model using the
+	// rule's metadata, so binary findings are first-class CBOM components rather
+	// than rule-id dumps.
+	token := strings.TrimSpace(m.CbomPrimitive)
+	switch f.AssetType {
+	case types.AssetAlgorithm:
+		if token != "" {
+			f.Name = token                                 // e.g. "AES", "MD5", "SHA256"
+			f.Properties.AlgorithmFamily = familyFromToken(token) // populate algorithmFamily
+		}
+	case types.AssetCertificate:
+		f.Name = "X.509 certificate (embedded)"
+	case types.AssetRelatedCryptoMaterial:
+		// Embedded key material — shipping a private key in a binary is a leak.
+		if strings.Contains(strings.ToLower(f.RuleID), "private") {
+			f.Properties.MaterialType = "private-key"
+			f.Severity = types.SeverityHigh
+			name := token
+			if name == "" {
+				name = "Private key"
+			} else {
+				name += " private key"
+			}
+			f.Name = name
+		}
+	default:
+		// Library detections (cbom_asset_type: library). Use the library name and
+		// pull the version out of the canonical token (e.g. "OPENSSL-3.1" -> 3.1).
+		if m.CbomLibrary != "" {
+			f.Name = m.CbomLibrary
+			if v := versionFromToken(token, m.CbomLibrary); v != "" {
+				f.Properties.LibraryVersion = v
+			}
+		}
+	}
+}
+
+// familyFromToken derives a CycloneDX-mappable algorithm family from a canonical
+// Pass-3 token (e.g. "AES" -> "aes", "SHA256" -> "sha256"). The output converter
+// normalizes/omits anything it doesn't recognize, so a non-family token is safe.
+func familyFromToken(token string) string {
+	return strings.ToLower(strings.TrimSpace(token))
+}
+
+// versionFromToken extracts a version embedded in a library token, e.g.
+// "OPENSSL-3.1" / "openssl" -> "3.1". Returns "" when no version is present.
+func versionFromToken(token, lib string) string {
+	t := strings.TrimSpace(token)
+	if t == "" {
+		return ""
+	}
+	// Strip a leading "<LIB>-" prefix (case-insensitive) then keep a version-ish tail.
+	if i := strings.IndexByte(t, '-'); i >= 0 {
+		tail := t[i+1:]
+		if tail != "" && (tail[0] >= '0' && tail[0] <= '9') {
+			return tail
+		}
+	}
+	return ""
 }
 
 // resolvePrimitive applies the OpenGrep canonicalizer to a raw

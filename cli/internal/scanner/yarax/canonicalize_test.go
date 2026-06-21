@@ -166,3 +166,29 @@ func TestResolvePrimitive_CanonicalizerWiredThrough(t *testing.T) {
 		t.Errorf("empty input should round-trip empty, got %q", got)
 	}
 }
+
+func TestApplyMeta_Pass3Quality(t *testing.T) {
+	// Algorithm: clean name + family from the canonical token.
+	alg := &types.Finding{RuleID: "md5_constants", Name: "md5_constants"}
+	applyMeta(alg, yaraMeta{CbomPrimitive: "MD5", CbomAssetType: "algorithm", DefaultEnabled: true})
+	if alg.Name != "MD5" || alg.Properties.AlgorithmFamily != "md5" {
+		t.Errorf("algorithm: name=%q family=%q, want MD5/md5", alg.Name, alg.Properties.AlgorithmFamily)
+	}
+
+	// Embedded private key: typed private-key + raised severity + clean name.
+	key := &types.Finding{RuleID: "embedded_pem_rsa_private", Name: "embedded_pem_rsa_private"}
+	applyMeta(key, yaraMeta{CbomPrimitive: "RSA", CbomAssetType: "related-crypto-material", DefaultEnabled: true})
+	if key.Properties.MaterialType != "private-key" || key.Severity != types.SeverityHigh {
+		t.Errorf("key: matType=%q sev=%q, want private-key/high", key.Properties.MaterialType, key.Severity)
+	}
+	if key.Name != "RSA private key" {
+		t.Errorf("key name = %q, want 'RSA private key'", key.Name)
+	}
+
+	// Library: clean name + version extracted from the token (no source purl here).
+	lib := &types.Finding{RuleID: "openssl_version_3_1", Name: "openssl_version_3_1"}
+	applyMeta(lib, yaraMeta{CbomPrimitive: "OPENSSL-3.1", CbomAssetType: "library", CbomLibrary: "openssl", DefaultEnabled: true})
+	if lib.Name != "openssl" || lib.Properties.LibraryVersion != "3.1" {
+		t.Errorf("lib: name=%q version=%q, want openssl/3.1", lib.Name, lib.Properties.LibraryVersion)
+	}
+}
