@@ -217,7 +217,7 @@ rules:
     languages: [java]
     metadata:
       category: inventory
-      cbom-asset-type: key-derivation-function
+      cbom-asset-type: algorithm
       cbom-primitive: PBKDF2
       confidence: high
       quantum-relevant: false
