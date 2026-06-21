@@ -19,18 +19,25 @@ import (
 )
 
 // defaultSkipDirs are directory names skipped by the built-in defaults.
-var defaultSkipDirs = map[string]bool{
+// vendorSkipDirs are always skipped (VCS, dependencies/vendor, tool workdirs) —
+// they never contain first-party artifacts worth scanning, including under Pass 3.
+var vendorSkipDirs = map[string]bool{
 	// VCS
 	".git": true,
 	// Dependencies / vendor
 	"node_modules": true, "vendor": true, ".venv": true, "venv": true,
-	"site-packages": true, "bower_components": true, "Pods": true,
-	// Build output
-	"target": true, "build": true, "dist": true, "out": true,
-	"bin": true, "obj": true, "__pycache__": true,
+	"site-packages": true, "bower_components": true, "Pods": true, "__pycache__": true,
 	// Other tools' working directories
 	".scannerwork": true, ".gradle": true, ".terraform": true,
 	".pytest_cache": true, ".idea": true, ".vscode": true,
+}
+
+// buildOutputDirs are skipped for source passes but NOT when Pass 3 (YARA-X
+// binary scanning) is enabled — compiled binaries live exactly here, so skipping
+// them would make `--deep` silently miss its targets (gh #74-adjacent).
+var buildOutputDirs = map[string]bool{
+	"target": true, "build": true, "dist": true, "out": true,
+	"bin": true, "obj": true,
 }
 
 // defaultFileGlobs are file-name patterns skipped by the built-in defaults:
@@ -43,16 +50,22 @@ var defaultFileGlobs = []string{
 // Matcher decides whether paths are ignored. The zero value ignores nothing;
 // construct with New.
 type Matcher struct {
-	useDefaults bool
-	git         *gitignore.GitIgnore // compiled root .gitignore (nil if absent/disabled)
-	cradar      *gitignore.GitIgnore // compiled root .cradarignore (nil if absent)
+	useDefaults  bool
+	scanBinaries bool                 // Pass 3 active: do not skip build-output dirs
+	git          *gitignore.GitIgnore // compiled root .gitignore (nil if absent/disabled)
+	cradar       *gitignore.GitIgnore // compiled root .cradarignore (nil if absent)
 }
 
 // New builds a Matcher for a scan rooted at root. useDefaults toggles the
 // built-in default ignores; useGitignore toggles honoring .gitignore. A
 // .cradarignore at root is always honored when present.
-func New(root string, useDefaults, useGitignore bool) *Matcher {
-	m := &Matcher{useDefaults: useDefaults}
+//
+// scanBinaries signals that Pass 3 (YARA-X binary scanning) is active; when
+// true, build-output directories (target/build/dist/out/bin/obj) are NOT
+// pruned by the built-in defaults, because that is where compiled binaries
+// live. Vendor/dependency/tool dirs are always pruned regardless.
+func New(root string, useDefaults, useGitignore, scanBinaries bool) *Matcher {
+	m := &Matcher{useDefaults: useDefaults, scanBinaries: scanBinaries}
 	if useGitignore {
 		if gi, err := gitignore.CompileIgnoreFile(filepath.Join(root, ".gitignore")); err == nil {
 			m.git = gi
@@ -67,8 +80,15 @@ func New(root string, useDefaults, useGitignore bool) *Matcher {
 // SkipDir reports whether a directory (relPath relative to the scan root, name
 // its base) should be skipped, pruning the whole subtree.
 func (m *Matcher) SkipDir(relPath, name string) bool {
-	if m.useDefaults && defaultSkipDirs[name] {
-		return true
+	if m.useDefaults {
+		if vendorSkipDirs[name] {
+			return true
+		}
+		// Build-output dirs are only pruned when Pass 3 is NOT scanning
+		// binaries — otherwise --deep would silently miss its targets.
+		if !m.scanBinaries && buildOutputDirs[name] {
+			return true
+		}
 	}
 	// gitignore-style matchers expect a trailing slash to match dir rules.
 	rel := filepath.ToSlash(relPath)

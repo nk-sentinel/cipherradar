@@ -193,12 +193,18 @@ can be surfaced as a warning step.
 output or vendored/build noise (gh #46). Precedence (lowest to highest):
 
 1. **Built-in defaults** — VCS (`.git/`), dependencies/vendor (`node_modules/`,
-   `vendor/`, `.venv/`, `venv/`, `site-packages/`, `bower_components/`, `Pods/`),
-   build output (`target/`, `build/`, `dist/`, `out/`, `bin/`, `obj/`,
-   `__pycache__/`), other tools' workdirs (`.scannerwork/`, `.gradle/`,
+   `vendor/`, `.venv/`, `venv/`, `site-packages/`, `bower_components/`, `Pods/`,
+   `__pycache__/`), build output (`target/`, `build/`, `dist/`, `out/`, `bin/`,
+   `obj/`), other tools' workdirs (`.scannerwork/`, `.gradle/`,
    `.terraform/`, `.pytest_cache/`, `.idea/`, `.vscode/`), cradar's own output
    (`.cradar-baseline.json`, CycloneDX/SARIF JSON, PDF), and minified/generated
    assets (`*.min.js`, `*.bundle.js`, `*.map`). Disable with `--no-default-ignores`.
+
+   **Pass 3 exception:** when binary scanning is active (`--passes 3` or
+   `--deep`), the build-output dirs (`target/`, `build/`, `dist/`, `out/`,
+   `bin/`, `obj/`) are **not** pruned — that is where compiled binaries live, so
+   skipping them would make Pass 3 silently miss its targets. Vendor/dependency
+   and tool workdirs are still pruned regardless of pass selection.
 2. **`.gitignore`** — honored by default so already-ignored build/vendor dirs are
    skipped for free. Disable with `--no-gitignore`.
 3. **`.cradarignore`** — a project-root ignore file using gitignore syntax for

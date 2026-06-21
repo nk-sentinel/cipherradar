@@ -106,7 +106,9 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 
 	// Build the ignore matcher (built-in defaults + .gitignore + .cradarignore),
 	// gh #46. Default ignores and .gitignore can be disabled via opts.
-	ignoreMatcher := ignore.New(root, !opts.NoDefaultIgnores, !opts.NoGitignore)
+	// When Pass 3 (YARA-X binary scanning) is active, build-output dirs must
+	// remain scannable — that is where compiled binaries live.
+	ignoreMatcher := ignore.New(root, !opts.NoDefaultIgnores, !opts.NoGitignore, containsPassInt(passes, 3))
 
 	// Phase 1: Walk the directory tree and collect scan jobs.
 	// The walk itself is sequential (os.WalkDir is not concurrent-safe).
