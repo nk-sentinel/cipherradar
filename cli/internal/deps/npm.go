@@ -3,6 +3,7 @@ package deps
 import (
 	"encoding/json"
 	"os"
+	"sort"
 	"strings"
 )
 
@@ -44,26 +45,45 @@ func parseNpmLock(path string) ([]Package, error) {
 
 	// v2/v3: "packages" map. Keys: "" (root), "node_modules/<name>",
 	// "node_modules/<a>/node_modules/<b>" (nested). Direct deps live directly
-	// under the top-level node_modules (single segment after it).
-	for key, v := range lock.Packages {
-		if key == "" {
-			continue
+	// under the top-level node_modules (single segment after it). Iterate sorted
+	// keys and emit top-level (direct) entries first, so a nested transitive
+	// version never shadows the direct one — map iteration order is random in Go,
+	// so emitting in map order would non-deterministically pick the wrong version.
+	keys := make([]string, 0, len(lock.Packages))
+	for key := range lock.Packages {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	// Pass 1: direct (single node_modules segment); Pass 2: nested.
+	for _, wantDirect := range []bool{true, false} {
+		for _, key := range keys {
+			if key == "" {
+				continue
+			}
+			idx := strings.LastIndex(key, "node_modules/")
+			if idx < 0 {
+				continue
+			}
+			name := key[idx+len("node_modules/"):]
+			if name == "" {
+				continue
+			}
+			direct := strings.Count(key, "node_modules/") == 1
+			if direct != wantDirect {
+				continue
+			}
+			emit(name, lock.Packages[key].Version, direct)
 		}
-		idx := strings.LastIndex(key, "node_modules/")
-		if idx < 0 {
-			continue
-		}
-		name := key[idx+len("node_modules/"):]
-		if name == "" {
-			continue
-		}
-		direct := strings.Count(key, "node_modules/") == 1
-		emit(name, v.Version, direct)
 	}
 
-	// v1: recursive "dependencies".
-	for name, v := range lock.Dependencies {
-		emit(name, v.Version, true)
+	// v1: recursive "dependencies" (sorted for determinism).
+	v1names := make([]string, 0, len(lock.Dependencies))
+	for name := range lock.Dependencies {
+		v1names = append(v1names, name)
+	}
+	sort.Strings(v1names)
+	for _, name := range v1names {
+		emit(name, lock.Dependencies[name].Version, true)
 	}
 
 	return pkgs, nil
