@@ -1,8 +1,8 @@
 # Data Model
 
-> **Document version:** v2
+> **Document version:** v3
 > **Created:** 2026-03-15
-> **Last updated:** 2026-06-21
+> **Last updated:** 2026-06-23
 > **Status:** Active
 
 ## Change History
@@ -11,6 +11,7 @@
 |---|---|---|---|
 | v1 | 2026-03-15 | Initial document | — |
 | v2 | 2026-06-21 | Certificate linked-component graph + `dependencies[]`, X.509 extensions, public-key refs; library `purl`/`version`/`group` identity ([ADR-040](decisions/ADR-040-library-asset-type.md)); keystore findings ([ADR-041](decisions/ADR-041-keystore-password-policy.md)); quantum migration properties | ADR-040, ADR-041, CBOM quality workstream |
+| v3 | 2026-06-23 | Expanded monitored crypto-library inventory (cross-language Pass-2 rules); enrichment now covers Maven `dependencyManagement` and Gradle version catalogs. Full library list in [CLI CBOM schema reference](guides/cli/cbom-schema-reference.md) §2.1 | Library coverage workstream |
 
 ---
 
@@ -253,9 +254,15 @@ component carries standard CycloneDX identity fields:
 }
 ```
 
-Resolution spans npm, PyPI, Maven/Gradle, Cargo, RubyGems, Go modules, and
-Dart/pub; the raw hint is always available as a `library` property even when no
-exact version can be pinned. Maven components additionally set `group` (groupId).
+Resolution spans npm, PyPI, Maven/Gradle (including same-POM
+`dependencyManagement` and `gradle/libs.versions.toml` catalog aliases), Cargo,
+RubyGems, Go modules, and Dart/pub; the raw hint is always available as a
+`library` property even when no exact version can be pinned. Maven components
+additionally set `group` (groupId). Composer and NuGet libraries are detected
+but not yet enriched with `purl`/`version`.
+
+The authoritative per-language monitored-library list lives in
+[guides/cli/cbom-schema-reference.md](guides/cli/cbom-schema-reference.md) §2.1.
 
 ---
 

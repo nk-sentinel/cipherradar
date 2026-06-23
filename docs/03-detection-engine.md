@@ -1,8 +1,8 @@
 # Detection Engine
 
-> **Document version:** v4
-> **Last updated:** 2026-05-29
-> **Change:** Pass 3 is now YARA-X binary content scanning — Joern was removed entirely (ADR-033) and replaced by YARA-X (ADR-039). See Change History for full lineage.
+> **Document version:** v5
+> **Last updated:** 2026-06-23
+> **Change:** Expanded Pass-2 crypto-library inventory rules and post-scan enrichment (Maven dependencyManagement, Gradle version catalogs).
 
 ---
 
@@ -14,6 +14,7 @@
 | v2 | 2026-03-16 | **Custom taint engine replaced** with three-layer approach: tree-sitter constant propagation + Semgrep taint rules + Joern deep analysis. See ADR-004 for full decision rationale. |
 | v3 | 2026-03-18 | Pass 2 engine updated from Semgrep OSS to OpenGrep. Semgrep moved taint mode to commercial (Dec 2024); OpenGrep restores it under LGPL-2.1 with identical YAML rule format. See ADR-009. |
 | v4 | 2026-05-29 | **Pass 3 redefined.** The Joern-based CPG Pass 3 was prototyped and removed per [ADR-033](decisions/ADR-033-remove-joern-pass3.md) — `cli/internal/joern/` is now vestigial and imported nowhere. Pass 3 is now **YARA-X binary content scanning** (opt-in) per [ADR-039](decisions/ADR-039-yarax-binary-scanning.md). Pass-2 findings now also carry quantum posture — see [quantum-coverage-matrix.md](quantum-coverage-matrix.md). |
+| v5 | 2026-06-23 | Expanded Pass-2 `cbom-*-crypto-library-import` rules across 9 languages (Spring/JWT/Jasypt/Tink, jose/@noble, passlib/PyJWT, RustCrypto crates, etc.). Post-scan enrichment (`cli/internal/deps`) now resolves Maven `<dependencyManagement>` and Gradle `libs.versions.toml` catalog aliases. Full inventory: [guides/cli/cbom-schema-reference.md](guides/cli/cbom-schema-reference.md) §2.1. |
 
 ---
 
@@ -163,6 +164,20 @@ rules:
 - Taint mode is free under LGPL-2.1 (Semgrep moved taint to commercial in Dec 2024 — see ADR-009)
 - No SaaS or commercial-use restrictions on rules
 - Fast enough to run on every PR (minutes, not hours)
+
+### Crypto-library inventory rules
+
+A subset of Pass-2 rules (`cbom-<lang>-crypto-library-import` and related) detect
+**cryptographic library imports** (`import` / `require` / `use` / `#include`) and
+emit findings with `cbom-asset-type: library`. These are supply-chain inventory
+entries — distinct from algorithm-usage findings from Pass 1.
+
+After scanning, `enrichLibraries()` maps each coarse `cbom-library` token to a
+concrete package via `cli/internal/deps/library_map.go` and project manifests/
+lockfiles. Supported enrichment ecosystems: npm, PyPI, Maven/Gradle, Cargo,
+RubyGems, Go modules, Dart/pub. See [ADR-040](decisions/ADR-040-library-asset-type.md)
+and [guides/cli/cbom-schema-reference.md](guides/cli/cbom-schema-reference.md) §2.1
+for the monitored-library list and manifest sources.
 
 ---
 

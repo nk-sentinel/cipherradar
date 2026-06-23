@@ -235,6 +235,18 @@ With Joern removed, the Pass 3 slot is re-purposed for opt-in binary scanning. Y
 
 ---
 
+### 2026-06-23 — Expanded crypto-library inventory + enrichment
+
+Cross-language Pass-2 library import rules extended to cover Spring/JWT/Jasypt/
+Tink (Java), jose/@noble (JS/TS), passlib/PyJWT (Python), RustCrypto crates,
+and related supply-chain libraries. `cli/internal/deps` enrichment now resolves
+Maven `<dependencyManagement>` versions and Gradle `libs.versions.toml` catalog
+aliases. Documented in [ADR-040 addendum](decisions/ADR-040-library-asset-type.md),
+[CBOM schema reference §2.1](guides/cli/cbom-schema-reference.md), and
+[06-data-model.md](06-data-model.md) v3.
+
+---
+
 ### 2026-05-29 — Recall & Quantum-Coverage Expansion (issue #34)
 
 Expanded quantum-vulnerable family coverage landed across the language scanners and the shared quantum-readiness table (`cli/internal/scanner/quantum/quantum-readiness.yml`): added detection for SM2, ECIES, GOST (8 languages), Schnorr (BIP-340), and BLS12-381, plus classification entries for ECMQV, Paillier, Rabin, EC-GDSA, and EC-KCDSA. Pass-2 (OpenGrep) findings now carry quantum posture, and inventory-only scans return a complete asset list including weak algorithms. Per-language detection coverage is tracked authoritatively in `docs/quantum-coverage-matrix.md`.

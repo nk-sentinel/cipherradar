@@ -167,6 +167,26 @@ rules:
       - pattern: mcrypt_get_iv_size(...)
       - pattern: mcrypt_module_open(...)
 
+  - id: cbom-php-crypto-library-import
+    message: Cryptographic library usage detected in PHP source.
+    severity: INFO
+    languages: [php]
+    metadata:
+      category: inventory
+      cbom-asset-type: library
+      cbom-primitive: CRYPTO-LIBRARY-IMPORT
+      cbom-library: firebase-php-jwt-or-defuse-php-encryption
+      confidence: high
+      quantum-relevant: false
+      maturity: stable
+      default_enabled: true
+      noise_risk: low
+    pattern-either:
+      - pattern: use Firebase\JWT\JWT;
+      - pattern: use Firebase\JWT\Key;
+      - pattern: use Defuse\Crypto\Crypto;
+      - pattern: use Defuse\Crypto\Key;
+
   # ── PHP password_hash() per-algorithm inventory (Phase C1) ──
   #
   # Replaces the prior coarse `cbom-php-password-hash-inventory` rule whose

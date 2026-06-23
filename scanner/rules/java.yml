@@ -185,7 +185,7 @@ rules:
       category: inventory
       cbom-asset-type: library
       cbom-primitive: CRYPTO-LIBRARY-IMPORT
-      cbom-library: bouncycastle-or-jca
+      cbom-library: bouncycastle-or-jca-or-spring-security-crypto-or-jjwt-or-nimbus-jose-jwt-or-jasypt-or-commons-codec-or-google-tink-or-jbcrypt-or-argon2-jvm
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -196,6 +196,22 @@ rules:
       - pattern: import javax.crypto.$X;
       - pattern: import java.security.$X;
       - pattern: import javax.net.ssl.$X;
+      - pattern: import org.springframework.security.crypto.$X;
+      - pattern: import org.springframework.security.crypto.$X.$Y;
+      - pattern: import io.jsonwebtoken.$X;
+      - pattern: import io.jsonwebtoken.$X.$Y;
+      - pattern: import com.nimbusds.jose.$X;
+      - pattern: import com.nimbusds.jose.$X.$Y;
+      - pattern: import com.nimbusds.jwt.$X;
+      - pattern: import com.nimbusds.jwt.$X.$Y;
+      - pattern: import org.jasypt.$X;
+      - pattern: import org.jasypt.$X.$Y;
+      - pattern: import org.apache.commons.codec.$X;
+      - pattern: import org.apache.commons.codec.$X.$Y;
+      - pattern: import com.google.crypto.tink.$X;
+      - pattern: import com.google.crypto.tink.$X.$Y;
+      - pattern: import org.mindrot.jbcrypt.$X;
+      - pattern: import de.mkammerer.argon2.$X;
       - pattern: import org.bouncycastle.$X.$Y;
       - pattern: import javax.crypto.$X.$Y;
       - pattern: import java.security.$X.$Y;

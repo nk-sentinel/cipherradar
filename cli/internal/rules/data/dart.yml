@@ -101,7 +101,7 @@ rules:
       category: inventory
       cbom-asset-type: library
       cbom-primitive: CRYPTO-LIBRARY-IMPORT
-      cbom-library: dart-crypto-or-pointycastle
+      cbom-library: dart-crypto-or-pointycastle-or-dart-cryptography
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -110,6 +110,7 @@ rules:
     pattern-either:
       - pattern: import 'package:crypto/$X';
       - pattern: import 'package:pointycastle/$X';
+      - pattern: import 'package:cryptography/$X';
 
   # ── GOST R 34.11 hash (PointyCastle) ──
   #

@@ -4,6 +4,45 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## Unreleased
+
+### Library inventory coverage (cross-language)
+
+Expanded Pass-2 crypto-library import rules and `library_map` enrichment tokens
+across Java, JavaScript/TypeScript, Python, Rust, C#, Ruby, PHP, Swift, and
+Dart. Newly monitored third-party libraries include (among others):
+
+- **Java:** Spring Security Crypto, JJWT, Nimbus JOSE+JWT, Jasypt, Commons
+  Codec, Google Tink, jBCrypt, argon2-jvm
+- **Python:** passlib, PyJWT, python-jose, authlib, bcrypt, argon2-cffi
+- **JS/TS:** jose, @noble/hashes/curves/ciphers, libsodium-wrappers,
+  sodium-native
+- **Rust:** aws-lc-rs, p256, ed25519-dalek, x25519-dalek, chacha20poly1305
+- **C#:** BouncyCastle.NET, Microsoft.IdentityModel.Tokens, jose-jwt
+- **Ruby:** jwt, rbnacl
+- **PHP:** firebase/php-jwt, defuse/php-encryption (detected; purl pending
+  Composer ecosystem support)
+- **Swift:** Swift Crypto (`import Crypto`)
+- **Dart:** `package:cryptography`
+
+### Library enrichment reliability
+
+- **Multi-artifact Maven mapping:** JJWT and Google Tink tokens resolve against
+  multiple artifact IDs (`jjwt-api`/`jjwt-impl`/…, `tink`/`tink-awskms`/…).
+  Bouncy Castle remains mapped via `bcprov-jdk18on`; additional BC artifacts
+  (`bcpkix-jdk18on`, `bcutil-jdk18on`) are planned follow-up.
+- **Maven `dependencyManagement`:** child POM dependencies without an explicit
+  `<version>` now inherit a version from the same POM's
+  `<dependencyManagement>` block when present.
+- **Gradle version catalogs:** `gradle/libs.versions.toml` is parsed; `libs.*`
+  aliases referenced in `build.gradle(.kts)` resolve to concrete
+  `group:artifact:version` entries (lockfile still wins when present).
+
+See `docs/guides/cli/cbom-schema-reference.md` §2.1 for the full monitored-library
+inventory and enrichment manifest sources.
+
+---
+
 ## 0.4.0-rc.2 — 2026-06-21
 
 Quality, schema-correctness, and supply-chain hardening follow-up to rc.1.

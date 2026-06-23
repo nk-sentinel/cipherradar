@@ -76,7 +76,7 @@ rules:
       category: inventory
       cbom-asset-type: library
       cbom-primitive: CRYPTO-LIBRARY-IMPORT
-      cbom-library: dotnet-cryptography
+      cbom-library: dotnet-cryptography-or-bouncycastle-dotnet-or-identitymodel-tokens-or-jose-jwt-dotnet
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -85,6 +85,9 @@ rules:
     pattern-either:
       - pattern: using System.Security.Cryptography;
       - pattern: using System.Net.Security;
+      - pattern: using Org.BouncyCastle.$X;
+      - pattern: using Microsoft.IdentityModel.Tokens;
+      - pattern: using Jose;
 
   # ── .NET legacy symmetric ciphers (Phase A2) ──
 

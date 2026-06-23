@@ -110,7 +110,7 @@ rules:
       category: inventory
       cbom-asset-type: library
       cbom-primitive: CRYPTO-LIBRARY-IMPORT
-      cbom-library: cryptokit-or-commoncrypto
+      cbom-library: cryptokit-or-commoncrypto-or-swift-crypto
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -119,3 +119,4 @@ rules:
     pattern-either:
       - pattern: import CryptoKit
       - pattern: import CommonCrypto
+      - pattern: import Crypto
