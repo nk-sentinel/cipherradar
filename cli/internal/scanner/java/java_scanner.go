@@ -424,6 +424,9 @@ func (s *JavaScanner) applyKeyGenInitSizes(root *sitter.Node, content []byte, cp
 		}
 		size := resolveNthArgInt(argsNode, 0, content, cp)
 		if size <= 0 {
+			size = resolveNthArgInt(argsNode, 1, content, cp)
+		}
+		if size <= 0 {
 			continue
 		}
 		recvName := scanner.NodeText(recvNode, content)

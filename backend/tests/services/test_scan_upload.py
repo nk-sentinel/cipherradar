@@ -74,6 +74,53 @@ class TestExtractFindings:
         assert f.confidence == "high"
         assert f.rule_id == "cbom-go-aes"
 
+    def test_key_size_from_parameter_set(self) -> None:
+        scan_id = uuid.uuid4()
+        project_id = uuid.uuid4()
+        org_id = uuid.uuid4()
+
+        cbom = {
+            "components": [
+                {
+                    "name": "RSA-2048",
+                    "cryptoProperties": {
+                        "assetType": "algorithm",
+                        "algorithmProperties": {
+                            "primitive": "pke",
+                            "algorithmFamily": "RSA",
+                            "parameterSetIdentifier": "2048",
+                            "classicalSecurityLevel": 2048,
+                        },
+                    },
+                    "properties": [
+                        {"name": "ruleId", "value": "cbom-java-jca-keypairgen-rsa"},
+                    ],
+                },
+            ]
+        }
+
+        findings = _extract_findings_from_cyclonedx(cbom, scan_id, project_id, org_id)
+        assert len(findings) == 1
+        assert findings[0].properties is not None
+        assert findings[0].properties["key_size"] == 2048
+        assert findings[0].properties["algorithm_family"] == "rsa"
+
+    def test_key_size_from_material_size(self) -> None:
+        cbom = {
+            "components": [
+                {
+                    "name": "RSA public key",
+                    "cryptoProperties": {
+                        "assetType": "related-crypto-material",
+                        "relatedCryptoMaterialProperties": {"type": "public-key", "size": 4096},
+                    },
+                },
+            ]
+        }
+        findings = _extract_findings_from_cyclonedx(cbom, uuid.uuid4(), uuid.uuid4(), uuid.uuid4())
+        assert findings[0].properties is not None
+        assert findings[0].properties["key_size"] == 4096
+
     def test_empty_components(self) -> None:
         findings = _extract_findings_from_cyclonedx(
             {"components": []},

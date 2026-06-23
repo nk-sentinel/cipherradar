@@ -93,7 +93,7 @@ func (s *CppScanner) ScanFile(path string, content []byte) ([]types.Finding, err
 	findings = append(findings, s.detectOpenSSLAsymmetric(root, path, content)...)
 
 	// Detect OpenSSL AES usage
-	findings = append(findings, s.detectOpenSSLAES(root, path, content)...)
+	findings = append(findings, s.detectOpenSSLAES(root, path, content, cp)...)
 
 	// Detect OpenSSL HMAC usage
 	findings = append(findings, s.detectOpenSSLHMAC(root, path, content)...)
@@ -359,7 +359,11 @@ func (s *CppScanner) detectOpenSSLRSA(root *sitter.Node, path string, content []
 	for _, funcName := range []string{"RSA_generate_key", "RSA_generate_key_ex"} {
 		for _, callNode := range findFunctionCalls(root, content, funcName) {
 			qi := quantum.GetInfo("rsa")
-			keySize := extractNthIntArg(callNode, content, cp, 0)
+			argIdx := 0
+			if funcName == "RSA_generate_key_ex" {
+				argIdx = 1
+			}
+			keySize := extractNthIntArg(callNode, content, cp, argIdx)
 			name := "RSA"
 			if keySize > 0 {
 				name = fmt.Sprintf("RSA-%d", keySize)
@@ -484,23 +488,29 @@ func (s *CppScanner) detectOpenSSLAsymmetric(root *sitter.Node, path string, con
 // OpenSSL AES detection
 // ---------------------------------------------------------------------------
 
-func (s *CppScanner) detectOpenSSLAES(root *sitter.Node, path string, content []byte) []types.Finding {
+func (s *CppScanner) detectOpenSSLAES(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding
 
 	// AES_set_encrypt_key / AES_set_decrypt_key
 	for _, funcName := range []string{"AES_set_encrypt_key", "AES_set_decrypt_key"} {
 		for _, callNode := range findFunctionCalls(root, content, funcName) {
 			qi := quantum.GetInfo("aes")
+			keySize := extractNthIntArg(callNode, content, cp, 1)
+			name := "AES"
+			if keySize > 0 {
+				name = fmt.Sprintf("AES-%d", keySize)
+			}
 			findings = append(findings, types.Finding{
 				ID:         nextFindingID(),
 				AssetType:  types.AssetAlgorithm,
-				Name:       "AES",
+				Name:       name,
 				Location:   scanner.NodeLocation(callNode, path, content),
 				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "block-cipher",
 					AlgorithmFamily:  "aes",
+					KeySize:          keySize,
 					QuantumStatus:    qi.Status,
 					NistQuantumLevel: qi.NistLevel,
 					CryptoFunctions:  []string{"encrypt"},

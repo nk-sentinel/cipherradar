@@ -143,6 +143,16 @@ func TestKeyGenInitializeKeySize(t *testing.T) {
 			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 0
 		}, "RSA keypairgen with KeySize=0 when no initialize()")
 	})
+
+	t.Run("two-arg initialize SecureRandom first", func(t *testing.T) {
+		f := scanJava(t, `class T { void m() throws Exception {
+			KeyPairGenerator kpg = KeyPairGenerator.getInstance("RSA");
+			kpg.initialize(new SecureRandom(), 2048);
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 2048
+		}, "RSA keypairgen with KeySize=2048 from two-arg initialize()")
+	})
 }
 
 // ---------------------------------------------------------------------------

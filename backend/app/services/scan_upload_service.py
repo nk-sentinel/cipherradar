@@ -33,6 +33,32 @@ def _parse_cyclonedx(raw: bytes) -> dict[str, Any]:
     return data
 
 
+def _parse_positive_int(value: Any) -> int | None:
+    """Parse a CycloneDX numeric field into a positive key size, if possible."""
+    if value is None:
+        return None
+    try:
+        n = int(value)
+    except (TypeError, ValueError):
+        return None
+    return n if n > 0 else None
+
+
+def _extract_key_size(crypto_props: dict[str, Any]) -> int | None:
+    """Derive key size from CycloneDX 1.7 cryptoProperties."""
+    algo_props = crypto_props.get("algorithmProperties") or {}
+    if param := algo_props.get("parameterSetIdentifier"):
+        if size := _parse_positive_int(param):
+            return size
+    if csl := algo_props.get("classicalSecurityLevel"):
+        if size := _parse_positive_int(csl):
+            return size
+    mat_props = crypto_props.get("relatedCryptoMaterialProperties") or {}
+    if mat_size := mat_props.get("size"):
+        return _parse_positive_int(mat_size)
+    return None
+
+
 def _extract_findings_from_cyclonedx(
     cbom: dict[str, Any],
     scan_id: uuid.UUID,
@@ -74,10 +100,16 @@ def _extract_findings_from_cyclonedx(
         quantum_status = properties.get("quantumStatus", "unknown")
         rule_id = properties.get("ruleId", f"upload-{name}")
 
-        # Extract algorithm family from crypto properties
+        # Extract algorithm metadata from crypto properties
         algo_props = crypto_props.get("algorithmProperties", {})
         if algo_props:
-            properties["algorithm_family"] = algo_props.get("primitive", "")
+            if family := algo_props.get("algorithmFamily"):
+                properties["algorithm_family"] = str(family).lower()
+            elif primitive := algo_props.get("primitive"):
+                properties["algorithm_family"] = str(primitive).lower()
+
+        if key_size := _extract_key_size(crypto_props):
+            properties["key_size"] = key_size
 
         findings.append(
             Finding(

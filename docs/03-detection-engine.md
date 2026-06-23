@@ -1,8 +1,8 @@
 # Detection Engine
 
-> **Document version:** v5
+> **Document version:** v7
 > **Last updated:** 2026-06-23
-> **Change:** Expanded Pass-2 crypto-library inventory rules and post-scan enrichment (Maven dependencyManagement, Gradle version catalogs).
+> **Change:** Document post-scan key-size enrichment pass (`keysize.Enrich`).
 
 ---
 
@@ -15,6 +15,8 @@
 | v3 | 2026-03-18 | Pass 2 engine updated from Semgrep OSS to OpenGrep. Semgrep moved taint mode to commercial (Dec 2024); OpenGrep restores it under LGPL-2.1 with identical YAML rule format. See ADR-009. |
 | v4 | 2026-05-29 | **Pass 3 redefined.** The Joern-based CPG Pass 3 was prototyped and removed per [ADR-033](decisions/ADR-033-remove-joern-pass3.md) — `cli/internal/joern/` is now vestigial and imported nowhere. Pass 3 is now **YARA-X binary content scanning** (opt-in) per [ADR-039](decisions/ADR-039-yarax-binary-scanning.md). Pass-2 findings now also carry quantum posture — see [quantum-coverage-matrix.md](quantum-coverage-matrix.md). |
 | v5 | 2026-06-23 | Expanded Pass-2 `cbom-*-crypto-library-import` rules across 9 languages (Spring/JWT/Jasypt/Tink, jose/@noble, passlib/PyJWT, RustCrypto crates, etc.). Post-scan enrichment (`cli/internal/deps`) now resolves Maven `<dependencyManagement>` and Gradle `libs.versions.toml` catalog aliases. Full inventory: [guides/cli/cbom-schema-reference.md](guides/cli/cbom-schema-reference.md) §2.1. |
+| v6 | 2026-06-23 | Cross-linked [guides/cli/algorithm-keysize-patterns.md](guides/cli/algorithm-keysize-patterns.md) — per-language key-size declaration idioms, CipherRadar coverage matrix, and detection gap priorities. |
+| v7 | 2026-06-23 | Document post-scan `keysize.Enrich` pass (P0–P2 items shipped). |
 
 ---
 
@@ -222,7 +224,7 @@ Pass 3 is **opt-in** and off by default:
 |---|---|---|
 | `name` | Algorithm family | `AES`, `RSA`, `SHA-256` |
 | `primitive` | Primitive type | `blockCipher`, `hash`, `pke`, `ae`, `mac`, `pbkdf`, `drbg`, `kem`, `signature` |
-| `parameterSetIdentifier` | Key/parameter size | `256`, `2048`, `521` |
+| `parameterSetIdentifier` | Key/parameter size | `256`, `2048`, `521` — see [algorithm-keysize-patterns.md](guides/cli/algorithm-keysize-patterns.md) for per-language declaration idioms and coverage gaps |
 | `mode` | Cipher mode | `gcm`, `cbc`, `ecb`, `ctr`, `cfb`, `ccm` |
 | `padding` | Padding scheme | `pkcs7`, `oaep`, `pss`, `pkcs1v15`, `none` |
 | `curve` | Named EC curve | `secp256r1`, `Curve25519`, `brainpoolP256r1` |

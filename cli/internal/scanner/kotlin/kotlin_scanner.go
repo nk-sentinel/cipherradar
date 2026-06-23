@@ -1034,6 +1034,9 @@ func receiverVarOfCall(callNode *sitter.Node, content []byte) (string, uint32, b
 // integer literal or an identifier resolvable via constant propagation.
 var kotlinInitCallRe = regexp.MustCompile(`(\w+)\s*\.\s*(init|initialize)\s*\(\s*(\w+)\s*\)`)
 
+// kotlinInitCallTwoArgRe matches `recv.initialize(random, N)` / `recv.init(random, N)`.
+var kotlinInitCallTwoArgRe = regexp.MustCompile(`(\w+)\s*\.\s*(init|initialize)\s*\([^,]+,\s*(\w+)\s*\)`)
+
 // applyKeyGenInitSizes patches the KeySize of KeyPairGenerator/KeyGenerator
 // findings from later recv.initialize(N)/recv.init(N) calls. Kotlin (which has
 // no statement terminators) is mis-parsed by the Java tree-sitter grammar —
@@ -1045,38 +1048,45 @@ func (s *KotlinScanner) applyKeyGenInitSizes(root *sitter.Node, content []byte, 
 		return
 	}
 	for _, m := range kotlinInitCallRe.FindAllSubmatchIndex(content, -1) {
-		recvName := string(content[m[2]:m[3]])
-		method := string(content[m[4]:m[5]])
-		arg := string(content[m[6]:m[7]])
-		size, err := strconv.Atoi(arg)
-		if err != nil {
-			if v, ok := cp.Resolve(arg); ok {
-				size, _ = strconv.Atoi(v)
-			}
-		}
-		if size <= 0 {
-			continue
-		}
-		callByte := uint32(m[0])
+		s.patchKeyGenInitSize(content, cp, findings, receivers, m)
+	}
+	for _, m := range kotlinInitCallTwoArgRe.FindAllSubmatchIndex(content, -1) {
+		s.patchKeyGenInitSize(content, cp, findings, receivers, m)
+	}
+}
 
-		best := -1
-		var bestByte uint32
-		for i, r := range receivers {
-			if r.varName != recvName || r.isKeyPair != (method == "initialize") {
-				continue
-			}
-			if r.declByte <= callByte && (best == -1 || r.declByte > bestByte) {
-				best, bestByte = i, r.declByte
-			}
+func (s *KotlinScanner) patchKeyGenInitSize(content []byte, cp *ConstPropagator, findings []types.Finding, receivers []keyGenReceiver, m []int) {
+	recvName := string(content[m[2]:m[3]])
+	method := string(content[m[4]:m[5]])
+	arg := string(content[m[6]:m[7]])
+	size, err := strconv.Atoi(arg)
+	if err != nil {
+		if v, ok := cp.Resolve(arg); ok {
+			size, _ = strconv.Atoi(v)
 		}
-		if best == -1 {
+	}
+	if size <= 0 {
+		return
+	}
+	callByte := uint32(m[0])
+
+	best := -1
+	var bestByte uint32
+	for i, r := range receivers {
+		if r.varName != recvName || r.isKeyPair != (method == "initialize") {
 			continue
 		}
-		idx := receivers[best].findingIdx
-		findings[idx].Properties.KeySize = size
-		if base := findings[idx].Name; base != "" && !strings.ContainsRune(base, '-') {
-			findings[idx].Name = fmt.Sprintf("%s-%d", base, size)
+		if r.declByte <= callByte && (best == -1 || r.declByte > bestByte) {
+			best, bestByte = i, r.declByte
 		}
+	}
+	if best == -1 {
+		return
+	}
+	idx := receivers[best].findingIdx
+	findings[idx].Properties.KeySize = size
+	if base := findings[idx].Name; base != "" && !strings.ContainsRune(base, '-') {
+		findings[idx].Name = fmt.Sprintf("%s-%d", base, size)
 	}
 }
 
