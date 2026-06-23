@@ -41,6 +41,35 @@ func TestCurveBits(t *testing.T) {
 	}
 }
 
+func TestInferFromCurveName(t *testing.T) {
+	cases := []struct {
+		name string
+		want int
+	}{
+		// Named-curve tokens (curveTokenRe → CurveBits).
+		{"EC-secp384r1", 384},
+		{"EC-secp521r1", 521},
+		{"bc-curve-p-256-secp256r1", 256},
+		{"secp256k1", 256},
+		{"prime256v1", 256},
+		{"X25519 Key Pair", 256},
+		{"Ed25519", 256},
+		{"curve-x448", 448},
+		// Generic P-curve fallback (pCurveRe → numeric).
+		{"ECDH-P521", 521},
+		{"P-256", 256},
+		// Non-curve names must not produce a size.
+		{"RSA", 0},
+		{"AES-256-GCM", 0},
+		{"", 0},
+	}
+	for _, tc := range cases {
+		if got := InferFromCurveName(tc.name); got != tc.want {
+			t.Errorf("InferFromCurveName(%q) = %d, want %d", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestEnrich(t *testing.T) {
 	findings := []types.Finding{
 		{
@@ -67,6 +96,16 @@ func TestEnrich(t *testing.T) {
 				KeySize:         2048,
 			},
 		},
+		{
+			// Curve name with no encoded numeric token: must be backfilled via
+			// the curve-name path (InferFromCurveName), not InferFromToken.
+			AssetType: types.AssetAlgorithm,
+			Name:      "EC-secp384r1",
+			Properties: types.CryptoProperties{
+				AlgorithmFamily: "ec",
+				Primitive:       "signature",
+			},
+		},
 	}
 	Enrich(findings)
 	if findings[0].Properties.KeySize != 256 {
@@ -77,6 +116,9 @@ func TestEnrich(t *testing.T) {
 	}
 	if findings[2].Properties.KeySize != 2048 {
 		t.Errorf("RSA KeySize = %d, want 2048", findings[2].Properties.KeySize)
+	}
+	if findings[3].Properties.KeySize != 384 {
+		t.Errorf("EC-secp384r1 KeySize = %d, want 384 (curve-name path)", findings[3].Properties.KeySize)
 	}
 }
 

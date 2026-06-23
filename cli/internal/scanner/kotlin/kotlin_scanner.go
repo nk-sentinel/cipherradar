@@ -1034,8 +1034,15 @@ func receiverVarOfCall(callNode *sitter.Node, content []byte) (string, uint32, b
 // integer literal or an identifier resolvable via constant propagation.
 var kotlinInitCallRe = regexp.MustCompile(`(\w+)\s*\.\s*(init|initialize)\s*\(\s*(\w+)\s*\)`)
 
-// kotlinInitCallTwoArgRe matches `recv.initialize(random, N)` / `recv.init(random, N)`.
+// kotlinInitCallTwoArgRe matches `recv.initialize(random, N)` / `recv.init(random, N)`
+// where the key size is the second argument.
 var kotlinInitCallTwoArgRe = regexp.MustCompile(`(\w+)\s*\.\s*(init|initialize)\s*\([^,]+,\s*(\w+)\s*\)`)
+
+// kotlinInitCallSizeFirstRe matches `recv.initialize(N, random)` / `recv.init(N, random)`
+// where the key size is the first argument — the standard JCA overload ordering
+// (KeyPairGenerator.initialize(int keysize, SecureRandom random)). A non-numeric
+// first argument resolves to size 0 in patchKeyGenInitSize and is ignored.
+var kotlinInitCallSizeFirstRe = regexp.MustCompile(`(\w+)\s*\.\s*(init|initialize)\s*\(\s*(\w+)\s*,[^)]*\)`)
 
 // applyKeyGenInitSizes patches the KeySize of KeyPairGenerator/KeyGenerator
 // findings from later recv.initialize(N)/recv.init(N) calls. Kotlin (which has
@@ -1051,6 +1058,9 @@ func (s *KotlinScanner) applyKeyGenInitSizes(root *sitter.Node, content []byte, 
 		s.patchKeyGenInitSize(content, cp, findings, receivers, m)
 	}
 	for _, m := range kotlinInitCallTwoArgRe.FindAllSubmatchIndex(content, -1) {
+		s.patchKeyGenInitSize(content, cp, findings, receivers, m)
+	}
+	for _, m := range kotlinInitCallSizeFirstRe.FindAllSubmatchIndex(content, -1) {
 		s.patchKeyGenInitSize(content, cp, findings, receivers, m)
 	}
 }
