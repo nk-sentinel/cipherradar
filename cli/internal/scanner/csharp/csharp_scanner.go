@@ -223,7 +223,7 @@ func (s *CSharpScanner) detectDotNetCrypto(root *sitter.Node, path string, conte
 
 		findings = append(findings, finding)
 		// Track the receiver for a possible later `recv.KeySize = N`.
-		if finding.Properties.KeySize == 0 {
+		if finding.Properties.KeySize == 0 && supportsKeySizeProperty(className) {
 			if v, db, ok := receiverVarOfCall(callNode, content); ok {
 				receivers = append(receivers, csKeySizeReceiver{v, len(findings) - 1, db})
 			}
@@ -233,6 +233,15 @@ func (s *CSharpScanner) detectDotNetCrypto(root *sitter.Node, path string, conte
 	s.applyKeySizePropertyAssignments(root, content, cp, findings, receivers)
 
 	return findings
+}
+
+func supportsKeySizeProperty(className string) bool {
+	switch className {
+	case "RSA", "Aes", "TripleDES", "DES", "DSA", "ECDsa", "ECDiffieHellman":
+		return true
+	default:
+		return false
+	}
 }
 
 // receiverVarOfCall walks up from a method_invocation to recover the variable it

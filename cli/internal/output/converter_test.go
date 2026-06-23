@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/cyclonedx17"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keysize"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -451,5 +452,30 @@ func TestNormalizeProtocolType_SchemaValid(t *testing.T) {
 	}
 	if got := normalizeProtocolType(""); got != "" {
 		t.Errorf("normalizeProtocolType(\"\") = %q, want \"\"", got)
+	}
+}
+
+func TestKeySizeEnrichment_ParameterSetIdentifier(t *testing.T) {
+	findings := []types.Finding{{
+		ID:        "1",
+		AssetType: types.AssetAlgorithm,
+		Name:      "AES-256-CBC",
+		Properties: types.CryptoProperties{
+			AlgorithmFamily: "aes",
+			Primitive:       "block-cipher",
+			Mode:            "cbc",
+		},
+	}}
+	keysize.Enrich(findings)
+	comp := convertFinding(&findings[0])
+	if comp.CryptoProperties == nil || comp.CryptoProperties.AlgorithmProperties == nil {
+		t.Fatal("expected algorithmProperties")
+	}
+	ap := comp.CryptoProperties.AlgorithmProperties
+	if ap.ParameterSetIdentifier != "256" {
+		t.Errorf("parameterSetIdentifier = %q, want 256", ap.ParameterSetIdentifier)
+	}
+	if ap.ClassicalSecurityLevel != 256 {
+		t.Errorf("classicalSecurityLevel = %d, want 256", ap.ClassicalSecurityLevel)
 	}
 }

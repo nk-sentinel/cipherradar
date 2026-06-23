@@ -302,8 +302,9 @@ func TestQuantumTagging(t *testing.T) {
 		}
 		assertFindingExists(t, findings, func(f types.Finding) bool {
 			return f.Properties.AlgorithmFamily == "aes" &&
+				f.Properties.KeySize == 256 &&
 				f.Properties.QuantumStatus == types.QuantumSafe
-		}, "AES finding with QuantumSafe status")
+		}, "AES finding with KeySize=256 and QuantumSafe status")
 	})
 
 	t.Run("MD5 is Broken", func(t *testing.T) {

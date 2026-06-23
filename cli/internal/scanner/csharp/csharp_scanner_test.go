@@ -604,6 +604,16 @@ func TestCSharpKeySizePropertyAssignment(t *testing.T) {
 			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 2048
 		}, "RSA.Create(2048) ctor-arg regression")
 	})
+
+	t.Run("Aes KeySize property assignment", func(t *testing.T) {
+		f := scan(`class T { void M() {
+			var aes = Aes.Create();
+			aes.KeySize = 256;
+		}}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "aes" && x.Properties.KeySize == 256
+		}, "AES with KeySize=256 from property assignment")
+	})
 }
 
 func assertFindingExists(t *testing.T, findings []types.Finding, match func(types.Finding) bool, description string) {

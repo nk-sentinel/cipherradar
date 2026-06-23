@@ -16,6 +16,7 @@ import (
 	phpLang "github.com/smacker/go-tree-sitter/php"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keysize"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -234,24 +235,33 @@ func (s *PHPScanner) handleOpenSSLPkeyNew(callNode, argsNode *sitter.Node, path 
 	// Best-effort: look for 'private_key_type' or 'private_key_bits' in the argument text
 	name := "OpenSSL Key Generation"
 	family := "rsa" // default assumption for openssl_pkey_new
+	keySize := 0
 	severity := types.SeverityInfo
 	confidence := types.ConfidenceMedium
 
 	if argsNode != nil {
-		argsText := strings.ToLower(argsNode.Content(content))
-		if strings.Contains(argsText, "openssl_keytype_ec") {
+		argsText := argsNode.Content(content)
+		argsLower := strings.ToLower(argsText)
+		if ks := keysize.ParsePHPPrivateKeyBits(argsText); ks > 0 {
+			keySize = ks
+		}
+		if strings.Contains(argsLower, "openssl_keytype_ec") {
 			family = "ec"
 			name = "EC Key Generation"
-		} else if strings.Contains(argsText, "openssl_keytype_dsa") {
+		} else if strings.Contains(argsLower, "openssl_keytype_dsa") {
 			family = "dsa"
 			name = "DSA Key Generation"
-		} else if strings.Contains(argsText, "openssl_keytype_dh") {
+		} else if strings.Contains(argsLower, "openssl_keytype_dh") {
 			family = "dh"
 			name = "DH Key Generation"
-		} else if strings.Contains(argsText, "openssl_keytype_rsa") {
+		} else if strings.Contains(argsLower, "openssl_keytype_rsa") {
 			family = "rsa"
 			name = "RSA Key Generation"
 		}
+	}
+
+	if keySize > 0 && family == "rsa" {
+		name = fmt.Sprintf("RSA-%d", keySize)
 	}
 
 	qi := quantum.GetInfo(family)
@@ -266,6 +276,7 @@ func (s *PHPScanner) handleOpenSSLPkeyNew(callNode, argsNode *sitter.Node, path 
 		Properties: types.CryptoProperties{
 			Primitive:        "pke",
 			AlgorithmFamily:  family,
+			KeySize:          keySize,
 			QuantumStatus:    qi.Status,
 			NistQuantumLevel: qi.NistLevel,
 			CryptoFunctions:  []string{"generate"},

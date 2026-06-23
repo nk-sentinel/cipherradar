@@ -409,6 +409,60 @@ func TestKotlinKeyGenInitializeKeySize(t *testing.T) {
 			return x.Properties.AlgorithmFamily == "ec" && x.Properties.KeySize == 0
 		}, "EC keypairgen with no bogus KeySize")
 	})
+
+	t.Run("two-arg initialize SecureRandom first", func(t *testing.T) {
+		f := scan(`fun m() {
+			val kpg = KeyPairGenerator.getInstance("RSA")
+			kpg.initialize(SecureRandom(), 2048)
+		}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 2048
+		}, "RSA keypairgen with KeySize=2048 from (random, size)")
+	})
+
+	t.Run("two-arg init SecureRandom first", func(t *testing.T) {
+		f := scan(`fun m() {
+			val kg = KeyGenerator.getInstance("AES")
+			kg.init(SecureRandom(), 256)
+		}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "aes" && x.Properties.KeySize == 256
+		}, "AES keygen with KeySize=256 from two-arg init")
+	})
+
+	t.Run("two-arg initialize size first (standard JCA ordering)", func(t *testing.T) {
+		f := scan(`fun m() {
+			val kpg = KeyPairGenerator.getInstance("RSA")
+			kpg.initialize(3072, SecureRandom())
+		}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "rsa" && x.Properties.KeySize == 3072
+		}, "RSA keypairgen with KeySize=3072 from (size, random)")
+	})
+
+	t.Run("two-arg init size first", func(t *testing.T) {
+		f := scan(`fun m() {
+			val kg = KeyGenerator.getInstance("AES")
+			kg.init(192, SecureRandom())
+		}`)
+		assertFindingExists(t, f, func(x types.Finding) bool {
+			return x.Properties.AlgorithmFamily == "aes" && x.Properties.KeySize == 192
+		}, "AES keygen with KeySize=192 from (size, random)")
+	})
+
+	t.Run("cipher init not misread as keygen", func(t *testing.T) {
+		// Cipher.init(mode, key, spec) must not produce a bogus KeySize on a
+		// KeyGenerator finding — the receiver filter and non-numeric args guard it.
+		f := scan(`fun m() {
+			val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+			cipher.init(Cipher.ENCRYPT_MODE, key, spec)
+		}`)
+		for _, x := range f {
+			if x.Name == "AES" && x.Properties.KeySize != 0 && x.Properties.Primitive != "block-cipher" {
+				t.Errorf("unexpected KeySize %d on %q", x.Properties.KeySize, x.Name)
+			}
+		}
+	})
 }
 
 func assertFindingExists(t *testing.T, findings []types.Finding, match func(types.Finding) bool, description string) {

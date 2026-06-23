@@ -24,6 +24,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keysize"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keystore"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/yarax"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scannerinit"
@@ -361,7 +362,11 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// baseline, before any writer, so name/version/purl reach all output formats.
 	enrichLibraries(cmd, result)
 
-	// Surface CycloneDX enum normalization violations. ConvertScanResultWithTally
+	// Backfill KeySize from embedded name tokens (AES-256-*) and curve identifiers
+	// when individual scanners did not populate KeySize explicitly.
+	keysize.Enrich(result.Findings)
+
+	// Surface CycloneDX enum normalization violations.
 	// converts the result and tallies any fall-through values that landed outside
 	// the CycloneDX 1.7 closed enum sets. Writers re-run conversion independently;
 	// the tally here is used only for warning emission and --strict-validate gating.

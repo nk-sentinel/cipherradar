@@ -6,6 +6,24 @@ All notable changes to CipherRadar are documented in this file.
 
 ## Unreleased
 
+### Key-size detection improvements
+
+- **Post-scan enrichment:** new `cli/internal/scanner/keysize` pass backfills
+  `KeySize` from embedded algorithm tokens (`AES-256-GCM` → 256) and named curves
+  (`P256-Signing` → 256), populating CycloneDX `parameterSetIdentifier` /
+  `classicalSecurityLevel` for findings that previously had size only in `name`.
+- **Java/Kotlin:** JCA two-arg `initialize(SecureRandom, N)` now resolves key size.
+- **PHP:** `openssl_pkey_new(['private_key_bits' => N])` extracts bit width.
+- **Ruby:** `OpenSSL::PKey::DSA.new(N)` extracts bit width.
+- **C/C++:** `AES_set_encrypt_key` / `AES_set_decrypt_key` bits argument; fixed
+  `RSA_generate_key_ex` to read bits from the correct argument index.
+- **C#:** `Aes.Create()` + `KeySize` property assignment (hash factories excluded
+  from property-chaining tracking).
+- **Portal upload:** CycloneDX `parameterSetIdentifier` / `classicalSecurityLevel`
+  now map to `finding.properties.key_size` on scan ingest.
+
+See [algorithm-keysize-patterns.md](docs/guides/cli/algorithm-keysize-patterns.md).
+
 ### Library inventory coverage (cross-language)
 
 Expanded Pass-2 crypto-library import rules and `library_map` enrichment tokens

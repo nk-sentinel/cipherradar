@@ -341,18 +341,24 @@ func (s *RubyScanner) detectOpenSSLPKey(root *sitter.Node, path string, content 
 
 		// DSA: OpenSSL::PKey::DSA.new(2048)
 		if strings.Contains(text, "DSA") && (strings.Contains(text, ".new") || strings.Contains(text, ".generate")) {
+			keySize := extractIntFromText(text)
+			name := "DSA"
+			if keySize > 0 {
+				name = fmt.Sprintf("DSA-%d", keySize)
+			}
 			qi := quantum.GetInfo("dsa")
 
 			findings = append(findings, types.Finding{
 				ID:        nextFindingID(),
 				AssetType: types.AssetAlgorithm,
-				Name:      "DSA",
+				Name:      name,
 				Location:  scanner.NodeLocation(node, path, content),
 				Severity:  types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "signature",
 					AlgorithmFamily:  "dsa",
+					KeySize:          keySize,
 					QuantumStatus:    qi.Status,
 					NistQuantumLevel: qi.NistLevel,
 					CryptoFunctions:  []string{"generate"},

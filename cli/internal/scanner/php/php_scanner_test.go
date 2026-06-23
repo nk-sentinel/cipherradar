@@ -145,6 +145,23 @@ func TestOpenSSLPkeyNew(t *testing.T) {
 	}, "EC key generation via openssl_pkey_new")
 }
 
+func TestOpenSSLPkeyNewPrivateKeyBits(t *testing.T) {
+	s := php.New()
+	src := `<?php
+$key = openssl_pkey_new([
+    'private_key_bits' => 4096,
+    'private_key_type' => OPENSSL_KEYTYPE_RSA,
+]);
+`
+	findings, err := s.ScanFile("keygen.php", []byte(src))
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "rsa" && f.Properties.KeySize == 4096
+	}, "RSA keygen with private_key_bits=4096")
+}
+
 // ---------------------------------------------------------------------------
 // hash / hash_hmac / hash_pbkdf2 tests
 // ---------------------------------------------------------------------------

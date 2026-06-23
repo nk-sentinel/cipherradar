@@ -256,6 +256,18 @@ hello
 	}
 }
 
+func TestOpenSSLPkeyDSANew(t *testing.T) {
+	s := ruby.New()
+	code := []byte(`key = OpenSSL::PKey::DSA.new(2048)`)
+	findings, err := s.ScanFile("dsa.rb", code)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	assertFindingExists(t, findings, func(f types.Finding) bool {
+		return f.Properties.AlgorithmFamily == "dsa" && f.Properties.KeySize == 2048
+	}, "DSA-2048 via OpenSSL::PKey::DSA.new")
+}
+
 func TestFindingIDsAreUnique(t *testing.T) {
 	s := ruby.New()
 	content := readFixture(t, "crypto_usage.rb")
