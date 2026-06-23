@@ -29,6 +29,14 @@ When `--container` is set, the argument is an image reference (for example `ngin
 `gcr.io/project/image:tag`) or a local tar file path. `--container` and a positional path are
 mutually exclusive.
 
+> **Limitation — container scans run Pass 1 only.** Image scanning extracts text
+> files from each layer and runs the Pass-1 (tree-sitter/regex) scanners over
+> them. Pass 2 (OpenGrep taint analysis) and Pass 3 (YARA-X binary scanning) do
+> **not** run in container mode, even if `--passes 2,3` or `--deep` is given — those
+> flags are currently a no-op against images, and compiled artifacts (binaries,
+> JARs, wheels) inside a layer are skipped. Use directory scanning for full
+> multi-pass coverage. Tracked for improvement.
+
 ### Synopsis
 
 ```
