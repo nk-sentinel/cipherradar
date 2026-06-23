@@ -109,6 +109,33 @@ func TestParsePomXML_PropertyResolution(t *testing.T) {
 	}
 }
 
+func TestParsePomXML_DependencyManagementFallback(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, dir, "pom.xml", `<project>
+	  <dependencyManagement>
+	    <dependencies>
+	      <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-api</artifactId><version>0.12.6</version></dependency>
+	    </dependencies>
+	  </dependencyManagement>
+	  <dependencies>
+	    <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-api</artifactId></dependency>
+	  </dependencies>
+	</project>`)
+	pkgs, err := parsePomXML(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 {
+		t.Fatalf("expected 1 package, got %d", len(pkgs))
+	}
+	if pkgs[0].Version != "0.12.6" {
+		t.Errorf("version = %q, want 0.12.6", pkgs[0].Version)
+	}
+	if pkgs[0].Group != "io.jsonwebtoken" {
+		t.Errorf("group = %q, want io.jsonwebtoken", pkgs[0].Group)
+	}
+}
+
 func TestResolveLibrary_SnippetDisambiguationAndVersion(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "requirements.txt", "cryptography==41.0.0\n")
@@ -117,7 +144,7 @@ func TestResolveLibrary_SnippetDisambiguationAndVersion(t *testing.T) {
 
 	// Coarse token with multiple python candidates; snippet picks cryptography,
 	// manifest pins the version.
-	p, ok := ResolveLibrary(ix, "pyca-cryptography-or-hashlib-or-pycryptodome-or-pynacl",
+	p, ok := ResolveLibrary(ix, "pyca-cryptography-or-hashlib-or-pycryptodome-or-pynacl-or-passlib-or-pyjwt-or-python-jose-or-authlib-or-bcrypt-py-or-argon2-cffi",
 		"from cryptography.hazmat import primitives", src)
 	if !ok {
 		t.Fatal("expected resolution")
@@ -243,12 +270,40 @@ func TestParseGoMod(t *testing.T) {
 	}
 }
 
+func TestParseBuildGradle_VersionCatalogAlias(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "gradle/libs.versions.toml", `[versions]
+bouncycastle = "1.78.1"
+[libraries]
+bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bouncycastle" }
+jjwtapi = { module = "io.jsonwebtoken:jjwt-api", version = "0.12.6" }
+`)
+	path := writeFile(t, dir, "build.gradle.kts", `dependencies {
+  implementation(libs.bcprov)
+  implementation(libs.jjwtapi)
+}`)
+	pkgs, err := parseBuildGradle(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]Package{}
+	for _, p := range pkgs {
+		got[p.Group+":"+p.Name] = p
+	}
+	if got["org.bouncycastle:bcprov-jdk18on"].Version != "1.78.1" {
+		t.Errorf("bcprov version = %q, want 1.78.1", got["org.bouncycastle:bcprov-jdk18on"].Version)
+	}
+	if got["io.jsonwebtoken:jjwt-api"].Version != "0.12.6" {
+		t.Errorf("jjwt-api version = %q, want 0.12.6", got["io.jsonwebtoken:jjwt-api"].Version)
+	}
+}
+
 func TestResolveLibrary_RustCargo(t *testing.T) {
 	dir := t.TempDir()
 	writeFile(t, dir, "Cargo.lock", "[[package]]\nname = \"ring\"\nversion = \"0.17.7\"\n")
 	src := writeFile(t, dir, "main.rs", "use ring::digest;\n")
 	ix, _ := Build(dir)
-	p, ok := ResolveLibrary(ix, "ring-or-rustls-or-openssl", "use ring::digest;", src)
+	p, ok := ResolveLibrary(ix, "ring-or-rustls-or-openssl-or-aws-lc-rs-or-p256-or-ed25519-dalek-or-x25519-dalek-or-chacha20poly1305", "use ring::digest;", src)
 	if !ok || p.Name != "ring" || p.Version != "0.17.7" {
 		t.Fatalf("got %+v ok=%v, want ring@0.17.7", p, ok)
 	}
@@ -262,7 +317,7 @@ func TestParsePubspecLock_AndPurl(t *testing.T) {
 	writeFile(t, dir, "pubspec.lock", "packages:\n  pointycastle:\n    dependency: \"direct main\"\n    source: hosted\n    version: \"3.7.3\"\n  http:\n    dependency: transitive\n    version: \"1.0.0\"\n")
 	src := writeFile(t, dir, "main.dart", "import 'package:pointycastle/export.dart';\n")
 	ix, _ := Build(dir)
-	p, ok := ResolveLibrary(ix, "dart-crypto-or-pointycastle", "import 'package:pointycastle/export.dart';", src)
+	p, ok := ResolveLibrary(ix, "dart-crypto-or-pointycastle-or-dart-cryptography", "import 'package:pointycastle/export.dart';", src)
 	if !ok || p.Name != "pointycastle" || p.Version != "3.7.3" {
 		t.Fatalf("got %+v ok=%v, want pointycastle@3.7.3", p, ok)
 	}
@@ -281,11 +336,146 @@ func TestResolveLibrary_AncestorEcosystemPreference(t *testing.T) {
 	rbFile := writeFile(t, root, "rb/app.rb", "require 'bcrypt'\n")
 	ix, _ := Build(root)
 
-	p, ok := ResolveLibrary(ix, "openssl-or-bcrypt-or-digest", "require 'bcrypt'", rbFile)
+	p, ok := ResolveLibrary(ix, "openssl-or-bcrypt-or-digest-or-jwt-rb-or-rbnacl", "require 'bcrypt'", rbFile)
 	if !ok {
 		t.Fatal("expected bcrypt to resolve")
 	}
 	if p.Ecosystem != EcosystemGem || p.Version != "3.1.20" {
 		t.Errorf("ruby bcrypt resolved to %s/%s@%s, want gem/bcrypt@3.1.20", p.Ecosystem, p.Name, p.Version)
+	}
+}
+
+func TestResolvePomVersion(t *testing.T) {
+	props := map[string]string{"bc.version": "1.77"}
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{"1.2.3", "1.2.3"},        // literal
+		{"${bc.version}", "1.77"}, // resolved property
+		{"${missing.prop}", ""},   // unresolved property -> empty
+		{"[1.0,2.0)", ""},         // version range -> unpinned
+		{"", ""},                  // absent
+	}
+	for _, tc := range cases {
+		if got := resolvePomVersion(tc.in, props); got != tc.want {
+			t.Errorf("resolvePomVersion(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+func TestParsePomXML_UnresolvedProperty(t *testing.T) {
+	// A dependency whose version is a ${property} that is neither defined in
+	// <properties> nor covered by <dependencyManagement> must still be emitted,
+	// but with an empty (unpinned) version rather than the literal "${...}".
+	dir := t.TempDir()
+	path := writeFile(t, dir, "pom.xml", `<project>
+	  <dependencies>
+	    <dependency><groupId>com.acme</groupId><artifactId>lib</artifactId><version>${undefined.ver}</version></dependency>
+	  </dependencies>
+	</project>`)
+	pkgs, err := parsePomXML(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 {
+		t.Fatalf("expected 1 package, got %d", len(pkgs))
+	}
+	if pkgs[0].Name != "lib" || pkgs[0].Version != "" {
+		t.Errorf("got %+v, want lib with empty version", pkgs[0])
+	}
+}
+
+func TestParseGradleVersionCatalog_EdgeCases(t *testing.T) {
+	dir := t.TempDir()
+	path := writeFile(t, dir, "libs.versions.toml", `[versions]
+good = "1.0.0"
+[libraries]
+goodlib = { module = "com.good:lib", version.ref = "good" }
+unresolved = { module = "com.x:y", version.ref = "missing" }
+nomodule = { version = "9.9" }
+junk line without equals
+`)
+	libs, err := parseGradleVersionCatalog(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Valid library with a resolvable version.ref.
+	if g := libs["goodlib"]; g.Group != "com.good" || g.Name != "lib" || g.Version != "1.0.0" {
+		t.Errorf("goodlib = %+v, want com.good:lib@1.0.0", g)
+	}
+	// version.ref pointing at a missing [versions] key -> present but unpinned.
+	if u, ok := libs["unresolved"]; !ok || u.Version != "" {
+		t.Errorf("unresolved = %+v (ok=%v), want com.x:y with empty version", u, ok)
+	}
+	// A library entry with no module must be skipped, not panic.
+	if _, ok := libs["nomodule"]; ok {
+		t.Error("library without a module should be skipped")
+	}
+}
+
+func TestParseBuildGradle_MalformedCatalogFallsBackToInline(t *testing.T) {
+	// A present-but-unusable catalog must not lose the inline pinned deps, and an
+	// unknown libs.<alias> reference must be silently ignored (fail-safe).
+	dir := t.TempDir()
+	writeFile(t, dir, "gradle/libs.versions.toml", "this is not valid toml @@@@\n[[[ broken\n")
+	path := writeFile(t, dir, "build.gradle.kts", `dependencies {
+  implementation("com.acme:lib:2.1")
+  implementation(libs.unknownalias)
+}`)
+	pkgs, err := parseBuildGradle(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 {
+		t.Fatalf("expected only the inline dep, got %d: %+v", len(pkgs), pkgs)
+	}
+	if pkgs[0].Group != "com.acme" || pkgs[0].Name != "lib" || pkgs[0].Version != "2.1" {
+		t.Errorf("got %+v, want com.acme:lib@2.1", pkgs[0])
+	}
+}
+
+func TestParseBuildGradle_InlineWinsOverCatalog(t *testing.T) {
+	// When the same coordinate is declared both inline (pinned) and via a catalog
+	// alias, the inline occurrence wins (processed first; per-coordinate dedup).
+	dir := t.TempDir()
+	writeFile(t, dir, "gradle/libs.versions.toml", `[versions]
+bc = "1.78.1"
+[libraries]
+bcprov = { module = "org.bouncycastle:bcprov-jdk18on", version.ref = "bc" }
+`)
+	path := writeFile(t, dir, "build.gradle.kts", `dependencies {
+  implementation("org.bouncycastle:bcprov-jdk18on:1.77")
+  implementation(libs.bcprov)
+}`)
+	pkgs, err := parseBuildGradle(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 {
+		t.Fatalf("expected 1 deduped package, got %d: %+v", len(pkgs), pkgs)
+	}
+	if pkgs[0].Version != "1.77" {
+		t.Errorf("version = %q, want 1.77 (inline wins over catalog 1.78.1)", pkgs[0].Version)
+	}
+}
+
+func TestResolveLibrary_JavaJJWTMultiArtifact(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, dir, "pom.xml", `<project><dependencies>
+	  <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-impl</artifactId><version>0.12.6</version></dependency>
+	</dependencies></project>`)
+	src := writeFile(t, dir, "App.java", "import io.jsonwebtoken.Jwts;\n")
+	ix, _ := Build(dir)
+
+	p, ok := ResolveLibrary(ix, "jjwt", "import io.jsonwebtoken.Jwts;", src)
+	if !ok {
+		t.Fatal("expected jjwt to resolve")
+	}
+	if p.Name != "jjwt-impl" || p.Version != "0.12.6" {
+		t.Fatalf("got %+v, want jjwt-impl@0.12.6", p)
+	}
+	if got := BuildPurl(p); got != "pkg:maven/io.jsonwebtoken/jjwt-impl@0.12.6" {
+		t.Errorf("purl = %q", got)
 	}
 }

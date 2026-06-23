@@ -132,7 +132,7 @@ rules:
       category: inventory
       cbom-asset-type: library
       cbom-primitive: CRYPTO-LIBRARY-IMPORT
-      cbom-library: pyca-cryptography-or-hashlib-or-pycryptodome-or-pynacl
+      cbom-library: pyca-cryptography-or-hashlib-or-pycryptodome-or-pynacl-or-passlib-or-pyjwt-or-python-jose-or-authlib-or-bcrypt-py-or-argon2-cffi
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -147,6 +147,14 @@ rules:
       - pattern: import ssl
       - pattern: from Crypto import $X
       - pattern: from nacl import $X
+      - pattern: import passlib
+      - pattern: from passlib import $X
+      - pattern: from passlib.hash import $X
+      - pattern: import jwt
+      - pattern: from jose import $X
+      - pattern: from authlib import $X
+      - pattern: import bcrypt
+      - pattern: from argon2 import $X
 
   # ── Pyca KDF-specific import inventory (Phase C5) ──
   #

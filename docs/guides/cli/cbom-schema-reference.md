@@ -51,16 +51,62 @@ manifest/lockfile, `cradar` emits standard CycloneDX component identity fields:
 | Field | Example | Notes |
 |---|---|---|
 | `name` | `node-forge` | Upgraded to the concrete package name when resolved. |
-| `version` | `1.3.1` | From the lockfile (npm `package-lock.json`, Python `poetry.lock`/`Pipfile.lock`/pinned `requirements.txt`, Maven `pom.xml`/`gradle.lockfile`). |
+| `version` | `1.3.1` | From a manifest or lockfile (see manifest sources below). |
 | `group` | `org.bouncycastle` | Maven groupId only. |
 | `purl` | `pkg:npm/node-forge@1.3.1` | Package URL; version-less (`pkg:npm/node-forge`) when the package is unambiguous but no manifest pin was found. |
 
 The raw detection hint is always available as a `library` property in
 `properties[]`, even when no concrete package/version could be resolved.
-Supported ecosystems today: **npm, PyPI, Maven/Gradle**. Findings in other
-ecosystems surface the library name but no purl. `group`/`version`/`purl` may
-also appear on a `cryptographic-asset` component when its detection carried a
-library hint (e.g. PHP mcrypt); its `cryptoProperties` are unaffected.
+Supported enrichment ecosystems today: **npm, PyPI, Maven/Gradle, Cargo,
+RubyGems, Go modules, Dart/pub**. Composer (PHP) and NuGet (C#) libraries are
+detected but do not yet receive `purl`/`version` enrichment. `group`/`version`/
+`purl` may also appear on a `cryptographic-asset` component when its detection
+carried a library hint (e.g. PHP mcrypt); its `cryptoProperties` are unaffected.
+
+#### Manifest sources (enrichment pass)
+
+`cli/internal/deps` walks the scan root and indexes:
+
+| Ecosystem | Files parsed | Version notes |
+|---|---|---|
+| npm | `package-lock.json`, `package.json` | Lockfile supplies concrete versions; `package.json` alone only pins exact versions (ranges like `^1.2.3` stay unresolved). |
+| PyPI | `requirements.txt`, `poetry.lock`, `Pipfile.lock` | Pinned specs only from `requirements.txt`; lockfiles preferred. |
+| Maven | `pom.xml` | Direct `<dependencies>` plus `<dependencyManagement>` fallback in the same POM; `${property}` resolved from local `<properties>`. |
+| Gradle | `gradle.lockfile`, `build.gradle(.kts)`, `gradle/libs.versions.toml` | Literal `group:artifact:version` strings and `libs.<alias>` catalog aliases; lockfile wins over catalog when both exist. |
+| Cargo | `Cargo.lock` | |
+| RubyGems | `Gemfile.lock` | |
+| Go | `go.mod` | |
+| Dart/pub | `pubspec.lock` | |
+
+Pass-3 (YARA-X binary) library findings carry their own version from the binary
+and **skip** manifest enrichment to avoid cross-ecosystem purl mismatches.
+
+### 2.1 Monitored crypto libraries (Pass-2 inventory rules)
+
+Pass-2 OpenGrep rules with `cbom-asset-type: library` detect cryptographic
+**library imports** (supply-chain inventory). Algorithm *usage* inside a library
+API is a separate `cryptographic-asset` finding from Pass 1 or other Pass-2
+rules.
+
+| Language | Libraries monitored (representative) |
+|---|---|
+| **Java / Kotlin** | Bouncy Castle, JCA/JCE/JSSE, Spring Security Crypto, JJWT, Nimbus JOSE+JWT, Jasypt, Commons Codec, Google Tink, jBCrypt, argon2-jvm |
+| **Python** | pyca/cryptography, hashlib, hmac, ssl, PyCryptodome, PyNaCl, PyCrypto (legacy), passlib, PyJWT, python-jose, authlib, bcrypt, argon2-cffi |
+| **JavaScript / TypeScript** | Node.js `crypto`, node-forge, jsonwebtoken, bcrypt, argon2, crypto-js, Web Crypto API, jose, @noble/hashes, @noble/curves, @noble/ciphers, libsodium-wrappers, sodium-native |
+| **Go** | stdlib `crypto/*`, `golang.org/x/crypto/*` |
+| **Rust** | ring, rustls, openssl, aws-lc-rs, p256, ed25519-dalek, x25519-dalek, chacha20poly1305 |
+| **C / C++** | OpenSSL headers, libsodium |
+| **C#** | `System.Security.Cryptography`, BouncyCastle.NET, Microsoft.IdentityModel.Tokens, jose-jwt |
+| **Ruby** | openssl, bcrypt, digest (stdlib), jwt, rbnacl |
+| **PHP** | mcrypt (legacy), firebase/php-jwt, defuse/php-encryption |
+| **Swift** | CryptoKit, CommonCrypto, Swift Crypto |
+| **Dart** | `package:crypto`, PointyCastle, `package:cryptography` |
+
+Stdlib/platform APIs (JCA, Node `crypto`, Go `crypto/*`, Web Crypto) emit
+`type: library` findings with **no purl** by design.
+
+Rule source of truth: `scanner/rules/<lang>.yml` (`cbom-*-crypto-library-import`
+and related inventory rules). Enrichment tokens: `cli/internal/deps/library_map.go`.
 
 ---
 

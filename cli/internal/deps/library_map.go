@@ -27,6 +27,12 @@ var libTargets = map[string][]libTarget{
 	"cryptography":      {{eco: EcosystemPyPI, pkg: "cryptography", snippet: rx(`cryptography`)}},
 	"pycryptodome":      {{eco: EcosystemPyPI, pkg: "pycryptodome", snippet: rx(`Crypto\.|Cryptodome`)}},
 	"pynacl":            {{eco: EcosystemPyPI, pkg: "pynacl", snippet: rx(`nacl`)}},
+	"passlib":           {{eco: EcosystemPyPI, pkg: "passlib", snippet: rx(`passlib`)}},
+	"pyjwt":             {{eco: EcosystemPyPI, pkg: "pyjwt", snippet: rx(`jwt`)}},
+	"python-jose":       {{eco: EcosystemPyPI, pkg: "python-jose", snippet: rx(`jose`)}},
+	"authlib":           {{eco: EcosystemPyPI, pkg: "authlib", snippet: rx(`authlib`)}},
+	"bcrypt-py":         {{eco: EcosystemPyPI, pkg: "bcrypt", snippet: rx(`bcrypt`)}},
+	"argon2-cffi":       {{eco: EcosystemPyPI, pkg: "argon2-cffi", snippet: rx(`argon2`)}},
 	"hashlib":           {{stdlib: true}},
 	"hmac":              {{stdlib: true}},
 	"ssl":               {{stdlib: true}},
@@ -38,24 +44,72 @@ var libTargets = map[string][]libTarget{
 	"jsonwebtoken": {{eco: EcosystemNPM, pkg: "jsonwebtoken", snippet: rx(`jsonwebtoken|jwt`)}},
 	// bcrypt exists as both an npm package and a Ruby gem; the project's
 	// manifest disambiguates which one is actually present.
-	"bcrypt":        {{eco: EcosystemNPM, pkg: "bcrypt", snippet: rx(`bcrypt`)}, {eco: EcosystemGem, pkg: "bcrypt", snippet: rx(`bcrypt`)}},
-	"argon2":        {{eco: EcosystemNPM, pkg: "argon2", snippet: rx(`argon2`)}},
-	"crypto-js":     {{eco: EcosystemNPM, pkg: "crypto-js", snippet: rx(`crypto-js`)}},
-	"nodejs-crypto": {{stdlib: true}},
-	"webcrypto":     {{stdlib: true}},
+	"bcrypt":             {{eco: EcosystemNPM, pkg: "bcrypt", snippet: rx(`bcrypt`)}, {eco: EcosystemGem, pkg: "bcrypt", snippet: rx(`bcrypt`)}},
+	"argon2":             {{eco: EcosystemNPM, pkg: "argon2", snippet: rx(`argon2`)}},
+	"crypto-js":          {{eco: EcosystemNPM, pkg: "crypto-js", snippet: rx(`crypto-js`)}},
+	"jose":               {{eco: EcosystemNPM, pkg: "jose", snippet: rx(`jose`)}},
+	"noble-hashes":       {{eco: EcosystemNPM, pkg: "@noble/hashes", snippet: rx(`@noble/hashes`)}},
+	"noble-curves":       {{eco: EcosystemNPM, pkg: "@noble/curves", snippet: rx(`@noble/curves`)}},
+	"noble-ciphers":      {{eco: EcosystemNPM, pkg: "@noble/ciphers", snippet: rx(`@noble/ciphers`)}},
+	"libsodium-wrappers": {{eco: EcosystemNPM, pkg: "libsodium-wrappers", snippet: rx(`libsodium-wrappers`)}},
+	"sodium-native":      {{eco: EcosystemNPM, pkg: "sodium-native", snippet: rx(`sodium-native`)}},
+	"nodejs-crypto":      {{stdlib: true}},
+	"webcrypto":          {{stdlib: true}},
 
 	// Java / Maven
 	"bouncycastle":         {{eco: EcosystemMaven, pkg: "bcprov-jdk18on", group: "org.bouncycastle", snippet: rx(`bouncycastle|org\.bouncycastle|\bbc`)}},
 	"bouncycastleprovider": {{eco: EcosystemMaven, pkg: "bcprov-jdk18on", group: "org.bouncycastle"}},
-	"jca":                  {{stdlib: true}},
+	"spring-security-crypto": {{
+		eco: EcosystemMaven, pkg: "spring-security-crypto", group: "org.springframework.security",
+		snippet: rx(`springframework\.security\.crypto`),
+	}},
+	"jjwt": {
+		{eco: EcosystemMaven, pkg: "jjwt-api", group: "io.jsonwebtoken", snippet: rx(`io\.jsonwebtoken`)},
+		{eco: EcosystemMaven, pkg: "jjwt-impl", group: "io.jsonwebtoken", snippet: rx(`io\.jsonwebtoken`)},
+		{eco: EcosystemMaven, pkg: "jjwt-jackson", group: "io.jsonwebtoken", snippet: rx(`io\.jsonwebtoken`)},
+		{eco: EcosystemMaven, pkg: "jjwt-gson", group: "io.jsonwebtoken", snippet: rx(`io\.jsonwebtoken`)},
+	},
+	"nimbus-jose-jwt": {{
+		eco: EcosystemMaven, pkg: "nimbus-jose-jwt", group: "com.nimbusds",
+		snippet: rx(`com\.nimbusds`),
+	}},
+	"jasypt": {{
+		eco: EcosystemMaven, pkg: "jasypt", group: "org.jasypt",
+		snippet: rx(`org\.jasypt`),
+	}},
+	"commons-codec": {{
+		eco: EcosystemMaven, pkg: "commons-codec", group: "commons-codec",
+		snippet: rx(`org\.apache\.commons\.codec`),
+	}},
+	"google-tink": {
+		{eco: EcosystemMaven, pkg: "tink", group: "com.google.crypto.tink", snippet: rx(`google\.crypto\.tink`)},
+		{eco: EcosystemMaven, pkg: "tink-awskms", group: "com.google.crypto.tink", snippet: rx(`google\.crypto\.tink`)},
+		{eco: EcosystemMaven, pkg: "tink-gcpkms", group: "com.google.crypto.tink", snippet: rx(`google\.crypto\.tink`)},
+	},
+	"jbcrypt": {{
+		eco: EcosystemMaven, pkg: "jbcrypt", group: "org.mindrot",
+		snippet: rx(`mindrot\.jbcrypt`),
+	}},
+	"argon2-jvm": {{
+		eco: EcosystemMaven, pkg: "argon2-jvm", group: "de.mkammerer",
+		snippet: rx(`mkammerer\.argon2`),
+	}},
+	"jca": {{stdlib: true}},
 
 	// Rust / Cargo
-	"ring":    {{eco: EcosystemCargo, pkg: "ring", snippet: rx(`ring`)}},
-	"rustls":  {{eco: EcosystemCargo, pkg: "rustls", snippet: rx(`rustls`)}},
-	"openssl": {{eco: EcosystemCargo, pkg: "openssl", snippet: rx(`openssl`)}},
+	"ring":             {{eco: EcosystemCargo, pkg: "ring", snippet: rx(`ring`)}},
+	"rustls":           {{eco: EcosystemCargo, pkg: "rustls", snippet: rx(`rustls`)}},
+	"openssl":          {{eco: EcosystemCargo, pkg: "openssl", snippet: rx(`openssl`)}},
+	"aws-lc-rs":        {{eco: EcosystemCargo, pkg: "aws-lc-rs", snippet: rx(`aws_lc_rs`)}},
+	"p256":             {{eco: EcosystemCargo, pkg: "p256", snippet: rx(`p256`)}},
+	"ed25519-dalek":    {{eco: EcosystemCargo, pkg: "ed25519-dalek", snippet: rx(`ed25519_dalek`)}},
+	"x25519-dalek":     {{eco: EcosystemCargo, pkg: "x25519-dalek", snippet: rx(`x25519_dalek`)}},
+	"chacha20poly1305": {{eco: EcosystemCargo, pkg: "chacha20poly1305", snippet: rx(`chacha20poly1305`)}},
 
 	// Ruby / RubyGems: openssl + digest are stdlib (no purl); bcrypt handled above.
 	"digest": {{stdlib: true}},
+	"jwt-rb": {{eco: EcosystemGem, pkg: "jwt", snippet: rx(`jwt`)}},
+	"rbnacl": {{eco: EcosystemGem, pkg: "rbnacl", snippet: rx(`rbnacl`)}},
 
 	// Python additional
 	"pycrypto": {{eco: EcosystemPyPI, pkg: "pycryptodome", snippet: rx(`Crypto\.|Cryptodome`)}},
@@ -64,11 +118,20 @@ var libTargets = map[string][]libTarget{
 	"go-crypto": {{stdlib: true}},
 
 	// Dart / pub.dev (both are real pub packages, not stdlib).
-	"pointycastle": {{eco: EcosystemPub, pkg: "pointycastle", snippet: rx(`pointycastle`)}},
-	"dart-crypto":  {{eco: EcosystemPub, pkg: "crypto", snippet: rx(`crypto`)}},
+	"pointycastle":      {{eco: EcosystemPub, pkg: "pointycastle", snippet: rx(`pointycastle`)}},
+	"dart-crypto":       {{eco: EcosystemPub, pkg: "crypto", snippet: rx(`crypto`)}},
+	"dart-cryptography": {{eco: EcosystemPub, pkg: "cryptography", snippet: rx(`cryptography`)}},
 
 	// PHP mcrypt extension; name surfaced, no purl.
 	"mcrypt": {{}},
+	// Composer/NuGet/SPM ecosystems are not yet modeled in deps.Ecosystem; these
+	// tokens remain detected but currently don't enrich with purl.
+	"firebase-php-jwt":      {{}},
+	"defuse-php-encryption": {{}},
+	"swift-crypto":          {{}},
+	"bouncycastle-dotnet":   {{}},
+	"identitymodel-tokens":  {{}},
+	"jose-jwt-dotnet":       {{}},
 }
 
 // expandCandidates splits a coarse cbom-library token (e.g.

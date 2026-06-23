@@ -106,7 +106,7 @@ rules:
       category: inventory
       cbom-asset-type: library
       cbom-primitive: CRYPTO-LIBRARY-IMPORT
-      cbom-library: openssl-or-bcrypt-or-digest
+      cbom-library: openssl-or-bcrypt-or-digest-or-jwt-rb-or-rbnacl
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -116,6 +116,8 @@ rules:
       - pattern: require 'openssl'
       - pattern: require 'bcrypt'
       - pattern: require 'digest'
+      - pattern: require 'jwt'
+      - pattern: require 'rbnacl'
 
   - id: cbom-ruby-password-hash-inventory
     message: Password hashing detected in Ruby.

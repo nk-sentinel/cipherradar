@@ -51,3 +51,27 @@ ADR-040 decision: library presence is still a `type: library` component with no
 `cryptoProperties`; it simply gains the identity fields CycloneDX intends for
 SBOM library entries. The raw hint remains available as a `library` property for
 findings that cannot be pinned to a concrete package/version.
+
+## Addendum (2026-06-23): expanded library inventory + enrichment sources
+
+Pass-2 crypto-library import rules now cover additional third-party libraries
+across Java (Spring Security Crypto, JJWT, Nimbus, Jasypt, Commons Codec, Tink,
+jBCrypt, argon2-jvm), Python (passlib, PyJWT, python-jose, authlib, bcrypt,
+argon2-cffi), JavaScript/TypeScript (jose, @noble/*, libsodium wrappers),
+Rust (aws-lc-rs, p256, ed25519-dalek, x25519-dalek, chacha20poly1305), C#
+(BouncyCastle.NET, IdentityModel.Tokens, jose-jwt), Ruby (jwt, rbnacl), PHP
+(firebase/php-jwt, defuse/php-encryption), Swift (Swift Crypto), and Dart
+(`package:cryptography`). See `docs/guides/cli/cbom-schema-reference.md` §2.1
+for the full inventory table.
+
+Enrichment (`cli/internal/deps`) gained:
+
+- Multi-artifact Maven token mapping (e.g. JJWT `jjwt-api`/`jjwt-impl`, Tink
+  `tink`/`tink-awskms`).
+- Same-POM `<dependencyManagement>` version fallback for child dependencies
+  without an explicit `<version>`.
+- Gradle version-catalog parsing (`gradle/libs.versions.toml` + `libs.*`
+  aliases in `build.gradle(.kts)`).
+
+This addendum does not change the ADR-040 emission shape: library presence
+remains `type: library` with no `cryptoProperties`.

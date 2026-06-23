@@ -121,7 +121,7 @@ rules:
       category: inventory
       cbom-asset-type: library
       cbom-primitive: CRYPTO-LIBRARY-IMPORT
-      cbom-library: nodejs-crypto-or-forge-or-jwt-or-bcrypt-or-argon2
+      cbom-library: nodejs-crypto-or-forge-or-jwt-or-bcrypt-or-argon2-or-jose-or-noble-hashes-or-noble-curves-or-noble-ciphers-or-libsodium-wrappers-or-sodium-native
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -133,7 +133,19 @@ rules:
       - pattern: const $X = require('jsonwebtoken')
       - pattern: const $X = require('bcrypt')
       - pattern: const $X = require('argon2')
+      - pattern: const $X = require('jose')
+      - pattern: const $X = require('@noble/hashes')
+      - pattern: const $X = require('@noble/curves')
+      - pattern: const $X = require('@noble/ciphers')
+      - pattern: const $X = require('libsodium-wrappers')
+      - pattern: const $X = require('sodium-native')
       - pattern: import $X from 'crypto'
+      - pattern: import $X from 'jose'
+      - pattern: import $X from '@noble/hashes'
+      - pattern: import $X from '@noble/curves'
+      - pattern: import $X from '@noble/ciphers'
+      - pattern: import $X from 'libsodium-wrappers'
+      - pattern: import $X from 'sodium-native'
 
   # ── SSL 3.0 protocol detection (Phase A4) ──
 

@@ -113,7 +113,7 @@ rules:
       category: inventory
       cbom-asset-type: library
       cbom-primitive: CRYPTO-LIBRARY-IMPORT
-      cbom-library: ring-or-rustls-or-openssl
+      cbom-library: ring-or-rustls-or-openssl-or-aws-lc-rs-or-p256-or-ed25519-dalek-or-x25519-dalek-or-chacha20poly1305
       confidence: high
       quantum-relevant: false
       maturity: stable
@@ -123,9 +123,19 @@ rules:
       - pattern: use ring::$X;
       - pattern: use rustls::$X;
       - pattern: use openssl::$X;
+      - pattern: use aws_lc_rs::$X;
+      - pattern: use p256::$X;
+      - pattern: use ed25519_dalek::$X;
+      - pattern: use x25519_dalek::$X;
+      - pattern: use chacha20poly1305::$X;
       - pattern: use ring::$X::$Y;
       - pattern: use rustls::$X::$Y;
       - pattern: use openssl::$X::$Y;
+      - pattern: use aws_lc_rs::$X::$Y;
+      - pattern: use p256::$X::$Y;
+      - pattern: use ed25519_dalek::$X::$Y;
+      - pattern: use x25519_dalek::$X::$Y;
+      - pattern: use chacha20poly1305::$X::$Y;
 
   - id: cbom-rust-password-hash-inventory
     message: Password hashing detected in Rust.
