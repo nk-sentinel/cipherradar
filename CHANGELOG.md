@@ -4,7 +4,7 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
-## Unreleased
+## 0.4.0-rc.3 — 2026-06-24
 
 ### Key-size detection improvements
 
@@ -12,7 +12,9 @@ All notable changes to CipherRadar are documented in this file.
   `KeySize` from embedded algorithm tokens (`AES-256-GCM` → 256) and named curves
   (`P256-Signing` → 256), populating CycloneDX `parameterSetIdentifier` /
   `classicalSecurityLevel` for findings that previously had size only in `name`.
-- **Java/Kotlin:** JCA two-arg `initialize(SecureRandom, N)` now resolves key size.
+- **Java/Kotlin:** JCA two-arg key-generator init now resolves key size in both
+  argument orderings — `initialize(N, SecureRandom)` (standard JCA) and
+  `initialize(SecureRandom, N)`.
 - **PHP:** `openssl_pkey_new(['private_key_bits' => N])` extracts bit width.
 - **Ruby:** `OpenSSL::PKey::DSA.new(N)` extracts bit width.
 - **C/C++:** `AES_set_encrypt_key` / `AES_set_decrypt_key` bits argument; fixed
@@ -58,6 +60,12 @@ Dart. Newly monitored third-party libraries include (among others):
 
 See `docs/guides/cli/cbom-schema-reference.md` §2.1 for the full monitored-library
 inventory and enrichment manifest sources.
+
+### Documentation
+
+- Documented that container/image scans run Pass 1 only — Pass 2 (OpenGrep) does
+  not run in `--container` mode and compiled artifacts are skipped at extraction
+  (`docs/guides/cli/commands.md`).
 
 ---
 
