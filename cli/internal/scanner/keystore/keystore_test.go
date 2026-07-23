@@ -186,3 +186,19 @@ func TestBKS_PresenceOnlyNotMisreportedAsLocked(t *testing.T) {
 		t.Errorf("BKS finding must not blame a password: %q", present.Description)
 	}
 }
+
+func TestBCFKS_PresenceCaptured(t *testing.T) {
+	// BCFKS (BouncyCastle FIPS) is whole-store-encrypted — no pure-Go parser and
+	// the certs can't be read without the store password. Its presence must
+	// still be captured rather than left invisible to the inventory.
+	findings, err := New().ScanFile("store.bcfks", []byte("\x00\x00\x00\x01 not-a-real-bcfks"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasRule(findings, "cbom-keystore-present") {
+		t.Fatal("expected a presence finding for the .bcfks file")
+	}
+	if countCerts(findings) != 0 {
+		t.Errorf("BCFKS should yield no enumerated certs, got %d", countCerts(findings))
+	}
+}
