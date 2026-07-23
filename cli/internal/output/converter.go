@@ -682,6 +682,52 @@ func buildFindingProperties(f *types.Finding) []Property {
 	if f.Pass > 0 {
 		props = append(props, Property{Name: "detectionPass", Value: fmt.Sprintf("%d", f.Pass)})
 	}
+	if f.AssetType == types.AssetCertificate {
+		props = appendCertificateProps(props, &f.Properties)
+	}
+	return props
+}
+
+// appendCertificateProps surfaces certificate identity, PKI-graph, and context
+// metadata that the CycloneDX 1.7 certificateProperties schema has no fields for
+// (serial, fingerprint, SKI/AKI, AIA/CRL, curve, …) as namespaced free-form
+// properties, so the data is inventoried without breaking schema validation.
+func appendCertificateProps(props []Property, p *types.CryptoProperties) []Property {
+	add := func(name, val string) {
+		if val != "" {
+			props = append(props, Property{Name: name, Value: val})
+		}
+	}
+	add("cradar:cert:serialNumber", p.SerialNumber)
+	add("cradar:cert:sha256Fingerprint", p.FingerprintSHA256)
+	add("cradar:cert:subjectKeyIdentifier", p.SubjectKeyID)
+	add("cradar:cert:authorityKeyIdentifier", p.AuthorityKeyID)
+	add("cradar:cert:publicKeyCurve", p.PublicKeyCurve)
+	add("cradar:cert:signatureHash", p.SignatureHash)
+	if p.SelfSigned {
+		add("cradar:cert:selfSigned", "true")
+	}
+	if p.CertificateVersion > 0 {
+		add("cradar:cert:version", fmt.Sprintf("%d", p.CertificateVersion))
+	}
+	if p.PublicKeyExponent > 0 {
+		add("cradar:cert:publicKeyExponent", fmt.Sprintf("%d", p.PublicKeyExponent))
+	}
+	if p.ValidityDays > 0 {
+		add("cradar:cert:validityDays", fmt.Sprintf("%d", p.ValidityDays))
+	}
+	for _, u := range p.OCSPServers {
+		add("cradar:cert:ocspServer", u)
+	}
+	for _, u := range p.CAIssuerURLs {
+		add("cradar:cert:caIssuerUrl", u)
+	}
+	for _, u := range p.CRLDistributionPoints {
+		add("cradar:cert:crlDistributionPoint", u)
+	}
+	for _, oid := range p.CertificatePolicies {
+		add("cradar:cert:policyOid", oid)
+	}
 	return props
 }
 

@@ -103,7 +103,15 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 		if findings := s.parseDERCertificates(path, content); len(findings) > 0 {
 			return scanner.AnnotateFindings(findings), nil
 		}
-		// Not a DER cert (e.g. a PEM .crt) — fall through to the text path.
+		// No parseable DER cert. If there is no PEM block for the text path to
+		// try, this is opaque/corrupt DER cert material — surface it rather than
+		// letting the binary heuristics silently drop it (coverage honesty).
+		if !bytes.Contains(content, []byte("-----BEGIN")) {
+			return scanner.AnnotateFindings([]types.Finding{
+				unparsedCertFinding(path, "DER", "not a valid DER X.509 certificate"),
+			}), nil
+		}
+		// Otherwise (e.g. a PEM .crt) — fall through to the text path.
 	}
 
 	// PKCS#7 certificate bundles / chains (.p7b/.p7c), DER or PEM-wrapped.
@@ -111,6 +119,10 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 		if findings := s.parsePKCS7Certificates(path, content); len(findings) > 0 {
 			return scanner.AnnotateFindings(findings), nil
 		}
+		// A .p7b/.p7c that yields no certs is opaque bundle material — surface it.
+		return scanner.AnnotateFindings([]types.Finding{
+			unparsedCertFinding(path, "PKCS7", "not a valid PKCS#7 certificate bundle"),
+		}), nil
 	}
 
 	// Skip likely-binary files: if the first 512 bytes contain a NUL, bail out.
@@ -591,6 +603,33 @@ func (s *RegexScanner) parseCertificateBlocks(path string, content []byte) []typ
 	}
 
 	return findings
+}
+
+// unparsedCertFinding surfaces certificate-routed material (a .der/.cer/.crt or
+// .p7b/.p7c file) that could not be parsed, so opaque/corrupt/unsupported cert
+// files still appear in the inventory instead of being silently dropped. This
+// mirrors the keystore presence-finding pattern for coverage honesty.
+func unparsedCertFinding(path, format, reason string) types.Finding {
+	return types.Finding{
+		ID:        nextID(),
+		AssetType: types.AssetCertificate,
+		Name:      "Certificate (unparsed)",
+		Location: types.Location{
+			File: path, StartLine: 1, StartCol: 1, EndLine: 1, EndCol: 1,
+		},
+		Severity:   types.SeverityInfo,
+		Confidence: types.ConfidenceLow,
+		Properties: types.CryptoProperties{
+			CertificateFormat:  format,
+			AlgorithmPrimitive: "CERTIFICATE-X509",
+			State:              "unparsed",
+		},
+		Description: fmt.Sprintf("%s certificate material found but could not be parsed (%s)", format, reason),
+		RuleID:      "cbom-cert-unparsed",
+		Category:    types.CategoryInventory,
+		Maturity:    types.MaturityStable,
+		Pass:        1,
+	}
 }
 
 // buildCertFinding creates a finding for a successfully parsed X.509 certificate.
