@@ -257,6 +257,14 @@ func runScan(cmd *cobra.Command, args []string) error {
 			scanOpts.FileList = stagedFiles
 		}
 
+		// Harvest keystore passwords from project config/source so more keystores
+		// can be inventoried. No-op unless the tree contains keystores; harvested
+		// values are used only as open candidates and are never reported (#92).
+		if harvested := keystore.HarvestPasswords(targetPath); len(harvested) > 0 {
+			keystore.SetHarvestedPasswords(harvested)
+			lg.Info("harvested keystore password candidates from project", "count", len(harvested))
+		}
+
 		// Run Pass 1 scan (tree-sitter AST).
 		emitter.PassStart(1, "tree-sitter", 0) // file count unknown until walk completes
 		pass1Start := time.Now()

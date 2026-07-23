@@ -47,6 +47,16 @@ var userWordlist []string
 // --keystore-wordlist). Called once before scanning.
 func SetUserWordlist(words []string) { userWordlist = words }
 
+// harvestedPasswords holds candidate passwords discovered by the source/config
+// harvest pass (issue #92). Set once before scanning; used only as open
+// candidates and never reported.
+var harvestedPasswords []string
+
+// SetHarvestedPasswords registers passwords harvested from project config/source
+// (see HarvestPasswords). Tried after the default set and filename guesses, so a
+// keystore that opens on a default never incurs their cost (lazy escalation).
+func SetHarvestedPasswords(words []string) { harvestedPasswords = words }
+
 // Scanner detects and inspects keystore files.
 type Scanner struct{}
 
@@ -112,9 +122,14 @@ func (s *Scanner) ScanFile(path string, content []byte) ([]types.Finding, error)
 func passwordCandidates(path string) []string {
 	base := filepath.Base(path)
 	nameNoExt := strings.TrimSuffix(base, filepath.Ext(base))
-	cands := make([]string, 0, len(defaultPasswords)+len(userWordlist)+2)
+	cands := make([]string, 0, len(defaultPasswords)+len(userWordlist)+len(harvestedPasswords)+2)
+	// Order matters: cheap, common defaults first so a keystore that opens on a
+	// default never reaches the filename/harvested/user candidates. This is the
+	// lazy-escalation guarantee — harvested passwords cost open attempts only on
+	// keystores still locked after the defaults.
 	cands = append(cands, defaultPasswords...)
 	cands = append(cands, base, nameNoExt)
+	cands = append(cands, harvestedPasswords...)
 	cands = append(cands, userWordlist...)
 	return cands
 }

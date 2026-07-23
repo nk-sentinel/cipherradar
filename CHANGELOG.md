@@ -6,6 +6,17 @@ All notable changes to CipherRadar are documented in this file.
 
 ## Unreleased
 
+### Certificates & keystores
+
+- **Keystore password harvesting (coverage, not secrets):** the scanner now
+  harvests candidate keystore passwords from project config keys
+  (`*key-store-password*`, Tomcat `keystorePass`, `.env`) and keystore-load API
+  arguments (`KeyStore.load(is, "…".toCharArray())`), and tries them when opening
+  otherwise-locked keystores — so more keystores get their certificates
+  inventoried. Values are used only as open candidates and are **never logged or
+  reported**. High-precision (context-anchored), capped at 30 candidates, and
+  lazily escalated: a keystore that opens on a default never pays the cost.
+
 ### Tooling
 
 - Upgraded the pinned OpenGrep from **v1.16.5 to v1.25.0** (used by
