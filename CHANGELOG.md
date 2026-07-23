@@ -8,6 +8,12 @@ All notable changes to CipherRadar are documented in this file.
 
 ### Certificates & keystores
 
+- **BCFKS keystores are captured (presence).** `.bcfks` (BouncyCastle FIPS)
+  files were previously invisible — the extension wasn't routed, so a BCFKS
+  store produced no findings at all. They are now surfaced as a presence finding
+  (contents not enumerated: the whole store is encrypted and needs the password
+  plus a BouncyCastle implementation, tracked in #94), so they appear in the
+  inventory rather than being silently dropped.
 - **BKS (BouncyCastle) keystores are now inventoried.** A pure-Go reader
   enumerates the certificates in `.bks` stores — cert entries and the cert chain
   attached to every entry are plaintext, and the encrypted key/secret/sealed
