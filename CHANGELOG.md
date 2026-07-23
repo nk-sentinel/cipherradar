@@ -8,6 +8,12 @@ All notable changes to CipherRadar are documented in this file.
 
 ### Certificates & keystores
 
+- **BKS (BouncyCastle) keystores are now inventoried.** A pure-Go reader
+  enumerates the certificates in `.bks` stores — cert entries and the cert chain
+  attached to every entry are plaintext, and the encrypted key/secret/sealed
+  blobs are length-prefixed, so they are skipped and the whole store is
+  traversed without a password. Verified against real BouncyCastle-generated
+  BKS v1/v2 fixtures; fully bounds-checked against malformed input.
 - **JCEKS keystores are now inventoried.** A pure-Go reader enumerates the
   certificates in `.jceks` stores (trusted-cert entries + private-key cert
   chains, which are plaintext), so they are no longer invisible to the scanner.
