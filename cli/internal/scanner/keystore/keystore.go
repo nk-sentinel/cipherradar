@@ -68,7 +68,7 @@ func (s *Scanner) Name() string { return "keystore" }
 
 // Extensions returns the keystore file extensions handled.
 func (s *Scanner) Extensions() []string {
-	return []string{".jks", ".keystore", ".p12", ".pfx", ".bks", ".truststore"}
+	return []string{".jks", ".keystore", ".p12", ".pfx", ".bks", ".jceks", ".truststore"}
 }
 
 // ScanFile inspects a keystore file's bytes.
@@ -85,6 +85,18 @@ func (s *Scanner) ScanFile(path string, content []byte) ([]types.Finding, error)
 		return scanner.AnnotateFindings([]types.Finding{
 			keystorePresenceFinding(path, ext, false, false, reasonUnsupported),
 		}), nil
+	}
+
+	// JCEKS: keystore-go rejects its magic number, but its certificate entries
+	// are plaintext DER, so enumerate them directly (no password needed). No
+	// weak-password check — no password is matched for cert reading.
+	if ext == ".jceks" {
+		certs, hasPrivateKey, opened := openJCEKS(content)
+		findings := []types.Finding{keystorePresenceFinding(path, ext, opened, hasPrivateKey, reasonUnsupported)}
+		for _, c := range certs {
+			findings = append(findings, buildKeystoreCertFinding(c, path))
+		}
+		return scanner.AnnotateFindings(findings), nil
 	}
 
 	var certs []*x509.Certificate

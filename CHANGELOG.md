@@ -8,6 +8,11 @@ All notable changes to CipherRadar are documented in this file.
 
 ### Certificates & keystores
 
+- **JCEKS keystores are now inventoried.** A pure-Go reader enumerates the
+  certificates in `.jceks` stores (trusted-cert entries + private-key cert
+  chains, which are plaintext), so they are no longer invisible to the scanner.
+  Secret-key entries are skipped; the reader is fully bounds-checked against
+  malformed input.
 - **Keystore password harvesting (coverage, not secrets):** the scanner now
   harvests candidate keystore passwords from project config keys
   (`*key-store-password*`, Tomcat `keystorePass`, `.env`) and keystore-load API
