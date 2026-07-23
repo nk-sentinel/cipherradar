@@ -18,7 +18,7 @@ import (
 
 const (
 	// OpenGrepVersion is the pinned OpenGrep release to install.
-	OpenGrepVersion = "v1.16.5"
+	OpenGrepVersion = "v1.25.0"
 
 	// OpenGrepBaseURL is the GitHub Releases base URL for OpenGrep.
 	OpenGrepBaseURL = "https://github.com/opengrep/opengrep/releases/download"

@@ -202,7 +202,7 @@ jobs:
       - name: Download OpenGrep for cradar-full
         if: matrix.opengrep_asset != ''
         run: |
-          OPENGREP_VERSION="v1.16.5"
+          OPENGREP_VERSION="v1.25.0"
           DOWNLOAD_URL="https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/${{ matrix.opengrep_asset }}"
           echo "Downloading OpenGrep from: ${DOWNLOAD_URL}"
           mkdir -p dist/opengrep
