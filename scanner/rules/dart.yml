@@ -15,9 +15,11 @@ rules:
       maturity: experimental
       default_enabled: false
       noise_risk: high
-    # rc2-bug7: simplified — opengrep v1.16.5 dart parser cannot tokenise
-    # multi-statement patterns (binding + ellipsis + call chain). Restore the
-    # cross-statement key-flow pattern when opengrep dart support improves.
+    # Single-statement matches only: opengrep's Dart parser still cannot
+    # tokenise cross-statement flow patterns (binding + ellipsis + call chain) —
+    # re-verified as of opengrep v1.25.0 ("Invalid pattern for Dart:
+    # Parse_error"). Restore the cross-statement key-flow pattern when opengrep's
+    # Dart support handles multi-statement patterns.
     pattern-either:
       - pattern: Key.fromUtf8("...")
       - pattern: Key.fromBase64("...")
@@ -82,10 +84,11 @@ rules:
       maturity: stable
       default_enabled: true
       noise_risk: low
-    # rc2-bug7: simplified — opengrep v1.16.5 dart parser cannot tokenise
-    # multi-statement binding-then-use patterns. Falls back to direct
-    # Random() construction/usage matches. Restore cross-statement flow
-    # patterns when opengrep dart support improves.
+    # Single-statement matches only: opengrep's Dart parser still cannot
+    # tokenise multi-statement binding-then-use patterns — re-verified as of
+    # opengrep v1.25.0 ("Invalid pattern for Dart: Parse_error"). Falls back to
+    # direct Random() construction/usage matches. Restore cross-statement flow
+    # patterns when opengrep's Dart support handles multi-statement patterns.
     pattern-either:
       - pattern: Random().nextInt(...)
       - pattern: Random().nextDouble()
