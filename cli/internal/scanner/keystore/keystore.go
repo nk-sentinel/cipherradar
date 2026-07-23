@@ -79,12 +79,16 @@ func (s *Scanner) ScanFile(path string, content []byte) ([]types.Finding, error)
 	candidates := passwordCandidates(path)
 	ext := strings.ToLower(filepath.Ext(path))
 
-	// BKS is a BouncyCastle-proprietary format with no pure-Go parser; report
-	// its presence honestly rather than misattributing the failure to a password.
+	// BKS (BouncyCastle): its store data is plaintext, so enumerate certificates
+	// directly. Key/secret/sealed blobs are length-prefixed and skipped; no
+	// password is needed for cert reading.
 	if ext == ".bks" {
-		return scanner.AnnotateFindings([]types.Finding{
-			keystorePresenceFinding(path, ext, false, false, reasonUnsupported),
-		}), nil
+		certs, hasPrivateKey, opened := openBKS(content)
+		findings := []types.Finding{keystorePresenceFinding(path, ext, opened, hasPrivateKey, reasonUnsupported)}
+		for _, c := range certs {
+			findings = append(findings, buildKeystoreCertFinding(c, path))
+		}
+		return scanner.AnnotateFindings(findings), nil
 	}
 
 	// JCEKS: keystore-go rejects its magic number, but its certificate entries

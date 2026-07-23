@@ -161,7 +161,7 @@ func TestUserWordlistUnlocks(t *testing.T) {
 }
 
 func TestBKS_PresenceOnlyNotMisreportedAsLocked(t *testing.T) {
-	// Any bytes with a .bks extension: we can't parse BKS, but we must report
+	// Malformed BKS bytes (bad magic): we can't parse it, but we must report
 	// presence honestly (format not parsed) — not as a password-locked store.
 	findings, err := New().ScanFile("truststore.bks", []byte("\xfe\xed\xfe\xed\x00\x00\x00\x02 not-a-real-bks"))
 	if err != nil {
@@ -171,7 +171,7 @@ func TestBKS_PresenceOnlyNotMisreportedAsLocked(t *testing.T) {
 		t.Fatal("expected a presence finding for the .bks file")
 	}
 	if countCerts(findings) != 0 {
-		t.Errorf("BKS should not enumerate certs, got %d", countCerts(findings))
+		t.Errorf("malformed BKS should yield no certs, got %d", countCerts(findings))
 	}
 	var present *types.Finding
 	for i := range findings {
