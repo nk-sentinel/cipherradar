@@ -4,6 +4,18 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## Unreleased
+
+### Tooling
+
+- Upgraded the pinned OpenGrep from **v1.16.5 to v1.25.0** (used by
+  `cradar install-tools` and bundled into `cradar-full`). All 207 rules validate
+  cleanly (0 fatal / 0 skippable), and the newer Dart parser resolves the
+  v1.16.5 tokenisation gap — recovering additional Dart crypto-library import
+  findings — with no rule changes and no finding regressions.
+
+---
+
 ## 0.4.0-rc.3 — 2026-06-24
 
 ### Key-size detection improvements
