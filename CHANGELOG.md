@@ -13,6 +13,10 @@ All notable changes to CipherRadar are documented in this file.
   cleanly (0 fatal / 0 skippable), and the newer Dart parser resolves the
   v1.16.5 tokenisation gap — recovering additional Dart crypto-library import
   findings — with no rule changes and no finding regressions.
+- Upgraded the pinned YARA-X from **v1.14.0 to v1.19.0**. The unix release asset
+  was renamed `.gz` → `.tar.gz` (content unchanged — always a gzipped tar), so
+  the installer and release download paths were updated accordingly. Pass-3
+  binary scanning produces identical results on the test corpus.
 
 ---
 

@@ -137,19 +137,19 @@ jobs:
             goos: linux
             goarch: amd64
             opengrep_asset: opengrep_manylinux_x86
-            yarax_asset: yara-x-v1.14.0-x86_64-unknown-linux-gnu.gz
+            yarax_asset: yara-x-v1.19.0-x86_64-unknown-linux-gnu.tar.gz
             yarax_format: gz
           - os: macos-latest
             goos: darwin
             goarch: arm64
             opengrep_asset: opengrep_osx_arm64
-            yarax_asset: yara-x-v1.14.0-aarch64-apple-darwin.gz
+            yarax_asset: yara-x-v1.19.0-aarch64-apple-darwin.tar.gz
             yarax_format: gz
           - os: windows-latest
             goos: windows
             goarch: amd64
             opengrep_asset: opengrep_windows_x86.exe
-            yarax_asset: yara-x-v1.14.0-x86_64-pc-windows-msvc.zip
+            yarax_asset: yara-x-v1.19.0-x86_64-pc-windows-msvc.zip
             yarax_format: zip
           # NOTE: macos-13 (Intel) runners are deprecated by GitHub.
           # darwin/amd64 dropped until a cross-compile or self-hosted solution is available.
@@ -216,7 +216,7 @@ jobs:
       - name: Download YARA-X for cradar-full
         if: matrix.yarax_asset != ''
         run: |
-          YARAX_VERSION="v1.14.0"
+          YARAX_VERSION="v1.19.0"
           DOWNLOAD_URL="https://github.com/VirusTotal/yara-x/releases/download/${YARAX_VERSION}/${{ matrix.yarax_asset }}"
           echo "Downloading YARA-X from: ${DOWNLOAD_URL}"
           mkdir -p dist/yarax

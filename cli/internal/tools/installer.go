@@ -24,7 +24,7 @@ const (
 	OpenGrepBaseURL = "https://github.com/opengrep/opengrep/releases/download"
 
 	// YARAXVersion is the pinned YARA-X release to install.
-	YARAXVersion = "v1.14.0"
+	YARAXVersion = "v1.19.0"
 
 	// YARAXBaseURL is the GitHub Releases base URL for YARA-X.
 	YARAXBaseURL = "https://github.com/VirusTotal/yara-x/releases/download"
@@ -245,8 +245,9 @@ func yaraXAsset() (string, error) {
 		return "", fmt.Errorf("unsupported OS for YARA-X: %s", goos())
 	}
 
-	// YARA-X archives: gzipped tar on unix, zip on windows.
-	ext := "gz"
+	// YARA-X archives: gzipped tar on unix (named .tar.gz from v1.16.0 on;
+	// content was always a gzipped tar), zip on windows.
+	ext := "tar.gz"
 	if goos() == "windows" {
 		ext = "zip"
 	}
