@@ -542,12 +542,12 @@ func TestYaraXAsset_PlatformNaming(t *testing.T) {
 	}
 	switch {
 	case goos() == "linux" && goarch() == "amd64":
-		if asset != "yara-x-"+YARAXVersion+"-x86_64-unknown-linux-gnu.gz" {
-			t.Errorf("linux/amd64 yaraXAsset = %q (expected x86_64-unknown-linux-gnu.gz)", asset)
+		if asset != "yara-x-"+YARAXVersion+"-x86_64-unknown-linux-gnu.tar.gz" {
+			t.Errorf("linux/amd64 yaraXAsset = %q (expected x86_64-unknown-linux-gnu.tar.gz)", asset)
 		}
 	case goos() == "darwin" && goarch() == "arm64":
-		if asset != "yara-x-"+YARAXVersion+"-aarch64-apple-darwin.gz" {
-			t.Errorf("darwin/arm64 yaraXAsset = %q (expected aarch64-apple-darwin.gz)", asset)
+		if asset != "yara-x-"+YARAXVersion+"-aarch64-apple-darwin.tar.gz" {
+			t.Errorf("darwin/arm64 yaraXAsset = %q (expected aarch64-apple-darwin.tar.gz)", asset)
 		}
 	case goos() == "windows" && goarch() == "amd64":
 		if asset != "yara-x-"+YARAXVersion+"-x86_64-pc-windows-msvc.zip" {
