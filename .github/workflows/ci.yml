@@ -21,6 +21,9 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26'
+          # Always pull the newest 1.26.x patch so the govulncheck security gate
+          # sees the latest stdlib fixes (e.g. go1.26.5 fixes GO-2026-5856).
+          check-latest: true
           cache-dependency-path: cli/go.sum
 
       - name: Go vet
@@ -72,6 +75,9 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: '1.26'
+          # Always pull the newest 1.26.x patch so the govulncheck security gate
+          # sees the latest stdlib fixes (e.g. go1.26.5 fixes GO-2026-5856).
+          check-latest: true
           cache-dependency-path: cli/go.sum
 
       # SCA — hard gate. govulncheck does reachability analysis over the build
