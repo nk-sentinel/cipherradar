@@ -68,6 +68,37 @@ type CryptoProperties struct {
 	// CertificateExtensions holds formatted X.509 extension summaries
 	// (KeyUsage, ExtendedKeyUsage, BasicConstraints, SubjectAltName).
 	CertificateExtensions []string `json:"certificate_extensions,omitempty"`
+	// SerialNumber is the certificate serial number as colon-separated hex.
+	SerialNumber string `json:"serial_number,omitempty"`
+	// FingerprintSHA256 is the lowercase hex SHA-256 over the certificate DER
+	// (canonical identity key for dedup/correlation).
+	FingerprintSHA256 string `json:"fingerprint_sha256,omitempty"`
+	// SubjectKeyID is the hex Subject Key Identifier extension (for chain linking).
+	SubjectKeyID string `json:"subject_key_id,omitempty"`
+	// AuthorityKeyID is the hex Authority Key Identifier extension (for chain linking).
+	AuthorityKeyID string `json:"authority_key_id,omitempty"`
+	// CertificateVersion is the X.509 version number (e.g. 3).
+	CertificateVersion int `json:"certificate_version,omitempty"`
+	// SelfSigned reports whether the certificate is self-signed (subject == issuer
+	// and the signature verifies against its own public key).
+	SelfSigned bool `json:"self_signed,omitempty"`
+	// PublicKeyCurve is the named elliptic curve for EC/Ed keys (e.g. "P-256").
+	PublicKeyCurve string `json:"public_key_curve,omitempty"`
+	// PublicKeyExponent is the RSA public exponent (e.g. 65537).
+	PublicKeyExponent int `json:"public_key_exponent,omitempty"`
+	// SignatureHash is the hash used by the signature algorithm (e.g. "SHA-256",
+	// "SHA-1"); surfaced explicitly so weak-hash signatures are flaggable.
+	SignatureHash string `json:"signature_hash,omitempty"`
+	// OCSPServers lists AIA OCSP responder URLs (surfaced, not checked).
+	OCSPServers []string `json:"ocsp_servers,omitempty"`
+	// CAIssuerURLs lists AIA CA-issuer URLs.
+	CAIssuerURLs []string `json:"ca_issuer_urls,omitempty"`
+	// CRLDistributionPoints lists CRL distribution point URLs.
+	CRLDistributionPoints []string `json:"crl_distribution_points,omitempty"`
+	// CertificatePolicies lists certificate policy OIDs.
+	CertificatePolicies []string `json:"certificate_policies,omitempty"`
+	// ValidityDays is the certificate validity window in whole days.
+	ValidityDays int `json:"validity_days,omitempty"`
 
 	// MaterialType is the type of cryptographic material (e.g. "private-key", "public-key", "shared-secret", "iv", "nonce", "seed", "salt", "password").
 	MaterialType string `json:"material_type,omitempty"`
