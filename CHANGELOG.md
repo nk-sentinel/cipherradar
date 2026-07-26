@@ -4,10 +4,20 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
-## Unreleased
+## 0.4.0-rc.4 — 2026-07-26
 
 ### Certificates & keystores
 
+- **Richer certificate metadata.** Parsed certificates now surface serial number,
+  SHA-256 fingerprint, Subject/Authority Key Identifier (chain linking), public-key
+  curve + RSA exponent, signature hash, self-signed flag, version, validity days,
+  and OCSP / CA-issuer / CRL URLs + policy OIDs as `cradar:cert:*` component
+  properties (CycloneDX 1.7 `certificateProperties` is schema-locked, so these ride
+  as validation-safe free-form properties).
+- **Unparsed certificate material is surfaced.** Files that route to the cert parser
+  (`.der`/`.cer`/`.crt`/`.p7b`/`.p7c`, or a PEM `BEGIN CERTIFICATE` block) but fail to
+  parse now emit a low-severity `cbom-cert-unparsed` finding instead of being silently
+  dropped.
 - **macOS Keychain and Mozilla NSS databases are captured (presence).**
   `.keychain`/`.keychain-db` and NSS cert/key DBs (`cert9.db`, `key4.db`, …) are
   non-Java, non-X.509 formats cradar doesn't parse, but they now surface as a
@@ -54,6 +64,14 @@ All notable changes to CipherRadar are documented in this file.
   was renamed `.gz` → `.tar.gz` (content unchanged — always a gzipped tar), so
   the installer and release download paths were updated accordingly. Pass-3
   binary scanning produces identical results on the test corpus.
+
+### Security
+
+- Cleared two newly-disclosed reachable advisories from the CI/release SCA gate:
+  `golang.org/x/text` bumped to v0.39.0 (GO-2026-5970, reachable via the PDF
+  output libraries), and the build toolchain now tracks the latest Go 1.26 patch
+  (`check-latest`) so stdlib fixes are picked up automatically (e.g. go1.26.5 /
+  GO-2026-5856 in `crypto/tls`).
 
 ---
 
