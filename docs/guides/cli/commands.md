@@ -121,10 +121,15 @@ exclusions. Config files, certificate/key material, and binaries are never defau
 |---|---|---|
 | `--keystore-wordlist string` | | Path to a newline-delimited password list to try (in addition to the built-in defaults) when opening JKS / PKCS#12 keystores. Never downloads wordlists. |
 
-`cradar` inspects keystore files (`.jks`, `.keystore`, `.p12`, `.pfx`, `.truststore`),
-enumerating the certificates inside and flagging any store that opens with a well-known or
-default password. `.bks` (BouncyCastle) keystores are reported presence-only — see
-[ADR-041](../../decisions/ADR-041-keystore-password-policy.md).
+`cradar` inspects keystore files and enumerates the certificates inside. JKS / PKCS#12
+(`.jks`/`.keystore`/`.truststore`/`.p12`/`.pfx`/`.pkcs12`/`.pk12`), **JCEKS** (`.jceks`),
+and **BKS** (`.bks`) stores are parsed — JCEKS + BKS via pure-Go readers, no BouncyCastle
+JAR needed. Any store that opens with a well-known/default password, or a password
+**harvested** from the project's own config/source (coverage-only, never reported), is
+flagged (`cbom-keystore-weak-password`). Encrypted or non-Java formats — **BCFKS**
+(`.bcfks`), **UBER** (`.ubr`/`.uber`), **macOS Keychain** (`.keychain`), and **Mozilla
+NSS** databases (`cert9.db`/`key4.db`) — are captured presence-only. See
+[ADR-041](../../decisions/ADR-041-keystore-password-policy.md) (and its 2026-07 addendum).
 
 ### Hook / staged-only
 

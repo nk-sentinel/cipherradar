@@ -227,21 +227,41 @@ So `TLS 1.2` → `{ name: "TLS", protocolProperties: { type: "tls", version: "1.
 > covered: PEM (in source), DER (`.der`/`.cer`/`.crt`), PKCS#7 bundles
 > (`.p7b`/`.p7c`), and certificates inside keystores (below).
 
-### Keystores (JKS / PKCS#12)
+> **Extended identity/context metadata (`cradar:cert:*` component properties).**
+> CycloneDX 1.7 `certificateProperties` is a fixed schema, so cradar surfaces the
+> extra fields it extracts as free-form component `properties` (validation-safe):
+> `cradar:cert:serialNumber`, `sha256Fingerprint`, `subjectKeyIdentifier` /
+> `authorityKeyIdentifier` (chain linking), `publicKeyCurve`, `publicKeyExponent`,
+> `signatureHash`, `selfSigned`, `version`, `validityDays`, and `ocspServer` /
+> `caIssuerUrl` / `crlDistributionPoint` / `policyOid` when present. Material that
+> routes to the cert parser but fails to parse is surfaced as `cbom-cert-unparsed`
+> rather than silently dropped.
 
-Keystore files (`.jks`, `.keystore`, `.p12`, `.pfx`, `.truststore`) are inspected:
+### Keystores (JKS / PKCS#12 / JCEKS / BKS / BCFKS / …)
+
+Keystore files are inspected — coverage by format:
+
+| Format | Extensions | Handling |
+|---|---|---|
+| JKS, PKCS#12 | `.jks` `.keystore` `.truststore` `.p12` `.pfx` `.pkcs12` `.pk12` | certificates enumerated (password-aware) |
+| JCEKS | `.jceks` | certificates enumerated (pure-Go; cert entries are plaintext — no password needed) |
+| BKS | `.bks` | certificates enumerated (pure-Go; plaintext cert entries) |
+| BCFKS, UBER | `.bcfks` `.ubr` `.uber` | **presence-only** — whole store encrypted (needs password + BouncyCastle) |
+| macOS Keychain, Mozilla NSS | `.keychain` `.keychain-db`, `cert9.db` / `key4.db` / … | **presence-only** — non-Java formats (NSS matched by exact filename) |
 
 - A `cbom-keystore-present` finding is **always** emitted (path-stamped), noting
-  whether the store is locked or contains private-key material.
+  whether the store is locked/unsupported or contains private-key material — so
+  even an unparsed store is captured, never invisible.
 - Embedded certificates are enumerated and modeled exactly like file
   certificates (the linked graph above).
-- `cradar` tries a curated set of well-known/default passwords (JDK `changeit`,
-  `android`, `notasecret`, WebLogic demo stores, common weak values, plus the
-  filename) and any list passed via `--keystore-wordlist <file>`. If one opens
-  the store, a `cbom-keystore-weak-password` **security** finding (HIGH) is
-  emitted in addition to the inventory. `cradar` never downloads wordlists.
-- A store that no candidate opens is reported as present-but-locked, with no
-  cert enumeration.
+- For password-protected stores, `cradar` tries a curated set of well-known /
+  default passwords (JDK `changeit`, `android`, `notasecret`, WebLogic demo
+  stores, common weak values, plus the filename); passwords **harvested** from
+  the project's own config keys and keystore-load API calls (coverage-only —
+  never logged or reported); and any list passed via `--keystore-wordlist
+  <file>`. If a default/weak password opens the store, a
+  `cbom-keystore-weak-password` **security** finding (HIGH) is emitted. `cradar`
+  never downloads wordlists.
 
 ### 4.4 `related-crypto-material` → `relatedCryptoMaterialProperties`
 
