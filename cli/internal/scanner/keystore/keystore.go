@@ -72,6 +72,9 @@ func (s *Scanner) Extensions() []string {
 		".jks", ".keystore", ".truststore",
 		".p12", ".pfx", ".pkcs12", ".pk12",
 		".bks", ".jceks", ".bcfks", ".ubr", ".uber",
+		// Non-Java formats: presence-only (see ScanFile). ".nssdb" is a synthetic
+		// extension DetectLanguage assigns to NSS cert/key databases by filename.
+		".keychain", ".keychain-db", ".nssdb",
 	}
 }
 
@@ -82,6 +85,16 @@ func (s *Scanner) ScanFile(path string, content []byte) ([]types.Finding, error)
 	}
 	candidates := passwordCandidates(path)
 	ext := strings.ToLower(filepath.Ext(path))
+
+	// macOS Keychain (.keychain/.keychain-db) and Mozilla NSS cert/key databases
+	// (cert9.db, key4.db, … — routed via the synthetic ".nssdb" extension) are
+	// non-Java, non-X.509-keystore formats we don't parse. Capture their presence
+	// so they appear in the inventory rather than being silently dropped.
+	if ext == ".keychain" || ext == ".keychain-db" || scanner.IsNSSKeystoreFile(path) {
+		return scanner.AnnotateFindings([]types.Finding{
+			keystorePresenceFinding(path, ext, false, false, reasonUnsupported),
+		}), nil
+	}
 
 	// BCFKS (BouncyCastle FIPS) and UBER: the whole store is encrypted, so their
 	// certificates cannot be enumerated without the store password + a BC
