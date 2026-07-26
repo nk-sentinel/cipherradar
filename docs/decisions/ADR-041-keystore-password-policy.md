@@ -42,7 +42,8 @@ credentials changes the tool's character and risk profile.
 ## Consequences
 
 - The default-password set is a maintained constant; additions are low-risk.
-- **Known limitation — BKS keystores are presence-only.** There is no pure-Go
+- **Known limitation — BKS keystores are presence-only.** _(Superseded — see the
+  2026-07 addendum below: BKS is now enumerated by a pure-Go reader.)_ There is no pure-Go
   BKS parser (the format is BouncyCastle/Java-specific), so a `.bks` file yields
   a path-stamped presence finding noting "format not parsed" — it is not run
   through the JKS loader and is never misreported as password-locked.
@@ -60,3 +61,39 @@ credentials changes the tool's character and risk profile.
 - Base64-encoded certificates embedded in Kubernetes Secret data are now
   decoded (`cbom-configfile-k8s-cert`); inline PEM in any text config was
   already covered by the universal regex scanner.
+
+## Addendum (2026-07): pure-Go readers for JCEKS + BKS; presence capture extended
+
+The "BKS keystores are presence-only" limitation above is **resolved** for the
+plaintext-cert case. cradar now enumerates certificates from JCEKS and BKS
+stores with **pure-Go readers** — no Java runtime, no BouncyCastle JAR:
+
+- **JCEKS** (`.jceks`): keystore-go rejects its magic number, but its certificate
+  entries (trusted certs + private-key cert chains) are plaintext DER, so they
+  are read directly without a password.
+- **BKS** (`.bks`): its store data is plaintext (the encrypted key/secret/sealed
+  blobs are length-prefixed and skipped), so the whole store traverses and its
+  certs enumerate without a password. Verified against real BouncyCastle-
+  generated fixtures.
+
+Both reuse the shared certificate modeling and are fully bounds-checked against
+malformed input. The `keytool`/BouncyCastle-JAR subprocess path discussed above
+is therefore no longer needed for BKS.
+
+The remaining **encrypted or non-Java formats stay presence-only** (captured,
+not enumerated) — their contents can't be read without the store password plus a
+format-specific implementation:
+
+- **BCFKS** (`.bcfks`) and **UBER** (`.ubr`/`.uber`): whole-store-encrypted
+  BouncyCastle formats — enumeration needs the password + a BouncyCastle
+  implementation (a bundled Java/BC helper, tracked separately and deferred).
+- **macOS Keychain** (`.keychain`/`.keychain-db`) and **Mozilla NSS** cert/key
+  databases (`cert9.db`, `key4.db`, …): different, non-X.509 formats. NSS files
+  are matched by exact filename (routed via a synthetic `.nssdb` extension) so
+  unrelated `.db` SQLite files are not swept in.
+
+Net: every keystore/cert-store format with a recognizable extension is now at
+least **captured** — parsed where the certs are plaintext (JKS, PKCS12, JCEKS,
+BKS), presence-only where the store is encrypted or non-Java. Password
+harvesting (config keys + keystore-load API arguments; coverage-only, never
+reported) additionally unlocks otherwise-locked stores so their certs inventory.

@@ -1,8 +1,8 @@
 # Data Model
 
-> **Document version:** v3
+> **Document version:** v4
 > **Created:** 2026-03-15
-> **Last updated:** 2026-06-23
+> **Last updated:** 2026-07-26
 > **Status:** Active
 
 ## Change History
@@ -12,6 +12,7 @@
 | v1 | 2026-03-15 | Initial document | — |
 | v2 | 2026-06-21 | Certificate linked-component graph + `dependencies[]`, X.509 extensions, public-key refs; library `purl`/`version`/`group` identity ([ADR-040](decisions/ADR-040-library-asset-type.md)); keystore findings ([ADR-041](decisions/ADR-041-keystore-password-policy.md)); quantum migration properties | ADR-040, ADR-041, CBOM quality workstream |
 | v3 | 2026-06-23 | Expanded monitored crypto-library inventory (cross-language Pass-2 rules); enrichment now covers Maven `dependencyManagement` and Gradle version catalogs. Full library list in [CLI CBOM schema reference](guides/cli/cbom-schema-reference.md) §2.1 | Library coverage workstream |
+| v4 | 2026-07-26 | Keystore format coverage: JCEKS + BKS parsed via pure-Go readers; BCFKS/UBER/macOS Keychain/Mozilla NSS captured presence-only; project-harvested keystore passwords. Certificate `cradar:cert:*` identity/context metadata + `cbom-cert-unparsed`. See [ADR-041](decisions/ADR-041-keystore-password-policy.md) addendum | Cert-identification workstream |
 
 ---
 
@@ -150,9 +151,14 @@ posture (`quantumStatus`, `nistQuantumSecurityLevel`, `cradar:quantum:*`) so a
 cert signed with a quantum-vulnerable key surfaces its migration priority.
 Certificates are discovered as PEM (in source), DER (`.der`/`.cer`/`.crt`),
 PKCS#7 bundles (`.p7b`/`.p7c`), base64 data in Kubernetes Secrets, and inside
-JKS / PKCS#12 keystores. Keystores additionally yield a `cbom-keystore-present`
-finding (and `cbom-keystore-weak-password` when opened with a default password)
-per [ADR-041](decisions/ADR-041-keystore-password-policy.md).
+keystores. JKS, PKCS#12, **JCEKS**, and **BKS** stores are parsed (certs
+enumerated via pure-Go readers); **BCFKS/UBER** and **macOS Keychain / Mozilla
+NSS** databases are captured **presence-only** (encrypted or non-Java formats).
+Keystores always yield a `cbom-keystore-present` finding (and
+`cbom-keystore-weak-password` when opened with a default or project-harvested
+password) per [ADR-041](decisions/ADR-041-keystore-password-policy.md) (see its
+2026-07 addendum). Certificate material that routes to the parser but fails to
+parse is surfaced as `cbom-cert-unparsed` rather than dropped.
 
 ### 2.4 Related Crypto Material Component
 

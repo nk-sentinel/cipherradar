@@ -1,8 +1,8 @@
 # Technology Stack
 
-> **Document version:** v9
-> **Last updated:** 2026-06-23
-> **Change:** Expanded cross-language crypto-library inventory rules and enrichment (Maven dependencyManagement + Gradle version catalogs).
+> **Document version:** v10
+> **Last updated:** 2026-07-26
+> **Change:** Keystore format coverage — JCEKS + BKS pure-Go cert readers, BCFKS/UBER/macOS Keychain/Mozilla NSS presence capture, project-harvested keystore passwords; certificate identity/context metadata (`cradar:cert:*`).
 
 ---
 
@@ -19,6 +19,7 @@
 | v7 | 2026-05-29 | **Detection engine Pass 3 changed.** Joern (CPG) removed entirely per [ADR-033](decisions/ADR-033-remove-joern-pass3.md); Pass 3 is now **YARA-X** binary content scanning per [ADR-039](decisions/ADR-039-yarax-binary-scanning.md). CLI binary renamed `cbom`→`cradar` and `cbom-full`→`cradar-full`; tools dir `~/.cbom`→`~/.cradar` per [ADR-024](decisions/ADR-024-cli-binary-rename.md). |
 | v8 | 2026-06-21 | Added CLI subsystems: dependency/purl resolution (`deps`), keystore inspection (`keystore-go/v4`, `go-pkcs12`), shared cert builder (`certutil`, `hhrutter/pkcs7`), and scan ignores (`ignore`, `sabhiram/go-gitignore`). See §2.1. |
 | v9 | 2026-06-23 | Expanded crypto-library inventory rules across 9 languages (Spring/JWT/Jasypt/Tink, jose/@noble, passlib/PyJWT, RustCrypto crates, etc.); `deps` now resolves Maven `<dependencyManagement>` and Gradle `libs.versions.toml` catalog aliases. See §2.1. |
+| v10 | 2026-07-26 | Keystore inspection extended: pure-Go JCEKS + BKS cert readers; BCFKS/UBER/macOS Keychain/Mozilla NSS captured presence-only; project config/source keystore-password harvesting (coverage-only, never reported). Certificate parsing surfaces identity/context metadata (serial, SHA-256 fingerprint, SKI/AKI, curve, AIA/CRL, self-signed) as `cradar:cert:*` properties + `cbom-cert-unparsed`. See the [ADR-041 addendum](decisions/ADR-041-keystore-password-policy.md). |
 
 ---
 
@@ -46,8 +47,8 @@
 | Output | Internal `cyclonedx17/` + `output/converter.go` | Custom CycloneDX 1.7 structs for full cryptoProperties support. `cyclonedx-go` evaluated but not adopted (supports 1.6 only; PR #257 stalled). Backend uses `cyclonedx-python-lib` v11.7.0 natively |
 | Schema validation | **santhosh-tekuri/jsonschema/v6** | CycloneDX 1.7 JSON Schema validation; official schema embedded via //go:embed |
 | Dependency / purl resolution | `cli/internal/deps` | Parses manifests & lockfiles (npm, PyPI, Maven/Gradle incl. `dependencyManagement` + `libs.versions.toml`, Cargo, RubyGems, Go modules, Dart/pub) to resolve a detected crypto library to an exact version + purl via `library_map.go` token mapping. Composer/NuGet detection is rule-only until ecosystem parsers land. No external deps |
-| Keystore inspection | `cli/internal/scanner/keystore` + **pavlo-v-chernykh/keystore-go/v4**, **software.sslmate.com/src/go-pkcs12** | Enumerate certs in JKS / PKCS#12 stores; curated default-password set; BKS presence-only ([ADR-041](decisions/ADR-041-keystore-password-policy.md)) |
-| Certificate parsing | `cli/internal/scanner/certutil` + stdlib `crypto/x509`, **hhrutter/pkcs7** | Shared X.509 finding builder (PEM/DER/PKCS#7); public-key algo+size, validity, and KeyUsage/EKU/BasicConstraints/SAN extensions |
+| Keystore inspection | `cli/internal/scanner/keystore` + **pavlo-v-chernykh/keystore-go/v4**, **software.sslmate.com/src/go-pkcs12** | Enumerate certs in JKS / PKCS#12 / **JCEKS** / **BKS** stores (JCEKS + BKS via pure-Go readers, no BouncyCastle JAR); curated default-password set **plus project-harvested passwords** (config keys + keystore-load calls, coverage-only); **BCFKS / UBER / macOS Keychain / Mozilla NSS captured presence-only** ([ADR-041 + 2026-07 addendum](decisions/ADR-041-keystore-password-policy.md)) |
+| Certificate parsing | `cli/internal/scanner/certutil` + stdlib `crypto/x509`, **hhrutter/pkcs7** | Shared X.509 finding builder (PEM/DER/PKCS#7); public-key algo+size, validity, and KeyUsage/EKU/BasicConstraints/SAN extensions; identity/context metadata (serial, SHA-256 fingerprint, SKI/AKI, curve, AIA/CRL, self-signed) as `cradar:cert:*` properties; unparsed cert material surfaced (`cbom-cert-unparsed`) |
 | Scan ignores | `cli/internal/scanner/ignore` + **sabhiram/go-gitignore** | Built-in default ignores + `.gitignore` / `.cradarignore` ([gh #46](https://github.com/nk-sentinel/cipherradar/issues/46)) |
 
 ### 2.2 Language Parsers
