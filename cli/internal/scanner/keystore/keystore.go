@@ -68,7 +68,11 @@ func (s *Scanner) Name() string { return "keystore" }
 
 // Extensions returns the keystore file extensions handled.
 func (s *Scanner) Extensions() []string {
-	return []string{".jks", ".keystore", ".p12", ".pfx", ".bks", ".jceks", ".bcfks", ".truststore"}
+	return []string{
+		".jks", ".keystore", ".truststore",
+		".p12", ".pfx", ".pkcs12", ".pk12",
+		".bks", ".jceks", ".bcfks", ".ubr", ".uber",
+	}
 }
 
 // ScanFile inspects a keystore file's bytes.
@@ -79,11 +83,12 @@ func (s *Scanner) ScanFile(path string, content []byte) ([]types.Finding, error)
 	candidates := passwordCandidates(path)
 	ext := strings.ToLower(filepath.Ext(path))
 
-	// BCFKS (BouncyCastle FIPS): the whole store is encrypted, so its
+	// BCFKS (BouncyCastle FIPS) and UBER: the whole store is encrypted, so their
 	// certificates cannot be enumerated without the store password + a BC
-	// implementation (tracked in #94). Capture its presence honestly rather than
-	// leaving it invisible to the inventory.
-	if ext == ".bcfks" {
+	// implementation (tracked in #94). Capture presence honestly rather than
+	// leaving them invisible to the inventory. (UBER has no strong standard
+	// extension; .ubr/.uber are routed when used.)
+	if ext == ".bcfks" || ext == ".ubr" || ext == ".uber" {
 		return scanner.AnnotateFindings([]types.Finding{
 			keystorePresenceFinding(path, ext, false, false, reasonUnsupported),
 		}), nil
@@ -118,7 +123,7 @@ func (s *Scanner) ScanFile(path string, content []byte) ([]types.Finding, error)
 	var opened, hasPrivateKey bool
 
 	switch ext {
-	case ".p12", ".pfx":
+	case ".p12", ".pfx", ".pkcs12", ".pk12":
 		certs, matchedPwd, opened = openPKCS12(content, candidates)
 		hasPrivateKey = opened // DecodeChain implies a key entry was present
 	default: // .jks, .keystore, .truststore (best effort via JKS loader)

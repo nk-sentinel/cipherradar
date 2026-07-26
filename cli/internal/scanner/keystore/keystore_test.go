@@ -202,3 +202,35 @@ func TestBCFKS_PresenceCaptured(t *testing.T) {
 		t.Errorf("BCFKS should yield no enumerated certs, got %d", countCerts(findings))
 	}
 }
+
+func TestUBER_PresenceCaptured(t *testing.T) {
+	// UBER (BouncyCastle) is whole-store-encrypted like BCFKS — capture presence,
+	// don't leave it invisible.
+	for _, name := range []string{"store.ubr", "store.uber"} {
+		findings, err := New().ScanFile(name, []byte("\x00\x00\x00\x01 not-a-real-uber"))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !hasRule(findings, "cbom-keystore-present") {
+			t.Errorf("%s: expected a presence finding", name)
+		}
+		if countCerts(findings) != 0 {
+			t.Errorf("%s: UBER should yield no enumerated certs, got %d", name, countCerts(findings))
+		}
+	}
+}
+
+func TestPKCS12_AlternateExtensionsParse(t *testing.T) {
+	// .pkcs12 / .pk12 are PKCS#12 too and must be parsed, not just captured.
+	cert, key, _ := testCert(t)
+	data := makePKCS12(t, cert, key, "changeit")
+	for _, name := range []string{"id.pkcs12", "id.pk12"} {
+		findings, err := New().ScanFile(name, data)
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if countCerts(findings) != 1 {
+			t.Errorf("%s: expected 1 parsed cert, got %d", name, countCerts(findings))
+		}
+	}
+}
