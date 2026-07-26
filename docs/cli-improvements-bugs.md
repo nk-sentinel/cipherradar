@@ -1,5 +1,11 @@
 # CLI Improvements RC1 — Bug Inventory
 
+> **✅ COMPLETED — historical record, not open work.** All RC1 bugs are resolved.
+> Bugs 1–3, 5, 6, 8 were fixed by **rc2 (2026-05-18)**; Bug 4 fixed post-rc2; Bug 7
+> (broken OpenGrep rules) resolved by the **OpenGrep v1.16.5 → v1.25.0 upgrade**
+> (v0.4.0-rc.4, **2026-07-26**). The per-bug status table below records the fix
+> commits. Do **not** treat this as a backlog item.
+
 Issues observed against `feature/cli-improvements` @ `a362d8f`
 (VERSION `0.2.0-rc.1`) while exercising the CLI end-to-end against
 `/home/nk-sentinel/projects/CipherRadarTestProj` on 2026-05-09.

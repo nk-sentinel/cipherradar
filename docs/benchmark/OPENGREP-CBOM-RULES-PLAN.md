@@ -1,5 +1,12 @@
 # OpenGrep CBOM Inventory Rules — Implementation Plan
 
+> **✅ COMPLETED — historical record, not open work.** The Pass-2 CBOM
+> inventory-rule approach shipped and was expanded far beyond the original 13
+> rules: the corpus now carries **153 inventory rules** across 12 languages (plus
+> 53 security rules) — see ADR-004 and `CLAUDE.md`. Built out from **2026-03-23**
+> through the recall campaign (to **2026-05-29**) and maintained since (OpenGrep
+> pin now v1.25.0, v0.4.0-rc.4). Do **not** treat this as a backlog item.
+
 ## Goal
 Add 13 OpenGrep taint rules for CBOM inventory detection (not vulnerability detection).
 These rules capture cross-statement crypto patterns that Pass 1 tree-sitter cannot.

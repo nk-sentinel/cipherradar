@@ -1,5 +1,14 @@
 # CipherRadar FN Fix Plan — 69 False Negatives
 
+> **✅ COMPLETED — historical record, not open work.** All 69 benchmark false
+> negatives were closed. Core scanner fixes landed **2026-03-23** (commits "Fix
+> scanner FNs from CipherRadar vs CBOMkit benchmark", Phases 1–3), with the
+> remaining Java/Python FN cleanup completed **2026-05-29**; shipped in the v0.4.0
+> line. Verified live in the current binary — nested crypto is now decomposed
+> (e.g. SHA-256 from `Signature.getInstance("SHA256withRSA")`; the hash inside
+> HMAC / PBKDF2 / OAEP; Fernet; X25519; ECDH). Do **not** treat this as a backlog
+> item.
+
 ## Goal
 Fix all 69 false negatives identified in the CipherRadar vs CBOMkit benchmark.
 **Zero false positive tolerance.** All fixes must use exact pattern matching on standardized API names.
