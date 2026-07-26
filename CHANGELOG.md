@@ -8,6 +8,13 @@ All notable changes to CipherRadar are documented in this file.
 
 ### Certificates & keystores
 
+- **macOS Keychain and Mozilla NSS databases are captured (presence).**
+  `.keychain`/`.keychain-db` and NSS cert/key DBs (`cert9.db`, `key4.db`, …) are
+  non-Java, non-X.509 formats cradar doesn't parse, but they now surface as a
+  presence finding so they appear in the inventory. NSS files are matched by
+  exact filename (via a synthetic `.nssdb` routing) so unrelated `.db` SQLite
+  files are not swept in.
+
 - **BCFKS and UBER keystores are captured (presence).** `.bcfks` (BouncyCastle
   FIPS) and `.ubr`/`.uber` (BouncyCastle UBER) files were previously invisible —
   the extensions weren't routed, so these stores produced no findings at all.

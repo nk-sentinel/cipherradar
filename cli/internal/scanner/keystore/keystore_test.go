@@ -220,6 +220,22 @@ func TestUBER_PresenceCaptured(t *testing.T) {
 	}
 }
 
+func TestKeychainAndNSS_PresenceCaptured(t *testing.T) {
+	// macOS Keychain and Mozilla NSS DBs aren't parsed, but must be captured.
+	for _, name := range []string{"login.keychain", "login.keychain-db", "cert9.db", "key4.db"} {
+		findings, err := New().ScanFile(name, []byte("not-a-parseable-store"))
+		if err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !hasRule(findings, "cbom-keystore-present") {
+			t.Errorf("%s: expected a presence finding", name)
+		}
+		if countCerts(findings) != 0 {
+			t.Errorf("%s: expected 0 enumerated certs, got %d", name, countCerts(findings))
+		}
+	}
+}
+
 func TestPKCS12_AlternateExtensionsParse(t *testing.T) {
 	// .pkcs12 / .pk12 are PKCS#12 too and must be parsed, not just captured.
 	cert, key, _ := testCert(t)
