@@ -227,15 +227,31 @@ So `TLS 1.2` → `{ name: "TLS", protocolProperties: { type: "tls", version: "1.
 > covered: PEM (in source), DER (`.der`/`.cer`/`.crt`), PKCS#7 bundles
 > (`.p7b`/`.p7c`), and certificates inside keystores (below).
 
-> **Extended identity/context metadata (`cradar:cert:*` component properties).**
-> CycloneDX 1.7 `certificateProperties` is a fixed schema, so cradar surfaces the
-> extra fields it extracts as free-form component `properties` (validation-safe):
-> `cradar:cert:serialNumber`, `sha256Fingerprint`, `subjectKeyIdentifier` /
-> `authorityKeyIdentifier` (chain linking), `publicKeyCurve`, `publicKeyExponent`,
-> `signatureHash`, `selfSigned`, `version`, `validityDays`, and `ocspServer` /
-> `caIssuerUrl` / `crlDistributionPoint` / `policyOid` when present. Material that
-> routes to the cert parser but fails to parse is surfaced as `cbom-cert-unparsed`
-> rather than silently dropped.
+**Extended identity/context metadata (`cradar:cert:*`).** CycloneDX 1.7
+`certificateProperties` is a fixed schema, so the extra fields cradar extracts are
+surfaced as free-form **component `properties`** (validation-safe) — i.e. on the
+component itself (`component.properties[]`), not inside `certificateProperties`. Each
+is emitted only when present:
+
+| Property (`cradar:cert:…`) | Description |
+|---|---|
+| `serialNumber` | Certificate serial number. |
+| `sha256Fingerprint` | SHA-256 fingerprint of the DER certificate. |
+| `subjectKeyIdentifier` | Subject Key Identifier (SKI) — used for chain linking. |
+| `authorityKeyIdentifier` | Authority Key Identifier (AKI) — links to the issuer's SKI. |
+| `publicKeyCurve` | Named curve for EC keys (e.g. `P-256`). |
+| `publicKeyExponent` | RSA public exponent (e.g. `65537`). |
+| `signatureHash` | Hash used in the certificate signature (e.g. `SHA-256`). |
+| `selfSigned` | `true` when subject == issuer (self-signed). |
+| `version` | X.509 version (e.g. `3`). |
+| `validityDays` | Total validity window, in days. |
+| `ocspServer` | OCSP responder URL (from Authority Information Access). |
+| `caIssuerUrl` | CA Issuers URL (from Authority Information Access). |
+| `crlDistributionPoint` | CRL distribution point URL. |
+| `policyOid` | Certificate policy OID(s). |
+
+> Material that routes to the cert parser but fails to parse is surfaced as a
+> low-severity `cbom-cert-unparsed` finding rather than silently dropped.
 
 ### Keystores (JKS / PKCS#12 / JCEKS / BKS / BCFKS / …)
 
