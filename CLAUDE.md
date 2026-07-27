@@ -49,7 +49,9 @@ Do not load shared assets from the filesystem at runtime.
 
 ## Implementation
 
-Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`docs/12-phase2-implementation-plan.md`). Phase 3 complete (`docs/13-phase3-implementation-plan.md`) — all 19 milestones delivered, Docker deployment verified.
+Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`docs/12-phase2-implementation-plan.md`). Phase 3 complete (`docs/13-phase3-implementation-plan.md`) — all 19 milestones delivered, Docker deployment verified. Phase 4 complete (`docs/14-phase4-implementation-plan.md`) — binary scanning (Pass 3 YARA-X), pre-commit hook, OTel runtime-enrichment, agility score.
+
+**Recent (v0.4.0-rc.4):** keystore format coverage — JCEKS + BKS parsed via pure-Go readers, BCFKS/UBER/macOS Keychain/Mozilla NSS captured presence-only, PKCS12 `.pkcs12`/`.pk12` variants, config/source keystore-password harvesting (coverage-only); richer certificate metadata (`cradar:cert:*`) + unparsed-cert surfacing (`cbom-cert-unparsed`); tooling upgraded to OpenGrep v1.25.0 + YARA-X v1.19.0. See CHANGELOG.md.
 
 **Phase 3 deliverables:**
 - 12 language scanners + container scanning + config file scanning (nginx, httpd, openssl.cnf, java.security, k8s, Dockerfiles)
@@ -122,7 +124,7 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 - **ADR-001** — Output is CycloneDX 1.7. Never invent a custom schema.
 - **ADR-002** — tree-sitter is the parsing backbone for all languages.
 - **ADR-003** — No build required. Scanner must work on source-only codebases.
-- **ADR-004** — Detection is 3-pass: tree-sitter AST + constant propagation (Pass 1) → OpenGrep taint rules (Pass 2) → YARA-X binary content scanning (Pass 3, opt-in per ADR-039). The original Joern Pass 3 was removed entirely per ADR-033 — its patterns are covered by OpenGrep taint rules with 19x better performance. Default is `--passes 1,2`; `--fast` = Pass 1 only; `--deep` = `1,2,3`. 206 OpenGrep rules across 12 language files (153 inventory + 53 security).
+- **ADR-004** — Detection is 3-pass: tree-sitter AST + constant propagation (Pass 1) → OpenGrep taint rules (Pass 2) → YARA-X binary content scanning (Pass 3, opt-in per ADR-039). The original Joern Pass 3 was removed entirely per ADR-033 — its patterns are covered by OpenGrep taint rules with 19x better performance. Default is `--passes 1,2`; `--fast` = Pass 1 only; `--deep` = `1,2,3`. 207 OpenGrep rules across 12 language files (154 inventory + 53 security).
 - **ADR-005** — CLI in Go, backend in Python/FastAPI.
 - **ADR-008** — Monorepo. `scanner/` is shared between CLI and backend.
 - **ADR-011** — ~~Joern Pass 3 via subprocess~~ — superseded by ADR-033. Joern removed; all patterns covered by OpenGrep rules.

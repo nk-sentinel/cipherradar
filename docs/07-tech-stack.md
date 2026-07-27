@@ -61,7 +61,7 @@
 | TypeScript type resolution | TypeScript Compiler API (Node.js subprocess) | Type information critical for resolving crypto interface implementations |
 | Python AST | Python `ast` module (subprocess) | Native; accurate; handles Python 3.8–3.14 syntax evolution |
 | **Pass 1: Constant propagation** | Custom implementation over tree-sitter CSTs | Intra-procedural variable tracking + cross-file symbol table; covers ~80% of CBOM use cases; see ADR-004 |
-| **Pass 2: OpenGrep taint rules** | OpenGrep (LGPL-2.1) + 206 custom YAML rules (153 inventory + 53 security) across 12 files | Community fork of Semgrep v1.100.0; restores taint mode (moved to Semgrep commercial Dec 2024); identical YAML rule format; no SaaS/commercial licence restrictions; default pass; findings carry quantum posture; see [ADR-009](decisions/ADR-009-opengrep-replaces-semgrep.md) |
+| **Pass 2: OpenGrep taint rules** | OpenGrep (LGPL-2.1) + 207 custom YAML rules (154 inventory + 53 security) across 12 files | Community fork of Semgrep v1.100.0; restores taint mode (moved to Semgrep commercial Dec 2024); identical YAML rule format; no SaaS/commercial licence restrictions; default pass; findings carry quantum posture; see [ADR-009](decisions/ADR-009-opengrep-replaces-semgrep.md) |
 | **Pass 3: YARA-X binary scanning** | YARA-X (`yr`, Rust) via subprocess | Opt-in (`--deep`). Scans compiled artifacts for hard-coded keys, pinned certs, statically-linked crypto library banners, and algorithm byte tables (e.g. AES S-box). Replaced the prototyped-and-removed Joern CPG pass; see [ADR-033](decisions/ADR-033-remove-joern-pass3.md) (Joern removal) and [ADR-039](decisions/ADR-039-yarax-binary-scanning.md) (YARA-X) |
 
 **Why tree-sitter over language-specific parsers for everything?**
