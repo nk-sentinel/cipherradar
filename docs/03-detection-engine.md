@@ -122,7 +122,7 @@ Before Pass 1 runs on individual files, a **project-wide symbol table** is built
 
 ## 4. Pass 2: OpenGrep Taint Rules
 
-CipherRadar ships **206 OpenGrep rules** (153 inventory + 53 security) across 12 rule files (`scanner/rules/*.yml`). OpenGrep is the community fork of Semgrep used since ADR-009; the YAML rule format is identical to Semgrep's. Pass-2 findings are annotated with quantum posture (see [quantum-coverage-matrix.md](quantum-coverage-matrix.md)).
+CipherRadar ships **207 OpenGrep rules** (154 inventory + 53 security) across 12 rule files (`scanner/rules/*.yml`). OpenGrep is the community fork of Semgrep used since ADR-009; the YAML rule format is identical to Semgrep's. Pass-2 findings are annotated with quantum posture (see [quantum-coverage-matrix.md](quantum-coverage-matrix.md)).
 
 ### What It Does
 
