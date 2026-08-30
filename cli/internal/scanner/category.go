@@ -162,6 +162,19 @@ func hasBoundaryToken(id, tok string) bool {
 	}
 }
 
+// noiseGatedOffByDefault lists Pass-1 rule IDs that are nominally inventory
+// but so noisy — loose entropy matches that mint a CBOM related-crypto-material
+// component typed literally "unknown" — that they ship OFF by default and are
+// gated behind --include-noisy. Setting BOTH NoiseRiskHigh and
+// DefaultEnabled=false is the canonical pattern the rulefilter re-enables via
+// --include-noisy (see rulefilter.isDefaultKeep); --include-rule / --rules also
+// bring them back. (WS2; also reduces the k8s cert double-count in issue #70,
+// with a complementary shape-suppression in the regex scanner.)
+var noiseGatedOffByDefault = map[string]bool{
+	"cbom-regex-hex-key":    true,
+	"cbom-regex-base64-key": true,
+}
+
 // AnnotateFindings fills empty lifecycle metadata (Category, Maturity,
 // NoiseRisk, DefaultEnabled) on every finding via ClassifyRule. Pass-1 AST
 // scanners call this as the last step of ScanFile so that all emitted
@@ -176,6 +189,21 @@ func hasBoundaryToken(id, tok string) bool {
 // default_enabled gate (Bug 4 root cause).
 func AnnotateFindings(findings []types.Finding) []types.Finding {
 	for i := range findings {
+		// Noise-gated rules override the default "Pass-1 runs by default"
+		// policy: force them off by default + noise_risk:high so a normal
+		// scan is quiet and --include-noisy brings them back.
+		if noiseGatedOffByDefault[findings[i].RuleID] {
+			if findings[i].Category == "" {
+				findings[i].Category = types.CategoryInventory
+			}
+			if findings[i].Maturity == "" {
+				findings[i].Maturity = types.MaturityStable
+			}
+			findings[i].NoiseRisk = types.NoiseRiskHigh
+			findings[i].DefaultEnabled = false
+			continue
+		}
+
 		hasCat := findings[i].Category != ""
 		hasMat := findings[i].Maturity != ""
 		if hasCat && hasMat {
