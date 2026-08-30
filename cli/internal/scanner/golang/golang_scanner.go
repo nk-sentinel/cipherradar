@@ -10,6 +10,7 @@ import (
 	goLang "github.com/smacker/go-tree-sitter/golang"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/kdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -1171,17 +1172,78 @@ func (s *GoScanner) detectCryptoEd25519(root *sitter.Node, path string, content 
 // crypto/tls detection
 // ---------------------------------------------------------------------------
 
-// tlsVersionConstants maps Go TLS version constant names to their info.
-var tlsVersionConstants = map[string]struct {
+// The Go Pass-1 detection tables are DATA, loaded from the embedded
+// scanner/ast-rules/go.yml at init() and replaceable at scan time via
+// --ast-rules-dir (astrules.LoadGo). Local struct types preserve the exact
+// field names the detect sites use, so wiring them from data needed no change
+// at the lookup sites. See docs/ast-rules-external-design.md.
+
+type goTLSVersionT struct {
 	name     string
 	version  string
 	severity types.Severity
-}{
-	"VersionTLS10": {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"VersionTLS11": {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
-	"VersionTLS12": {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
-	"VersionTLS13": {name: "TLS 1.3", version: "1.3", severity: types.SeverityInfo},
-	"VersionSSL30": {name: "SSL 3.0", version: "3.0", severity: types.SeverityHigh},
+}
+
+type goSM2FuncT struct {
+	cryptoFn  string
+	primitive string
+}
+
+var (
+	// tlsVersionConstants maps Go TLS version constant names to their info.
+	tlsVersionConstants map[string]goTLSVersionT
+	// sm2Functions maps SM2 package function names to the crypto-function role
+	// and primitive.
+	sm2Functions map[string]goSM2FuncT
+)
+
+func init() {
+	applyGoTables(astrules.MustLoadGoEmbedded())
+}
+
+// applyGoTables (re)populates the package-level detection tables from a loaded
+// astrules.GoTables. Called at init with the embedded set and again by
+// ApplyExternalRules when --ast-rules-dir is given.
+func applyGoTables(t *astrules.GoTables) {
+	tv := make(map[string]goTLSVersionT, len(t.TLSVersions))
+	for _, r := range t.TLSVersions {
+		tv[r.Const] = goTLSVersionT{name: r.Name, version: r.Version, severity: parseGoSeverity(r.Severity)}
+	}
+	tlsVersionConstants = tv
+
+	sm := make(map[string]goSM2FuncT, len(t.SM2Functions))
+	for _, r := range t.SM2Functions {
+		sm[r.Func] = goSM2FuncT{cryptoFn: r.CryptoFn, primitive: r.Primitive}
+	}
+	sm2Functions = sm
+}
+
+// ApplyExternalRules replaces the active Go Pass-1 tables from an external
+// --ast-rules-dir. When dir is empty, or has no go.yml, the embedded tables are
+// restored (per-language fallback). Returns an error only when a present go.yml
+// is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadGo(dir)
+	if err != nil {
+		return err
+	}
+	applyGoTables(t)
+	return nil
+}
+
+func parseGoSeverity(s string) types.Severity {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "critical":
+		return types.SeverityCritical
+	case "high":
+		return types.SeverityHigh
+	case "medium":
+		return types.SeverityMedium
+	case "low":
+		return types.SeverityLow
+	default:
+		return types.SeverityInfo
+	}
 }
 
 func (s *GoScanner) detectCryptoTLS(root *sitter.Node, path string, content []byte, imports map[string]string) []types.Finding {
@@ -1281,20 +1343,9 @@ func (s *GoScanner) detectCryptoX509(root *sitter.Node, path string, content []b
 // tjfoc/gmsm SM2 detection (Chinese national EC scheme, quantum-vulnerable)
 // ---------------------------------------------------------------------------
 
-// sm2Functions maps SM2 package function names to the crypto-function role and
-// primitive they represent. Detection is gated on the gmsm/sm2 import alias, so
-// a bare GenerateKey/Sign/Encrypt call in unrelated code is never flagged.
-var sm2Functions = map[string]struct {
-	cryptoFn  string
-	primitive string
-}{
-	"GenerateKey": {cryptoFn: "generate", primitive: "pke"},
-	"Sign":        {cryptoFn: "sign", primitive: "signature"},
-	"Verify":      {cryptoFn: "verify", primitive: "signature"},
-	"Encrypt":     {cryptoFn: "encrypt", primitive: "pke"},
-	"Decrypt":     {cryptoFn: "decrypt", primitive: "pke"},
-}
-
+// detectSM2 finds tjfoc/gmsm SM2 usage via the sm2Functions table. Detection is
+// gated on the gmsm/sm2 import alias, so a bare GenerateKey/Sign/Encrypt call in
+// unrelated code is never flagged.
 func (s *GoScanner) detectSM2(root *sitter.Node, path string, content []byte, imports map[string]string) []types.Finding {
 	// tjfoc/gmsm is the de-facto Go SM2 implementation. Match its sm2 subpackage.
 	alias := aliasFor(imports, "github.com/tjfoc/gmsm/sm2")

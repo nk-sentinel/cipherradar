@@ -1,0 +1,26 @@
+# External AST (Pass-1) detection tables for Go.
+#
+# Source of truth; copied into cli/internal/scanner/astrules/data/ and embedded
+# (run `go generate ./internal/scanner/astrules`). The Go scanner loads these at
+# init and can replace them at scan time via --ast-rules-dir. Only the data
+# lives here; the tree-sitter query machinery stays in Go. Values mirror the
+# former hardcoded maps exactly. See docs/ast-rules-external-design.md.
+version: 1
+language: go
+
+# crypto/tls version constant name -> {name, version, severity}.
+# severity is one of: critical, high, medium, low, info.
+tls_versions:
+  - { const: VersionTLS10, name: "TLS 1.0", version: "1.0", severity: high }
+  - { const: VersionTLS11, name: "TLS 1.1", version: "1.1", severity: high }
+  - { const: VersionTLS12, name: "TLS 1.2", version: "1.2", severity: info }
+  - { const: VersionTLS13, name: "TLS 1.3", version: "1.3", severity: info }
+  - { const: VersionSSL30, name: "SSL 3.0", version: "3.0", severity: high }
+
+# tjfoc/gmsm SM2 package function name -> {crypto_fn, primitive}.
+sm2_functions:
+  - { func: GenerateKey, crypto_fn: generate, primitive: pke }
+  - { func: Sign, crypto_fn: sign, primitive: signature }
+  - { func: Verify, crypto_fn: verify, primitive: signature }
+  - { func: Encrypt, crypto_fn: encrypt, primitive: pke }
+  - { func: Decrypt, crypto_fn: decrypt, primitive: pke }
