@@ -142,7 +142,7 @@ NSS** databases (`cert9.db`/`key4.db`) — are captured presence-only. See
 
 | Flag | Default | Description |
 |---|---|---|
-| `--container string` | | Scan a container image. Accepts a registry reference or a local `.tar` path. Mutually exclusive with the positional path. |
+| `--container string` | | Scan a container image. Accepts a registry reference or a local `.tar` path. Mutually exclusive with the positional path. **Currently runs Pass 1 only** — Pass 2 (OpenGrep) and Pass 3 (YARA-X) are not yet wired into image scanning, so `--deep` / `--passes 2,3` with `--container` emit a warning and do not deepen the scan. Compiled binaries inside layers are not yet scanned. |
 
 ### Baseline suppression
 

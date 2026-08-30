@@ -41,8 +41,8 @@ type layerFile struct {
 
 // scanJob represents a file to be scanned by the worker pool.
 type scanJob struct {
-	file     layerFile
-	scanner  scanner.Scanner
+	file       layerFile
+	scanner    scanner.Scanner
 	universals []scanner.Scanner
 }
 
@@ -53,6 +53,20 @@ type scanJobResult struct {
 	scanned  bool
 }
 
+// actualContainerPasses returns the passes container scanning really executes.
+// Today that is Pass 1 only, so requesting 2/3 does not deepen a container
+// scan. Kept as a function (rather than a constant []int{1}) so it stays honest
+// as WS4.1 wires the deeper passes in.
+func actualContainerPasses(requested []int) []int {
+	for _, p := range requested {
+		if p == 1 {
+			return []int{1}
+		}
+	}
+	// Pass 1 wasn't requested (e.g. --passes 3): nothing container mode runs.
+	return nil
+}
+
 // ScanImage scans an OCI container image for crypto assets.
 // Accepts either:
 //   - image reference: "nginx:latest", "gcr.io/project/image:tag"
@@ -61,7 +75,13 @@ func ScanImage(imageRef string, registry *scanner.Registry, passes []int) (*type
 	result := &types.ScanResult{
 		Target:    imageRef,
 		StartTime: time.Now(),
-		PassesRun: passes,
+		// Honest reporting: container mode currently runs only the Pass-1
+		// equivalent (language scanners + regex universal on files with no
+		// language scanner). Pass 2 (OpenGrep) and Pass 3 (YARA-X) are NOT
+		// wired into the container path yet — reporting the requested passes
+		// verbatim overstated coverage (gh #83). Wiring the deeper passes into
+		// container scans is tracked as the WS4.1 follow-up.
+		PassesRun: actualContainerPasses(passes),
 	}
 
 	img, err := resolveImage(imageRef)

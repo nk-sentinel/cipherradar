@@ -56,7 +56,7 @@ The detection engine transforms raw source code into structured CycloneDX CBOM c
 
 ## 2. Language Coverage Matrix
 
-Pass 1 (tree-sitter) and Pass 2 (OpenGrep taint rules) operate **per language** — the matrix below tracks them. Pass 3 (YARA-X) is **not** a per-language pass: it scans compiled artifacts (binaries, JARs, wheels, OCI layers) for crypto signatures regardless of source language, so it is represented per-artifact in [§5](#5-pass-3-yara-x-binary-content-scanning) rather than as a column here.
+Pass 1 (tree-sitter) and Pass 2 (OpenGrep taint rules) operate **per language** — the matrix below tracks them. Pass 3 (YARA-X) is **not** a per-language pass: it scans compiled artifacts (binaries, JARs, wheels) for crypto signatures regardless of source language, so it is represented per-artifact in [§5](#5-pass-3-yara-x-binary-content-scanning) rather than as a column here. (Note: Pass 3 runs on **directory** scans; it is not yet wired into container-image scans — see §5.)
 
 CipherRadar ships **12 language scanners**: Java, Kotlin, Python, JS/TS, C#, Go, C/C++, Rust, PHP, Ruby, Swift, Dart.
 
@@ -76,7 +76,7 @@ CipherRadar ships **12 language scanners**: Java, Kotlin, Python, JS/TS, C#, Go,
 | **Ruby** | tree-sitter-ruby | Yes | `OpenSSL`, `BCrypt`, `Digest`, `rbnacl` |
 | **Dart/Flutter** | tree-sitter-dart | Yes | `package:crypto`, `package:cryptography`, `pointycastle` |
 
-In addition to the 12 language scanners, CipherRadar runs **config scanners** (nginx, httpd, `openssl.cnf`, `java.security`, Kubernetes manifests, Dockerfile) and **binary/artifact scanners** (JAR, Python wheel, OCI image layers) plus the YARA-X Pass-3 scanner.
+In addition to the 12 language scanners, CipherRadar runs **config scanners** (nginx, httpd, `openssl.cnf`, `java.security`, Kubernetes manifests, Dockerfile) and **binary/artifact scanners** (JAR, Python wheel, native binaries) plus the YARA-X Pass-3 scanner. Container-image scanning (`--container`) extracts layer files and currently runs Pass 1 only.
 
 ---
 
@@ -196,7 +196,7 @@ Pass 3 scans **compiled artifacts and binary content** — not source — using 
 - **Statically-linked crypto library banners** — version strings / fingerprints of OpenSSL, libsodium, mbedTLS, BoringSSL, etc. linked into a binary
 - **Algorithm byte tables** — characteristic constant tables such as the AES S-box, SHA round constants, and similar lookup tables that identify an algorithm even when symbols are stripped
 
-YARA-X runs over the artifact scanners' inputs (raw binaries, JARs, Python wheels, OCI image layers) as a universal scanner, so it complements rather than displaces the native JAR / wheel / binary scanners.
+YARA-X runs over the artifact scanners' inputs (raw binaries, JARs, Python wheels) as a universal scanner, so it complements rather than displaces the native JAR / wheel / binary scanners. This applies to **directory** scans; container-image scanning does not yet route layer contents through Pass 3 (tracked under gh #83).
 
 ### When Pass 3 Runs
 
