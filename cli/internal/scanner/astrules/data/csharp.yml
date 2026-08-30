@@ -1,0 +1,54 @@
+# External AST (Pass-1) detection tables for C#.
+#
+# Source of truth; copied into cli/internal/scanner/astrules/data/ and embedded
+# (run `go generate ./internal/scanner/astrules`). The C# scanner loads these at
+# init and can replace them at scan time via --ast-rules-dir. Only the data
+# lives here; the tree-sitter query machinery stays in Go. Values mirror the
+# former hardcoded maps exactly. See docs/ast-rules-external-design.md.
+version: 1
+language: csharp
+
+# System.Security.Cryptography factory classes (Xxx.Create()) ->
+# {family, name, primitive, severity, rule_tag, crypto_func}.
+# severity is one of: critical, high, medium, low, info.
+factory_classes:
+  - { class: Aes, family: aes, name: AES, primitive: block-cipher, severity: info, rule_tag: aes, crypto_func: encrypt }
+  - { class: TripleDES, family: 3des, name: 3DES, primitive: block-cipher, severity: high, rule_tag: 3des, crypto_func: encrypt }
+  - { class: DES, family: des, name: DES, primitive: block-cipher, severity: high, rule_tag: des, crypto_func: encrypt }
+  - { class: RSA, family: rsa, name: RSA, primitive: pke, severity: info, rule_tag: rsa, crypto_func: generate }
+  - { class: DSA, family: dsa, name: DSA, primitive: signature, severity: info, rule_tag: dsa, crypto_func: generate }
+  - { class: ECDsa, family: ecdsa, name: ECDSA, primitive: signature, severity: info, rule_tag: ecdsa, crypto_func: generate }
+  - { class: ECDiffieHellman, family: ecdh, name: ECDH, primitive: key-agree, severity: info, rule_tag: ecdh, crypto_func: keyagree }
+  - { class: SHA256, family: sha-256, name: SHA-256, primitive: hash, severity: info, rule_tag: sha256, crypto_func: digest }
+  - { class: SHA384, family: sha-384, name: SHA-384, primitive: hash, severity: info, rule_tag: sha384, crypto_func: digest }
+  - { class: SHA512, family: sha-512, name: SHA-512, primitive: hash, severity: info, rule_tag: sha512, crypto_func: digest }
+  - { class: SHA1, family: sha1, name: SHA-1, primitive: hash, severity: high, rule_tag: sha1, crypto_func: digest }
+  - { class: MD5, family: md5, name: MD5, primitive: hash, severity: high, rule_tag: md5, crypto_func: digest }
+
+# BouncyCastle.NET engine classes -> {family, name, primitive}.
+bc_engines:
+  - { class: AesEngine, family: aes, name: AES, primitive: block-cipher }
+  - { class: DesEngine, family: des, name: DES, primitive: block-cipher }
+  - { class: RsaEngine, family: rsa, name: RSA, primitive: pke }
+  - { class: AESEngine, family: aes, name: AES, primitive: block-cipher }
+  - { class: DESEngine, family: des, name: DES, primitive: block-cipher }
+  - { class: RSAEngine, family: rsa, name: RSA, primitive: pke }
+  - { class: RC4Engine, family: rc4, name: RC4, primitive: stream-cipher }
+  - { class: DESedeEngine, family: 3des, name: 3DES, primitive: block-cipher }
+
+# BouncyCastle.NET digest classes -> {family, name}.
+bc_digests:
+  - { class: Sha256Digest, family: sha-256, name: SHA-256 }
+  - { class: MD5Digest, family: md5, name: MD5 }
+  - { class: SHA256Digest, family: sha-256, name: SHA-256 }
+  - { class: Md5Digest, family: md5, name: MD5 }
+  - { class: Sha1Digest, family: sha1, name: SHA-1 }
+  - { class: SHA1Digest, family: sha1, name: SHA-1 }
+
+# SslProtocols enum values -> {name, version, severity}.
+# severity is one of: critical, high, medium, low, info.
+ssl_protocols:
+  - { enum: Tls, name: TLSv1.0, version: "1.0", severity: high }
+  - { enum: Tls11, name: TLSv1.1, version: "1.1", severity: high }
+  - { enum: Tls12, name: TLSv1.2, version: "1.2", severity: info }
+  - { enum: Tls13, name: TLSv1.3, version: "1.3", severity: info }

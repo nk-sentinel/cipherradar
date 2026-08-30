@@ -1,0 +1,247 @@
+# External AST (Pass-1) detection tables for Python.
+#
+# Source of truth; copied into cli/internal/scanner/astrules/data/ and embedded
+# (run `go generate ./internal/scanner/astrules`). The Python scanner loads these
+# at init and can replace them at scan time via --ast-rules-dir. Only the data
+# lives here; the tree-sitter query machinery stays in Go. Values mirror the
+# former hardcoded maps exactly. See docs/ast-rules-external-design.md.
+version: 1
+language: python
+
+# hashlib.<method>() -> algorithm family.
+hashlib_method_algorithms:
+  - { key: md5, value: md5 }
+  - { key: sha1, value: sha1 }
+  - { key: sha224, value: sha-256 }
+  - { key: sha256, value: sha-256 }
+  - { key: sha384, value: sha-384 }
+  - { key: sha512, value: sha-512 }
+  - { key: sha3_256, value: sha3-256 }
+  - { key: sha3_384, value: sha3-384 }
+  - { key: sha3_512, value: sha3-512 }
+  - { key: blake2b, value: blake2b }
+  - { key: blake2s, value: blake2s }
+
+# hashlib.<method>() -> human-readable name.
+hashlib_method_names:
+  - { key: md5, value: MD5 }
+  - { key: sha1, value: SHA-1 }
+  - { key: sha224, value: SHA-224 }
+  - { key: sha256, value: SHA-256 }
+  - { key: sha384, value: SHA-384 }
+  - { key: sha512, value: SHA-512 }
+  - { key: sha3_256, value: SHA3-256 }
+  - { key: sha3_384, value: SHA3-384 }
+  - { key: sha3_512, value: SHA3-512 }
+  - { key: blake2b, value: BLAKE2b }
+  - { key: blake2s, value: BLAKE2s }
+
+# hashlib.new("<algo>") -> algorithm family.
+hashlib_new_algorithms:
+  - { key: md5, value: md5 }
+  - { key: sha1, value: sha1 }
+  - { key: sha224, value: sha-256 }
+  - { key: sha256, value: sha-256 }
+  - { key: sha384, value: sha-384 }
+  - { key: sha512, value: sha-512 }
+  - { key: sha3_256, value: sha3-256 }
+  - { key: sha3_384, value: sha3-384 }
+  - { key: sha3_512, value: sha3-512 }
+  - { key: blake2b, value: blake2b }
+  - { key: blake2s, value: blake2s }
+
+# hashlib.new("<algo>") -> human-readable name.
+hashlib_new_names:
+  - { key: md5, value: MD5 }
+  - { key: sha1, value: SHA-1 }
+  - { key: sha224, value: SHA-224 }
+  - { key: sha256, value: SHA-256 }
+  - { key: sha384, value: SHA-384 }
+  - { key: sha512, value: SHA-512 }
+  - { key: sha3_256, value: SHA3-256 }
+  - { key: sha3_384, value: SHA3-384 }
+  - { key: sha3_512, value: SHA3-512 }
+  - { key: blake2b, value: BLAKE2b }
+  - { key: blake2s, value: BLAKE2s }
+
+# cryptography.hazmat algorithms.<Class>(key) -> {family, primitive}.
+cipher_algorithms:
+  - { class: AES, family: aes, primitive: block-cipher }
+  - { class: TripleDES, family: 3des, primitive: block-cipher }
+  - { class: ChaCha20, family: chacha20, primitive: stream-cipher }
+  - { class: Camellia, family: camellia, primitive: block-cipher }
+  - { class: CAST5, family: cast5, primitive: block-cipher }
+  - { class: SEED, family: seed, primitive: block-cipher }
+  - { class: Blowfish, family: blowfish, primitive: block-cipher }
+  - { class: ARC4, family: rc4, primitive: stream-cipher }
+  - { class: IDEA, family: idea, primitive: block-cipher }
+
+# modes.<Class> -> lowercase mode identifier.
+cipher_modes:
+  - { key: CBC, value: cbc }
+  - { key: ECB, value: ecb }
+  - { key: GCM, value: gcm }
+  - { key: CTR, value: ctr }
+  - { key: OFB, value: ofb }
+  - { key: CFB, value: cfb }
+  - { key: XTS, value: xts }
+
+# cryptography hashes.<Class>() -> {family, name}.
+crypto_hashes:
+  - { class: SHA256, family: sha-256, name: SHA-256 }
+  - { class: SHA384, family: sha-384, name: SHA-384 }
+  - { class: SHA512, family: sha-512, name: SHA-512 }
+  - { class: SHA224, family: sha-256, name: SHA-224 }
+  - { class: SHA512_224, family: sha-512, name: "SHA-512/224" }
+  - { class: SHA512_256, family: sha-512, name: "SHA-512/256" }
+  - { class: SHA1, family: sha1, name: SHA-1 }
+  - { class: MD5, family: md5, name: MD5 }
+  - { class: BLAKE2b, family: blake2b, name: BLAKE2b }
+  - { class: BLAKE2s, family: blake2s, name: BLAKE2s }
+  - { class: SHA3_256, family: sha3-256, name: SHA3-256 }
+  - { class: SHA3_384, family: sha3-384, name: SHA3-384 }
+  - { class: SHA3_512, family: sha3-512, name: SHA3-512 }
+  - { class: SHAKE128, family: shake128, name: SHAKE128 }
+  - { class: SHAKE256, family: shake256, name: SHAKE256 }
+  - { class: SM3, family: sm3, name: SM3 }
+
+# KDF constructor class -> {family, name}.
+kdfs:
+  - { class: PBKDF2HMAC, family: pbkdf2, name: PBKDF2-HMAC }
+  - { class: HKDF, family: hkdf, name: HKDF }
+  - { class: HKDFExpand, family: hkdf, name: HKDF-Expand }
+  - { class: Scrypt, family: scrypt, name: Scrypt }
+  - { class: ConcatKDFHash, family: concatkdf, name: ConcatKDF }
+  - { class: ConcatKDFHMAC, family: concatkdf-hmac, name: ConcatKDF-HMAC }
+  - { class: X963KDF, family: x963kdf, name: X963KDF }
+  - { class: KBKDFHMAC, family: kbkdf, name: KBKDF-HMAC }
+  - { class: KBKDFCMAC, family: kbkdf, name: KBKDF-CMAC }
+
+# ssl.PROTOCOL_* -> {name, version, severity}.
+ssl_protocols:
+  - { const: PROTOCOL_TLS, name: TLS, version: "", severity: info }
+  - { const: PROTOCOL_TLS_CLIENT, name: TLS, version: "", severity: info }
+  - { const: PROTOCOL_TLS_SERVER, name: TLS, version: "", severity: info }
+  - { const: PROTOCOL_TLSv1, name: "TLS 1.0", version: "1.0", severity: high }
+  - { const: PROTOCOL_TLSv1_1, name: "TLS 1.1", version: "1.1", severity: high }
+  - { const: PROTOCOL_TLSv1_2, name: "TLS 1.2", version: "1.2", severity: info }
+  - { const: PROTOCOL_SSLv2, name: "SSL 2.0", version: "2.0", severity: high }
+  - { const: PROTOCOL_SSLv3, name: "SSL 3.0", version: "3.0", severity: high }
+  - { const: PROTOCOL_SSLv23, name: "SSL/TLS", version: "", severity: info }
+
+# ssl.TLSVersion.* -> {name, version, severity}.
+ssl_tls_versions:
+  - { const: TLSv1, name: "TLS 1.0", version: "1.0", severity: high }
+  - { const: TLSv1_1, name: "TLS 1.1", version: "1.1", severity: high }
+  - { const: TLSv1_2, name: "TLS 1.2", version: "1.2", severity: info }
+  - { const: TLSv1_3, name: "TLS 1.3", version: "1.3", severity: info }
+
+# PyCryptodome `from Crypto.* import <symbol>` -> crypto info.
+pycrypto_imports:
+  - { imported: AES, family: aes, name: AES, primitive: block-cipher }
+  - { imported: DES, family: des, name: DES, primitive: block-cipher }
+  - { imported: DES3, family: 3des, name: 3DES, primitive: block-cipher }
+  - { imported: Blowfish, family: blowfish, name: Blowfish, primitive: block-cipher }
+  - { imported: ARC4, family: rc4, name: RC4, primitive: stream-cipher }
+  - { imported: ChaCha20, family: chacha20, name: ChaCha20, primitive: stream-cipher }
+  - { imported: Salsa20, family: salsa20, name: Salsa20, primitive: stream-cipher }
+  - { imported: CAST, family: cast5, name: CAST5, primitive: block-cipher }
+  - { imported: SHA256, family: sha-256, name: SHA-256, primitive: hash }
+  - { imported: SHA1, family: sha1, name: SHA-1, primitive: hash }
+  - { imported: SHA512, family: sha-512, name: SHA-512, primitive: hash }
+  - { imported: SHA384, family: sha-384, name: SHA-384, primitive: hash }
+  - { imported: MD5, family: md5, name: MD5, primitive: hash }
+  - { imported: HMAC, family: hmac, name: HMAC, primitive: mac }
+  - { imported: RSA, family: rsa, name: RSA, primitive: pke }
+  - { imported: DSA, family: dsa, name: DSA, primitive: signature }
+  - { imported: ECC, family: ec, name: EC, primitive: key-agree }
+
+# PyCryptodome <Class>.new(...) cipher usage -> crypto info.
+pycrypto_cipher_usage:
+  - { class: AES, family: aes, name: AES, primitive: block-cipher }
+  - { class: DES, family: des, name: DES, primitive: block-cipher }
+  - { class: DES3, family: 3des, name: 3DES, primitive: block-cipher }
+  - { class: Blowfish, family: blowfish, name: Blowfish, primitive: block-cipher }
+  - { class: ARC2, family: rc2, name: RC2, primitive: block-cipher }
+  - { class: ARC4, family: rc4, name: ARC4, primitive: stream-cipher }
+  - { class: CAST, family: cast5, name: CAST5, primitive: block-cipher }
+  - { class: ChaCha20, family: chacha20, name: ChaCha20, primitive: stream-cipher }
+  - { class: ChaCha20_Poly1305, family: chacha20-poly1305, name: ChaCha20-Poly1305, primitive: ae }
+  - { class: Salsa20, family: salsa20, name: Salsa20, primitive: stream-cipher }
+
+# PyCryptodome <Class>.new(...) hash usage -> {family, name}.
+pycrypto_hash_usage:
+  - { class: SHA256, family: sha-256, name: SHA-256 }
+  - { class: SHA224, family: sha-256, name: SHA-224 }
+  - { class: SHA384, family: sha-384, name: SHA-384 }
+  - { class: SHA512, family: sha-512, name: SHA-512 }
+  - { class: SHA1, family: sha1, name: SHA-1 }
+  - { class: MD5, family: md5, name: MD5 }
+  - { class: SHA3_256, family: sha3-256, name: SHA3-256 }
+  - { class: SHA3_384, family: sha3-384, name: SHA3-384 }
+  - { class: SHA3_512, family: sha3-512, name: SHA3-512 }
+  - { class: BLAKE2b, family: blake2b, name: BLAKE2b }
+  - { class: BLAKE2s, family: blake2s, name: BLAKE2s }
+
+# PyCryptodome AES.MODE_* -> lowercase mode identifier.
+pycrypto_modes:
+  - { key: MODE_ECB, value: ecb }
+  - { key: MODE_CBC, value: cbc }
+  - { key: MODE_CFB, value: cfb }
+  - { key: MODE_OFB, value: ofb }
+  - { key: MODE_CTR, value: ctr }
+  - { key: MODE_GCM, value: gcm }
+  - { key: MODE_EAX, value: eax }
+  - { key: MODE_CCM, value: ccm }
+  - { key: MODE_SIV, value: siv }
+  - { key: MODE_OCB, value: ocb }
+  - { key: MODE_OPENPGP, value: openpgp }
+
+# pyca one-shot AEAD constructor class -> {family, name, mode}.
+pyca_aead:
+  - { class: AESGCM, family: aes, name: AES-GCM, mode: gcm }
+  - { class: AESGCMSIV, family: aes, name: AES-GCM-SIV, mode: gcm-siv }
+  - { class: AESCCM, family: aes, name: AES-CCM, mode: ccm }
+  - { class: AESSIV, family: aes, name: AES-SIV, mode: siv }
+  - { class: AESOCB3, family: aes, name: AES-OCB3, mode: ocb3 }
+  - { class: ChaCha20Poly1305, family: chacha20-poly1305, name: ChaCha20-Poly1305, mode: aead }
+
+# random.<method>() functions treated as weak PRNG in a security context.
+weak_random_methods:
+  - randint
+  - randrange
+  - random
+  - choice
+  - choices
+  - sample
+  - getrandbits
+  - uniform
+  - shuffle
+
+# BLS API method -> crypto function.
+bls_sign_methods:
+  - { key: Sign, value: sign }
+  - { key: Verify, value: verify }
+  - { key: Aggregate, value: sign }
+  - { key: AggregateVerify, value: verify }
+  - { key: FastAggregateVerify, value: verify }
+  - { key: PrivToPub, value: generate }
+  - { key: SkToPk, value: generate }
+  - { key: KeyGen, value: generate }
+
+# Tier-2 asymmetric library call rules (gated on require_import).
+tier2_rules:
+  - { require_import: gmssl, object: sm2, method: CryptSM2, family: sm2, name: SM2, primitive: pke, crypto_fn: encrypt, rule_suffix: gmssl-cryptsm2 }
+  - { require_import: sm2, object: "", method: CryptSM2, family: sm2, name: SM2, primitive: pke, crypto_fn: encrypt, rule_suffix: gmssl-cryptsm2 }
+  - { require_import: ecies, object: ecies, method: encrypt, family: ecies, name: ECIES, primitive: pke, crypto_fn: encrypt, rule_suffix: eciespy-encrypt }
+  - { require_import: ecies, object: ecies, method: decrypt, family: ecies, name: ECIES, primitive: pke, crypto_fn: decrypt, rule_suffix: eciespy-decrypt }
+  - { require_import: ecies, object: "", method: encrypt, family: ecies, name: ECIES, primitive: pke, crypto_fn: encrypt, rule_suffix: eciespy-encrypt }
+  - { require_import: ecies, object: "", method: decrypt, family: ecies, name: ECIES, primitive: pke, crypto_fn: decrypt, rule_suffix: eciespy-decrypt }
+  - { require_import: gostcrypto, object: gostsignature, method: new, family: gost, name: "GOST R 34.10", primitive: signature, crypto_fn: sign, rule_suffix: gostcrypto-signature }
+  - { require_import: gostsignature, object: gostsignature, method: new, family: gost, name: "GOST R 34.10", primitive: signature, crypto_fn: sign, rule_suffix: gostcrypto-signature }
+  - { require_import: phe, object: paillier, method: generate_paillier_keypair, family: paillier, name: Paillier, primitive: pke, crypto_fn: generate, rule_suffix: phe-paillier-keypair }
+  - { require_import: phe, object: "", method: generate_paillier_keypair, family: paillier, name: Paillier, primitive: pke, crypto_fn: generate, rule_suffix: phe-paillier-keypair }
+  - { require_import: phe, object: paillier, method: PaillierPublicKey, family: paillier, name: Paillier, primitive: pke, crypto_fn: encrypt, rule_suffix: phe-paillier-publickey }
+  - { require_import: phe, object: paillier, method: PaillierPrivateKey, family: paillier, name: Paillier, primitive: pke, crypto_fn: decrypt, rule_suffix: phe-paillier-privatekey }
+  - { require_import: phe, object: "", method: PaillierPublicKey, family: paillier, name: Paillier, primitive: pke, crypto_fn: encrypt, rule_suffix: phe-paillier-publickey }
+  - { require_import: phe, object: "", method: PaillierPrivateKey, family: paillier, name: Paillier, primitive: pke, crypto_fn: decrypt, rule_suffix: phe-paillier-privatekey }

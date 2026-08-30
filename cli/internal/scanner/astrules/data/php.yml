@@ -1,0 +1,100 @@
+# External AST (Pass-1) detection tables for PHP.
+#
+# Source of truth; copied into cli/internal/scanner/astrules/data/ and embedded
+# (run `go generate ./internal/scanner/astrules`). The PHP scanner loads these
+# at init and can replace them at scan time via --ast-rules-dir. Only the data
+# lives here; the tree-sitter query machinery stays in Go. Values mirror the
+# former hardcoded maps exactly. See docs/ast-rules-external-design.md.
+version: 1
+language: php
+
+# openssl_* function name -> {primitive, crypto_funcs, method_arg_idx, is_key_gen}.
+# method_arg_idx is the 0-based index of the $method/$algo argument (-1 if none).
+openssl_funcs:
+  - { func: openssl_encrypt, primitive: block-cipher, crypto_funcs: [encrypt], method_arg_idx: 1, is_key_gen: false }
+  - { func: openssl_decrypt, primitive: block-cipher, crypto_funcs: [decrypt], method_arg_idx: 1, is_key_gen: false }
+  - { func: openssl_sign, primitive: signature, crypto_funcs: [sign], method_arg_idx: -1, is_key_gen: false }
+  - { func: openssl_seal, primitive: pke, crypto_funcs: [encrypt, seal], method_arg_idx: 4, is_key_gen: false }
+  - { func: openssl_pkey_new, primitive: pke, crypto_funcs: [generate], method_arg_idx: -1, is_key_gen: true }
+
+# PHP openssl cipher method string -> {family, mode, name}.
+openssl_methods:
+  - { method: aes-128-cbc, family: aes, mode: cbc, name: "AES-128-CBC" }
+  - { method: aes-192-cbc, family: aes, mode: cbc, name: "AES-192-CBC" }
+  - { method: aes-256-cbc, family: aes, mode: cbc, name: "AES-256-CBC" }
+  - { method: aes-128-ecb, family: aes, mode: ecb, name: "AES-128-ECB" }
+  - { method: aes-192-ecb, family: aes, mode: ecb, name: "AES-192-ECB" }
+  - { method: aes-256-ecb, family: aes, mode: ecb, name: "AES-256-ECB" }
+  - { method: aes-128-gcm, family: aes, mode: gcm, name: "AES-128-GCM" }
+  - { method: aes-192-gcm, family: aes, mode: gcm, name: "AES-192-GCM" }
+  - { method: aes-256-gcm, family: aes, mode: gcm, name: "AES-256-GCM" }
+  - { method: aes-128-ctr, family: aes, mode: ctr, name: "AES-128-CTR" }
+  - { method: aes-256-ctr, family: aes, mode: ctr, name: "AES-256-CTR" }
+  - { method: aes-128-cfb, family: aes, mode: cfb, name: "AES-128-CFB" }
+  - { method: aes-256-cfb, family: aes, mode: cfb, name: "AES-256-CFB" }
+  - { method: aes-128-ofb, family: aes, mode: ofb, name: "AES-128-OFB" }
+  - { method: aes-256-ofb, family: aes, mode: ofb, name: "AES-256-OFB" }
+  - { method: des-cbc, family: des, mode: cbc, name: "DES-CBC" }
+  - { method: des-ecb, family: des, mode: ecb, name: "DES-ECB" }
+  - { method: des-ede3-cbc, family: 3des, mode: cbc, name: "3DES-CBC" }
+  - { method: des-ede3, family: 3des, mode: "", name: "3DES" }
+  - { method: bf-cbc, family: blowfish, mode: cbc, name: "Blowfish-CBC" }
+  - { method: bf-ecb, family: blowfish, mode: ecb, name: "Blowfish-ECB" }
+  - { method: rc4, family: rc4, mode: "", name: "RC4" }
+  - { method: camellia-128-cbc, family: camellia, mode: cbc, name: "Camellia-128-CBC" }
+  - { method: camellia-256-cbc, family: camellia, mode: cbc, name: "Camellia-256-CBC" }
+  - { method: chacha20-poly1305, family: chacha20, mode: "", name: "ChaCha20-Poly1305" }
+
+# PHP hash algorithm name -> {family, name}.
+hash_algos:
+  - { algo: md5, family: md5, name: "MD5" }
+  - { algo: md4, family: md4, name: "MD4" }
+  - { algo: sha1, family: sha1, name: "SHA-1" }
+  - { algo: sha224, family: sha-256, name: "SHA-224" }
+  - { algo: sha256, family: sha-256, name: "SHA-256" }
+  - { algo: sha384, family: sha-384, name: "SHA-384" }
+  - { algo: sha512, family: sha-512, name: "SHA-512" }
+  - { algo: sha3-256, family: sha3-256, name: "SHA3-256" }
+  - { algo: sha3-384, family: sha3-384, name: "SHA3-384" }
+  - { algo: sha3-512, family: sha3-512, name: "SHA3-512" }
+  - { algo: ripemd160, family: ripemd160, name: "RIPEMD-160" }
+  - { algo: whirlpool, family: whirlpool, name: "Whirlpool" }
+
+# PHP PASSWORD_* constant -> {family, name}.
+password_algos:
+  - { const: PASSWORD_BCRYPT, family: bcrypt, name: "bcrypt" }
+  - { const: PASSWORD_ARGON2I, family: argon2, name: "Argon2i" }
+  - { const: PASSWORD_ARGON2ID, family: argon2, name: "Argon2id" }
+  - { const: PASSWORD_DEFAULT, family: bcrypt, name: "bcrypt (default)" }
+
+# sodium_* function name -> {family, name, primitive, funcs}.
+sodium_funcs:
+  - { func: sodium_crypto_secretbox, family: xsalsa20, name: "XSalsa20-Poly1305 (secretbox)", primitive: ae, funcs: [encrypt] }
+  - { func: sodium_crypto_secretbox_open, family: xsalsa20, name: "XSalsa20-Poly1305 (secretbox)", primitive: ae, funcs: [decrypt] }
+  - { func: sodium_crypto_box, family: x25519, name: "X25519-XSalsa20-Poly1305 (box)", primitive: pke, funcs: [encrypt] }
+  - { func: sodium_crypto_box_open, family: x25519, name: "X25519-XSalsa20-Poly1305 (box)", primitive: pke, funcs: [decrypt] }
+  - { func: sodium_crypto_box_keypair, family: x25519, name: "X25519 Key Pair", primitive: key-agree, funcs: [generate] }
+  - { func: sodium_crypto_sign, family: ed25519, name: "Ed25519 (sign)", primitive: signature, funcs: [sign] }
+  - { func: sodium_crypto_sign_open, family: ed25519, name: "Ed25519 (verify)", primitive: signature, funcs: [verify] }
+  - { func: sodium_crypto_sign_keypair, family: ed25519, name: "Ed25519 Key Pair", primitive: signature, funcs: [generate] }
+  - { func: sodium_crypto_aead_chacha20poly1305_encrypt, family: chacha20, name: "ChaCha20-Poly1305 (AEAD)", primitive: ae, funcs: [encrypt] }
+  - { func: sodium_crypto_aead_chacha20poly1305_decrypt, family: chacha20, name: "ChaCha20-Poly1305 (AEAD)", primitive: ae, funcs: [decrypt] }
+  - { func: sodium_crypto_aead_chacha20poly1305_ietf_encrypt, family: chacha20, name: "ChaCha20-Poly1305-IETF (AEAD)", primitive: ae, funcs: [encrypt] }
+  - { func: sodium_crypto_aead_chacha20poly1305_ietf_decrypt, family: chacha20, name: "ChaCha20-Poly1305-IETF (AEAD)", primitive: ae, funcs: [decrypt] }
+  - { func: sodium_crypto_aead_xchacha20poly1305_ietf_encrypt, family: chacha20, name: "XChaCha20-Poly1305-IETF (AEAD)", primitive: ae, funcs: [encrypt] }
+  - { func: sodium_crypto_aead_xchacha20poly1305_ietf_decrypt, family: chacha20, name: "XChaCha20-Poly1305-IETF (AEAD)", primitive: ae, funcs: [decrypt] }
+  - { func: sodium_crypto_generichash, family: blake2b, name: "BLAKE2b (generichash)", primitive: hash, funcs: [digest] }
+  - { func: sodium_crypto_pwhash, family: argon2, name: "Argon2id (pwhash)", primitive: kdf, funcs: [derive] }
+  - { func: sodium_crypto_shorthash, family: siphash, name: "SipHash-2-4 (shorthash)", primitive: hash, funcs: [digest] }
+
+# mcrypt_* (deprecated) function name -> {funcs}.
+mcrypt_funcs:
+  - { func: mcrypt_encrypt, funcs: [encrypt] }
+  - { func: mcrypt_decrypt, funcs: [decrypt] }
+  - { func: mcrypt_cbc, funcs: [encrypt, decrypt] }
+  - { func: mcrypt_ecb, funcs: [encrypt, decrypt] }
+  - { func: mcrypt_cfb, funcs: [encrypt, decrypt] }
+  - { func: mcrypt_ofb, funcs: [encrypt, decrypt] }
+  - { func: mcrypt_generic, funcs: [encrypt] }
+  - { func: mdecrypt_generic, funcs: [decrypt] }
+  - { func: mcrypt_module_open, funcs: [init] }

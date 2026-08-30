@@ -1,0 +1,24 @@
+# External AST (Pass-1) detection tables for Swift.
+#
+# Source of truth; copied into cli/internal/scanner/astrules/data/ and embedded
+# (run `go generate ./internal/scanner/astrules`). The Swift scanner loads these
+# at init and can replace them at scan time via --ast-rules-dir. Only the data
+# lives here; the regex/line detection machinery stays in Go. Values mirror the
+# former hardcoded map exactly. See docs/ast-rules-external-design.md.
+version: 1
+language: swift
+
+# CommonCrypto CCCrypt kCCAlgorithm* constant -> algorithm-specific finding.
+# When a CCCrypt call names one of these constants, the generic CCCrypt finding
+# is replaced with the concrete one below. severity is one of:
+# critical, high, medium, low, info. asset_type mirrors types.AssetType.
+# (These entries are matched by constant token, not by a per-entry regex, so no
+# regex source is carried here; the loader leaves the regexPattern.re field nil.)
+cc_crypt_algorithms:
+  - { const: kCCAlgorithmDES, family: des, name: CCCrypt-DES, primitive: block-cipher, severity: high, rule_id: cbom-swift-commoncrypto-cccrypt-des, crypto_funcs: [encrypt, decrypt], asset_type: algorithm }
+  - { const: kCCAlgorithm3DES, family: 3des, name: CCCrypt-3DES, primitive: block-cipher, severity: high, rule_id: cbom-swift-commoncrypto-cccrypt-3des, crypto_funcs: [encrypt, decrypt], asset_type: algorithm }
+  - { const: kCCAlgorithmRC4, family: rc4, name: CCCrypt-RC4, primitive: stream-cipher, severity: high, rule_id: cbom-swift-commoncrypto-cccrypt-rc4, crypto_funcs: [encrypt, decrypt], asset_type: algorithm }
+  - { const: kCCAlgorithmAES, family: aes, name: CCCrypt-AES, primitive: block-cipher, severity: info, rule_id: cbom-swift-commoncrypto-cccrypt-aes, crypto_funcs: [encrypt, decrypt], asset_type: algorithm }
+  - { const: kCCAlgorithmAES128, family: aes, name: CCCrypt-AES, primitive: block-cipher, severity: info, rule_id: cbom-swift-commoncrypto-cccrypt-aes, crypto_funcs: [encrypt, decrypt], asset_type: algorithm }
+  - { const: kCCAlgorithmBlowfish, family: blowfish, name: CCCrypt-Blowfish, primitive: block-cipher, severity: high, rule_id: cbom-swift-commoncrypto-cccrypt-blowfish, crypto_funcs: [encrypt, decrypt], asset_type: algorithm }
+  - { const: kCCAlgorithmCAST, family: cast5, name: CCCrypt-CAST, primitive: block-cipher, severity: high, rule_id: cbom-swift-commoncrypto-cccrypt-cast, crypto_funcs: [encrypt, decrypt], asset_type: algorithm }

@@ -16,6 +16,7 @@ import (
 	phpLang "github.com/smacker/go-tree-sitter/php"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keysize"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -91,51 +92,119 @@ func nextFindingID() string {
 // openssl detection
 // ---------------------------------------------------------------------------
 
-// opensslFuncMap maps openssl_* function names to their crypto operation details.
-var opensslFuncMap = map[string]struct {
-	primitive     string
-	cryptoFuncs   []string
-	methodArgIdx  int  // index of the $method/$algo argument in the arg list (-1 if none)
-	isKeyGen      bool // whether this is a key generation function
-}{
-	"openssl_encrypt":  {primitive: "block-cipher", cryptoFuncs: []string{"encrypt"}, methodArgIdx: 1},
-	"openssl_decrypt":  {primitive: "block-cipher", cryptoFuncs: []string{"decrypt"}, methodArgIdx: 1},
-	"openssl_sign":     {primitive: "signature", cryptoFuncs: []string{"sign"}, methodArgIdx: -1},
-	"openssl_seal":     {primitive: "pke", cryptoFuncs: []string{"encrypt", "seal"}, methodArgIdx: 4},
-	"openssl_pkey_new": {primitive: "pke", cryptoFuncs: []string{"generate"}, methodArgIdx: -1, isKeyGen: true},
+// The PHP Pass-1 detection tables below are DATA, loaded from the embedded
+// scanner/ast-rules/php.yml at init() and replaceable at scan time via
+// --ast-rules-dir (astrules.LoadPHP). Only the tables (token -> crypto
+// semantics) are external; the tree-sitter query machinery stays in Go. See
+// docs/ast-rules-external-design.md. The local struct types preserve the exact
+// field names the detect sites already use, so wiring them from data required
+// no change at the lookup sites.
+
+type opensslFuncT struct {
+	primitive    string
+	cryptoFuncs  []string
+	methodArgIdx int
+	isKeyGen     bool
 }
 
-// opensslMethodMap maps PHP openssl cipher method strings to algorithm details.
-var opensslMethodMap = map[string]struct {
+type opensslMethodT struct {
 	family string
 	mode   string
 	name   string
-}{
-	"aes-128-cbc":         {family: "aes", mode: "cbc", name: "AES-128-CBC"},
-	"aes-192-cbc":         {family: "aes", mode: "cbc", name: "AES-192-CBC"},
-	"aes-256-cbc":         {family: "aes", mode: "cbc", name: "AES-256-CBC"},
-	"aes-128-ecb":         {family: "aes", mode: "ecb", name: "AES-128-ECB"},
-	"aes-192-ecb":         {family: "aes", mode: "ecb", name: "AES-192-ECB"},
-	"aes-256-ecb":         {family: "aes", mode: "ecb", name: "AES-256-ECB"},
-	"aes-128-gcm":         {family: "aes", mode: "gcm", name: "AES-128-GCM"},
-	"aes-192-gcm":         {family: "aes", mode: "gcm", name: "AES-192-GCM"},
-	"aes-256-gcm":         {family: "aes", mode: "gcm", name: "AES-256-GCM"},
-	"aes-128-ctr":         {family: "aes", mode: "ctr", name: "AES-128-CTR"},
-	"aes-256-ctr":         {family: "aes", mode: "ctr", name: "AES-256-CTR"},
-	"aes-128-cfb":         {family: "aes", mode: "cfb", name: "AES-128-CFB"},
-	"aes-256-cfb":         {family: "aes", mode: "cfb", name: "AES-256-CFB"},
-	"aes-128-ofb":         {family: "aes", mode: "ofb", name: "AES-128-OFB"},
-	"aes-256-ofb":         {family: "aes", mode: "ofb", name: "AES-256-OFB"},
-	"des-cbc":             {family: "des", mode: "cbc", name: "DES-CBC"},
-	"des-ecb":             {family: "des", mode: "ecb", name: "DES-ECB"},
-	"des-ede3-cbc":        {family: "3des", mode: "cbc", name: "3DES-CBC"},
-	"des-ede3":            {family: "3des", mode: "", name: "3DES"},
-	"bf-cbc":              {family: "blowfish", mode: "cbc", name: "Blowfish-CBC"},
-	"bf-ecb":              {family: "blowfish", mode: "ecb", name: "Blowfish-ECB"},
-	"rc4":                 {family: "rc4", mode: "", name: "RC4"},
-	"camellia-128-cbc":    {family: "camellia", mode: "cbc", name: "Camellia-128-CBC"},
-	"camellia-256-cbc":    {family: "camellia", mode: "cbc", name: "Camellia-256-CBC"},
-	"chacha20-poly1305":   {family: "chacha20", mode: "", name: "ChaCha20-Poly1305"},
+}
+
+type hashAlgoT struct {
+	family string
+	name   string
+}
+
+type passwordAlgoT struct {
+	family string
+	name   string
+}
+
+type sodiumFuncT struct {
+	family    string
+	name      string
+	primitive string
+	funcs     []string
+}
+
+type mcryptFuncT struct {
+	funcs []string
+}
+
+var (
+	// opensslFuncMap maps openssl_* function names to their crypto operation details.
+	opensslFuncMap map[string]opensslFuncT
+	// opensslMethodMap maps PHP openssl cipher method strings to algorithm details.
+	opensslMethodMap map[string]opensslMethodT
+	// hashAlgoMap maps PHP hash algorithm names to algorithm families and human-readable names.
+	hashAlgoMap map[string]hashAlgoT
+	// passwordAlgoMap maps PHP PASSWORD_* constants to algorithm details.
+	passwordAlgoMap map[string]passwordAlgoT
+	// sodiumFuncMap maps sodium_* function names to crypto details.
+	sodiumFuncMap map[string]sodiumFuncT
+	// mcryptFuncMap maps mcrypt_* function names to crypto details.
+	mcryptFuncMap map[string]mcryptFuncT
+)
+
+func init() {
+	applyPHPTables(astrules.MustLoadPHPEmbedded())
+}
+
+// applyPHPTables (re)populates the package-level detection tables from a loaded
+// astrules.PHPTables. Called at init with the embedded set and again by
+// ApplyExternalRules when --ast-rules-dir is given.
+func applyPHPTables(t *astrules.PHPTables) {
+	of := make(map[string]opensslFuncT, len(t.OpenSSLFuncs))
+	for _, r := range t.OpenSSLFuncs {
+		of[r.Func] = opensslFuncT{primitive: r.Primitive, cryptoFuncs: r.CryptoFuncs, methodArgIdx: r.MethodArgIdx, isKeyGen: r.IsKeyGen}
+	}
+	opensslFuncMap = of
+
+	om := make(map[string]opensslMethodT, len(t.OpenSSLMethods))
+	for _, r := range t.OpenSSLMethods {
+		om[r.Method] = opensslMethodT{family: r.Family, mode: r.Mode, name: r.Name}
+	}
+	opensslMethodMap = om
+
+	ha := make(map[string]hashAlgoT, len(t.HashAlgos))
+	for _, r := range t.HashAlgos {
+		ha[r.Algo] = hashAlgoT{family: r.Family, name: r.Name}
+	}
+	hashAlgoMap = ha
+
+	pa := make(map[string]passwordAlgoT, len(t.PasswordAlgos))
+	for _, r := range t.PasswordAlgos {
+		pa[r.Const] = passwordAlgoT{family: r.Family, name: r.Name}
+	}
+	passwordAlgoMap = pa
+
+	sf := make(map[string]sodiumFuncT, len(t.SodiumFuncs))
+	for _, r := range t.SodiumFuncs {
+		sf[r.Func] = sodiumFuncT{family: r.Family, name: r.Name, primitive: r.Primitive, funcs: r.Funcs}
+	}
+	sodiumFuncMap = sf
+
+	mf := make(map[string]mcryptFuncT, len(t.McryptFuncs))
+	for _, r := range t.McryptFuncs {
+		mf[r.Func] = mcryptFuncT{funcs: r.Funcs}
+	}
+	mcryptFuncMap = mf
+}
+
+// ApplyExternalRules replaces the active PHP Pass-1 tables from an external
+// --ast-rules-dir. When dir is empty, or has no php.yml, the embedded tables
+// are restored (per-language fallback). Returns an error only when a present
+// php.yml is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadPHP(dir)
+	if err != nil {
+		return err
+	}
+	applyPHPTables(t)
+	return nil
 }
 
 func (s *PHPScanner) detectOpenSSL(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
@@ -175,11 +244,11 @@ func (s *PHPScanner) detectOpenSSL(root *sitter.Node, path string, content []byt
 		if method == "" {
 			// Still emit a finding with unknown algorithm
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      fmt.Sprintf("OpenSSL %s (unknown algorithm)", fnName),
-				Location:  scanner.NodeLocation(callNode, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       fmt.Sprintf("OpenSSL %s (unknown algorithm)", fnName),
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceLow,
 				Properties: types.CryptoProperties{
 					Primitive:       info.primitive,
@@ -196,22 +265,18 @@ func (s *PHPScanner) detectOpenSSL(root *sitter.Node, path string, content []byt
 		algoInfo, known := opensslMethodMap[normalizedMethod]
 		if !known {
 			// Unrecognized method — still emit finding
-			algoInfo = struct {
-				family string
-				mode   string
-				name   string
-			}{family: normalizedMethod, mode: "", name: strings.ToUpper(method)}
+			algoInfo = opensslMethodT{family: normalizedMethod, mode: "", name: strings.ToUpper(method)}
 		}
 
 		qi := quantum.GetInfo(algoInfo.family)
 		severity := cipherSeverity(algoInfo.family, algoInfo.mode)
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      algoInfo.name,
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  severity,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       algoInfo.name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   severity,
 			Confidence: confidence,
 			Properties: types.CryptoProperties{
 				Primitive:        info.primitive,
@@ -267,11 +332,11 @@ func (s *PHPScanner) handleOpenSSLPkeyNew(callNode, argsNode *sitter.Node, path 
 	qi := quantum.GetInfo(family)
 
 	return &types.Finding{
-		ID:        nextFindingID(),
-		AssetType: types.AssetAlgorithm,
-		Name:      name,
-		Location:  scanner.NodeLocation(callNode, path, content),
-		Severity:  severity,
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       name,
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   severity,
 		Confidence: confidence,
 		Properties: types.CryptoProperties{
 			Primitive:        "pke",
@@ -307,11 +372,11 @@ func (s *PHPScanner) handleOpenSSLSign(callNode, argsNode *sitter.Node, path str
 	qi := quantum.GetInfo(family)
 
 	return &types.Finding{
-		ID:        nextFindingID(),
-		AssetType: types.AssetAlgorithm,
-		Name:      name,
-		Location:  scanner.NodeLocation(callNode, path, content),
-		Severity:  types.SeverityInfo,
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       name,
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   types.SeverityInfo,
 		Confidence: confidence,
 		Properties: types.CryptoProperties{
 			Primitive:        "signature",
@@ -353,25 +418,6 @@ func resolveOpenSSLSignAlgo(argsText string) (hashAlgo string, family string) {
 // hash / hash_hmac / hash_pbkdf2 detection
 // ---------------------------------------------------------------------------
 
-// hashAlgoMap maps PHP hash algorithm names to algorithm families and human-readable names.
-var hashAlgoMap = map[string]struct {
-	family string
-	name   string
-}{
-	"md5":      {family: "md5", name: "MD5"},
-	"md4":      {family: "md4", name: "MD4"},
-	"sha1":     {family: "sha1", name: "SHA-1"},
-	"sha224":   {family: "sha-256", name: "SHA-224"},
-	"sha256":   {family: "sha-256", name: "SHA-256"},
-	"sha384":   {family: "sha-384", name: "SHA-384"},
-	"sha512":   {family: "sha-512", name: "SHA-512"},
-	"sha3-256": {family: "sha3-256", name: "SHA3-256"},
-	"sha3-384": {family: "sha3-384", name: "SHA3-384"},
-	"sha3-512": {family: "sha3-512", name: "SHA3-512"},
-	"ripemd160": {family: "ripemd160", name: "RIPEMD-160"},
-	"whirlpool": {family: "whirlpool", name: "Whirlpool"},
-}
-
 func (s *PHPScanner) detectHash(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding
 
@@ -411,21 +457,18 @@ func (s *PHPScanner) handleHashCall(callNode, argsNode *sitter.Node, path string
 	normalizedAlgo := strings.ToLower(algoName)
 	info, ok := hashAlgoMap[normalizedAlgo]
 	if !ok {
-		info = struct {
-			family string
-			name   string
-		}{family: normalizedAlgo, name: algoName}
+		info = hashAlgoT{family: normalizedAlgo, name: algoName}
 	}
 
 	qi := quantum.GetInfo(info.family)
 	severity := hashSeverity(info.family)
 
 	return &types.Finding{
-		ID:        nextFindingID(),
-		AssetType: types.AssetAlgorithm,
-		Name:      info.name,
-		Location:  scanner.NodeLocation(callNode, path, content),
-		Severity:  severity,
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       info.name,
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   severity,
 		Confidence: confidence,
 		Properties: types.CryptoProperties{
 			Primitive:        "hash",
@@ -454,21 +497,18 @@ func (s *PHPScanner) handleHashHMAC(callNode, argsNode *sitter.Node, path string
 	normalizedAlgo := strings.ToLower(algoName)
 	info, ok := hashAlgoMap[normalizedAlgo]
 	if !ok {
-		info = struct {
-			family string
-			name   string
-		}{family: normalizedAlgo, name: algoName}
+		info = hashAlgoT{family: normalizedAlgo, name: algoName}
 	}
 
 	name := fmt.Sprintf("HMAC-%s", info.name)
 	qi := quantum.GetInfo(info.family)
 
 	return &types.Finding{
-		ID:        nextFindingID(),
-		AssetType: types.AssetAlgorithm,
-		Name:      name,
-		Location:  scanner.NodeLocation(callNode, path, content),
-		Severity:  types.SeverityInfo,
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       name,
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   types.SeverityInfo,
 		Confidence: confidence,
 		Properties: types.CryptoProperties{
 			Primitive:        "mac",
@@ -497,10 +537,7 @@ func (s *PHPScanner) handleHashPBKDF2(callNode, argsNode *sitter.Node, path stri
 	normalizedAlgo := strings.ToLower(algoName)
 	info, ok := hashAlgoMap[normalizedAlgo]
 	if !ok {
-		info = struct {
-			family string
-			name   string
-		}{family: normalizedAlgo, name: algoName}
+		info = hashAlgoT{family: normalizedAlgo, name: algoName}
 	}
 
 	name := fmt.Sprintf("PBKDF2-%s", info.name)
@@ -513,11 +550,11 @@ func (s *PHPScanner) handleHashPBKDF2(callNode, argsNode *sitter.Node, path stri
 	}
 
 	return &types.Finding{
-		ID:        nextFindingID(),
-		AssetType: types.AssetAlgorithm,
-		Name:      name,
-		Location:  scanner.NodeLocation(callNode, path, content),
-		Severity:  severity,
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       name,
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   severity,
 		Confidence: confidence,
 		Properties: types.CryptoProperties{
 			Primitive:       "kdf",
@@ -534,17 +571,6 @@ func (s *PHPScanner) handleHashPBKDF2(callNode, argsNode *sitter.Node, path stri
 // password_hash / password_verify detection
 // ---------------------------------------------------------------------------
 
-// passwordAlgoMap maps PHP PASSWORD_* constants to algorithm details.
-var passwordAlgoMap = map[string]struct {
-	family string
-	name   string
-}{
-	"PASSWORD_BCRYPT":  {family: "bcrypt", name: "bcrypt"},
-	"PASSWORD_ARGON2I": {family: "argon2", name: "Argon2i"},
-	"PASSWORD_ARGON2ID": {family: "argon2", name: "Argon2id"},
-	"PASSWORD_DEFAULT": {family: "bcrypt", name: "bcrypt (default)"},
-}
-
 func (s *PHPScanner) detectPasswordHash(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding
 
@@ -557,11 +583,11 @@ func (s *PHPScanner) detectPasswordHash(root *sitter.Node, path string, content 
 			}
 		case "password_verify":
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      "password_verify",
-				Location:  scanner.NodeLocation(callNode, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "password_verify",
+				Location:   scanner.NodeLocation(callNode, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:       "kdf",
@@ -595,11 +621,11 @@ func (s *PHPScanner) handlePasswordHash(callNode, argsNode *sitter.Node, path st
 	}
 
 	return &types.Finding{
-		ID:        nextFindingID(),
-		AssetType: types.AssetAlgorithm,
-		Name:      name,
-		Location:  scanner.NodeLocation(callNode, path, content),
-		Severity:  types.SeverityInfo,
+		ID:         nextFindingID(),
+		AssetType:  types.AssetAlgorithm,
+		Name:       name,
+		Location:   scanner.NodeLocation(callNode, path, content),
+		Severity:   types.SeverityInfo,
 		Confidence: confidence,
 		Properties: types.CryptoProperties{
 			Primitive:       "kdf",
@@ -616,32 +642,6 @@ func (s *PHPScanner) handlePasswordHash(callNode, argsNode *sitter.Node, path st
 // sodium detection
 // ---------------------------------------------------------------------------
 
-// sodiumFuncMap maps sodium_* function names to crypto details.
-var sodiumFuncMap = map[string]struct {
-	family    string
-	name      string
-	primitive string
-	funcs     []string
-}{
-	"sodium_crypto_secretbox":      {family: "xsalsa20", name: "XSalsa20-Poly1305 (secretbox)", primitive: "ae", funcs: []string{"encrypt"}},
-	"sodium_crypto_secretbox_open": {family: "xsalsa20", name: "XSalsa20-Poly1305 (secretbox)", primitive: "ae", funcs: []string{"decrypt"}},
-	"sodium_crypto_box":            {family: "x25519", name: "X25519-XSalsa20-Poly1305 (box)", primitive: "pke", funcs: []string{"encrypt"}},
-	"sodium_crypto_box_open":       {family: "x25519", name: "X25519-XSalsa20-Poly1305 (box)", primitive: "pke", funcs: []string{"decrypt"}},
-	"sodium_crypto_box_keypair":    {family: "x25519", name: "X25519 Key Pair", primitive: "key-agree", funcs: []string{"generate"}},
-	"sodium_crypto_sign":           {family: "ed25519", name: "Ed25519 (sign)", primitive: "signature", funcs: []string{"sign"}},
-	"sodium_crypto_sign_open":      {family: "ed25519", name: "Ed25519 (verify)", primitive: "signature", funcs: []string{"verify"}},
-	"sodium_crypto_sign_keypair":   {family: "ed25519", name: "Ed25519 Key Pair", primitive: "signature", funcs: []string{"generate"}},
-	"sodium_crypto_aead_chacha20poly1305_encrypt":       {family: "chacha20", name: "ChaCha20-Poly1305 (AEAD)", primitive: "ae", funcs: []string{"encrypt"}},
-	"sodium_crypto_aead_chacha20poly1305_decrypt":       {family: "chacha20", name: "ChaCha20-Poly1305 (AEAD)", primitive: "ae", funcs: []string{"decrypt"}},
-	"sodium_crypto_aead_chacha20poly1305_ietf_encrypt":  {family: "chacha20", name: "ChaCha20-Poly1305-IETF (AEAD)", primitive: "ae", funcs: []string{"encrypt"}},
-	"sodium_crypto_aead_chacha20poly1305_ietf_decrypt":  {family: "chacha20", name: "ChaCha20-Poly1305-IETF (AEAD)", primitive: "ae", funcs: []string{"decrypt"}},
-	"sodium_crypto_aead_xchacha20poly1305_ietf_encrypt": {family: "chacha20", name: "XChaCha20-Poly1305-IETF (AEAD)", primitive: "ae", funcs: []string{"encrypt"}},
-	"sodium_crypto_aead_xchacha20poly1305_ietf_decrypt": {family: "chacha20", name: "XChaCha20-Poly1305-IETF (AEAD)", primitive: "ae", funcs: []string{"decrypt"}},
-	"sodium_crypto_generichash":    {family: "blake2b", name: "BLAKE2b (generichash)", primitive: "hash", funcs: []string{"digest"}},
-	"sodium_crypto_pwhash":         {family: "argon2", name: "Argon2id (pwhash)", primitive: "kdf", funcs: []string{"derive"}},
-	"sodium_crypto_shorthash":      {family: "siphash", name: "SipHash-2-4 (shorthash)", primitive: "hash", funcs: []string{"digest"}},
-}
-
 func (s *PHPScanner) detectSodium(root *sitter.Node, path string, content []byte) []types.Finding {
 	var findings []types.Finding
 
@@ -654,11 +654,11 @@ func (s *PHPScanner) detectSodium(root *sitter.Node, path string, content []byte
 		qi := quantum.GetInfo(info.family)
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      info.name,
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  types.SeverityInfo,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       info.name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityInfo,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:        info.primitive,
@@ -679,21 +679,6 @@ func (s *PHPScanner) detectSodium(root *sitter.Node, path string, content []byte
 // ---------------------------------------------------------------------------
 // mcrypt detection (deprecated)
 // ---------------------------------------------------------------------------
-
-// mcryptFuncMap maps mcrypt_* function names to crypto details.
-var mcryptFuncMap = map[string]struct {
-	funcs []string
-}{
-	"mcrypt_encrypt":       {funcs: []string{"encrypt"}},
-	"mcrypt_decrypt":       {funcs: []string{"decrypt"}},
-	"mcrypt_cbc":           {funcs: []string{"encrypt", "decrypt"}},
-	"mcrypt_ecb":           {funcs: []string{"encrypt", "decrypt"}},
-	"mcrypt_cfb":           {funcs: []string{"encrypt", "decrypt"}},
-	"mcrypt_ofb":           {funcs: []string{"encrypt", "decrypt"}},
-	"mcrypt_generic":       {funcs: []string{"encrypt"}},
-	"mdecrypt_generic":     {funcs: []string{"decrypt"}},
-	"mcrypt_module_open":   {funcs: []string{"init"}},
-}
 
 func (s *PHPScanner) detectMcrypt(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding
@@ -716,11 +701,11 @@ func (s *PHPScanner) detectMcrypt(root *sitter.Node, path string, content []byte
 		name := fmt.Sprintf("mcrypt (%s)", cipherName)
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      name,
-			Location:  scanner.NodeLocation(callNode, path, content),
-			Severity:  types.SeverityHigh,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       name,
+			Location:   scanner.NodeLocation(callNode, path, content),
+			Severity:   types.SeverityHigh,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:       "block-cipher",

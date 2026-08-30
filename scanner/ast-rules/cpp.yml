@@ -1,0 +1,53 @@
+# External AST (Pass-1) detection tables for C/C++.
+#
+# Source of truth; copied into cli/internal/scanner/astrules/data/ and embedded
+# (run `go generate ./internal/scanner/astrules`). The C/C++ scanner loads these
+# at init and can replace them at scan time via --ast-rules-dir. Only the data
+# lives here; the tree-sitter query machinery stays in Go. Values mirror the
+# former hardcoded maps exactly. See docs/ast-rules-external-design.md.
+version: 1
+language: cpp
+
+# Classic (pre-EVP) OpenSSL asymmetric API function name -> algorithm info.
+# These are high-confidence because the function name unambiguously identifies
+# the algorithm.
+asym_funcs:
+  - { func: DSA_generate_key, family: dsa, name: DSA, primitive: signature, fn: generate }
+  - { func: DSA_generate_parameters_ex, family: dsa, name: DSA, primitive: signature, fn: generate }
+  - { func: DH_generate_key, family: dh, name: DH, primitive: key-agree, fn: keyagree }
+  - { func: DH_generate_parameters_ex, family: dh, name: DH, primitive: key-agree, fn: keyagree }
+  - { func: EC_KEY_new_by_curve_name, family: ec, name: EC, primitive: pke, fn: generate }
+  - { func: EC_KEY_generate_key, family: ec, name: EC, primitive: pke, fn: generate }
+  - { func: ECDSA_sign, family: ecdsa, name: ECDSA, primitive: signature, fn: sign }
+  - { func: ECDSA_verify, family: ecdsa, name: ECDSA, primitive: signature, fn: verify }
+  - { func: ECDSA_do_sign, family: ecdsa, name: ECDSA, primitive: signature, fn: sign }
+  - { func: ECDSA_do_verify, family: ecdsa, name: ECDSA, primitive: signature, fn: verify }
+  - { func: ECDH_compute_key, family: ecdh, name: ECDH, primitive: key-agree, fn: keyagree }
+
+# OpenSSL SSL method function -> {name, version, severity} for SSL_CTX_new().
+# severity is one of: critical, high, medium, low, info.
+tls_methods:
+  - { method: TLS_method, name: "TLS", version: "", severity: info }
+  - { method: TLS_client_method, name: "TLS", version: "", severity: info }
+  - { method: TLS_server_method, name: "TLS", version: "", severity: info }
+  - { method: TLSv1_method, name: "TLS 1.0", version: "1.0", severity: high }
+  - { method: TLSv1_client_method, name: "TLS 1.0", version: "1.0", severity: high }
+  - { method: TLSv1_server_method, name: "TLS 1.0", version: "1.0", severity: high }
+  - { method: TLSv1_1_method, name: "TLS 1.1", version: "1.1", severity: high }
+  - { method: TLSv1_1_client_method, name: "TLS 1.1", version: "1.1", severity: high }
+  - { method: TLSv1_1_server_method, name: "TLS 1.1", version: "1.1", severity: high }
+  - { method: TLSv1_2_method, name: "TLS 1.2", version: "1.2", severity: info }
+  - { method: TLSv1_2_client_method, name: "TLS 1.2", version: "1.2", severity: info }
+  - { method: TLSv1_2_server_method, name: "TLS 1.2", version: "1.2", severity: info }
+  - { method: SSLv23_method, name: "SSL 2.0/3.0", version: "2.0", severity: high }
+  - { method: SSLv3_method, name: "SSL 3.0", version: "3.0", severity: high }
+
+# OpenSSL TLS version macro name -> {name, version, severity} for
+# SSL_CTX_set_min_proto_version / SSL_CTX_set_max_proto_version.
+# severity is one of: critical, high, medium, low, info.
+tls_version_constants:
+  - { const: TLS1_VERSION, name: "TLS 1.0", version: "1.0", severity: high }
+  - { const: TLS1_1_VERSION, name: "TLS 1.1", version: "1.1", severity: high }
+  - { const: TLS1_2_VERSION, name: "TLS 1.2", version: "1.2", severity: info }
+  - { const: TLS1_3_VERSION, name: "TLS 1.3", version: "1.3", severity: info }
+  - { const: SSL3_VERSION, name: "SSL 3.0", version: "3.0", severity: high }

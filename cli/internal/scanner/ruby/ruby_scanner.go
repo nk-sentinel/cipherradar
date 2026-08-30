@@ -19,6 +19,7 @@ import (
 	rubyLang "github.com/smacker/go-tree-sitter/ruby"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -96,28 +97,62 @@ func nextFindingID() string {
 // OpenSSL::Cipher detection
 // ---------------------------------------------------------------------------
 
-// cipherAlgoMap maps OpenSSL cipher method strings to algorithm details.
-var cipherAlgoMap = map[string]struct {
+// The Ruby Pass-1 detection tables are DATA, loaded from the embedded
+// scanner/ast-rules/ruby.yml at init() and replaceable at scan time via
+// --ast-rules-dir (astrules.LoadRuby). Local struct types preserve the exact
+// field names the detect sites use, so wiring them from data needed no change
+// at the lookup sites. See docs/ast-rules-external-design.md.
+
+type cipherAlgoT struct {
 	family string
 	mode   string
 	name   string
-}{
-	"aes-128-cbc":       {family: "aes", mode: "cbc", name: "AES-128-CBC"},
-	"aes-192-cbc":       {family: "aes", mode: "cbc", name: "AES-192-CBC"},
-	"aes-256-cbc":       {family: "aes", mode: "cbc", name: "AES-256-CBC"},
-	"aes-128-gcm":       {family: "aes", mode: "gcm", name: "AES-128-GCM"},
-	"aes-256-gcm":       {family: "aes", mode: "gcm", name: "AES-256-GCM"},
-	"aes-128-ecb":       {family: "aes", mode: "ecb", name: "AES-128-ECB"},
-	"aes-256-ecb":       {family: "aes", mode: "ecb", name: "AES-256-ECB"},
-	"aes-128-ctr":       {family: "aes", mode: "ctr", name: "AES-128-CTR"},
-	"aes-256-ctr":       {family: "aes", mode: "ctr", name: "AES-256-CTR"},
-	"des-cbc":           {family: "des", mode: "cbc", name: "DES-CBC"},
-	"des-ecb":           {family: "des", mode: "ecb", name: "DES-ECB"},
-	"des3":              {family: "3des", mode: "", name: "3DES"},
-	"des-ede3-cbc":      {family: "3des", mode: "cbc", name: "3DES-CBC"},
-	"bf-cbc":            {family: "blowfish", mode: "cbc", name: "Blowfish-CBC"},
-	"rc4":               {family: "rc4", mode: "", name: "RC4"},
-	"chacha20-poly1305": {family: "chacha20", mode: "", name: "ChaCha20-Poly1305"},
+}
+
+type digestAlgoT struct {
+	family string
+	name   string
+}
+
+var (
+	// cipherAlgoMap maps OpenSSL cipher method strings to algorithm details.
+	cipherAlgoMap map[string]cipherAlgoT
+	// digestAlgoMap maps OpenSSL/Digest class names to algorithm details.
+	digestAlgoMap map[string]digestAlgoT
+)
+
+func init() {
+	applyRubyTables(astrules.MustLoadRubyEmbedded())
+}
+
+// applyRubyTables (re)populates the package-level detection tables from a loaded
+// astrules.RubyTables. Called at init with the embedded set and again by
+// ApplyExternalRules when --ast-rules-dir is given.
+func applyRubyTables(t *astrules.RubyTables) {
+	ca := make(map[string]cipherAlgoT, len(t.CipherAlgorithms))
+	for _, r := range t.CipherAlgorithms {
+		ca[r.Method] = cipherAlgoT{family: r.Family, mode: r.Mode, name: r.Name}
+	}
+	cipherAlgoMap = ca
+
+	da := make(map[string]digestAlgoT, len(t.DigestAlgorithms))
+	for _, r := range t.DigestAlgorithms {
+		da[r.Key] = digestAlgoT{family: r.Family, name: r.Name}
+	}
+	digestAlgoMap = da
+}
+
+// ApplyExternalRules replaces the active Ruby Pass-1 tables from an external
+// --ast-rules-dir. When dir is empty, or has no ruby.yml, the embedded tables
+// are restored (per-language fallback). Returns an error only when a present
+// ruby.yml is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadRuby(dir)
+	if err != nil {
+		return err
+	}
+	applyRubyTables(t)
+	return nil
 }
 
 func (s *RubyScanner) detectOpenSSLCipher(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
@@ -145,22 +180,18 @@ func (s *RubyScanner) detectOpenSSLCipher(root *sitter.Node, path string, conten
 		normalizedAlgo := strings.ToLower(algoStr)
 		algoInfo, known := cipherAlgoMap[normalizedAlgo]
 		if !known {
-			algoInfo = struct {
-				family string
-				mode   string
-				name   string
-			}{family: normalizedAlgo, mode: "", name: strings.ToUpper(algoStr)}
+			algoInfo = cipherAlgoT{family: normalizedAlgo, mode: "", name: strings.ToUpper(algoStr)}
 		}
 
 		qi := quantum.GetInfo(algoInfo.family)
 		severity := cipherSeverity(algoInfo.family, algoInfo.mode)
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      algoInfo.name,
-			Location:  scanner.NodeLocation(node, path, content),
-			Severity:  severity,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       algoInfo.name,
+			Location:   scanner.NodeLocation(node, path, content),
+			Severity:   severity,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:        "block-cipher",
@@ -182,19 +213,6 @@ func (s *RubyScanner) detectOpenSSLCipher(root *sitter.Node, path string, conten
 // ---------------------------------------------------------------------------
 // OpenSSL::Digest detection
 // ---------------------------------------------------------------------------
-
-// digestAlgoMap maps OpenSSL/Digest class names to algorithm details.
-var digestAlgoMap = map[string]struct {
-	family string
-	name   string
-}{
-	"sha256": {family: "sha-256", name: "SHA-256"},
-	"sha384": {family: "sha-384", name: "SHA-384"},
-	"sha512": {family: "sha-512", name: "SHA-512"},
-	"sha1":   {family: "sha1", name: "SHA-1"},
-	"md5":    {family: "md5", name: "MD5"},
-	"ripemd160": {family: "ripemd160", name: "RIPEMD-160"},
-}
 
 func (s *RubyScanner) detectOpenSSLDigest(root *sitter.Node, path string, content []byte) []types.Finding {
 	var findings []types.Finding
@@ -230,21 +248,18 @@ func (s *RubyScanner) detectOpenSSLDigest(root *sitter.Node, path string, conten
 
 		info, ok := digestAlgoMap[algo]
 		if !ok {
-			info = struct {
-				family string
-				name   string
-			}{family: algo, name: strings.ToUpper(algo)}
+			info = digestAlgoT{family: algo, name: strings.ToUpper(algo)}
 		}
 
 		qi := quantum.GetInfo(info.family)
 		severity := hashSeverity(info.family)
 
 		findings = append(findings, types.Finding{
-			ID:        nextFindingID(),
-			AssetType: types.AssetAlgorithm,
-			Name:      info.name,
-			Location:  scanner.NodeLocation(node, path, content),
-			Severity:  severity,
+			ID:         nextFindingID(),
+			AssetType:  types.AssetAlgorithm,
+			Name:       info.name,
+			Location:   scanner.NodeLocation(node, path, content),
+			Severity:   severity,
 			Confidence: types.ConfidenceHigh,
 			Properties: types.CryptoProperties{
 				Primitive:        "hash",
@@ -287,11 +302,11 @@ func (s *RubyScanner) detectOpenSSLPKey(root *sitter.Node, path string, content 
 			}
 
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      name,
-				Location:  scanner.NodeLocation(node, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       name,
+				Location:   scanner.NodeLocation(node, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "pke",
@@ -319,11 +334,11 @@ func (s *RubyScanner) detectOpenSSLPKey(root *sitter.Node, path string, content 
 			}
 
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      name,
-				Location:  scanner.NodeLocation(node, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       name,
+				Location:   scanner.NodeLocation(node, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "key-agree",
@@ -349,11 +364,11 @@ func (s *RubyScanner) detectOpenSSLPKey(root *sitter.Node, path string, content 
 			qi := quantum.GetInfo("dsa")
 
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      name,
-				Location:  scanner.NodeLocation(node, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       name,
+				Location:   scanner.NodeLocation(node, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:        "signature",
@@ -389,11 +404,11 @@ func (s *RubyScanner) detectOpenSSLSSL(root *sitter.Node, path string, content [
 
 		if strings.Contains(text, ".new") {
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetProtocol,
-				Name:      "TLS",
-				Location:  scanner.NodeLocation(node, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetProtocol,
+				Name:       "TLS",
+				Location:   scanner.NodeLocation(node, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					ProtocolType: "tls",
@@ -424,11 +439,11 @@ func (s *RubyScanner) detectBCrypt(root *sitter.Node, path string, content []byt
 
 		if strings.Contains(text, ".create") || strings.Contains(text, ".new") {
 			findings = append(findings, types.Finding{
-				ID:        nextFindingID(),
-				AssetType: types.AssetAlgorithm,
-				Name:      "bcrypt",
-				Location:  scanner.NodeLocation(node, path, content),
-				Severity:  types.SeverityInfo,
+				ID:         nextFindingID(),
+				AssetType:  types.AssetAlgorithm,
+				Name:       "bcrypt",
+				Location:   scanner.NodeLocation(node, path, content),
+				Severity:   types.SeverityInfo,
 				Confidence: types.ConfidenceHigh,
 				Properties: types.CryptoProperties{
 					Primitive:       "kdf",
@@ -477,11 +492,11 @@ func (s *RubyScanner) detectDigest(root *sitter.Node, path string, content []byt
 				severity := hashSeverity(info.family)
 
 				findings = append(findings, types.Finding{
-					ID:        nextFindingID(),
-					AssetType: types.AssetAlgorithm,
-					Name:      info.name,
-					Location:  scanner.NodeLocation(node, path, content),
-					Severity:  severity,
+					ID:         nextFindingID(),
+					AssetType:  types.AssetAlgorithm,
+					Name:       info.name,
+					Location:   scanner.NodeLocation(node, path, content),
+					Severity:   severity,
 					Confidence: types.ConfidenceHigh,
 					Properties: types.CryptoProperties{
 						Primitive:        "hash",

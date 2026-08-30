@@ -1,0 +1,22 @@
+# External AST (Pass-1) detection tables for Rust.
+#
+# Source of truth; copied into cli/internal/scanner/astrules/data/ and embedded
+# (run `go generate ./internal/scanner/astrules`). The Rust scanner loads these
+# at init and can replace them at scan time via --ast-rules-dir. Only the data
+# lives here; the tree-sitter query machinery stays in Go. Values mirror the
+# former hardcoded maps exactly. See docs/ast-rules-external-design.md.
+version: 1
+language: rust
+
+# ring::digest algorithm identifier -> {name, family, severity}.
+# severity is one of: critical, high, medium, low, info.
+ring_digest_algorithms:
+  - { id: SHA256, name: SHA-256, family: sha-256, severity: info }
+  - { id: SHA384, name: SHA-384, family: sha-384, severity: info }
+  - { id: SHA512, name: SHA-512, family: sha-512, severity: info }
+  - { id: SHA1, name: SHA-1, family: sha1, severity: high }
+
+# RustCrypto aes-gcm crate cipher type -> {name, key_size}.
+rustcrypto_aes_gcm:
+  - { cipher: Aes256Gcm, name: AES-256-GCM, key_size: 256 }
+  - { cipher: Aes128Gcm, name: AES-128-GCM, key_size: 128 }
