@@ -52,7 +52,8 @@ cradar scan --container <image-ref> [flags]
 | `--passes string` | `1,2` | Comma-separated list of passes to run. `1` = AST inventory; `2` = OpenGrep taint; `3` = YARA-X binary content. |
 | `--deep` | `false` | Alias for `--passes 1,2,3` (full pipeline including binary scanning). |
 | `--fast` | `false` | Pass 1 only; skip files larger than 100 KB. Designed for the pre-commit hook. |
-| `--rules-dir string` | `(embedded)` | External directory of OpenGrep YAML rules to use instead of the embedded set. Also reads `CRADAR_RULES_DIR`. |
+| `--rules-dir string` | `(embedded)` | External directory of OpenGrep YAML rules (Pass 2) to use instead of the embedded set. Also reads `CRADAR_RULES_DIR`. |
+| `--yara-rules-dir string` | `(embedded)` | External directory of YARA-X `.yar` rules (Pass 3) to use instead of the embedded set. Also reads `CRADAR_YARA_RULES_DIR`. |
 | `--severity string` | `low` | Minimum severity level to report. |
 | `--branch string` | | Git branch to scan (for git URL inputs). |
 
@@ -65,8 +66,11 @@ part of the default set, the missing tool degrades to a warning and the pass is 
 Pass 3 runs the bundled YARA-X engine (`yr`) over compiled artifacts to detect cryptographic
 material that isn't visible in source: embedded certificates, hard-coded private keys, library
 fingerprints (OpenSSL / libsodium / BoringSSL / mbedTLS), and algorithm-defining byte tables
-(AES S-box, MD5/SHA initial state). The starter ruleset ships embedded with the CLI; override
-with `CRADAR_YARA_RULES_DIR` if you need to extend or replace the default set.
+(AES S-box, MD5/SHA initial state). The starter ruleset ships embedded with the CLI; replace it
+with your own via `--yara-rules-dir <dir>` (or the `CRADAR_YARA_RULES_DIR` env var) — the flag
+wins over the env var, and both replace the embedded set entirely, mirroring `--rules-dir` for
+Pass 2. When the flag is set explicitly and the directory contains no `.yar`/`.yara` files,
+`cradar` exits 4 rather than silently scanning with no rules.
 
 Pass 3 is **opt-in** — it's not in the default `--passes 1,2` set so binary-heavy repos don't
 pay the cost on every scan. Enable it via `--passes 3` (Pass 3 only), `--passes 1,2,3` (full

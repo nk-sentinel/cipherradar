@@ -55,6 +55,7 @@ func init() {
 	scanCmd.Flags().Bool("strict-validate", false,
 		"fail the scan if any output value falls outside the CycloneDX 1.7 enum closed sets (default: warn only)")
 	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
+	scanCmd.Flags().String("yara-rules-dir", "", "directory containing YARA-X (.yar) rules for Pass 3; replaces the embedded ruleset (also reads CRADAR_YARA_RULES_DIR)")
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (taint analysis + YARA-X binary scan)")
 
 	// Pre-commit hook support flags.
@@ -208,9 +209,26 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// fatal — the default registry still works.
 	scanCfg := loadScanConfig(cmd)
 
+	// Resolve the external YARA-X (Pass 3) rules directory: --yara-rules-dir
+	// wins over CRADAR_YARA_RULES_DIR; empty falls back to the embedded
+	// ruleset (mirrors --rules-dir / CRADAR_RULES_DIR for Pass 2). When the
+	// flag is explicitly set and Pass 3 is active, validate it up front and
+	// hard-fail on an unusable dir rather than silently soft-skipping.
+	yaraRulesDir, _ := cmd.Flags().GetString("yara-rules-dir")
+	if yaraRulesDir == "" {
+		yaraRulesDir = os.Getenv("CRADAR_YARA_RULES_DIR")
+	}
+	if cmd.Flag("yara-rules-dir").Changed && containsPass(passes, 3) {
+		if err := yarax.ValidateRulesDir(yaraRulesDir); err != nil {
+			return ExitErrorf(ExitToolMissing, "--yara-rules-dir: %v", err)
+		}
+	}
+
 	// Create scanner registry with all built-in scanners + any user-defined
-	// custom wrappers from config.
-	registry := scannerinit.DefaultRegistryWithConfig(scanCfg)
+	// custom wrappers from config, plus any external YARA-X rules override.
+	registry := scannerinit.DefaultRegistryWithOptions(scanCfg, scannerinit.RegistryOptions{
+		YaraRulesDir: yaraRulesDir,
+	})
 	if scanCfg != nil && len(scanCfg.CustomWrappers) > 0 {
 		fmt.Fprintf(cmd.ErrOrStderr(),
 			"Registered %d custom wrapper(s) from .cradar.yml\n",

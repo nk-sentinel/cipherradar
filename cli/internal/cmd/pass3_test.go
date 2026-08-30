@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -70,5 +73,53 @@ func TestRunPass3_MissingAndRequired_ExitToolMissing(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "yara-x") && !strings.Contains(err.Error(), "yr") {
 		t.Errorf("error should mention yara-x / yr, got: %v", err)
+	}
+}
+
+// TestScanCommand_YaraRulesDirEmpty_ExitToolMissing verifies that an explicit
+// --yara-rules-dir pointing at a directory with no .yar rules hard-fails
+// (mirrors the Pass-2 --rules-dir "error if no loadable rules" contract)
+// rather than silently soft-skipping. The validation is only reached when yr
+// is present — otherwise the missing-yr hard-fail fires first — so this test
+// skips when yr is absent.
+func TestScanCommand_YaraRulesDirEmpty_ExitToolMissing(t *testing.T) {
+	if r := yarax.NewRunner(); r == nil || !r.Available() {
+		t.Skip("yr not installed; the missing-yr hard-fail would mask this validation")
+	}
+	proj := t.TempDir()
+	if err := os.WriteFile(filepath.Join(proj, "a.py"), []byte("x = 1\n"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	emptyRules := t.TempDir() // no .yar files
+
+	// rootCmd/scanCmd are process-global and cobra retains flag values +
+	// Changed state across Execute() calls; reset the flags this test sets so
+	// they don't leak into other command tests.
+	t.Cleanup(func() {
+		for _, name := range []string{"yara-rules-dir", "passes"} {
+			f := scanCmd.Flags().Lookup(name)
+			_ = scanCmd.Flags().Set(name, f.DefValue)
+			f.Changed = false
+		}
+	})
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", proj, "--passes", "1,3", "--yara-rules-dir", emptyRules})
+
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for empty --yara-rules-dir, got nil")
+	}
+	var ee *ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != ExitToolMissing {
+		t.Errorf("expected ExitToolMissing (%d), got %d", ExitToolMissing, ee.Code)
+	}
+	if !strings.Contains(err.Error(), "yara-rules-dir") {
+		t.Errorf("error should mention yara-rules-dir, got: %v", err)
 	}
 }
