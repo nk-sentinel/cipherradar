@@ -1,0 +1,116 @@
+# External AST (Pass-1) detection tables for Java.
+#
+# This is the source of truth. It is copied into
+# cli/internal/scanner/astrules/data/ and embedded via //go:embed
+# (run `go generate ./internal/scanner/astrules`). The Java scanner loads these
+# tables at init (embedded) and can replace them at scan time via
+# --ast-rules-dir (see docs/ast-rules-external-design.md).
+#
+# Only the data (token -> crypto semantics) lives here; the tree-sitter query
+# machinery stays in Go. Values mirror the former hardcoded Go maps exactly.
+version: 1
+language: java
+
+# JCA factory classes -> {primitive, rule_tag}. primitive may be empty.
+jca_classes:
+  - { class: Cipher, primitive: block-cipher, rule_tag: cipher }
+  - { class: MessageDigest, primitive: hash, rule_tag: digest }
+  - { class: KeyPairGenerator, primitive: pke, rule_tag: keypairgen }
+  - { class: KeyGenerator, primitive: block-cipher, rule_tag: keygen }
+  - { class: Mac, primitive: mac, rule_tag: mac }
+  - { class: Signature, primitive: signature, rule_tag: signature }
+  - { class: SecretKeySpec, primitive: block-cipher, rule_tag: secretkeyspec }
+  - { class: SSLContext, primitive: "", rule_tag: sslcontext }
+  - { class: KeyAgreement, primitive: key-exchange, rule_tag: keyagreement }
+  - { class: SecretKeyFactory, primitive: kdf, rule_tag: secretkeyfactory }
+
+# JCA algorithm names (uppercased) -> quantum family key.
+algorithm_families:
+  - { name: AES, family: aes }
+  - { name: DES, family: des }
+  - { name: DESEDE, family: 3des }
+  - { name: BLOWFISH, family: blowfish }
+  - { name: RC4, family: rc4 }
+  - { name: ARCFOUR, family: rc4 }
+  - { name: RSA, family: rsa }
+  - { name: DSA, family: dsa }
+  - { name: EC, family: ec }
+  - { name: ECDSA, family: ecdsa }
+  - { name: DH, family: dh }
+  - { name: ECDH, family: ecdh }
+  - { name: MD5, family: md5 }
+  - { name: SHA-1, family: sha1 }
+  - { name: SHA1, family: sha1 }
+  - { name: SHA-256, family: sha-256 }
+  - { name: SHA256, family: sha-256 }
+  - { name: SHA-384, family: sha-384 }
+  - { name: SHA384, family: sha-384 }
+  - { name: SHA-512, family: sha-512 }
+  - { name: SHA512, family: sha-512 }
+  - { name: HMACMD5, family: md5 }
+  - { name: HMACSHA1, family: sha1 }
+  - { name: HMACSHA256, family: sha-256 }
+  - { name: HMACSHA384, family: sha-384 }
+  - { name: HMACSHA512, family: sha-512 }
+
+# Bouncy Castle engine classes -> {family, name, primitive}.
+bc_engines:
+  - { class: AESEngine, family: aes, name: AES, primitive: block-cipher }
+  - { class: DESEngine, family: des, name: DES, primitive: block-cipher }
+  - { class: DESedeEngine, family: 3des, name: 3DES, primitive: block-cipher }
+  - { class: BlowfishEngine, family: blowfish, name: Blowfish, primitive: block-cipher }
+  - { class: RC4Engine, family: rc4, name: RC4, primitive: stream-cipher }
+  - { class: RSAEngine, family: rsa, name: RSA, primitive: pke }
+  - { class: CamelliaEngine, family: camellia, name: Camellia, primitive: block-cipher }
+
+# Bouncy Castle asymmetric engine/signer classes -> {family, name, primitive}.
+bc_asymmetric:
+  - { class: SM2Engine, family: sm2, name: SM2, primitive: pke }
+  - { class: SM2Signer, family: sm2, name: SM2, primitive: signature }
+  - { class: IESEngine, family: ecies, name: ECIES, primitive: pke }
+  - { class: ECIESEngine, family: ecies, name: ECIES, primitive: pke }
+  - { class: IESCipher, family: ecies, name: ECIES, primitive: pke }
+  - { class: GOST3410Signer, family: gost, name: GOST R 34.10, primitive: signature }
+  - { class: ECGOST3410Signer, family: gost, name: EC-GOST R 34.10, primitive: signature }
+  - { class: ECGOST3410_2012Signer, family: gost, name: EC-GOST R 34.10-2012, primitive: signature }
+  - { class: ECMQVBasicAgreement, family: ecmqv, name: ECMQV, primitive: key-exchange }
+  - { class: MQVBasicAgreement, family: ecmqv, name: MQV, primitive: key-exchange }
+  - { class: ECGDSASigner, family: ec-gdsa, name: EC-GDSA, primitive: signature }
+  - { class: ECKCDSASigner, family: ec-kcdsa, name: EC-KCDSA, primitive: signature }
+  - { class: PaillierEngine, family: paillier, name: Paillier, primitive: pke }
+
+# Bouncy Castle mode classes -> mode string.
+bc_modes:
+  - { class: CBCBlockCipher, mode: cbc }
+  - { class: GCMBlockCipher, mode: gcm }
+  - { class: CFBBlockCipher, mode: cfb }
+  - { class: OFBBlockCipher, mode: ofb }
+  - { class: CTRBlockCipher, mode: ctr }
+  - { class: SICBlockCipher, mode: ctr }
+  - { class: CCMBlockCipher, mode: ccm }
+  - { class: EAXBlockCipher, mode: eax }
+
+# Bouncy Castle digest classes -> {family, name}.
+bc_digests:
+  - { class: SHA256Digest, family: sha-256, name: SHA-256 }
+  - { class: SHA384Digest, family: sha-384, name: SHA-384 }
+  - { class: SHA512Digest, family: sha-512, name: SHA-512 }
+  - { class: SHA1Digest, family: sha1, name: SHA-1 }
+  - { class: MD5Digest, family: md5, name: MD5 }
+  - { class: SHA3Digest, family: sha3-256, name: SHA3 }
+  - { class: BLAKE2bDigest, family: blake2b, name: BLAKE2b }
+  - { class: BLAKE2sDigest, family: blake2s, name: BLAKE2s }
+  - { class: Blake2bDigest, family: blake2b, name: BLAKE2b }
+  - { class: Blake2sDigest, family: blake2s, name: BLAKE2s }
+
+# SSLContext.getInstance() protocol strings -> {name, version, severity}.
+# severity is one of: critical, high, medium, low, info.
+ssl_protocols:
+  - { protocol: SSL, name: SSLv3, version: "3.0", severity: high }
+  - { protocol: SSLv3, name: SSLv3, version: "3.0", severity: high }
+  - { protocol: TLS, name: TLS, version: "", severity: info }
+  - { protocol: TLSv1, name: TLSv1.0, version: "1.0", severity: high }
+  - { protocol: TLSv1.0, name: TLSv1.0, version: "1.0", severity: high }
+  - { protocol: TLSv1.1, name: TLSv1.1, version: "1.1", severity: high }
+  - { protocol: TLSv1.2, name: TLSv1.2, version: "1.2", severity: info }
+  - { protocol: TLSv1.3, name: TLSv1.3, version: "1.3", severity: info }

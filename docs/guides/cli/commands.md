@@ -52,7 +52,8 @@ cradar scan --container <image-ref> [flags]
 | `--passes string` | `1,2` | Comma-separated list of passes to run. `1` = AST inventory; `2` = OpenGrep taint; `3` = YARA-X binary content. |
 | `--deep` | `false` | Alias for `--passes 1,2,3` (full pipeline including binary scanning). |
 | `--fast` | `false` | Pass 1 only; skip files larger than 100 KB. Designed for the pre-commit hook. |
-| `--rules-dir string` | `(embedded)` | External directory of OpenGrep YAML rules to use instead of the embedded set. Also reads `CRADAR_RULES_DIR`. |
+| `--rules-dir string` | `(embedded)` | External directory of OpenGrep YAML rules (Pass 2) to use instead of the embedded set. Also reads `CRADAR_RULES_DIR`. |
+| `--ast-rules-dir string` | `(embedded)` | External directory of Pass-1 AST detection tables (`<lang>.yml`). Replaces the embedded tables **per language** — a dir replaces only the languages whose file it contains; others keep the embedded tables. Also reads `CRADAR_AST_RULES_DIR`. A dir with no recognized `<lang>.yml` (or a malformed one) exits 4. |
 | `--severity string` | `low` | Minimum severity level to report. |
 | `--branch string` | | Git branch to scan (for git URL inputs). |
 

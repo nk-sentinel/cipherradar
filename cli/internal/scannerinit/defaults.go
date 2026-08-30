@@ -27,8 +27,33 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/yarax"
 )
 
+// RegistryOptions carries optional overrides for building the scanner registry.
+// The zero value reproduces DefaultRegistry's behavior.
+type RegistryOptions struct {
+	// AstRulesDir, when non-empty, replaces the embedded Pass-1 (AST) detection
+	// tables on a per-language basis (see the astrules package and
+	// docs/ast-rules-external-design.md). Empty uses the embedded tables.
+	AstRulesDir string
+}
+
 // DefaultRegistry returns a registry with all built-in language scanners.
 func DefaultRegistry() *scanner.Registry {
+	return DefaultRegistryWithOptions(nil, RegistryOptions{})
+}
+
+// DefaultRegistryWithOptions is the single registry builder: it applies any
+// external Pass-1 rules override, registers every built-in scanner, and seeds a
+// CustomScanner when cfg declares custom_wrappers.
+func DefaultRegistryWithOptions(cfg *cradarConfig.Config, opts RegistryOptions) *scanner.Registry {
+	// Normalize the Pass-1 (AST) detection tables: the external dir when
+	// provided, else the embedded set. Done unconditionally so a prior external
+	// override can't leak into a later registry build. An explicitly provided
+	// dir is validated upstream (cmd/scan.go); on a late error here we fall back
+	// to embedded rather than crash.
+	if err := java.ApplyExternalRules(opts.AstRulesDir); err != nil {
+		_ = java.ApplyExternalRules("")
+	}
+
 	r := scanner.NewRegistry()
 
 	// Language-specific scanners (dispatched by file extension)
@@ -72,22 +97,21 @@ func DefaultRegistry() *scanner.Registry {
 	// behavior change.
 	r.RegisterUniversal(yarax.New())
 
+	// CustomScanner from .cradar.yml custom_wrappers (ADR-025). Registered as a
+	// Universal so it sees every file — its own language gate filters matches.
+	if cfg != nil && len(cfg.CustomWrappers) > 0 {
+		if cs := custom.New(cfg.CustomWrappers); cs != nil {
+			r.RegisterUniversal(cs)
+		}
+	}
+
 	return r
 }
 
 // DefaultRegistryWithConfig returns a registry seeded with the built-in
 // scanners plus a CustomScanner when cfg declares any custom_wrappers
-// (ADR-025 configuration extension). The CustomScanner is registered as a
-// Universal so it sees every file — its own language gate filters matches.
-// When cfg is nil or declares no wrappers, behavior is identical to
+// (ADR-025). When cfg is nil or declares no wrappers, behavior is identical to
 // DefaultRegistry.
 func DefaultRegistryWithConfig(cfg *cradarConfig.Config) *scanner.Registry {
-	r := DefaultRegistry()
-	if cfg == nil || len(cfg.CustomWrappers) == 0 {
-		return r
-	}
-	if cs := custom.New(cfg.CustomWrappers); cs != nil {
-		r.RegisterUniversal(cs)
-	}
-	return r
+	return DefaultRegistryWithOptions(cfg, RegistryOptions{})
 }

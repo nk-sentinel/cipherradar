@@ -11,6 +11,7 @@ import (
 	javaLang "github.com/smacker/go-tree-sitter/java"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/kdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -129,51 +130,132 @@ func ParseSignatureAlgorithm(spec string) (hash string, algo string) {
 // JCA/JCE detection
 // ---------------------------------------------------------------------------
 
-// jcaClassInfo maps JCA factory classes to detection info.
-var jcaClassInfo = map[string]struct {
+// The Java Pass-1 detection tables below are DATA, loaded from the embedded
+// scanner/ast-rules/java.yml at init() and replaceable at scan time via
+// --ast-rules-dir (astrules.LoadJava). Only the tables (token -> crypto
+// semantics) are external; the tree-sitter query machinery stays in Go. See
+// docs/ast-rules-external-design.md. The local struct types preserve the exact
+// field names the detect sites already use, so wiring them from data required
+// no change at the lookup sites.
+
+type jcaClassT struct {
 	primitive string
 	ruleTag   string
-}{
-	"Cipher":           {primitive: "block-cipher", ruleTag: "cipher"},
-	"MessageDigest":    {primitive: "hash", ruleTag: "digest"},
-	"KeyPairGenerator": {primitive: "pke", ruleTag: "keypairgen"},
-	"KeyGenerator":     {primitive: "block-cipher", ruleTag: "keygen"},
-	"Mac":              {primitive: "mac", ruleTag: "mac"},
-	"Signature":        {primitive: "signature", ruleTag: "signature"},
-	"SecretKeySpec":    {primitive: "block-cipher", ruleTag: "secretkeyspec"},
-	"SSLContext":       {primitive: "", ruleTag: "sslcontext"},
-	"KeyAgreement":     {primitive: "key-exchange", ruleTag: "keyagreement"},
-	"SecretKeyFactory": {primitive: "kdf", ruleTag: "secretkeyfactory"},
 }
 
-// algorithmFamilyMap maps JCA algorithm names (uppercased) to quantum family names.
-var algorithmFamilyMap = map[string]string{
-	"AES":        "aes",
-	"DES":        "des",
-	"DESEDE":     "3des",
-	"BLOWFISH":   "blowfish",
-	"RC4":        "rc4",
-	"ARCFOUR":    "rc4",
-	"RSA":        "rsa",
-	"DSA":        "dsa",
-	"EC":         "ec",
-	"ECDSA":      "ecdsa",
-	"DH":         "dh",
-	"ECDH":       "ecdh",
-	"MD5":        "md5",
-	"SHA-1":      "sha1",
-	"SHA1":       "sha1",
-	"SHA-256":    "sha-256",
-	"SHA256":     "sha-256",
-	"SHA-384":    "sha-384",
-	"SHA384":     "sha-384",
-	"SHA-512":    "sha-512",
-	"SHA512":     "sha-512",
-	"HMACMD5":    "md5",
-	"HMACSHA1":   "sha1",
-	"HMACSHA256": "sha-256",
-	"HMACSHA384": "sha-384",
-	"HMACSHA512": "sha-512",
+type bcEngineT struct {
+	family    string
+	name      string
+	primitive string
+}
+
+type bcDigestT struct {
+	family string
+	name   string
+}
+
+type sslProtoT struct {
+	name     string
+	version  string
+	severity types.Severity
+}
+
+var (
+	// jcaClassInfo maps JCA factory classes to detection info.
+	jcaClassInfo map[string]jcaClassT
+	// algorithmFamilyMap maps JCA algorithm names (uppercased) to family names.
+	algorithmFamilyMap map[string]string
+	// bcEngineAlgorithms maps Bouncy Castle engine class names to algorithm info.
+	bcEngineAlgorithms map[string]bcEngineT
+	// bcAsymmetricAlgorithms maps Bouncy Castle asymmetric engine/signer class
+	// names to algorithm info (quantum-vulnerable public-key schemes with a
+	// dedicated low-level BC class).
+	bcAsymmetricAlgorithms map[string]bcEngineT
+	// bcModes maps Bouncy Castle mode class names to mode strings.
+	bcModes map[string]string
+	// bcDigestAlgorithms maps Bouncy Castle digest class names to algorithm info.
+	bcDigestAlgorithms map[string]bcDigestT
+	// sslProtocols maps SSLContext.getInstance() protocol strings to info.
+	sslProtocols map[string]sslProtoT
+)
+
+func init() {
+	applyJavaTables(astrules.MustLoadJavaEmbedded())
+}
+
+// applyJavaTables (re)populates the package-level detection tables from a
+// loaded astrules.JavaTables. Called at init with the embedded set and again
+// by ApplyExternalRules when --ast-rules-dir is given.
+func applyJavaTables(t *astrules.JavaTables) {
+	jca := make(map[string]jcaClassT, len(t.JCAClasses))
+	for _, r := range t.JCAClasses {
+		jca[r.Class] = jcaClassT{primitive: r.Primitive, ruleTag: r.RuleTag}
+	}
+	jcaClassInfo = jca
+
+	fam := make(map[string]string, len(t.AlgorithmFamilies))
+	for _, r := range t.AlgorithmFamilies {
+		fam[r.Name] = r.Family
+	}
+	algorithmFamilyMap = fam
+
+	eng := make(map[string]bcEngineT, len(t.BCEngines))
+	for _, r := range t.BCEngines {
+		eng[r.Class] = bcEngineT{family: r.Family, name: r.Name, primitive: r.Primitive}
+	}
+	bcEngineAlgorithms = eng
+
+	asym := make(map[string]bcEngineT, len(t.BCAsymmetric))
+	for _, r := range t.BCAsymmetric {
+		asym[r.Class] = bcEngineT{family: r.Family, name: r.Name, primitive: r.Primitive}
+	}
+	bcAsymmetricAlgorithms = asym
+
+	modes := make(map[string]string, len(t.BCModes))
+	for _, r := range t.BCModes {
+		modes[r.Class] = r.Mode
+	}
+	bcModes = modes
+
+	dig := make(map[string]bcDigestT, len(t.BCDigests))
+	for _, r := range t.BCDigests {
+		dig[r.Class] = bcDigestT{family: r.Family, name: r.Name}
+	}
+	bcDigestAlgorithms = dig
+
+	ssl := make(map[string]sslProtoT, len(t.SSLProtocols))
+	for _, r := range t.SSLProtocols {
+		ssl[r.Protocol] = sslProtoT{name: r.Name, version: r.Version, severity: parseJavaSeverity(r.Severity)}
+	}
+	sslProtocols = ssl
+}
+
+// ApplyExternalRules replaces the active Java Pass-1 tables from an external
+// --ast-rules-dir. When dir is empty, or has no java.yml, the embedded tables
+// are restored (per-language fallback). Returns an error only when a present
+// java.yml is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadJava(dir)
+	if err != nil {
+		return err
+	}
+	applyJavaTables(t)
+	return nil
+}
+
+func parseJavaSeverity(s string) types.Severity {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "critical":
+		return types.SeverityCritical
+	case "high":
+		return types.SeverityHigh
+	case "medium":
+		return types.SeverityMedium
+	case "low":
+		return types.SeverityLow
+	default:
+		return types.SeverityInfo
+	}
 }
 
 // lookupAlgoFamily returns the quantum family key for a given algorithm name.
@@ -921,88 +1003,6 @@ func (s *JavaScanner) detectSecretKeySpec(root *sitter.Node, path string, conten
 // Bouncy Castle detection
 // ---------------------------------------------------------------------------
 
-// bcEngineAlgorithms maps Bouncy Castle engine class names to algorithm info.
-var bcEngineAlgorithms = map[string]struct {
-	family    string
-	name      string
-	primitive string
-}{
-	"AESEngine":      {family: "aes", name: "AES", primitive: "block-cipher"},
-	"DESEngine":      {family: "des", name: "DES", primitive: "block-cipher"},
-	"DESedeEngine":   {family: "3des", name: "3DES", primitive: "block-cipher"},
-	"BlowfishEngine": {family: "blowfish", name: "Blowfish", primitive: "block-cipher"},
-	"RC4Engine":      {family: "rc4", name: "RC4", primitive: "stream-cipher"},
-	"RSAEngine":      {family: "rsa", name: "RSA", primitive: "pke"},
-	"CamelliaEngine": {family: "camellia", name: "Camellia", primitive: "block-cipher"},
-}
-
-// bcAsymmetricAlgorithms maps Bouncy Castle asymmetric engine/signer class
-// names to algorithm info. These cover quantum-vulnerable public-key schemes
-// that have a dedicated low-level BC class (constructed via `new XxxEngine()`
-// or `new XxxSigner()`), so detection is tied to the specific BC identifier
-// (zero false positives). The family names map onto entries already present in
-// quantum-readiness.yml (sm2 / ecies / gost / ec), so each finding is quantum
-// labeled immediately in Pass 1.
-var bcAsymmetricAlgorithms = map[string]struct {
-	family    string
-	name      string
-	primitive string
-}{
-	// SM2 — Chinese national EC scheme (signature + public-key encryption).
-	"SM2Engine": {family: "sm2", name: "SM2", primitive: "pke"},
-	"SM2Signer": {family: "sm2", name: "SM2", primitive: "signature"},
-	// ECIES — EC Integrated Encryption Scheme.
-	"IESEngine":   {family: "ecies", name: "ECIES", primitive: "pke"},
-	"ECIESEngine": {family: "ecies", name: "ECIES", primitive: "pke"},
-	"IESCipher":   {family: "ecies", name: "ECIES", primitive: "pke"},
-	// GOST R 34.10 signature schemes (classic and 2012 variants).
-	"GOST3410Signer":        {family: "gost", name: "GOST R 34.10", primitive: "signature"},
-	"ECGOST3410Signer":      {family: "gost", name: "EC-GOST R 34.10", primitive: "signature"},
-	"ECGOST3410_2012Signer": {family: "gost", name: "EC-GOST R 34.10-2012", primitive: "signature"},
-	// ECMQV — EC Menezes-Qu-Vanstone authenticated key agreement (#41).
-	"ECMQVBasicAgreement": {family: "ecmqv", name: "ECMQV", primitive: "key-exchange"},
-	"MQVBasicAgreement":   {family: "ecmqv", name: "MQV", primitive: "key-exchange"},
-	// EC-GDSA / EC-KCDSA — German and Korean EC DSA variants (#41).
-	"ECGDSASigner":  {family: "ec-gdsa", name: "EC-GDSA", primitive: "signature"},
-	"ECKCDSASigner": {family: "ec-kcdsa", name: "EC-KCDSA", primitive: "signature"},
-	// Paillier — additively-homomorphic factoring-based encryption (#41).
-	// BouncyCastle exposes this via the org.bouncycastle.crypto.engines.Paillier* engines.
-	"PaillierEngine": {family: "paillier", name: "Paillier", primitive: "pke"},
-}
-
-// bcModes maps Bouncy Castle mode class names to mode strings.
-var bcModes = map[string]string{
-	"CBCBlockCipher": "cbc",
-	"GCMBlockCipher": "gcm",
-	"CFBBlockCipher": "cfb",
-	"OFBBlockCipher": "ofb",
-	"CTRBlockCipher": "ctr",
-	"SICBlockCipher": "ctr",
-	"CCMBlockCipher": "ccm",
-	"EAXBlockCipher": "eax",
-}
-
-// bcDigestAlgorithms maps Bouncy Castle digest class names to algorithm info.
-var bcDigestAlgorithms = map[string]struct {
-	family string
-	name   string
-}{
-	"SHA256Digest":  {family: "sha-256", name: "SHA-256"},
-	"SHA384Digest":  {family: "sha-384", name: "SHA-384"},
-	"SHA512Digest":  {family: "sha-512", name: "SHA-512"},
-	"SHA1Digest":    {family: "sha1", name: "SHA-1"},
-	"MD5Digest":     {family: "md5", name: "MD5"},
-	"SHA3Digest":    {family: "sha3-256", name: "SHA3"},
-	"BLAKE2bDigest": {family: "blake2b", name: "BLAKE2b"},
-	"BLAKE2sDigest": {family: "blake2s", name: "BLAKE2s"},
-	// BouncyCastle's actual class names use mixed case (Blake2bDigest,
-	// Blake2sDigest); keep the upper-case keys above for back-compat with
-	// callers that normalize, and add the real casing so constructors like
-	// new Blake2bDigest(256) are detected.
-	"Blake2bDigest": {family: "blake2b", name: "BLAKE2b"},
-	"Blake2sDigest": {family: "blake2s", name: "BLAKE2s"},
-}
-
 func (s *JavaScanner) detectBouncyCastle(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding
 
@@ -1197,22 +1197,6 @@ func extractInnerEngine(argsNode *sitter.Node, content []byte) (family string, n
 // SSL/TLS detection
 // ---------------------------------------------------------------------------
 
-// sslProtocols maps SSLContext.getInstance() protocol strings to info.
-var sslProtocols = map[string]struct {
-	name     string
-	version  string
-	severity types.Severity
-}{
-	"SSL":     {name: "SSLv3", version: "3.0", severity: types.SeverityHigh},
-	"SSLv3":   {name: "SSLv3", version: "3.0", severity: types.SeverityHigh},
-	"TLS":     {name: "TLS", version: "", severity: types.SeverityInfo},
-	"TLSv1":   {name: "TLSv1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLSv1.0": {name: "TLSv1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLSv1.1": {name: "TLSv1.1", version: "1.1", severity: types.SeverityHigh},
-	"TLSv1.2": {name: "TLSv1.2", version: "1.2", severity: types.SeverityInfo},
-	"TLSv1.3": {name: "TLSv1.3", version: "1.3", severity: types.SeverityInfo},
-}
-
 func (s *JavaScanner) handleSSLContextGetInstance(callNode, argsNode *sitter.Node, path string, content []byte, cp *ConstPropagator) *types.Finding {
 	protoStr, confidence := resolveFirstArg(argsNode, content, cp)
 	if protoStr == "" {
@@ -1221,11 +1205,7 @@ func (s *JavaScanner) handleSSLContextGetInstance(callNode, argsNode *sitter.Nod
 
 	info, known := sslProtocols[protoStr]
 	if !known {
-		info = struct {
-			name     string
-			version  string
-			severity types.Severity
-		}{name: protoStr, version: "", severity: types.SeverityInfo}
+		info = sslProtoT{name: protoStr, version: "", severity: types.SeverityInfo}
 	}
 
 	return &types.Finding{
