@@ -85,6 +85,8 @@ when both are enabled; the two engines produce complementary findings (de-duplic
 | `--category strings` | | Limit findings to categories. Repeatable. Values: `inventory`, `security`. |
 | `--only-inventory` | `false` | Shortcut for `--category inventory`. |
 | `--only-security` | `false` | Shortcut for `--category security`. |
+| `--asset-type strings` | | Keep only findings of these CBOM asset types. Repeatable. Values: `algorithm`, `protocol`, `certificate`, `related-crypto-material`, `library`. |
+| `--exclude-type strings` | | Drop findings of these CBOM asset types. Repeatable. Applied after `--asset-type`. |
 | `--rules strings` | | Explicit allowlist of rule IDs; overrides the default set. |
 | `--disable-rule strings` | | Rule IDs to exclude. Repeatable. Trumps every other include flag. |
 | `--include-rule strings` | | Per-rule opt-in; bypasses maturity and noise gates. |
