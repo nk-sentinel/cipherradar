@@ -142,27 +142,43 @@ func RulesDir() string {
 // no explicit cleanup is wired in (matches the cli/internal/rules
 // pattern for OpenGrep).
 var (
-	embeddedRulesDir     string
-	embeddedRulesDirOnce sync.Once
+	embeddedRulesMu   sync.Mutex
+	embeddedRulesDir  string
+	embeddedRulesDone bool
 )
 
 // ensureEmbeddedRulesDir extracts the embedded ruleset on first call
 // and returns the resulting tempdir path. Subsequent calls return the
 // cached value. Returns "" when extraction fails; callers treat that
-// as "no rules" and soft-skip.
+// as "no rules" and soft-skip. Guarded by a mutex (rather than sync.Once)
+// so CleanupEmbeddedRules can reset it and a later scan re-extracts.
 func ensureEmbeddedRulesDir() string {
-	embeddedRulesDirOnce.Do(func() {
-		dir, err := yararules.ExtractToTempDir()
-		if err != nil {
-			// Don't fail loudly — soft-skip matches the rest of the
-			// scanner's failure model. The --debug log on Pass 3
-			// dispatch already surfaces "no rules" via the soft-skip
-			// path in ScanFile.
-			return
+	embeddedRulesMu.Lock()
+	defer embeddedRulesMu.Unlock()
+	if !embeddedRulesDone {
+		embeddedRulesDone = true
+		if dir, err := yararules.ExtractToTempDir(); err == nil {
+			embeddedRulesDir = dir
 		}
-		embeddedRulesDir = dir
-	})
+		// On failure leave embeddedRulesDir empty — soft-skip matches the
+		// rest of the scanner's failure model.
+	}
 	return embeddedRulesDir
+}
+
+// CleanupEmbeddedRules removes the extracted embedded-ruleset tempdir
+// (/tmp/cradar-yara-rules-*) and resets the memo so a subsequent scan
+// re-extracts. Previously this tempdir was created once per process and
+// never removed, leaking on every Pass-3 run (gh #82). The scan command
+// defers this after each scan. Safe to call when nothing was extracted.
+func CleanupEmbeddedRules() {
+	embeddedRulesMu.Lock()
+	defer embeddedRulesMu.Unlock()
+	if embeddedRulesDir != "" {
+		_ = os.RemoveAll(embeddedRulesDir)
+	}
+	embeddedRulesDir = ""
+	embeddedRulesDone = false
 }
 
 // Scan runs `yr scan --output-format json <rulesDir> <target>` against a
