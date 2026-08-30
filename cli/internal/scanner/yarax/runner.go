@@ -169,10 +169,10 @@ func ensureEmbeddedRulesDir() string {
 // single file and returns the parsed findings.
 //
 // Soft-skip cases — return (nil, nil) without invoking the subprocess:
-//   - Runner is nil or unresolved (binary not installed). Callers can rely
-//     on this to keep the per-file dispatch loop trivial; the one-time
-//     "Pass 3 disabled" log is emitted at the registry-build seam.
-//   - rulesDir is empty (no rules to load — expected in Sub-PR A).
+//   - Runner is nil or unresolved (binary not installed). The per-file loop
+//     stays trivial; the scan command surfaces one "pass 3 skipped: <reason>"
+//     line after the walk (cmd/scan.go) so the skip is visible, not silent.
+//   - rulesDir is empty (rules extraction failed / no external rules).
 //   - rulesDir contains no `.yar` files (still no rules to load).
 //
 // Hard-fail cases — return an error:
@@ -185,8 +185,8 @@ func ensureEmbeddedRulesDir() string {
 // batched mode is a future optimisation tracked in Sub-PR C.
 func (r *Runner) Scan(target string, rulesDir string) ([]types.Finding, error) {
 	if r == nil || r.binaryPath == "" {
-		// Soft-skip: no binary. Callers don't need a per-file warning;
-		// the registry layer logs one Info line at startup.
+		// Soft-skip: no binary. The per-file loop stays quiet; cmd/scan.go
+		// emits a single "pass 3 skipped: yara-x not found" line after the walk.
 		return nil, nil
 	}
 	if rulesDir == "" {

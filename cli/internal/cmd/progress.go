@@ -102,6 +102,27 @@ func (p *progressEmitter) PassComplete(pass int, name string, elapsed time.Durat
 		pass, name, elapsed.Round(time.Millisecond), findings)
 }
 
+// PassCompleteInline announces the end of a pass that runs *within* another
+// pass's traversal and therefore has no separable elapsed time. YARA-X
+// (Pass 3) executes as a universal inside the Pass-1 walk, so only a finding
+// count is meaningful. Without this, a completed Pass 3 emitted nothing and
+// users concluded it never ran (see issue #113).
+func (p *progressEmitter) PassCompleteInline(pass int, name string, findings int) {
+	if p.opts.Quiet {
+		return
+	}
+	fmt.Fprintf(p.w, "[scan] pass %d: %s complete (%d findings)\n", pass, name, findings)
+}
+
+// PassSkipped announces that a requested pass did not execute, with the
+// reason. Makes a soft-skip visible instead of silent (issue #113).
+func (p *progressEmitter) PassSkipped(pass int, name, reason string) {
+	if p.opts.Quiet {
+		return
+	}
+	fmt.Fprintf(p.w, "[scan] pass %d: %s skipped — %s\n", pass, name, reason)
+}
+
 func joinLimit(parts []string, limit int) string {
 	if len(parts) <= limit {
 		return joinComma(parts)
