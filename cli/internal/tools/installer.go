@@ -18,13 +18,13 @@ import (
 
 const (
 	// OpenGrepVersion is the pinned OpenGrep release to install.
-	OpenGrepVersion = "v1.25.0"
+	OpenGrepVersion = "v1.29.0"
 
 	// OpenGrepBaseURL is the GitHub Releases base URL for OpenGrep.
 	OpenGrepBaseURL = "https://github.com/opengrep/opengrep/releases/download"
 
 	// YARAXVersion is the pinned YARA-X release to install.
-	YARAXVersion = "v1.19.0"
+	YARAXVersion = "v1.20.0"
 
 	// YARAXBaseURL is the GitHub Releases base URL for YARA-X.
 	YARAXBaseURL = "https://github.com/VirusTotal/yara-x/releases/download"
