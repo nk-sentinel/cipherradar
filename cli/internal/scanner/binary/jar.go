@@ -4,30 +4,66 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
-	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/java"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/config"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/java"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keystore"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
+
+// Archive-scanning bomb guards. A crafted archive (or deeply nested one) must
+// not exhaust memory or CPU. All limits apply across the whole nesting tree of
+// one top-level archive via a shared archiveBudget.
+const (
+	maxArchiveDepth      = 4                 // jar-in-war-in-jar... nesting cap
+	maxArchiveTotalBytes = 512 * 1024 * 1024 // total uncompressed budget (512 MB)
+	maxArchiveEntries    = 20000             // total entry-count cap
+	maxArchiveEntryBytes = 50 * 1024 * 1024  // per-entry cap (50 MB)
+)
+
+// recursableArchiveExts are nested-archive types the scanner recurses into.
+var recursableArchiveExts = map[string]bool{
+	".jar": true, ".war": true, ".ear": true, ".zip": true,
+}
+
+// keystoreEntryExtensions are routed to the keystore scanner when found inside
+// an archive (e.g. a JKS/PKCS12 bundled in a JAR).
+var keystoreEntryExtensions = map[string]bool{
+	".jks": true, ".keystore": true, ".truststore": true,
+	".p12": true, ".pfx": true, ".pkcs12": true, ".pk12": true,
+	".jceks": true, ".bks": true,
+}
+
+// archiveBudget bounds a single top-level archive scan across all nesting
+// levels to defend against decompression bombs. truncated is set when any
+// limit was hit so the caller can flag partial coverage.
+type archiveBudget struct {
+	bytesLeft   int64
+	entriesLeft int
+	truncated   bool
+}
 
 // JARScanner handles JAR, WAR, and EAR files by extracting their contents
 // and scanning with byte-pattern matching and (optionally) the Java source
 // scanner via CFR decompilation.
 type JARScanner struct {
-	javaScanner   scanner.Scanner
-	configScanner scanner.Scanner
+	javaScanner     scanner.Scanner
+	configScanner   scanner.Scanner
+	keystoreScanner scanner.Scanner
 }
 
-// NewJARScanner creates a new JAR/WAR/EAR scanner.
+// NewJARScanner creates a new JAR/WAR/EAR/ZIP scanner.
 func NewJARScanner() *JARScanner {
 	return &JARScanner{
-		javaScanner:   java.New(),
-		configScanner: config.New(),
+		javaScanner:     java.New(),
+		configScanner:   config.New(),
+		keystoreScanner: keystore.New(),
 	}
 }
 
@@ -38,84 +74,145 @@ func (s *JARScanner) Name() string {
 
 // Extensions returns the archive extensions this scanner handles.
 func (s *JARScanner) Extensions() []string {
-	return []string{".jar", ".war", ".ear"}
+	return []string{".jar", ".war", ".ear", ".zip"}
 }
 
-// ScanFile scans a JAR/WAR/EAR file by opening it as a ZIP archive,
-// extracting relevant files, and running appropriate sub-scanners.
+// ScanFile scans a JAR/WAR/EAR/ZIP archive: it recurses into nested archives
+// (bounded), routes entries to the appropriate sub-scanner (crypto constants in
+// .class, config files, keystores), and defends against decompression bombs via
+// a shared budget (depth + total-uncompressed + entry-count + per-entry
+// LimitReader).
 func (s *JARScanner) ScanFile(path string, content []byte) ([]types.Finding, error) {
 	if len(content) == 0 {
 		return nil, nil
 	}
 
+	budget := &archiveBudget{bytesLeft: maxArchiveTotalBytes, entriesLeft: maxArchiveEntries}
+	findings, err := s.scanArchive(path, content, 0, budget)
+	if err != nil {
+		return nil, err
+	}
+
+	// Optional: try CFR decompilation of the top-level archive if available.
+	findings = append(findings, s.tryCFRDecompile(path, content)...)
+
+	if budget.truncated {
+		findings = append(findings, partialArchiveFinding(path))
+	}
+	return scanner.AnnotateFindings(findings), nil
+}
+
+// scanArchive recursively scans one archive's entries within the shared budget.
+func (s *JARScanner) scanArchive(path string, content []byte, depth int, budget *archiveBudget) ([]types.Finding, error) {
 	reader, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
 	if err != nil {
-		return nil, fmt.Errorf("failed to open JAR %s: %w", path, err)
+		if depth == 0 {
+			return nil, fmt.Errorf("failed to open archive %s: %w", path, err)
+		}
+		return nil, nil // a corrupt nested archive is skipped, not fatal
 	}
 
 	var findings []types.Finding
-
 	for _, f := range reader.File {
 		if f.FileInfo().IsDir() {
 			continue
 		}
+		if budget.entriesLeft <= 0 || budget.bytesLeft <= 0 {
+			budget.truncated = true
+			break
+		}
+		budget.entriesLeft--
 
 		ext := strings.ToLower(filepath.Ext(f.Name))
 		entryPath := fmt.Sprintf("%s!/%s", path, f.Name)
 
-		entryContent, err := readZipEntry(f)
-		if err != nil {
-			continue // skip unreadable entries
+		entryContent, n, rerr := readZipEntryLimited(f, budget.bytesLeft)
+		if rerr != nil {
+			if rerr == errEntryTooLarge {
+				budget.truncated = true
+			}
+			continue
 		}
+		budget.bytesLeft -= n
 
-		switch ext {
-		case ".class":
-			// Scan raw .class bytes for crypto constants
-			classFindings := scanBytes(entryPath, entryContent)
-			findings = append(findings, classFindings...)
+		switch {
+		case recursableArchiveExts[ext]:
+			if depth+1 > maxArchiveDepth {
+				budget.truncated = true
+				continue
+			}
+			nested, _ := s.scanArchive(entryPath, entryContent, depth+1, budget)
+			findings = append(findings, nested...)
 
-		case ".properties", ".env":
-			// Scan config files with the config scanner
-			configFindings, err := s.configScanner.ScanFile(entryPath, entryContent)
-			if err == nil {
-				findings = append(findings, configFindings...)
+		case ext == ".class":
+			findings = append(findings, scanBytes(entryPath, entryContent)...)
+
+		case ext == ".properties", ext == ".env":
+			if cf, cerr := s.configScanner.ScanFile(entryPath, entryContent); cerr == nil {
+				findings = append(findings, cf...)
 			}
 
-		case ".xml", ".yml", ".yaml":
-			// Scan for crypto references in config files using byte patterns
-			// that indicate TLS/SSL or algorithm configuration.
-			xmlFindings := scanConfigContent(entryPath, entryContent)
-			findings = append(findings, xmlFindings...)
+		case ext == ".xml", ext == ".yml", ext == ".yaml":
+			findings = append(findings, scanConfigContent(entryPath, entryContent)...)
+
+		case keystoreEntryExtensions[ext]:
+			if kf, kerr := s.keystoreScanner.ScanFile(entryPath, entryContent); kerr == nil {
+				findings = append(findings, kf...)
+			}
 		}
 	}
-
-	// Optional: try CFR decompilation if available
-	cfrFindings := s.tryCFRDecompile(path, content)
-	findings = append(findings, cfrFindings...)
-
-	return scanner.AnnotateFindings(findings), nil
+	return findings, nil
 }
 
-// readZipEntry reads the full content of a ZIP entry.
-func readZipEntry(f *zip.File) ([]byte, error) {
+// errEntryTooLarge signals an entry that exceeds the per-entry cap (possible
+// decompression bomb) — the caller skips it and flags the archive as partial.
+var errEntryTooLarge = fmt.Errorf("archive entry exceeds size cap")
+
+// readZipEntryLimited reads a ZIP entry without trusting its declared size: it
+// bounds the read with an io.LimitReader at min(per-entry cap, remaining
+// budget), so a bomb entry that lies about UncompressedSize64 cannot exhaust
+// memory. Returns the content and the number of bytes actually read.
+func readZipEntryLimited(f *zip.File, budgetBytes int64) ([]byte, int64, error) {
+	limit := int64(maxArchiveEntryBytes)
+	if budgetBytes < limit {
+		limit = budgetBytes
+	}
+	if limit <= 0 {
+		return nil, 0, errEntryTooLarge
+	}
+
 	rc, err := f.Open()
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer rc.Close()
 
-	// Cap at 50 MB to avoid memory exhaustion on large entries.
-	const maxSize = 50 * 1024 * 1024
-	if f.UncompressedSize64 > maxSize {
-		return nil, fmt.Errorf("entry too large: %d bytes", f.UncompressedSize64)
+	// Read at most cap+1 so we can detect (and reject) an over-cap entry
+	// without materializing the whole bomb.
+	data, err := io.ReadAll(io.LimitReader(rc, limit+1))
+	if err != nil {
+		return nil, 0, err
 	}
+	if int64(len(data)) > limit {
+		return nil, 0, errEntryTooLarge
+	}
+	return data, int64(len(data)), nil
+}
 
-	var buf bytes.Buffer
-	buf.Grow(int(f.UncompressedSize64))
-	if _, err := buf.ReadFrom(rc); err != nil {
-		return nil, err
+// partialArchiveFinding notes that an archive was only partially scanned
+// because a bomb guard (depth / size / entry-count) was hit.
+func partialArchiveFinding(path string) types.Finding {
+	return types.Finding{
+		ID:          nextFindingID(),
+		AssetType:   types.AssetRelatedCryptoMaterial,
+		Name:        "Archive partially scanned",
+		Location:    binaryLocation(path, 0, "archive"),
+		Severity:    types.SeverityLow,
+		Confidence:  types.ConfidenceLow,
+		Description: "Archive scanning stopped at a safety limit (depth/size/entry-count); some nested content was not inspected",
+		RuleID:      "cbom-archive-partial",
+		Pass:        1,
 	}
-	return buf.Bytes(), nil
 }
 
 // scanConfigContent scans XML/YAML config content for crypto-related strings
