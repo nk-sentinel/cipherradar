@@ -57,6 +57,9 @@ func init() {
 	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (taint analysis + YARA-X binary scan)")
 
+	// Coverage / memory controls.
+	scanCmd.Flags().String("max-file-size", "", "skip files larger than this size, e.g. 50MB / 1GB / 500000 (bytes); empty = no limit. Bounds per-file memory on large inputs.")
+
 	// Pre-commit hook support flags.
 	scanCmd.Flags().Bool("fast", false, "run Pass 1 only (no OpenGrep), skip files >100KB")
 	scanCmd.Flags().Bool("staged-only", false, "only scan files in git staging area (git diff --cached)")
@@ -195,12 +198,18 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// Build scan options.
 	noDefaultIgnores, _ := cmd.Flags().GetBool("no-default-ignores")
 	noGitignore, _ := cmd.Flags().GetBool("no-gitignore")
+	maxFileStr, _ := cmd.Flags().GetString("max-file-size")
+	maxFileSize, mfsErr := parseHumanSize(maxFileStr)
+	if mfsErr != nil {
+		return ExitErrorf(ExitConfig, "--max-file-size: %v", mfsErr)
+	}
 	scanOpts := scanner.ScanOptions{
 		Fast:             fast,
 		StagedOnly:       stagedOnly,
 		Progress:         emitter.WalkedFile,
 		NoDefaultIgnores: noDefaultIgnores,
 		NoGitignore:      noGitignore,
+		MaxFileSize:      maxFileSize,
 	}
 
 	// Load .cradar.yml (optional) so custom_wrappers can seed the registry
@@ -1105,4 +1114,42 @@ func syncCustomRules(cmd *cobra.Command) {
 	if err := rules.SyncRules(apiURL, apiKey); err != nil {
 		fmt.Fprintf(os.Stderr, "WARNING: custom rule sync failed: %v\n", err)
 	}
+}
+
+// parseHumanSize parses a human-friendly byte size such as "50MB", "1GB",
+// "512KB", or a bare byte count like "500000". An empty string means "no
+// limit" and returns 0. Suffixes are case-insensitive; both "MB" and "M" are
+// accepted and treated as powers of 1024 (MiB semantics) to match how memory
+// budgets are reasoned about. A negative or unparseable value is an error.
+func parseHumanSize(s string) (int64, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, nil
+	}
+
+	upper := strings.ToUpper(s)
+	var mult int64 = 1
+	switch {
+	case strings.HasSuffix(upper, "GB"), strings.HasSuffix(upper, "G"):
+		mult = 1 << 30
+		upper = strings.TrimSuffix(strings.TrimSuffix(upper, "GB"), "G")
+	case strings.HasSuffix(upper, "MB"), strings.HasSuffix(upper, "M"):
+		mult = 1 << 20
+		upper = strings.TrimSuffix(strings.TrimSuffix(upper, "MB"), "M")
+	case strings.HasSuffix(upper, "KB"), strings.HasSuffix(upper, "K"):
+		mult = 1 << 10
+		upper = strings.TrimSuffix(strings.TrimSuffix(upper, "KB"), "K")
+	case strings.HasSuffix(upper, "B"):
+		upper = strings.TrimSuffix(upper, "B")
+	}
+
+	upper = strings.TrimSpace(upper)
+	n, err := strconv.ParseFloat(upper, 64)
+	if err != nil {
+		return 0, fmt.Errorf("invalid size %q (use e.g. 50MB, 1GB, or a byte count)", s)
+	}
+	if n < 0 {
+		return 0, fmt.Errorf("size must not be negative: %q", s)
+	}
+	return int64(n * float64(mult)), nil
 }

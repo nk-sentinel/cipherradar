@@ -40,7 +40,6 @@ func isCycloneDXOrSARIF(content []byte) bool {
 type scanJob struct {
 	path       string
 	relPath    string
-	content    []byte
 	scanner    Scanner   // extension-matched scanner, or nil
 	universals []Scanner // universal scanners (only set when scanner is nil)
 }
@@ -67,6 +66,10 @@ type ScanOptions struct {
 	NoDefaultIgnores bool
 	// NoGitignore disables honoring .gitignore during the walk.
 	NoGitignore bool
+
+	// MaxFileSize, when > 0, skips files larger than this many bytes. The check
+	// is stat-based so an oversized file is never read into memory. 0 = no cap.
+	MaxFileSize int64
 
 	// Progress, if non-nil, is invoked once per scanned file with the
 	// detected language (may be empty if no extension match) and the
@@ -114,6 +117,7 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 	// The walk itself is sequential (os.WalkDir is not concurrent-safe).
 	var jobs []scanJob
 	var walkErrors []types.ScanError
+	var skippedTooLarge int
 
 	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
@@ -174,27 +178,23 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 			}
 		}
 
-		content, err := os.ReadFile(path)
-		if err != nil {
-			walkErrors = append(walkErrors, types.ScanError{
-				File:    path,
-				Message: err.Error(),
-			})
-			return nil
-		}
-
-		// For .json files, only skip CycloneDX and SARIF output files.
-		// Config JSON (Terraform, k8s manifests, etc.) should be scanned.
-		if strings.ToLower(ext) == ".json" {
-			if isCycloneDXOrSARIF(content) {
+		// Bound per-file cost with --max-file-size. Stat-based so an oversized
+		// file is never read into memory (mitigates OOM on huge inputs).
+		if opts.MaxFileSize > 0 {
+			if info, statErr := d.Info(); statErr == nil && info.Size() > opts.MaxFileSize {
+				skippedTooLarge++
 				return nil
 			}
 		}
 
+		// Content is NOT read here — it is read lazily in the worker so peak
+		// memory is bounded to ~numWorkers files rather than the whole tree
+		// (previously every file's bytes were held resident at once, which drove
+		// multi-GB RAM on large repos). The .json CycloneDX/SARIF skip likewise
+		// moves to the worker, where the content is available.
 		job := scanJob{
 			path:    path,
 			relPath: relPath,
-			content: content,
 			scanner: s,
 		}
 		// Universals are assigned to every job, with two filters applied:
@@ -245,11 +245,27 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 
 				lg := logpkg.Get()
 
+				// Read the file lazily (bounded memory: only ~numWorkers files
+				// are resident at once, not the whole tree).
+				content, readErr := os.ReadFile(job.path)
+				if readErr != nil {
+					results[idx] = scanJobResult{
+						errors:  []types.ScanError{{File: job.relPath, Message: readErr.Error()}},
+						relPath: job.relPath,
+					}
+					continue
+				}
+				// Skip CycloneDX/SARIF output .json files (config JSON is scanned).
+				if strings.ToLower(filepath.Ext(job.path)) == ".json" && isCycloneDXOrSARIF(content) {
+					results[idx] = scanJobResult{relPath: job.relPath}
+					continue
+				}
+
 				// Run extension-matched scanner
 				if job.scanner != nil {
 					scannerStart := time.Now()
 					lg.ScannerStart(job.scanner.Name(), job.relPath)
-					f, scanErr := job.scanner.ScanFile(job.relPath, job.content)
+					f, scanErr := job.scanner.ScanFile(job.relPath, content)
 					lg.ScannerComplete(job.scanner.Name(), len(f), time.Since(scannerStart))
 					if scanErr != nil {
 						errs = append(errs, types.ScanError{
@@ -275,7 +291,7 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 				for _, us := range job.universals {
 					scannerStart := time.Now()
 					lg.ScannerStart(us.Name(), job.relPath)
-					f, scanErr := us.ScanFile(job.relPath, job.content)
+					f, scanErr := us.ScanFile(job.relPath, content)
 					lg.ScannerComplete(us.Name(), len(f), time.Since(scannerStart))
 					if scanErr != nil {
 						errs = append(errs, types.ScanError{
@@ -319,6 +335,13 @@ func ScanDirWithOptions(root string, registry *Registry, passes []int, opts Scan
 
 	// Phase 3: Collect results.
 	result.Errors = append(result.Errors, walkErrors...)
+
+	// Auditability: make skipped-for-size coverage visible rather than silent.
+	if skippedTooLarge > 0 {
+		result.Errors = append(result.Errors, types.ScanError{
+			Message: fmt.Sprintf("skipped %d file(s) exceeding --max-file-size", skippedTooLarge),
+		})
+	}
 
 	filesScanned := 0
 	for _, r := range results {
