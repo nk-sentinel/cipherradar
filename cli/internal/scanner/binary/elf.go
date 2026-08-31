@@ -63,6 +63,10 @@ func (s *ELFScanner) ScanFile(path string, content []byte) ([]types.Finding, err
 		findings = append(findings, goFindings...)
 	}
 
+	// Version-string library fingerprinting runs on the full content for any
+	// native binary (ELF or not) — the top rung of the detection ladder.
+	findings = append(findings, scanLibraryVersions(path, content)...)
+
 	return scanner.AnnotateFindings(findings), nil
 }
 
@@ -132,18 +136,18 @@ var knownGoCryptoPackages = map[string]struct {
 	Primitive string
 	Name      string
 }{
-	"crypto/aes":    {Family: "aes", Primitive: "block-cipher", Name: "AES (Go stdlib)"},
-	"crypto/des":    {Family: "des", Primitive: "block-cipher", Name: "DES (Go stdlib)"},
-	"crypto/rc4":    {Family: "rc4", Primitive: "stream-cipher", Name: "RC4 (Go stdlib)"},
-	"crypto/md5":    {Family: "md5", Primitive: "hash", Name: "MD5 (Go stdlib)"},
-	"crypto/sha1":   {Family: "sha1", Primitive: "hash", Name: "SHA-1 (Go stdlib)"},
-	"crypto/sha256": {Family: "sha-256", Primitive: "hash", Name: "SHA-256 (Go stdlib)"},
-	"crypto/sha512": {Family: "sha-512", Primitive: "hash", Name: "SHA-512 (Go stdlib)"},
-	"crypto/rsa":    {Family: "rsa", Primitive: "pke", Name: "RSA (Go stdlib)"},
-	"crypto/ecdsa":  {Family: "ecdsa", Primitive: "signature", Name: "ECDSA (Go stdlib)"},
-	"crypto/ecdh":   {Family: "ecdh", Primitive: "key-agree", Name: "ECDH (Go stdlib)"},
-	"crypto/ed25519": {Family: "ed25519", Primitive: "signature", Name: "Ed25519 (Go stdlib)"},
-	"crypto/tls":    {Family: "tls", Primitive: "", Name: "TLS (Go stdlib)"},
+	"crypto/aes":                           {Family: "aes", Primitive: "block-cipher", Name: "AES (Go stdlib)"},
+	"crypto/des":                           {Family: "des", Primitive: "block-cipher", Name: "DES (Go stdlib)"},
+	"crypto/rc4":                           {Family: "rc4", Primitive: "stream-cipher", Name: "RC4 (Go stdlib)"},
+	"crypto/md5":                           {Family: "md5", Primitive: "hash", Name: "MD5 (Go stdlib)"},
+	"crypto/sha1":                          {Family: "sha1", Primitive: "hash", Name: "SHA-1 (Go stdlib)"},
+	"crypto/sha256":                        {Family: "sha-256", Primitive: "hash", Name: "SHA-256 (Go stdlib)"},
+	"crypto/sha512":                        {Family: "sha-512", Primitive: "hash", Name: "SHA-512 (Go stdlib)"},
+	"crypto/rsa":                           {Family: "rsa", Primitive: "pke", Name: "RSA (Go stdlib)"},
+	"crypto/ecdsa":                         {Family: "ecdsa", Primitive: "signature", Name: "ECDSA (Go stdlib)"},
+	"crypto/ecdh":                          {Family: "ecdh", Primitive: "key-agree", Name: "ECDH (Go stdlib)"},
+	"crypto/ed25519":                       {Family: "ed25519", Primitive: "signature", Name: "Ed25519 (Go stdlib)"},
+	"crypto/tls":                           {Family: "tls", Primitive: "", Name: "TLS (Go stdlib)"},
 	"golang.org/x/crypto/chacha20poly1305": {Family: "chacha20", Primitive: "ae", Name: "ChaCha20-Poly1305 (x/crypto)"},
 	"golang.org/x/crypto/sha3":             {Family: "sha3-256", Primitive: "hash", Name: "SHA-3 (x/crypto)"},
 	"golang.org/x/crypto/blake2b":          {Family: "blake2b", Primitive: "hash", Name: "BLAKE2b (x/crypto)"},
