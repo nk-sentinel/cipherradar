@@ -3,6 +3,7 @@ package scanner
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -17,8 +18,8 @@ type mockScanner struct {
 	err        error
 }
 
-func (m *mockScanner) Name() string                { return m.name }
-func (m *mockScanner) Extensions() []string         { return m.extensions }
+func (m *mockScanner) Name() string         { return m.name }
+func (m *mockScanner) Extensions() []string { return m.extensions }
 func (m *mockScanner) ScanFile(path string, content []byte) ([]types.Finding, error) {
 	if m.err != nil {
 		return nil, m.err
@@ -491,6 +492,60 @@ func TestScanDirJSONContentBasedSkip(t *testing.T) {
 	}
 	if len(result.Findings) != 1 {
 		t.Errorf("expected 1 finding from config JSON, got %d", len(result.Findings))
+	}
+}
+
+func TestScanDirMaxFileSizeSkipsLargeFiles(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Small file (well under the cap) — should be scanned.
+	small := filepath.Join(tmpDir, "small.py")
+	if err := os.WriteFile(small, []byte("import os\n"), 0644); err != nil {
+		t.Fatalf("failed to write small file: %v", err)
+	}
+
+	// Large file (over the cap) — should be skipped without being read.
+	large := filepath.Join(tmpDir, "large.py")
+	if err := os.WriteFile(large, make([]byte, 4096), 0644); err != nil {
+		t.Fatalf("failed to write large file: %v", err)
+	}
+
+	mock := &mockScanner{
+		name:       "python",
+		extensions: []string{".py"},
+		findings:   []types.Finding{{ID: "PY-1", RuleID: "py-rule"}},
+	}
+	registry := NewRegistry()
+	registry.Register(mock)
+
+	result, err := ScanDirWithOptions(tmpDir, registry, []int{1}, ScanOptions{MaxFileSize: 1024})
+	if err != nil {
+		t.Fatalf("ScanDirWithOptions returned error: %v", err)
+	}
+
+	// Only the small file should be scanned.
+	if result.FilesScanned != 1 {
+		t.Errorf("expected 1 file scanned (large skipped), got %d", result.FilesScanned)
+	}
+
+	// The skip must be recorded for auditability.
+	var sawSkip bool
+	for _, e := range result.Errors {
+		if strings.Contains(e.Message, "exceeding --max-file-size") {
+			sawSkip = true
+		}
+	}
+	if !sawSkip {
+		t.Errorf("expected a recorded skipped-too-large error, got %+v", result.Errors)
+	}
+
+	// A zero cap means no limit — both files scanned.
+	result2, err := ScanDirWithOptions(tmpDir, registry, []int{1}, ScanOptions{MaxFileSize: 0})
+	if err != nil {
+		t.Fatalf("ScanDirWithOptions (no cap) returned error: %v", err)
+	}
+	if result2.FilesScanned != 2 {
+		t.Errorf("expected 2 files scanned with no cap, got %d", result2.FilesScanned)
 	}
 }
 

@@ -360,3 +360,44 @@ func TestScan_StrictValidate_EmptyDirSucceeds(t *testing.T) {
 		t.Errorf("expected no WARNING on empty dir, got:\n%s", buf.String())
 	}
 }
+
+func TestParseHumanSize(t *testing.T) {
+	tests := []struct {
+		in      string
+		want    int64
+		wantErr bool
+	}{
+		{"", 0, false},
+		{"   ", 0, false},
+		{"0", 0, false},
+		{"500000", 500000, false},
+		{"512KB", 512 * 1024, false},
+		{"512K", 512 * 1024, false},
+		{"50MB", 50 * 1024 * 1024, false},
+		{"50M", 50 * 1024 * 1024, false},
+		{"1GB", 1024 * 1024 * 1024, false},
+		{"1G", 1024 * 1024 * 1024, false},
+		{"2048B", 2048, false},
+		{"1.5MB", int64(1.5 * 1024 * 1024), false},
+		{"  50mb  ", 50 * 1024 * 1024, false},
+		{"-5MB", 0, true},
+		{"abc", 0, true},
+		{"12xy", 0, true},
+	}
+	for _, tt := range tests {
+		got, err := parseHumanSize(tt.in)
+		if tt.wantErr {
+			if err == nil {
+				t.Errorf("parseHumanSize(%q): expected error, got %d", tt.in, got)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("parseHumanSize(%q): unexpected error: %v", tt.in, err)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("parseHumanSize(%q) = %d, want %d", tt.in, got, tt.want)
+		}
+	}
+}
