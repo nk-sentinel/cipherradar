@@ -69,7 +69,7 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 - CLI renamed to `cradar` with `--push` flag
 - 5 output formats (CycloneDX, SARIF, text, PDF, SonarQube Generic)
 - 30 Go packages, 310+ backend tests
-- 33 ADRs (ADR-001 through ADR-040, with gaps)
+- 36 ADRs (ADR-001 through ADR-043, with gaps)
 
 **Skills available** (`~/.claude/commands/`) — 36 total:
 
@@ -121,7 +121,7 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 
 ## Key Architecture Decisions
 
-33 ADRs total (ADR-001 through ADR-040, with gaps) in `docs/decisions/`. Decisions that affect day-to-day coding:
+36 ADRs total (ADR-001 through ADR-043, with gaps) in `docs/decisions/`. Decisions that affect day-to-day coding:
 
 - **ADR-001** — Output is CycloneDX 1.7. Never invent a custom schema.
 - **ADR-002** — tree-sitter is the parsing backbone for all languages.
@@ -144,6 +144,8 @@ Phase 1 complete (`docs/11-phase1-implementation-plan.md`). Phase 2 complete (`d
 - **ADR-023** — Compliance framework extensibility: YAML-driven rules in `scanner/library-models/`.
 - **ADR-024** — CLI binary rename: `cbom` → `cradar`. `cbom` kept as legacy alias during Phase 3.
 - **ADR-025** — CLI-to-portal push: `cradar scan --push` uploads results to portal. `.cradar.yml` config file for defaults.
+- **ADR-042** — Container image scanning: materialize layers to a temp dir and reuse the directory walker (all 3 passes, native binary/JAR/wheel scanners, archive recursion, per-layer provenance, image config/history/labels). Replaced the diverged in-memory scanner. Resolves #83.
+- **ADR-043** — External Pass-1 (AST) detection rules via `--ast-rules-dir` (per-language YAML, replace semantics), completing external-rules parity across all passes (`--rules-dir`/`--ast-rules-dir`/`--yara-rules-dir`). Resolves #114.
 
 ---
 

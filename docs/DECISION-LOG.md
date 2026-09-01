@@ -52,6 +52,9 @@ When a decision changes, the original ADR is kept and marked **Superseded**, and
 | [ADR-038](decisions/ADR-038.md) | Installer Checksum Verification — SHA-256 of downloaded tool binaries | Accepted | 2026-05-18 | `cli/internal/tools/checksum.go`, `cli/internal/tools/installer.go` |
 | [ADR-039](decisions/ADR-039-yarax-binary-scanning.md) | YARA-X Integration for Binary Crypto Detection (Pass 3, opt-in) | Accepted | 2026-05-24 | `cli/internal/scanner/yarax/`, `scanner/yara-rules/`, `docs/08-roadmap.md`, ADR-026, ADR-038 |
 | [ADR-040](decisions/ADR-040-library-asset-type.md) | Library detections emit as CycloneDX `type=library` components | Accepted | 2026-05-25 | CBOM output, CycloneDX converter |
+| [ADR-041](decisions/ADR-041-keystore-password-policy.md) | Keystore inspection & default-password policy | Accepted | 2026-06-21 | `cli/internal/scanner/keystore/`, ADR-040 |
+| [ADR-042](decisions/ADR-042-container-scan-materialization.md) | Container image scanning — materialize layers, reuse the directory walker | Accepted | 2026-09-01 | `cli/internal/container/`, gh #83, ADR-004, ADR-026, ADR-039 |
+| [ADR-043](decisions/ADR-043-external-ast-rules.md) | External Pass-1 (AST) detection rules (`--ast-rules-dir`) | Accepted | 2026-09-01 | `cli/internal/scanner/astrules/`, `scanner/ast-rules/`, gh #114, ADR-004, ADR-009, ADR-039 |
 
 > **Note on ADR-033:** ADR-033 (Remove Joern Pass 3) is recorded in the timeline section below under 2026-03-23 and supersedes the Pass 3 design from ADR-004 / ADR-011. It is listed here for index completeness:
 
@@ -260,6 +263,22 @@ OpenGrep + YARA-X library-presence findings (cbom-asset-type: library) no longer
 the invalid value through to CycloneDX `cryptoProperties.assetType`. Routed to
 component `type: library` per CycloneDX 1.7 spec. Breaking change for CBOM JSON consumers
 that read `assetType: "library"`. See ADR-040.
+
+### 2026-09-01 — ADR-042 & ADR-043: Container scan rewrite + external Pass-1 rules (v0.5.0-rc.1)
+
+**ADR-042: Container image scanning — materialize layers, reuse the directory walker.**
+The diverged in-memory container scanner (text-files-≤1 MB only, no Pass 2, no on-disk
+path for `yr`, dishonest `PassesRun`) is replaced by extracting image layers to a temp
+dir and running the shared directory walker over it — so `--container` gets Pass 1/2/3,
+the native binary/JAR/wheel scanners, recursive archive unpacking, per-layer provenance,
+and image config/history/labels ingestion. Resolves gh #83.
+
+**ADR-043: External Pass-1 (AST) detection rules.** The ~90 hardcoded Go maps behind
+Pass-1 detection are externalized as per-language YAML (embedded default, overridable via
+`--ast-rules-dir` with per-language replace semantics), mirroring `--rules-dir` (Pass 2)
+and the new `--yara-rules-dir` (Pass 3). Every pass now supports external rules, so a
+downstream portal can serve the full rule set. Resolves gh #114. See
+`docs/ast-rules-external-design.md`.
 
 ---
 
