@@ -122,6 +122,18 @@ By default `cradar` skips non-source paths so it never re-ingests its own output
 vendored/build noise. A project-root `.cradarignore` (gitignore syntax) adds scan-specific
 exclusions. Config files, certificate/key material, and binaries are never default-ignored.
 
+### Coverage / resource limits
+
+These bound how much a single scan reads so a huge file, a bloated image, or a
+decompression-bomb archive can't exhaust memory or disk. All are optional — the
+defaults are safe.
+
+| Flag | Default | Description |
+|---|---|---|
+| `--max-file-size string` | `(no limit)` | Skip any file larger than this before it is read, e.g. `50MB` / `1GB` / a raw byte count. Bounds per-file memory on large inputs; skipped files are recorded in the scan errors for auditability. |
+| `--max-image-size string` | `2GB` | Cap the **total** bytes extracted from a `--container` image. Once the budget is exceeded, remaining layers are skipped and a `extraction budget … exceeded` note is recorded. Guards against oversized/bloated images. |
+| `--archive-max-depth int` | `4` | Maximum nested-archive recursion depth for `.jar`/`.war`/`.ear`/`.zip` (jar-in-jar). `-1` uses the built-in default (4); `0` disables recursion into nested archives (the top-level archive is still scanned). When recursion is capped, the archive is flagged `cbom-archive-partial`. |
+
 ### Keystore inspection
 
 | Flag | Default | Description |
@@ -149,7 +161,7 @@ NSS** databases (`cert9.db`/`key4.db`) — are captured presence-only. See
 
 | Flag | Default | Description |
 |---|---|---|
-| `--container string` | | Scan a container image. Accepts a registry reference or a local `.tar` path. Mutually exclusive with the positional path. Image layers are materialized to a temp directory and scanned through the full pipeline — Pass 1 + Pass 3 via the walker, Pass 2 via OpenGrep — so `--deep` / `--passes 2,3` deepen an image scan just like a directory scan. Compiled binaries in layers are scanned (Pass 3). Recursive archive unpacking and image config/history ingestion are later follow-ups. |
+| `--container string` | | Scan a container image. Accepts a registry reference or a local `.tar` path. Mutually exclusive with the positional path. Image layers are materialized to a temp directory and scanned through the full pipeline — Pass 1 + Pass 3 via the walker, Pass 2 via OpenGrep — so `--deep` / `--passes 2,3` deepen an image scan just like a directory scan. Compiled binaries in layers are scanned (Pass 3), nested archives are unpacked recursively (bounded — see `--archive-max-depth`), and image config/history/labels are ingested as a source (secrets baked into `ENV`, cipher references in build history). Findings carry layer provenance. Bound total extraction with `--max-image-size`. |
 
 ### Baseline suppression
 

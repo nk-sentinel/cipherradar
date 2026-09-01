@@ -37,7 +37,15 @@ const (
 // root (tar-slip / zip-slip). Only regular files are written — symlinks,
 // hardlinks, and devices are skipped, so no symlink-target escape is possible.
 // The caller owns the returned directory and must os.RemoveAll it.
-func ExtractToDir(img v1.Image) (dir string, layerOf map[string]string, extractErrs []types.ScanError, err error) {
+//
+// maxTotalBytes overrides the cumulative-extraction budget; a value <= 0 uses
+// the built-in containerMaxTotalBytes default (2 GB). It bounds the total bytes
+// written across all layers so a huge (or maliciously bloated) image cannot
+// exhaust the disk / temp space before scanning even starts.
+func ExtractToDir(img v1.Image, maxTotalBytes int64) (dir string, layerOf map[string]string, extractErrs []types.ScanError, err error) {
+	if maxTotalBytes <= 0 {
+		maxTotalBytes = containerMaxTotalBytes
+	}
 	layers, err := img.Layers()
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("reading image layers: %w", err)
@@ -117,9 +125,9 @@ func ExtractToDir(img v1.Image) (dir string, layerOf map[string]string, extractE
 			if hdr.Size > containerMaxFileBytes {
 				continue
 			}
-			if total+hdr.Size > containerMaxTotalBytes {
+			if total+hdr.Size > maxTotalBytes {
 				extractErrs = append(extractErrs, types.ScanError{
-					Message: fmt.Sprintf("extraction budget %d bytes exceeded; remaining layers skipped", containerMaxTotalBytes),
+					Message: fmt.Sprintf("extraction budget %d bytes exceeded; remaining layers skipped", maxTotalBytes),
 				})
 				budgetHit = true
 				break

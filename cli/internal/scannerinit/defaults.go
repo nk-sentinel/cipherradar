@@ -40,6 +40,13 @@ type RegistryOptions struct {
 	// tables on a per-language basis (see the astrules package and
 	// docs/ast-rules-external-design.md). Empty uses the embedded tables.
 	AstRulesDir string
+
+	// ArchiveMaxDepth, when non-nil, overrides the nested-archive recursion cap
+	// used by the JAR/WAR/EAR/ZIP scanner. nil uses the built-in default (4).
+	// A value of 0 disables recursion into nested archives (top-level still
+	// scanned). Using a pointer keeps the zero value (nil) meaning "default"
+	// while still allowing an explicit 0.
+	ArchiveMaxDepth *int
 }
 
 // DefaultRegistry returns a registry with all built-in language scanners.
@@ -107,7 +114,11 @@ func DefaultRegistryWithOptions(cfg *cradarConfig.Config, opts RegistryOptions) 
 	// not claim) and is the byte-pattern fallback both share via scanBytes.
 	r.Register(binary.New())
 	r.Register(binary.NewELFScanner())
-	r.Register(binary.NewJARScanner())
+	if opts.ArchiveMaxDepth != nil {
+		r.Register(binary.NewJARScannerWithDepth(*opts.ArchiveMaxDepth))
+	} else {
+		r.Register(binary.NewJARScanner())
+	}
 	r.Register(binary.NewWheelScanner())
 
 	// Keystore scanner (JKS / PKCS#12, dispatched by .jks/.p12/.pfx/... ext)

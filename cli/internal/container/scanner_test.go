@@ -200,7 +200,7 @@ func TestExtractToDir_RejectsTarSlip(t *testing.T) {
 		tarEntry{"../../etc/evil.py", []byte("import hashlib\n")},
 		tarEntry{"app/ok.py", []byte("import hashlib\n")},
 	))
-	dir, layerOf, errs, err := ExtractToDir(img)
+	dir, layerOf, errs, err := ExtractToDir(img, 0)
 	if err != nil {
 		t.Fatalf("ExtractToDir: %v", err)
 	}
@@ -231,7 +231,7 @@ func TestExtractToDir_WhiteoutDeletes(t *testing.T) {
 	upper := buildTar(t, tarEntry{"app/.wh.secret.py", []byte("")})
 	img := imageFromLayers(t, lower, upper)
 
-	dir, layerOf, _, err := ExtractToDir(img)
+	dir, layerOf, _, err := ExtractToDir(img, 0)
 	if err != nil {
 		t.Fatalf("ExtractToDir: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestExtractToDir_MaterializesBinaries(t *testing.T) {
 	img := imageFromLayers(t, buildTar(t,
 		tarEntry{"usr/lib/libcrypto.so", []byte("ELF\x00\x00 fake binary with AES constants")},
 	))
-	dir, layerOf, _, err := ExtractToDir(img)
+	dir, layerOf, _, err := ExtractToDir(img, 0)
 	if err != nil {
 		t.Fatalf("ExtractToDir: %v", err)
 	}
@@ -318,4 +318,50 @@ func (s *stubScanner) ScanFile(path string, content []byte) ([]crtypes.Finding, 
 		}}, nil
 	}
 	return nil, nil
+}
+
+// TestExtractToDir_MaxTotalBytesBudget verifies the --max-image-size override:
+// a small cumulative budget stops extraction once exceeded, records a
+// budget-exceeded error, and leaves later files unwritten — while a 0 budget
+// falls back to the (generous) built-in default and extracts everything.
+func TestExtractToDir_MaxTotalBytesBudget(t *testing.T) {
+	// Two ~1 KB files across a layer; deterministic order for the budget cut.
+	big := make([]byte, 1024)
+	img := imageFromLayers(t, buildTar(t,
+		tarEntry{"a/first.txt", big},
+		tarEntry{"b/second.txt", big},
+	))
+
+	// Budget large enough for the first file but not the second (1 KB < cap < 2 KB).
+	dir, layerOf, errs, err := ExtractToDir(img, 1500)
+	if err != nil {
+		t.Fatalf("ExtractToDir: %v", err)
+	}
+	defer os.RemoveAll(dir)
+
+	if _, ok := layerOf["a/first.txt"]; !ok {
+		t.Errorf("first file should fit within the budget; layerOf=%v", layerOf)
+	}
+	if _, ok := layerOf["b/second.txt"]; ok {
+		t.Errorf("second file should have been skipped once the budget was exceeded")
+	}
+	var sawBudgetErr bool
+	for _, e := range errs {
+		if strings.Contains(e.Message, "extraction budget") {
+			sawBudgetErr = true
+		}
+	}
+	if !sawBudgetErr {
+		t.Errorf("expected a recorded extraction-budget error, got %+v", errs)
+	}
+
+	// 0 => built-in default (2 GB): both files extract.
+	dir2, layerOf2, _, err := ExtractToDir(img, 0)
+	if err != nil {
+		t.Fatalf("ExtractToDir (default budget): %v", err)
+	}
+	defer os.RemoveAll(dir2)
+	if len(layerOf2) != 2 {
+		t.Errorf("default budget should extract both files, got %d: %v", len(layerOf2), layerOf2)
+	}
 }

@@ -236,3 +236,87 @@ func buildClassWithRSAOID() []byte {
 
 	return data
 }
+
+// ---------------------------------------------------------------------------
+// Nested-archive recursion depth cap (--archive-max-depth / WS4.5)
+// ---------------------------------------------------------------------------
+
+// TestJARScannerDepthCap verifies that NewJARScannerWithDepth bounds how far the
+// scanner recurses into nested archives. A secret buried one level down
+// (outer.jar -> inner.jar -> app.properties) is found at the default depth but
+// not when recursion is disabled (depth 0).
+func TestJARScannerDepthCap(t *testing.T) {
+	// inner.jar holds a hardcoded secret in a .properties file.
+	inner := createTestJAR(t, map[string][]byte{
+		"app.properties": []byte("db.password=supersecret123\n"),
+	})
+	// outer.jar embeds inner.jar (one level of nesting).
+	outer := createTestJAR(t, map[string][]byte{
+		"lib/inner.jar": inner,
+	})
+
+	// Match the actual hardcoded-secret finding, not the cbom-archive-partial
+	// coverage marker (which is also typed related-crypto-material).
+	hasNestedSecret := func(findings []types.Finding) bool {
+		for _, f := range findings {
+			if f.AssetType == types.AssetRelatedCryptoMaterial && f.RuleID != "cbom-archive-partial" {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Default depth: recursion reaches the nested secret.
+	deep := binary.NewJARScanner()
+	df, err := deep.ScanFile("outer.jar", outer)
+	if err != nil {
+		t.Fatalf("default-depth ScanFile failed: %v", err)
+	}
+	if !hasNestedSecret(df) {
+		t.Errorf("default depth should find the secret inside the nested jar")
+	}
+
+	// Depth 0: no recursion into nested archives — the secret is not reached.
+	shallow := binary.NewJARScannerWithDepth(0)
+	sf, err := shallow.ScanFile("outer.jar", outer)
+	if err != nil {
+		t.Fatalf("depth-0 ScanFile failed: %v", err)
+	}
+	if hasNestedSecret(sf) {
+		t.Errorf("depth 0 should NOT recurse into the nested jar, but found the secret")
+	}
+	// A partial-coverage marker should be emitted when recursion was suppressed.
+	var sawPartial bool
+	for _, f := range sf {
+		if f.RuleID == "cbom-archive-partial" {
+			sawPartial = true
+		}
+	}
+	if !sawPartial {
+		t.Errorf("depth 0 should flag partial coverage (cbom-archive-partial) when a nested archive is skipped")
+	}
+}
+
+// TestNewJARScannerWithDepthNegativeFallsBackToDefault ensures a negative depth
+// is treated as the built-in default rather than disabling recursion.
+func TestNewJARScannerWithDepthNegativeFallsBackToDefault(t *testing.T) {
+	inner := createTestJAR(t, map[string][]byte{
+		"app.properties": []byte("api.secret_key=abc123xyz\n"),
+	})
+	outer := createTestJAR(t, map[string][]byte{"lib/inner.jar": inner})
+
+	s := binary.NewJARScannerWithDepth(-1) // negative => default
+	f, err := s.ScanFile("outer.jar", outer)
+	if err != nil {
+		t.Fatalf("ScanFile failed: %v", err)
+	}
+	var found bool
+	for _, x := range f {
+		if x.AssetType == types.AssetRelatedCryptoMaterial {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("negative depth should behave like the default and find the nested secret")
+	}
+}

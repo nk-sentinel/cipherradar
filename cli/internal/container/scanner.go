@@ -34,6 +34,20 @@ import (
 // the shared directory walker plus OpenGrep, so requested passes actually run
 // on image content (gh #83). Findings are stamped with their originating layer.
 func ScanImage(imageRef string, registry *scanner.Registry, passes []int) (*types.ScanResult, error) {
+	return ScanImageWithOptions(imageRef, registry, passes, Options{})
+}
+
+// Options carries optional overrides for a container image scan. The zero value
+// reproduces ScanImage's default behavior.
+type Options struct {
+	// MaxImageBytes overrides the cumulative image-extraction budget (bytes).
+	// 0 uses the built-in default (containerMaxTotalBytes, 2 GB). Bounds total
+	// materialized bytes so a huge image can't exhaust disk before scanning.
+	MaxImageBytes int64
+}
+
+// ScanImageWithOptions is ScanImage with explicit coverage/safety overrides.
+func ScanImageWithOptions(imageRef string, registry *scanner.Registry, passes []int, opts Options) (*types.ScanResult, error) {
 	result := &types.ScanResult{
 		Target:    imageRef,
 		StartTime: time.Now(),
@@ -44,7 +58,7 @@ func ScanImage(imageRef string, registry *scanner.Registry, passes []int) (*type
 		return nil, fmt.Errorf("resolving image %q: %w", imageRef, err)
 	}
 
-	dir, layerOf, extractErrs, err := ExtractToDir(img)
+	dir, layerOf, extractErrs, err := ExtractToDir(img, opts.MaxImageBytes)
 	if err != nil {
 		return nil, fmt.Errorf("extracting layers from %q: %w", imageRef, err)
 	}
