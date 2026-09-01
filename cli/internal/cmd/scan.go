@@ -275,15 +275,10 @@ func runScan(cmd *cobra.Command, args []string) error {
 	pass2Ran := false
 
 	if containerRef != "" {
-		// Container image scanning mode. Container scanning currently runs only
-		// the Pass-1 equivalent; Pass 2 (OpenGrep) and Pass 3 (YARA-X) are not
-		// wired into it yet (gh #83). Warn rather than silently pretend the
-		// deeper passes ran, so a `--container --deep` run isn't mistaken for a
-		// full scan.
-		if containsPass(passes, 2) || containsPass(passes, 3) {
-			fmt.Fprintln(cmd.ErrOrStderr(),
-				"WARNING: container scanning currently runs Pass 1 only — Pass 2/3 are not yet supported for images; results reflect Pass 1.")
-		}
+		// Container image scanning mode. Layers are materialized to a temp dir
+		// and scanned through the same pipeline as a directory: Pass 1 + Pass 3
+		// via the walker, Pass 2 via OpenGrep. result.PassesRun reflects the
+		// passes that actually ran (gh #83).
 		result, err = container.ScanImage(containerRef, registry, passes)
 		if err != nil {
 			return fmt.Errorf("container scan failed: %w", err)
