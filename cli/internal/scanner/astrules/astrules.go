@@ -27,8 +27,23 @@ import (
 var embeddedFS embed.FS
 
 // SupportedLanguages lists the languages that currently have an externalizable
-// ast-rules file. Phase A ships Java; Phase B extends this set.
-func SupportedLanguages() []string { return []string{"java"} }
+// ast-rules file. Extended one language per Phase-B increment.
+func SupportedLanguages() []string { return []string{"java", "go"} }
+
+// parseCheck loads lang's tables from dir purely to validate them, discarding
+// the result. Returns nil for languages with no parser (should not happen for
+// a SupportedLanguages entry).
+func parseCheck(lang, dir string) error {
+	switch lang {
+	case "java":
+		_, err := LoadJava(dir)
+		return err
+	case "go":
+		_, err := LoadGo(dir)
+		return err
+	}
+	return nil
+}
 
 // --- Row types (exported so language scanners can consume them) ---
 
@@ -140,6 +155,58 @@ func MustLoadJavaEmbedded() *JavaTables {
 	return t
 }
 
+// --- Go ---
+
+// GoTLSVersion maps a crypto/tls version constant name to its info.
+// Severity is one of: critical, high, medium, low, info.
+type GoTLSVersion struct {
+	Const    string `yaml:"const"`
+	Name     string `yaml:"name"`
+	Version  string `yaml:"version"`
+	Severity string `yaml:"severity"`
+}
+
+// GoSM2Func maps an SM2 package function name to its crypto role.
+type GoSM2Func struct {
+	Func      string `yaml:"func"`
+	CryptoFn  string `yaml:"crypto_fn"`
+	Primitive string `yaml:"primitive"`
+}
+
+// GoTables is the full set of Go Pass-1 detection tables.
+type GoTables struct {
+	Version      int            `yaml:"version"`
+	Language     string         `yaml:"language"`
+	TLSVersions  []GoTLSVersion `yaml:"tls_versions"`
+	SM2Functions []GoSM2Func    `yaml:"sm2_functions"`
+}
+
+// LoadGo loads the Go tables from dir/go.yml when present, otherwise the
+// embedded set. A present-but-malformed or empty file is an error.
+func LoadGo(dir string) (*GoTables, error) {
+	b, _, err := readLangYAML("go", dir)
+	if err != nil {
+		return nil, err
+	}
+	var t GoTables
+	if err := yaml.Unmarshal(b, &t); err != nil {
+		return nil, fmt.Errorf("parsing go ast-rules: %w", err)
+	}
+	if len(t.TLSVersions) == 0 && len(t.SM2Functions) == 0 {
+		return nil, fmt.Errorf("go ast-rules: no detection tables found")
+	}
+	return &t, nil
+}
+
+// MustLoadGoEmbedded loads the embedded Go tables and panics on error.
+func MustLoadGoEmbedded() *GoTables {
+	t, err := LoadGo("")
+	if err != nil {
+		panic("astrules: embedded go rules failed to load: " + err.Error())
+	}
+	return t
+}
+
 // ValidateRulesDir checks an explicitly provided --ast-rules-dir: it must
 // contain at least one recognized <lang>.yml, and every recognized file that
 // IS present must parse. Mirrors the Pass-2 --rules-dir "error if no loadable
@@ -158,11 +225,8 @@ func ValidateRulesDir(dir string) error {
 			return fmt.Errorf("reading %s: %w", p, err)
 		}
 		found++
-		switch lang {
-		case "java":
-			if _, err := LoadJava(dir); err != nil {
-				return err
-			}
+		if err := parseCheck(lang, dir); err != nil {
+			return err
 		}
 	}
 	if found == 0 {

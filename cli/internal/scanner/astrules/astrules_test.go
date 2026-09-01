@@ -36,6 +36,22 @@ func TestLoadJava_Embedded(t *testing.T) {
 	}
 }
 
+func TestLoadGo_Embedded(t *testing.T) {
+	tbl, err := LoadGo("")
+	if err != nil {
+		t.Fatalf("LoadGo(embedded): %v", err)
+	}
+	if len(tbl.TLSVersions) != 5 {
+		t.Errorf("embedded tls_versions: got %d, want 5", len(tbl.TLSVersions))
+	}
+	if len(tbl.SM2Functions) != 5 {
+		t.Errorf("embedded sm2_functions: got %d, want 5", len(tbl.SM2Functions))
+	}
+	if tbl.Language != "go" {
+		t.Errorf("language = %q, want go", tbl.Language)
+	}
+}
+
 func TestLoadJava_ExternalReplacesEmbedded(t *testing.T) {
 	dir := t.TempDir()
 	// A minimal but valid external file — only two jca classes.

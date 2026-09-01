@@ -52,13 +52,19 @@ func DefaultRegistry() *scanner.Registry {
 // CustomScanner when cfg declares any custom_wrappers, and honors opts (e.g. an
 // external YARA-X rules directory).
 func DefaultRegistryWithOptions(cfg *cradarConfig.Config, opts RegistryOptions) *scanner.Registry {
-	// Normalize the Pass-1 (AST) detection tables: the external dir when
-	// provided, else the embedded set. Done unconditionally so a prior external
-	// override can't leak into a later registry build. An explicitly provided
-	// dir is validated upstream (cmd/scan.go); on a late error here we fall back
-	// to embedded rather than crash.
-	if err := java.ApplyExternalRules(opts.AstRulesDir); err != nil {
-		_ = java.ApplyExternalRules("")
+	// Normalize each language's Pass-1 (AST) detection tables: the external dir
+	// when provided, else the embedded set (per-language fallback is handled
+	// inside each loader). Done unconditionally so a prior external override
+	// can't leak into a later registry build. An explicitly provided dir is
+	// validated upstream (cmd/scan.go); on a late error here we fall back to the
+	// embedded tables rather than crash.
+	for _, applyAST := range []func(string) error{
+		java.ApplyExternalRules,
+		golang.ApplyExternalRules,
+	} {
+		if err := applyAST(opts.AstRulesDir); err != nil {
+			_ = applyAST("")
+		}
 	}
 
 	r := scanner.NewRegistry()
