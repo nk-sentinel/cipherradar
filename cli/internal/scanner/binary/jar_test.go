@@ -24,7 +24,7 @@ func TestJARScannerExtensions(t *testing.T) {
 	s := binary.NewJARScanner()
 	exts := s.Extensions()
 	expected := map[string]bool{
-		".jar": true, ".war": true, ".ear": true,
+		".jar": true, ".war": true, ".ear": true, ".zip": true,
 	}
 	if len(exts) != len(expected) {
 		t.Fatalf("expected %d extensions, got %d: %v", len(expected), len(exts), exts)
@@ -88,8 +88,8 @@ func TestJARScannerDetectsConfigSecrets(t *testing.T) {
 	propertiesContent := []byte("db.password=supersecret123\ndb.url=jdbc:mysql://localhost/mydb\n")
 
 	jarContent := createTestJAR(t, map[string][]byte{
-		"META-INF/MANIFEST.MF":        []byte("Manifest-Version: 1.0\n"),
-		"application.properties":      propertiesContent,
+		"META-INF/MANIFEST.MF":   []byte("Manifest-Version: 1.0\n"),
+		"application.properties": propertiesContent,
 	})
 
 	findings, err := s.ScanFile("app.jar", jarContent)
@@ -146,9 +146,9 @@ func TestJARScannerMultipleEntryTypes(t *testing.T) {
 	s := binary.NewJARScanner()
 
 	jarContent := createTestJAR(t, map[string][]byte{
-		"com/example/Main.class":     buildClassWithRSAOID(),
-		"config.properties":          []byte("api.secret_key=abc123xyz\n"),
-		"META-INF/MANIFEST.MF":       []byte("Manifest-Version: 1.0\n"),
+		"com/example/Main.class": buildClassWithRSAOID(),
+		"config.properties":      []byte("api.secret_key=abc123xyz\n"),
+		"META-INF/MANIFEST.MF":   []byte("Manifest-Version: 1.0\n"),
 	})
 
 	findings, err := s.ScanFile("multi.war", jarContent)

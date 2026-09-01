@@ -58,7 +58,7 @@ func (s *WheelScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 		ext := strings.ToLower(filepath.Ext(f.Name))
 		entryPath := fmt.Sprintf("%s!/%s", path, f.Name)
 
-		entryContent, err := readZipEntry(f)
+		entryContent, _, err := readZipEntryLimited(f, maxArchiveEntryBytes)
 		if err != nil {
 			continue
 		}
