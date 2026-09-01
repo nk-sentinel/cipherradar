@@ -79,6 +79,8 @@ func init() {
 	scanCmd.Flags().StringSlice("category", nil, "limit findings to categories (inventory, security); repeatable")
 	scanCmd.Flags().Bool("only-inventory", false, "shortcut for --category inventory")
 	scanCmd.Flags().Bool("only-security", false, "shortcut for --category security")
+	scanCmd.Flags().StringSlice("asset-type", nil, "keep only findings of these CBOM asset types (algorithm, protocol, certificate, related-crypto-material, library); repeatable")
+	scanCmd.Flags().StringSlice("exclude-type", nil, "drop findings of these CBOM asset types; repeatable; applied after --asset-type")
 	scanCmd.Flags().StringSlice("rules", nil, "explicit allowlist of rule IDs; overrides the default set")
 	scanCmd.Flags().StringSlice("disable-rule", nil, "rule IDs to exclude; repeatable; trumps other include flags")
 	scanCmd.Flags().StringSlice("include-rule", nil, "per-rule opt-in; repeatable; bypasses maturity and noise gates")
@@ -122,6 +124,13 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// remove it when the scan finishes rather than leaking /tmp/cradar-yara-rules-*
 	// on every run (gh #82). No-op when Pass 3 didn't extract anything.
 	defer yarax.CleanupEmbeddedRules()
+
+	// Validate --asset-type / --exclude-type up front so a bad value fails
+	// before the (potentially long) scan rather than after (gh #49).
+	assetSel, assetErr := parseAssetTypeFlags(cmd)
+	if assetErr != nil {
+		return assetErr
+	}
 
 	// Record scan root for path-redaction of absolute paths in log records.
 	if len(args) > 0 {
@@ -405,6 +414,10 @@ func runScan(cmd *cobra.Command, args []string) error {
 	kept, filterStats := rulefilter.Apply(result.Findings, filterOpts)
 	result.Findings = kept
 	rulefilter.WarnDeprecated(cmd.ErrOrStderr(), filterStats, filterOpts.IncludeDeprecated)
+
+	// Apply CBOM asset-type filters (--asset-type / --exclude-type, gh #49)
+	// after rule/category filtering so the output reflects the final selection.
+	result.Findings = filterByAssetType(result.Findings, assetSel)
 
 	// Bug 4: --only-inventory with no pass 2 deterministically returns 0
 	// because pass-1 AST findings don't carry rule-derived categories.
