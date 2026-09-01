@@ -348,15 +348,24 @@ different axis from `assetType` — see §6.
 These operate on the **rule category** (`inventory` vs `security`), **not** on
 `components[].type` or `cryptoProperties.assetType`.
 
-### By asset type (not yet built-in — use `jq`)
+### By asset type (`--asset-type` / `--exclude-type`)
 
-There is currently **no** CLI flag to filter by `assetType` or to include/exclude
-`type: library`. A dedicated `--asset-type` / `--exclude-type` flag is tracked as a
-future improvement. Until then, post-filter the JSON:
+Filter findings by CBOM asset type directly, without post-processing. Both flags
+are repeatable; `--exclude-type` is applied after `--asset-type`. Valid values:
+`algorithm`, `protocol`, `certificate`, `related-crypto-material`, `library`.
 
 ```bash
 # Only algorithm components
-cradar scan ./app -o cbom.json
+cradar scan ./app --asset-type algorithm -o cbom.json
+
+# Everything except crypto-library imports
+cradar scan ./app --exclude-type library -o cbom.json
+```
+
+The same shaping is still available with `jq` if you prefer to post-filter:
+
+```bash
+# Only algorithm components
 jq '[.components[] | select(.cryptoProperties.assetType == "algorithm")]' cbom.json
 
 # Drop crypto-library imports

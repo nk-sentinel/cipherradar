@@ -4,6 +4,81 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## 0.5.0-rc.1 — 2026-09-01
+
+First pre-release of the 0.5.0 line — a significant feature step beyond the
+0.4.0-rc series. Headline work: real container-image scanning, externally-
+definable detection rules for every pass, a large scan-memory reduction, and
+refreshed tooling. Cut as a pre-release so downstream can validate the new
+surface (container + external rules) before the 0.5.0 stable tag.
+
+### Container & image scanning (gh #83)
+
+- **All three passes now run on container images.** `cradar scan --container` used
+  to run Pass 1 only on text files ≤ 1 MB. Image layers are now materialized to a
+  temp directory (tar-slip safe, `.wh.` whiteouts applied) and scanned through the
+  same pipeline as a directory — Pass 1 + Pass 3 via the walker, Pass 2 via
+  OpenGrep — so `--deep` / `--passes 2,3` deepen an image scan. Compiled binaries
+  are no longer pre-filtered. Findings carry **per-layer provenance**.
+- **Bounded recursive archive unpacking.** `.jar`/`.war`/`.ear`/`.zip` are unpacked
+  recursively (jar-in-jar) and their entries routed back through the crypto / config
+  / keystore passes, with depth + total-uncompressed + entry-count + per-entry
+  limits (decompression-bomb defense). Capped archives are flagged
+  `cbom-archive-partial`.
+- **Image config/history/labels are ingested as a scan source.** Secrets baked into
+  `ENV`, cipher/TLS references in build history, and crypto labels are surfaced —
+  coverage no filesystem walker provides.
+- **Binary detection depth ladder.** The ELF scanner (previously dead code) is
+  registered: it focuses ELF data sections, extracts Go build-info crypto
+  dependencies, and fingerprints statically-linked libraries (OpenSSL / LibreSSL /
+  BoringSSL / GnuTLS / mbed TLS / wolfSSL / libsodium / NSS) by version banner as
+  CBOM `library` components.
+
+### Externally-definable detection rules (gh #114)
+
+- **`--ast-rules-dir`** externalizes Pass-1 (AST) detection tables per language
+  (`<lang>.yml` for all 12 languages), mirroring `--rules-dir` for Pass 2 — an
+  explicitly provided dir replaces the embedded tables (per-language), validates
+  up front, and errors on an unusable dir; unset falls back to embedded.
+- **`--yara-rules-dir`** does the same for Pass-3 YARA-X rules (also
+  `CRADAR_YARA_RULES_DIR`). Every pass can now be served from an external rule set.
+
+### Performance & safety
+
+- **Scan memory bounded.** The directory walker no longer buffers every file's bytes
+  at once; workers read lazily, so peak memory scales with the worker count, not the
+  tree size. On a 1.5 GB input, peak RSS dropped ~1.49 GB → ~224 MB.
+- **Pass-3 tempdir leak fixed (gh #82).** The extracted YARA-X ruleset tempdir is
+  cleaned up after each scan instead of leaking `/tmp/cradar-yara-rules-*`.
+- **YARA-X invocation hardened.** Per-file `--timeout`, `--skip-larger`, and
+  `--no-mmap` guard against hangs / OOM / SIGBUS on pathological binaries.
+
+### Coverage knobs & auditability
+
+- **`--max-file-size`** skips oversized files before they are read (stat-based),
+  bounding per-file memory; skipped files are recorded for auditability.
+- **`--max-image-size`** caps total bytes extracted from a `--container` image
+  (default 2 GB); over-budget skips remaining layers and records the reason.
+- **`--archive-max-depth`** overrides the nested-archive recursion cap (default 4;
+  `0` disables nested recursion).
+
+### Detection & output
+
+- **Quieter by default (gh #70).** The high-noise entropy rules
+  `cbom-regex-hex-key` and `cbom-regex-base64-key` are now off by default
+  (re-enable with `--include-noisy`), and base64 values that decode to a certificate
+  are suppressed to avoid k8s-Secret cert double-counting.
+- **`--asset-type` / `--exclude-type` (gh #49)** filter CBOM output by asset type
+  (`algorithm`, `protocol`, `certificate`, `related-crypto-material`, `library`).
+
+### Tooling & release
+
+- Bundled tools upgraded to **OpenGrep v1.29.0** and **YARA-X v1.20.0**.
+- **Pass-3 observability (gh #113):** Pass 3 now reports its progress and skip
+  reasons like Passes 1–2, and `PassesRun` reflects what actually ran.
+- **Release hygiene (gh #69):** `-rc`/`-alpha`/`-beta` tags publish as prereleases,
+  and the repo-root `VERSION` is the single source of truth for the release version.
+
 ## 0.4.0-rc.4 — 2026-07-26
 
 ### Certificates & keystores
