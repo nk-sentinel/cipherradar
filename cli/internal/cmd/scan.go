@@ -118,6 +118,11 @@ func runScan(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("either a path argument or --container flag is required")
 	}
 
+	// Pass 3 (YARA-X) extracts its embedded ruleset to a tempdir on first use;
+	// remove it when the scan finishes rather than leaking /tmp/cradar-yara-rules-*
+	// on every run (gh #82). No-op when Pass 3 didn't extract anything.
+	defer yarax.CleanupEmbeddedRules()
+
 	// Record scan root for path-redaction of absolute paths in log records.
 	if len(args) > 0 {
 		if abs, absErr := filepath.Abs(args[0]); absErr == nil {
