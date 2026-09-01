@@ -51,6 +51,11 @@ func ScanImage(imageRef string, registry *scanner.Registry, passes []int) (*type
 	defer os.RemoveAll(dir)
 	result.Errors = append(result.Errors, extractErrs...)
 
+	// Render image config/history/labels as synthetic files so the scanners
+	// find crypto material that lives in metadata, not the filesystem (gh #83
+	// / WS4.4) — e.g. a key baked in via ENV or a secret in the build history.
+	writeImageMetadata(img, dir)
+
 	// Pass 1 (+ Pass 3 when requested, + the regex universal) via the shared
 	// directory walker over the materialized layers. Default ignores are
 	// disabled: a built image is an artifact, not a source tree, so
@@ -136,9 +141,18 @@ func sortedUnique(in []int) []int {
 func stampLayerProvenance(findings []types.Finding, dir string, layerOf map[string]string) {
 	dirPrefix := filepath.ToSlash(dir) + "/"
 	for i := range findings {
-		findings[i].Properties.MaterialType = "container-layer"
 		key := filepath.ToSlash(findings[i].Location.File)
 		key = strings.TrimPrefix(key, dirPrefix) // opengrep may emit absolute paths
+
+		// Findings from the synthetic metadata files are image-metadata, not a
+		// filesystem layer.
+		if strings.HasPrefix(key, imageMetaSubdir+"/") {
+			findings[i].Properties.MaterialType = "container-image-metadata"
+			findings[i].Description += " [origin: image-metadata]"
+			continue
+		}
+
+		findings[i].Properties.MaterialType = "container-layer"
 		if d, ok := layerOf[key]; ok {
 			findings[i].Description += fmt.Sprintf(" [layer: %s]", d)
 		}
