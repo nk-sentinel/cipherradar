@@ -99,8 +99,14 @@ func DefaultRegistryWithOptions(cfg *cradarConfig.Config, opts RegistryOptions) 
 	// java.security, k8s .yaml, Dockerfile).
 	configfile.RegisterAll(r)
 
-	// Binary scanners (compiled files and archives)
+	// Binary scanners (compiled files and archives). ELFScanner is registered
+	// AFTER binary.New() so it wins the native-binary extensions (.so/.dll/
+	// .dylib/.exe) — it focuses ELF data sections, extracts Go build-info
+	// crypto deps, and fingerprints statically-linked libraries by version
+	// banner (WS4.2). binary.New() still handles .class (which ELFScanner does
+	// not claim) and is the byte-pattern fallback both share via scanBytes.
 	r.Register(binary.New())
+	r.Register(binary.NewELFScanner())
 	r.Register(binary.NewJARScanner())
 	r.Register(binary.NewWheelScanner())
 

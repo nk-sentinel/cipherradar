@@ -12,6 +12,9 @@ const (
 	AssetCertificate AssetType = "certificate"
 	// AssetRelatedCryptoMaterial represents related cryptographic material (e.g. keys, IVs).
 	AssetRelatedCryptoMaterial AssetType = "related-crypto-material"
+	// AssetLibrary represents a crypto library component (CycloneDX type:library,
+	// ADR-040) — not a cryptographic asset itself.
+	AssetLibrary AssetType = "library"
 )
 
 // Severity indicates the risk level of a finding.
