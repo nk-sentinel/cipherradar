@@ -1,6 +1,6 @@
 # External AST (Pass-1) Rules — Design (issue #114, Phase A)
 
-**Status:** Proposed — implementation gated on review.
+**Status:** ✅ Implemented — shipped in **v0.5.0-rc.1**. Phase A (Java, #118) and Phase B (the remaining 11 languages, #119–#120) are both complete; `--ast-rules-dir` (and `CRADAR_AST_RULES_DIR`) replace the embedded Pass-1 tables per language, with embedded fallback verified to reproduce detection byte-for-byte on the corpus. This document is retained as the design record.
 **Goal:** Let operators supply Pass-1 (tree-sitter AST) crypto-detection *data* externally, with the same replace-semantics Pass 2 (`--rules-dir`) and Pass 3 (`--yara-rules-dir`) already have — so a downstream portal (gauntlet) can serve **all** cradar rules, not just Passes 2–3.
 
 ---
@@ -83,10 +83,10 @@ New package `cli/internal/scanner/astrules`:
 - Resolve + validate up front when explicitly set; thread the dir into `scannerinit.DefaultRegistryWithOptions` (the single builder added for `--yara-rules-dir`) via a new `AstRulesDir` option; the language `New()`s receive their `*Tables`.
 - `astrules.ValidateRulesDir(dir, langs)` mirrors `yarax.ValidateRulesDir`.
 
-## 6. Rollout
+## 6. Rollout — ✅ complete (v0.5.0-rc.1)
 
-- **Phase A (this effort):** define the format + loader + flag; convert **Java** end-to-end (all 7 tables → `java.yml`), embedded-default reproducing current detections byte-for-byte, `--ast-rules-dir` replacing them. Regression-gate against the corpus (`~/projects/CipherRadarTestProj`) and the Java scanner tests.
-- **Phase B:** convert the remaining 11 languages table-by-table to the same format. Each language flips from Go-map to data-loaded with a per-language regression check.
+- **Phase A (#118):** ✅ defined the format + loader + flag; converted **Java** end-to-end (all 7 tables → `java.yml`), embedded-default reproducing current detections byte-for-byte, `--ast-rules-dir` replacing them. Regression-gated against the corpus (`~/projects/CipherRadarTestProj`) and the Java scanner tests.
+- **Phase B (#119–#120):** ✅ converted the remaining 11 languages table-by-table to the same format. Each language flipped from Go-map to data-loaded with a per-language regression check. External rule files ship under `scanner/ast-rules/<lang>.yml` (embedded copies at `cli/internal/scanner/astrules/data/`).
 
 ## 7. Verification (Phase A)
 
