@@ -165,6 +165,25 @@ func ensureEmbeddedRulesDir() string {
 	return embeddedRulesDir
 }
 
+// ValidateRulesDir reports whether dir is usable as an external YARA-X rules
+// directory: it must exist and contain at least one `.yar`/`.yara` file.
+// Returns a descriptive error otherwise. Used to hard-fail an explicitly
+// provided --yara-rules-dir instead of silently soft-skipping, mirroring the
+// Pass-2 --rules-dir "error if no loadable rules" contract.
+func ValidateRulesDir(dir string) error {
+	if strings.TrimSpace(dir) == "" {
+		return fmt.Errorf("empty rules directory")
+	}
+	has, err := dirContainsYaraRules(dir)
+	if err != nil {
+		return fmt.Errorf("reading YARA rules dir %q: %w", dir, err)
+	}
+	if !has {
+		return fmt.Errorf("no .yar/.yara rule files found in %q", dir)
+	}
+	return nil
+}
+
 // Scan runs `yr scan --output-format json <rulesDir> <target>` against a
 // single file and returns the parsed findings.
 //
