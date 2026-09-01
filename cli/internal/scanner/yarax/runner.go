@@ -16,16 +16,32 @@ package yarax
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 	"github.com/nk-sentinel/cipherradar/cli/internal/yararules"
+)
+
+// YARA-X per-file scan safety limits. These bound a single `yr` invocation so a
+// pathological file (huge, or one that triggers a slow rule) can neither hang
+// nor OOM the whole scan.
+const (
+	// yrSkipLargerBytes: files larger than this are skipped by yr (256 MB).
+	yrSkipLargerBytes int64 = 256 << 20
+	// yrScanTimeoutSecs: yr's own per-scan timeout (graceful abort).
+	yrScanTimeoutSecs = 60
+	// yrHardTimeout: wall-clock backstop enforced via CommandContext, set
+	// above yrScanTimeoutSecs so yr's own timer normally fires first.
+	yrHardTimeout = 90 * time.Second
 )
 
 // Runner executes YARA-X scans against individual target files.
@@ -184,6 +200,22 @@ func ValidateRulesDir(dir string) error {
 	return nil
 }
 
+// yrScanArgs builds the `yr scan` argument list, including the safety guards
+// (--skip-larger / --timeout / --no-mmap). Split out so the guards are unit
+// testable without invoking the subprocess.
+func yrScanArgs(rulesDir, target string) []string {
+	return []string{
+		"scan",
+		"--output-format", "json",
+		"--print-meta",
+		"--print-strings",
+		"--skip-larger", strconv.FormatInt(yrSkipLargerBytes, 10),
+		"--timeout", strconv.Itoa(yrScanTimeoutSecs),
+		"--no-mmap",
+		rulesDir, target,
+	}
+}
+
 // Scan runs `yr scan --output-format json <rulesDir> <target>` against a
 // single file and returns the parsed findings.
 //
@@ -225,20 +257,27 @@ func (r *Runner) Scan(target string, rulesDir string) ([]types.Finding, error) {
 	// Pass-3 invocation. We request --print-meta and --print-strings so
 	// the JSON envelope carries the cbom_primitive/cbom_asset_type meta
 	// the canonicalize pass needs, plus the offset/snippet location data
-	// the binary-finding location helper formats. --print-namespace is
-	// currently unused (the embedded ruleset uses the default namespace)
-	// but harmless.
-	cmd := exec.Command(r.binaryPath, "scan",
-		"--output-format", "json",
-		"--print-meta",
-		"--print-strings",
-		rulesDir, target,
-	)
+	// the binary-finding location helper formats.
+	//
+	// Safety guards (a pathological file must not hang or OOM the scan):
+	//   --skip-larger: skip files above the size cap (YARA-X scan cost scales
+	//     linearly with file size, so multi-GB blobs are slow regardless).
+	//   --timeout: abort a single-file scan that runs too long.
+	//   --no-mmap: read the file into a buffer instead of memory-mapping it —
+	//     avoids a SIGBUS if the (extracted/temp) file is truncated mid-scan.
+	// A CommandContext deadline backstops --timeout in case yr wedges before
+	// its own timer fires.
+	ctx, cancel := context.WithTimeout(context.Background(), yrHardTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, r.binaryPath, yrScanArgs(rulesDir, target)...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	runErr := cmd.Run()
+	if ctx.Err() == context.DeadlineExceeded {
+		return nil, fmt.Errorf("yarax: yr timed out after %s scanning %s", yrHardTimeout, target)
+	}
 	// YARA-X exits 0 on success even when no matches were found, so a
 	// non-zero exit with empty stdout is a real failure. Mirror the
 	// OpenGrep runner's "tolerate non-zero when we have JSON" pattern.
