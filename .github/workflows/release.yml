@@ -24,12 +24,24 @@ jobs:
 
       - name: Validate VERSION matches tag
         run: |
+          # The repo-root VERSION is the SINGLE SOURCE OF TRUTH for the release
+          # version (gh #69). The old cli/VERSION duplicate was removed because
+          # bumping only one of the two silently diverged them and failed this
+          # gate mid-release. The defensive check below fails fast if a stray
+          # cli/VERSION ever reappears with a value that disagrees with the tag.
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           FILE_VERSION="$(cat VERSION | tr -d '[:space:]')"
           echo "Tag: ${TAG_VERSION}, VERSION file: ${FILE_VERSION}"
           if [ "$TAG_VERSION" != "$FILE_VERSION" ]; then
             echo "::error::VERSION file (${FILE_VERSION}) does not match tag (${TAG_VERSION}). Update VERSION before tagging."
             exit 1
+          fi
+          if [ -f cli/VERSION ]; then
+            CLI_VERSION="$(cat cli/VERSION | tr -d '[:space:]')"
+            if [ "$CLI_VERSION" != "$TAG_VERSION" ]; then
+              echo "::error::A stray cli/VERSION (${CLI_VERSION}) disagrees with the tag (${TAG_VERSION}). Root VERSION is authoritative — delete cli/VERSION or sync it."
+              exit 1
+            fi
           fi
         shell: bash
 
@@ -114,6 +126,10 @@ jobs:
         with:
           name: "CipherRadar ${{ github.ref_name }}"
           draft: false
+          # A pre-release tag (-rc / -alpha / -beta) must never become the
+          # "Latest" stable release. softprops defaults prerelease=false, so
+          # set it explicitly from the tag name (gh #69).
+          prerelease: ${{ contains(github.ref_name, '-rc') || contains(github.ref_name, '-alpha') || contains(github.ref_name, '-beta') }}
           # Off by design: we ship a curated, grouped summary from CHANGELOG.md
           # instead of the per-PR auto list, which had grown too long to scan.
           generate_release_notes: false

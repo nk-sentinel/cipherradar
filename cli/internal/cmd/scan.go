@@ -310,8 +310,32 @@ func runScan(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Pass 3 (Joern) removed per ADR-033. All patterns now covered by
-		// OpenGrep taint rules (Pass 2) with 19x better performance.
+		// Pass 3 (YARA-X binary scanning) executes as a universal *inside* the
+		// Pass-1 walk above, so it has no separable timing — but it must still
+		// announce itself or a completed Pass 3 looks identical to one that
+		// never ran (issue #113). Emitted here (after Pass 2) so the progress
+		// stream reads 1 → 2 → 3. For an explicit request (--deep / --passes 3)
+		// yr availability was already enforced by the hard-fail guard above; the
+		// skip branch covers the rare rules-extraction-failure path.
+		//
+		// The original Joern-based Pass 3 was removed per ADR-033; Pass 3 is now
+		// YARA-X binary content scanning (ADR-039).
+		if containsPass(passes, 3) {
+			pass3Findings := 0
+			for i := range result.Findings {
+				if result.Findings[i].Pass == 3 {
+					pass3Findings++
+				}
+			}
+			switch {
+			case !yarax.NewRunner().Available():
+				emitter.PassSkipped(3, "yara-x", "yara-x (yr) not found — run 'cradar install-tools' or use cradar-full")
+			case yarax.RulesDir() == "":
+				emitter.PassSkipped(3, "yara-x", "no YARA-X rules available")
+			default:
+				emitter.PassCompleteInline(3, "yara-x", pass3Findings)
+			}
+		}
 	}
 
 	// Compute stable identity fingerprints for all findings (ADR-034).
