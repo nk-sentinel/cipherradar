@@ -12,6 +12,7 @@ import (
 	tsLang "github.com/smacker/go-tree-sitter/typescript/typescript"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/kdf"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
@@ -106,42 +107,128 @@ func nextFindingID() string {
 // Node.js crypto module detection
 // ---------------------------------------------------------------------------
 
-// hashAlgorithms maps Node.js crypto hash algorithm strings to algorithm families.
-var hashAlgorithms = map[string]struct {
+// The JavaScript/TypeScript Pass-1 detection tables below are DATA, loaded from
+// the embedded scanner/ast-rules/javascript.yml at init() and replaceable at
+// scan time via --ast-rules-dir (astrules.LoadJavaScript). Only the tables
+// (token -> crypto semantics) are external; the tree-sitter query machinery
+// stays in Go. See docs/ast-rules-external-design.md. The local struct types
+// preserve the exact field names the detect sites already use, so wiring them
+// from data required no change at the lookup sites.
+
+type jsHashT struct {
 	family string
 	name   string
-}{
-	"md5":    {family: "md5", name: "MD5"},
-	"sha1":   {family: "sha1", name: "SHA-1"},
-	"sha224": {family: "sha-256", name: "SHA-224"},
-	"sha256": {family: "sha-256", name: "SHA-256"},
-	"sha384": {family: "sha-384", name: "SHA-384"},
-	"sha512": {family: "sha-512", name: "SHA-512"},
 }
 
-// cipherAlgorithms maps Node.js crypto cipher strings to algorithm info.
-var cipherAlgorithms = map[string]struct {
+type jsCipherT struct {
 	family    string
 	name      string
 	mode      string
 	primitive string
 	keySize   int
-}{
-	"aes-128-cbc":  {family: "aes", name: "AES-128-CBC", mode: "cbc", primitive: "block-cipher", keySize: 128},
-	"aes-128-gcm":  {family: "aes", name: "AES-128-GCM", mode: "gcm", primitive: "ae", keySize: 128},
-	"aes-128-ecb":  {family: "aes", name: "AES-128-ECB", mode: "ecb", primitive: "block-cipher", keySize: 128},
-	"aes-192-cbc":  {family: "aes", name: "AES-192-CBC", mode: "cbc", primitive: "block-cipher", keySize: 192},
-	"aes-192-gcm":  {family: "aes", name: "AES-192-GCM", mode: "gcm", primitive: "ae", keySize: 192},
-	"aes-256-cbc":  {family: "aes", name: "AES-256-CBC", mode: "cbc", primitive: "block-cipher", keySize: 256},
-	"aes-256-gcm":  {family: "aes", name: "AES-256-GCM", mode: "gcm", primitive: "ae", keySize: 256},
-	"aes-256-ecb":  {family: "aes", name: "AES-256-ECB", mode: "ecb", primitive: "block-cipher", keySize: 256},
-	"aes-256-ctr":  {family: "aes", name: "AES-256-CTR", mode: "ctr", primitive: "block-cipher", keySize: 256},
-	"des":          {family: "des", name: "DES", mode: "", primitive: "block-cipher", keySize: 56},
-	"des-cbc":      {family: "des", name: "DES-CBC", mode: "cbc", primitive: "block-cipher", keySize: 56},
-	"des-ecb":      {family: "des", name: "DES-ECB", mode: "ecb", primitive: "block-cipher", keySize: 56},
-	"des-ede3":     {family: "3des", name: "3DES", mode: "", primitive: "block-cipher", keySize: 168},
-	"des-ede3-cbc": {family: "3des", name: "3DES-CBC", mode: "cbc", primitive: "block-cipher", keySize: 168},
-	"rc4":          {family: "rc4", name: "RC4", mode: "", primitive: "stream-cipher", keySize: 0},
+}
+
+type forgeCipherT struct {
+	family    string
+	name      string
+	mode      string
+	primitive string
+}
+
+type webCryptoT struct {
+	family    string
+	name      string
+	primitive string
+	mode      string
+}
+
+var (
+	// hashAlgorithms maps Node.js crypto hash algorithm strings to algorithm families.
+	hashAlgorithms map[string]jsHashT
+	// cipherAlgorithms maps Node.js crypto cipher strings to algorithm info.
+	cipherAlgorithms map[string]jsCipherT
+	// forgeHashAlgorithms maps forge.md.XXX identifiers to algorithm info.
+	forgeHashAlgorithms map[string]jsHashT
+	// forgeCipherAlgorithms maps forge cipher strings to algorithm info.
+	forgeCipherAlgorithms map[string]forgeCipherT
+	// webCryptoAlgorithms maps Web Crypto algorithm name strings to families.
+	webCryptoAlgorithms map[string]webCryptoT
+	// webCryptoHashAlgorithms maps Web Crypto digest strings to info.
+	webCryptoHashAlgorithms map[string]jsHashT
+	// nobleSecpModules lists the package sources that anchor Schnorr detection.
+	nobleSecpModules map[string]bool
+	// nobleBLSModules lists the package sources that anchor BLS detection.
+	nobleBLSModules map[string]bool
+)
+
+func init() {
+	applyJSTables(astrules.MustLoadJavaScriptEmbedded())
+}
+
+// applyJSTables (re)populates the package-level detection tables from a loaded
+// astrules.JSTables. Called at init with the embedded set and again by
+// ApplyExternalRules when --ast-rules-dir is given.
+func applyJSTables(t *astrules.JSTables) {
+	hash := make(map[string]jsHashT, len(t.HashAlgorithms))
+	for _, r := range t.HashAlgorithms {
+		hash[r.Token] = jsHashT{family: r.Family, name: r.Name}
+	}
+	hashAlgorithms = hash
+
+	ciph := make(map[string]jsCipherT, len(t.CipherAlgorithms))
+	for _, r := range t.CipherAlgorithms {
+		ciph[r.Token] = jsCipherT{family: r.Family, name: r.Name, mode: r.Mode, primitive: r.Primitive, keySize: r.KeySize}
+	}
+	cipherAlgorithms = ciph
+
+	fhash := make(map[string]jsHashT, len(t.ForgeHashAlgorithms))
+	for _, r := range t.ForgeHashAlgorithms {
+		fhash[r.Token] = jsHashT{family: r.Family, name: r.Name}
+	}
+	forgeHashAlgorithms = fhash
+
+	fciph := make(map[string]forgeCipherT, len(t.ForgeCipherAlgorithms))
+	for _, r := range t.ForgeCipherAlgorithms {
+		fciph[r.Token] = forgeCipherT{family: r.Family, name: r.Name, mode: r.Mode, primitive: r.Primitive}
+	}
+	forgeCipherAlgorithms = fciph
+
+	wc := make(map[string]webCryptoT, len(t.WebCryptoAlgorithms))
+	for _, r := range t.WebCryptoAlgorithms {
+		wc[r.Token] = webCryptoT{family: r.Family, name: r.Name, primitive: r.Primitive, mode: r.Mode}
+	}
+	webCryptoAlgorithms = wc
+
+	wch := make(map[string]jsHashT, len(t.WebCryptoHashAlgorithms))
+	for _, r := range t.WebCryptoHashAlgorithms {
+		wch[r.Token] = jsHashT{family: r.Family, name: r.Name}
+	}
+	webCryptoHashAlgorithms = wch
+
+	secp := make(map[string]bool, len(t.NobleSecpModules))
+	for _, m := range t.NobleSecpModules {
+		secp[m] = true
+	}
+	nobleSecpModules = secp
+
+	bls := make(map[string]bool, len(t.NobleBLSModules))
+	for _, m := range t.NobleBLSModules {
+		bls[m] = true
+	}
+	nobleBLSModules = bls
+}
+
+// ApplyExternalRules replaces the active JavaScript Pass-1 tables from an
+// external --ast-rules-dir. When dir is empty, or has no javascript.yml, the
+// embedded tables are restored (per-language fallback). Returns an error only
+// when a present javascript.yml is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadJavaScript(dir)
+	if err != nil {
+		return err
+	}
+	applyJSTables(t)
+	return nil
 }
 
 func (s *JSScanner) detectNodeCrypto(root *sitter.Node, path string, content []byte, cp *ConstPropagator, lang *sitter.Language) []types.Finding {
@@ -243,10 +330,7 @@ func (s *JSScanner) handleCreateHash(callNode *sitter.Node, argsNode *sitter.Nod
 	info, ok := hashAlgorithms[normalized]
 	if !ok {
 		// Unrecognized hash, still report
-		info = struct {
-			family string
-			name   string
-		}{family: normalized, name: strings.ToUpper(algoStr)}
+		info = jsHashT{family: normalized, name: strings.ToUpper(algoStr)}
 	}
 
 	qi := quantum.GetInfo(info.family)
@@ -282,10 +366,7 @@ func (s *JSScanner) handleCreateHmac(callNode *sitter.Node, argsNode *sitter.Nod
 	normalized := strings.ToLower(hashAlgo)
 	info, ok := hashAlgorithms[normalized]
 	if !ok {
-		info = struct {
-			family string
-			name   string
-		}{family: normalized, name: strings.ToUpper(hashAlgo)}
+		info = jsHashT{family: normalized, name: strings.ToUpper(hashAlgo)}
 	}
 
 	name := fmt.Sprintf("HMAC-%s", info.name)
@@ -318,13 +399,7 @@ func (s *JSScanner) handleCreateCipher(callNode *sitter.Node, argsNode *sitter.N
 	info, ok := cipherAlgorithms[normalized]
 	if !ok {
 		// Unrecognized cipher, still report
-		info = struct {
-			family    string
-			name      string
-			mode      string
-			primitive string
-			keySize   int
-		}{family: normalized, name: strings.ToUpper(algoStr), primitive: "block-cipher"}
+		info = jsCipherT{family: normalized, name: strings.ToUpper(algoStr), primitive: "block-cipher"}
 	}
 
 	qi := quantum.GetInfo(info.family)
@@ -670,18 +745,6 @@ func (s *JSScanner) detectForge(root *sitter.Node, path string, content []byte, 
 	return findings
 }
 
-// forgeHashAlgorithms maps forge.md.XXX identifiers to algorithm info.
-var forgeHashAlgorithms = map[string]struct {
-	family string
-	name   string
-}{
-	"md5":    {family: "md5", name: "MD5"},
-	"sha1":   {family: "sha1", name: "SHA-1"},
-	"sha256": {family: "sha-256", name: "SHA-256"},
-	"sha384": {family: "sha-384", name: "SHA-384"},
-	"sha512": {family: "sha-512", name: "SHA-512"},
-}
-
 func (s *JSScanner) detectForgeHash(root *sitter.Node, path string, content []byte, lang *sitter.Language) []types.Finding {
 	var findings []types.Finding
 
@@ -760,24 +823,6 @@ func (s *JSScanner) detectForgeHash(root *sitter.Node, path string, content []by
 	return findings
 }
 
-// forgeCipherAlgorithms maps forge cipher strings to algorithm info.
-var forgeCipherAlgorithms = map[string]struct {
-	family    string
-	name      string
-	mode      string
-	primitive string
-}{
-	"aes-cbc":  {family: "aes", name: "AES-CBC", mode: "cbc", primitive: "block-cipher"},
-	"aes-gcm":  {family: "aes", name: "AES-GCM", mode: "gcm", primitive: "ae"},
-	"aes-ecb":  {family: "aes", name: "AES-ECB", mode: "ecb", primitive: "block-cipher"},
-	"aes-ctr":  {family: "aes", name: "AES-CTR", mode: "ctr", primitive: "block-cipher"},
-	"des-cbc":  {family: "des", name: "DES-CBC", mode: "cbc", primitive: "block-cipher"},
-	"des-ecb":  {family: "des", name: "DES-ECB", mode: "ecb", primitive: "block-cipher"},
-	"3des-cbc": {family: "3des", name: "3DES-CBC", mode: "cbc", primitive: "block-cipher"},
-	"3des-ecb": {family: "3des", name: "3DES-ECB", mode: "ecb", primitive: "block-cipher"},
-	"rc4":      {family: "rc4", name: "RC4", mode: "", primitive: "stream-cipher"},
-}
-
 func (s *JSScanner) detectForgeCipher(root *sitter.Node, path string, content []byte, cp *ConstPropagator, lang *sitter.Language) []types.Finding {
 	var findings []types.Finding
 
@@ -828,12 +873,7 @@ func (s *JSScanner) detectForgeCipher(root *sitter.Node, path string, content []
 		info, ok := forgeCipherAlgorithms[normalized]
 		if !ok {
 			// Unrecognized cipher, still report
-			info = struct {
-				family    string
-				name      string
-				mode      string
-				primitive string
-			}{family: normalized, name: strings.ToUpper(algoStr), primitive: "block-cipher"}
+			info = forgeCipherT{family: normalized, name: strings.ToUpper(algoStr), primitive: "block-cipher"}
 		}
 
 		callNode := getCallNodeFromChild(nsNode, 4)
@@ -1088,22 +1128,6 @@ func (s *JSScanner) detectWebCrypto(root *sitter.Node, path string, content []by
 	return findings
 }
 
-// webCryptoAlgorithms maps Web Crypto algorithm name strings to families.
-var webCryptoAlgorithms = map[string]struct {
-	family    string
-	name      string
-	primitive string
-	mode      string
-}{
-	"aes-gcm":  {family: "aes", name: "AES-GCM", primitive: "ae", mode: "gcm"},
-	"aes-cbc":  {family: "aes", name: "AES-CBC", primitive: "block-cipher", mode: "cbc"},
-	"aes-ctr":  {family: "aes", name: "AES-CTR", primitive: "block-cipher", mode: "ctr"},
-	"rsa-oaep": {family: "rsa", name: "RSA-OAEP", primitive: "pke"},
-	"rsa-pss":  {family: "rsa", name: "RSA-PSS", primitive: "signature"},
-	"ecdsa":    {family: "ecdsa", name: "ECDSA", primitive: "signature"},
-	"ecdh":     {family: "ecdh", name: "ECDH", primitive: "key-agree"},
-}
-
 func (s *JSScanner) handleWebCryptoEncrypt(callNode *sitter.Node, argsNode *sitter.Node, path string, content []byte, cp *ConstPropagator, methodName string) *types.Finding {
 	if argsNode == nil {
 		return nil
@@ -1118,12 +1142,7 @@ func (s *JSScanner) handleWebCryptoEncrypt(callNode *sitter.Node, argsNode *sitt
 	normalized := strings.ToLower(algoName)
 	info, ok := webCryptoAlgorithms[normalized]
 	if !ok {
-		info = struct {
-			family    string
-			name      string
-			primitive string
-			mode      string
-		}{family: normalized, name: strings.ToUpper(algoName), primitive: "block-cipher"}
+		info = webCryptoT{family: normalized, name: strings.ToUpper(algoName), primitive: "block-cipher"}
 	}
 
 	qi := quantum.GetInfo(info.family)
@@ -1150,17 +1169,6 @@ func (s *JSScanner) handleWebCryptoEncrypt(callNode *sitter.Node, argsNode *sitt
 	}
 }
 
-// webCryptoHashAlgorithms maps Web Crypto digest strings to info.
-var webCryptoHashAlgorithms = map[string]struct {
-	family string
-	name   string
-}{
-	"sha-1":   {family: "sha1", name: "SHA-1"},
-	"sha-256": {family: "sha-256", name: "SHA-256"},
-	"sha-384": {family: "sha-384", name: "SHA-384"},
-	"sha-512": {family: "sha-512", name: "SHA-512"},
-}
-
 func (s *JSScanner) handleWebCryptoDigest(callNode *sitter.Node, argsNode *sitter.Node, path string, content []byte, cp *ConstPropagator) *types.Finding {
 	if argsNode == nil {
 		return nil
@@ -1182,10 +1190,7 @@ func (s *JSScanner) handleWebCryptoDigest(callNode *sitter.Node, argsNode *sitte
 	normalized := strings.ToLower(algoName)
 	info, ok := webCryptoHashAlgorithms[normalized]
 	if !ok {
-		info = struct {
-			family string
-			name   string
-		}{family: normalized, name: strings.ToUpper(algoName)}
+		info = jsHashT{family: normalized, name: strings.ToUpper(algoName)}
 	}
 
 	qi := quantum.GetInfo(info.family)
@@ -1224,12 +1229,7 @@ func (s *JSScanner) handleWebCryptoGenerateKey(callNode *sitter.Node, argsNode *
 	normalized := strings.ToLower(algoName)
 	info, ok := webCryptoAlgorithms[normalized]
 	if !ok {
-		info = struct {
-			family    string
-			name      string
-			primitive string
-			mode      string
-		}{family: normalized, name: strings.ToUpper(algoName), primitive: "pke"}
+		info = webCryptoT{family: normalized, name: strings.ToUpper(algoName), primitive: "pke"}
 	}
 
 	// Try to extract modulusLength or length from the object
@@ -1322,23 +1322,8 @@ func stripJSQuotes(s string) string {
 }
 
 // nobleSecpModules / nobleBLSModules list the package sources that anchor
-// Schnorr and BLS detection respectively.
-var nobleSecpModules = map[string]bool{
-	"@noble/secp256k1":           true,
-	"@noble/curves/secp256k1":    true,
-	"@noble/curves/secp256k1.js": true,
-	"@noble/curves":              true,
-	"secp256k1":                  true,
-	"bip-schnorr":                true,
-	"bip340":                     true,
-}
-
-var nobleBLSModules = map[string]bool{
-	"@noble/bls12-381":        true,
-	"@noble/curves/bls12-381": true,
-	"@chainsafe/bls":          true,
-	"bls-eth-wasm":            true,
-}
+// Schnorr and BLS detection respectively. Their entries are now loaded as data
+// (see the central applyJSTables block above).
 
 func anyImported(sources map[string]bool, mods map[string]bool) bool {
 	for src := range sources {

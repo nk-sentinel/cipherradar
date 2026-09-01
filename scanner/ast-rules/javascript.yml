@@ -1,0 +1,93 @@
+# External AST (Pass-1) detection tables for JavaScript / TypeScript.
+#
+# This is the source of truth. It is copied into
+# cli/internal/scanner/astrules/data/ and embedded via //go:embed
+# (run `go generate ./internal/scanner/astrules`). The JavaScript scanner loads
+# these tables at init (embedded) and can replace them at scan time via
+# --ast-rules-dir (see docs/ast-rules-external-design.md).
+#
+# Only the data (token -> crypto semantics) lives here; the tree-sitter query
+# machinery stays in Go. Values mirror the former hardcoded Go maps exactly.
+version: 1
+language: javascript
+
+# Node.js crypto hash algorithm strings -> {family, name}.
+hash_algorithms:
+  - { token: md5, family: md5, name: MD5 }
+  - { token: sha1, family: sha1, name: SHA-1 }
+  - { token: sha224, family: sha-256, name: SHA-224 }
+  - { token: sha256, family: sha-256, name: SHA-256 }
+  - { token: sha384, family: sha-384, name: SHA-384 }
+  - { token: sha512, family: sha-512, name: SHA-512 }
+
+# Node.js crypto cipher strings -> {family, name, mode, primitive, key_size}.
+cipher_algorithms:
+  - { token: aes-128-cbc, family: aes, name: AES-128-CBC, mode: cbc, primitive: block-cipher, key_size: 128 }
+  - { token: aes-128-gcm, family: aes, name: AES-128-GCM, mode: gcm, primitive: ae, key_size: 128 }
+  - { token: aes-128-ecb, family: aes, name: AES-128-ECB, mode: ecb, primitive: block-cipher, key_size: 128 }
+  - { token: aes-192-cbc, family: aes, name: AES-192-CBC, mode: cbc, primitive: block-cipher, key_size: 192 }
+  - { token: aes-192-gcm, family: aes, name: AES-192-GCM, mode: gcm, primitive: ae, key_size: 192 }
+  - { token: aes-256-cbc, family: aes, name: AES-256-CBC, mode: cbc, primitive: block-cipher, key_size: 256 }
+  - { token: aes-256-gcm, family: aes, name: AES-256-GCM, mode: gcm, primitive: ae, key_size: 256 }
+  - { token: aes-256-ecb, family: aes, name: AES-256-ECB, mode: ecb, primitive: block-cipher, key_size: 256 }
+  - { token: aes-256-ctr, family: aes, name: AES-256-CTR, mode: ctr, primitive: block-cipher, key_size: 256 }
+  - { token: des, family: des, name: DES, mode: "", primitive: block-cipher, key_size: 56 }
+  - { token: des-cbc, family: des, name: DES-CBC, mode: cbc, primitive: block-cipher, key_size: 56 }
+  - { token: des-ecb, family: des, name: DES-ECB, mode: ecb, primitive: block-cipher, key_size: 56 }
+  - { token: des-ede3, family: 3des, name: 3DES, mode: "", primitive: block-cipher, key_size: 168 }
+  - { token: des-ede3-cbc, family: 3des, name: 3DES-CBC, mode: cbc, primitive: block-cipher, key_size: 168 }
+  - { token: rc4, family: rc4, name: RC4, mode: "", primitive: stream-cipher, key_size: 0 }
+
+# node-forge forge.md.XXX identifiers -> {family, name}.
+forge_hash_algorithms:
+  - { token: md5, family: md5, name: MD5 }
+  - { token: sha1, family: sha1, name: SHA-1 }
+  - { token: sha256, family: sha-256, name: SHA-256 }
+  - { token: sha384, family: sha-384, name: SHA-384 }
+  - { token: sha512, family: sha-512, name: SHA-512 }
+
+# node-forge cipher strings -> {family, name, mode, primitive}.
+forge_cipher_algorithms:
+  - { token: aes-cbc, family: aes, name: AES-CBC, mode: cbc, primitive: block-cipher }
+  - { token: aes-gcm, family: aes, name: AES-GCM, mode: gcm, primitive: ae }
+  - { token: aes-ecb, family: aes, name: AES-ECB, mode: ecb, primitive: block-cipher }
+  - { token: aes-ctr, family: aes, name: AES-CTR, mode: ctr, primitive: block-cipher }
+  - { token: des-cbc, family: des, name: DES-CBC, mode: cbc, primitive: block-cipher }
+  - { token: des-ecb, family: des, name: DES-ECB, mode: ecb, primitive: block-cipher }
+  - { token: 3des-cbc, family: 3des, name: 3DES-CBC, mode: cbc, primitive: block-cipher }
+  - { token: 3des-ecb, family: 3des, name: 3DES-ECB, mode: ecb, primitive: block-cipher }
+  - { token: rc4, family: rc4, name: RC4, mode: "", primitive: stream-cipher }
+
+# Web Crypto algorithm name strings -> {family, name, primitive, mode}.
+web_crypto_algorithms:
+  - { token: aes-gcm, family: aes, name: AES-GCM, primitive: ae, mode: gcm }
+  - { token: aes-cbc, family: aes, name: AES-CBC, primitive: block-cipher, mode: cbc }
+  - { token: aes-ctr, family: aes, name: AES-CTR, primitive: block-cipher, mode: ctr }
+  - { token: rsa-oaep, family: rsa, name: RSA-OAEP, primitive: pke, mode: "" }
+  - { token: rsa-pss, family: rsa, name: RSA-PSS, primitive: signature, mode: "" }
+  - { token: ecdsa, family: ecdsa, name: ECDSA, primitive: signature, mode: "" }
+  - { token: ecdh, family: ecdh, name: ECDH, primitive: key-agree, mode: "" }
+
+# Web Crypto digest strings -> {family, name}.
+web_crypto_hash_algorithms:
+  - { token: sha-1, family: sha1, name: SHA-1 }
+  - { token: sha-256, family: sha-256, name: SHA-256 }
+  - { token: sha-384, family: sha-384, name: SHA-384 }
+  - { token: sha-512, family: sha-512, name: SHA-512 }
+
+# Package sources that anchor @noble Schnorr (secp256k1) detection.
+noble_secp_modules:
+  - "@noble/secp256k1"
+  - "@noble/curves/secp256k1"
+  - "@noble/curves/secp256k1.js"
+  - "@noble/curves"
+  - secp256k1
+  - bip-schnorr
+  - bip340
+
+# Package sources that anchor @noble BLS12-381 detection.
+noble_bls_modules:
+  - "@noble/bls12-381"
+  - "@noble/curves/bls12-381"
+  - "@chainsafe/bls"
+  - bls-eth-wasm

@@ -11,6 +11,7 @@ import (
 	python "github.com/smacker/go-tree-sitter/python"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
 
@@ -123,64 +124,207 @@ func nextFindingID() string {
 // hashlib detection
 // ---------------------------------------------------------------------------
 
-// hashlibMethodAlgorithms maps hashlib method names to algorithm family names.
-var hashlibMethodAlgorithms = map[string]string{
-	"md5":      "md5",
-	"sha1":     "sha1",
-	"sha224":   "sha-256", // SHA-224 is a truncated SHA-256
-	"sha256":   "sha-256",
-	"sha384":   "sha-384",
-	"sha512":   "sha-512",
-	"sha3_256": "sha3-256",
-	"sha3_384": "sha3-384",
-	"sha3_512": "sha3-512",
-	"blake2b":  "blake2b",
-	"blake2s":  "blake2s",
+// The Python Pass-1 detection tables below are DATA, loaded from the embedded
+// scanner/ast-rules/python.yml at init() and replaceable at scan time via
+// --ast-rules-dir (astrules.LoadPython). Only the tables (token -> crypto
+// semantics) are external; the tree-sitter query machinery stays in Go. See
+// docs/ast-rules-external-design.md. The local struct types preserve the exact
+// field names the detect sites already use, so wiring them from data required
+// no change at the lookup sites.
+
+type cipherAlgoT struct {
+	family    string
+	primitive string
 }
 
-// hashlibMethodNames maps hashlib method names to human-readable names.
-var hashlibMethodNames = map[string]string{
-	"md5":      "MD5",
-	"sha1":     "SHA-1",
-	"sha224":   "SHA-224",
-	"sha256":   "SHA-256",
-	"sha384":   "SHA-384",
-	"sha512":   "SHA-512",
-	"sha3_256": "SHA3-256",
-	"sha3_384": "SHA3-384",
-	"sha3_512": "SHA3-512",
-	"blake2b":  "BLAKE2b",
-	"blake2s":  "BLAKE2s",
+type classInfoT struct {
+	family string
+	name   string
 }
 
-// hashlibNewAlgorithms maps string arguments to hashlib.new() to algorithm families.
-var hashlibNewAlgorithms = map[string]string{
-	"md5":      "md5",
-	"sha1":     "sha1",
-	"sha224":   "sha-256",
-	"sha256":   "sha-256",
-	"sha384":   "sha-384",
-	"sha512":   "sha-512",
-	"sha3_256": "sha3-256",
-	"sha3_384": "sha3-384",
-	"sha3_512": "sha3-512",
-	"blake2b":  "blake2b",
-	"blake2s":  "blake2s",
+type cryptoInfoT struct {
+	family    string
+	name      string
+	primitive string
 }
 
-// hashlibNewNames maps string arguments to hashlib.new() to human-readable names.
-var hashlibNewNames = map[string]string{
-	"md5":      "MD5",
-	"sha1":     "SHA-1",
-	"sha224":   "SHA-224",
-	"sha256":   "SHA-256",
-	"sha384":   "SHA-384",
-	"sha512":   "SHA-512",
-	"sha3_256": "SHA3-256",
-	"sha3_384": "SHA3-384",
-	"sha3_512": "SHA3-512",
-	"blake2b":  "BLAKE2b",
-	"blake2s":  "BLAKE2s",
+type sslProtoT struct {
+	name     string
+	version  string
+	severity types.Severity
+}
+
+type aeadT struct {
+	family string
+	name   string
+	mode   string
+}
+
+var (
+	// hashlibMethodAlgorithms maps hashlib method names to algorithm family names.
+	hashlibMethodAlgorithms map[string]string
+	// hashlibMethodNames maps hashlib method names to human-readable names.
+	hashlibMethodNames map[string]string
+	// hashlibNewAlgorithms maps string arguments to hashlib.new() to algorithm families.
+	hashlibNewAlgorithms map[string]string
+	// hashlibNewNames maps string arguments to hashlib.new() to human-readable names.
+	hashlibNewNames map[string]string
+	// cipherAlgoMap maps cryptography.hazmat algorithm class names to algorithm families.
+	cipherAlgoMap map[string]cipherAlgoT
+	// cipherModeMap maps mode class names to their lowercase identifiers.
+	cipherModeMap map[string]string
+	// cryptoHashMap maps cryptography hash class names to algorithm families.
+	cryptoHashMap map[string]classInfoT
+	// kdfMap maps KDF class names to their algorithm families and descriptions.
+	kdfMap map[string]classInfoT
+	// sslProtocolMap maps ssl.PROTOCOL_* constants to protocol info.
+	sslProtocolMap map[string]sslProtoT
+	// sslTLSVersionMap maps ssl.TLSVersion.* constants to version info.
+	sslTLSVersionMap map[string]sslProtoT
+	// pyCryptoImportMap maps PyCryptodome import names to crypto info.
+	pyCryptoImportMap map[string]cryptoInfoT
+	// pyCryptoCipherUsageMap maps PyCryptodome Cipher class names to crypto info.
+	pyCryptoCipherUsageMap map[string]cryptoInfoT
+	// pyCryptoHashUsageMap maps PyCryptodome Hash class names to crypto info.
+	pyCryptoHashUsageMap map[string]classInfoT
+	// pyCryptoModeMap maps PyCryptodome AES.MODE_* constants to mode identifiers.
+	pyCryptoModeMap map[string]string
+	// pycaAEADMap maps pyca/cryptography one-shot AEAD class names to crypto info.
+	pycaAEADMap map[string]aeadT
+	// weakRandomMethods are random module functions that produce predictable values.
+	weakRandomMethods map[string]bool
+	// blsSignMethods are the BLS API entry points (py_ecc.bls / blspy / blst).
+	blsSignMethods map[string]string
+	// tier2Rules enumerates the precise APIs of the supported Tier-2 libraries.
+	tier2Rules []tier2CallRule
+)
+
+func init() {
+	applyPythonTables(astrules.MustLoadPythonEmbedded())
+}
+
+// applyPythonTables (re)populates the package-level detection tables from a
+// loaded astrules.PythonTables. Called at init with the embedded set and again
+// by ApplyExternalRules when --ast-rules-dir is given.
+func applyPythonTables(t *astrules.PythonTables) {
+	strMap := func(rows []astrules.PyKV) map[string]string {
+		m := make(map[string]string, len(rows))
+		for _, r := range rows {
+			m[r.Key] = r.Value
+		}
+		return m
+	}
+
+	hashlibMethodAlgorithms = strMap(t.HashlibMethodAlgorithms)
+	hashlibMethodNames = strMap(t.HashlibMethodNames)
+	hashlibNewAlgorithms = strMap(t.HashlibNewAlgorithms)
+	hashlibNewNames = strMap(t.HashlibNewNames)
+	cipherModeMap = strMap(t.CipherModes)
+	pyCryptoModeMap = strMap(t.PyCryptoModes)
+	blsSignMethods = strMap(t.BLSSignMethods)
+
+	ca := make(map[string]cipherAlgoT, len(t.CipherAlgorithms))
+	for _, r := range t.CipherAlgorithms {
+		ca[r.Class] = cipherAlgoT{family: r.Family, primitive: r.Primitive}
+	}
+	cipherAlgoMap = ca
+
+	ch := make(map[string]classInfoT, len(t.CryptoHashes))
+	for _, r := range t.CryptoHashes {
+		ch[r.Class] = classInfoT{family: r.Family, name: r.Name}
+	}
+	cryptoHashMap = ch
+
+	kd := make(map[string]classInfoT, len(t.KDFs))
+	for _, r := range t.KDFs {
+		kd[r.Class] = classInfoT{family: r.Family, name: r.Name}
+	}
+	kdfMap = kd
+
+	sp := make(map[string]sslProtoT, len(t.SSLProtocols))
+	for _, r := range t.SSLProtocols {
+		sp[r.Const] = sslProtoT{name: r.Name, version: r.Version, severity: parsePythonSeverity(r.Severity)}
+	}
+	sslProtocolMap = sp
+
+	tv := make(map[string]sslProtoT, len(t.SSLTLSVersions))
+	for _, r := range t.SSLTLSVersions {
+		tv[r.Const] = sslProtoT{name: r.Name, version: r.Version, severity: parsePythonSeverity(r.Severity)}
+	}
+	sslTLSVersionMap = tv
+
+	im := make(map[string]cryptoInfoT, len(t.PyCryptoImports))
+	for _, r := range t.PyCryptoImports {
+		im[r.Imported] = cryptoInfoT{family: r.Family, name: r.Name, primitive: r.Primitive}
+	}
+	pyCryptoImportMap = im
+
+	cu := make(map[string]cryptoInfoT, len(t.PyCryptoCipherUsage))
+	for _, r := range t.PyCryptoCipherUsage {
+		cu[r.Class] = cryptoInfoT{family: r.Family, name: r.Name, primitive: r.Primitive}
+	}
+	pyCryptoCipherUsageMap = cu
+
+	hu := make(map[string]classInfoT, len(t.PyCryptoHashUsage))
+	for _, r := range t.PyCryptoHashUsage {
+		hu[r.Class] = classInfoT{family: r.Family, name: r.Name}
+	}
+	pyCryptoHashUsageMap = hu
+
+	ae := make(map[string]aeadT, len(t.PycaAEAD))
+	for _, r := range t.PycaAEAD {
+		ae[r.Class] = aeadT{family: r.Family, name: r.Name, mode: r.Mode}
+	}
+	pycaAEADMap = ae
+
+	wr := make(map[string]bool, len(t.WeakRandomMethods))
+	for _, m := range t.WeakRandomMethods {
+		wr[m] = true
+	}
+	weakRandomMethods = wr
+
+	rules := make([]tier2CallRule, 0, len(t.Tier2Rules))
+	for _, r := range t.Tier2Rules {
+		rules = append(rules, tier2CallRule{
+			requireImport: r.RequireImport,
+			object:        r.Object,
+			method:        r.Method,
+			family:        r.Family,
+			name:          r.Name,
+			primitive:     r.Primitive,
+			cryptoFn:      r.CryptoFn,
+			ruleSuffix:    r.RuleSuffix,
+		})
+	}
+	tier2Rules = rules
+}
+
+// ApplyExternalRules replaces the active Python Pass-1 tables from an external
+// --ast-rules-dir. When dir is empty, or has no python.yml, the embedded tables
+// are restored (per-language fallback). Returns an error only when a present
+// python.yml is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadPython(dir)
+	if err != nil {
+		return err
+	}
+	applyPythonTables(t)
+	return nil
+}
+
+func parsePythonSeverity(s string) types.Severity {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "critical":
+		return types.SeverityCritical
+	case "high":
+		return types.SeverityHigh
+	case "medium":
+		return types.SeverityMedium
+	case "low":
+		return types.SeverityLow
+	default:
+		return types.SeverityInfo
+	}
 }
 
 func (s *PythonScanner) detectHashlib(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
@@ -386,33 +530,6 @@ func (s *PythonScanner) detectCryptographyLib(root *sitter.Node, path string, co
 	return findings
 }
 
-// cipherAlgoMap maps cryptography.hazmat algorithm class names to algorithm families.
-var cipherAlgoMap = map[string]struct {
-	family    string
-	primitive string
-}{
-	"AES":       {family: "aes", primitive: "block-cipher"},
-	"TripleDES": {family: "3des", primitive: "block-cipher"},
-	"ChaCha20":  {family: "chacha20", primitive: "stream-cipher"},
-	"Camellia":  {family: "camellia", primitive: "block-cipher"},
-	"CAST5":     {family: "cast5", primitive: "block-cipher"},
-	"SEED":      {family: "seed", primitive: "block-cipher"},
-	"Blowfish":  {family: "blowfish", primitive: "block-cipher"},
-	"ARC4":      {family: "rc4", primitive: "stream-cipher"},
-	"IDEA":      {family: "idea", primitive: "block-cipher"},
-}
-
-// cipherModeMap maps mode class names to their lowercase identifiers.
-var cipherModeMap = map[string]string{
-	"CBC": "cbc",
-	"ECB": "ecb",
-	"GCM": "gcm",
-	"CTR": "ctr",
-	"OFB": "ofb",
-	"CFB": "cfb",
-	"XTS": "xts",
-}
-
 func (s *PythonScanner) detectCipherAlgorithms(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
 	var findings []types.Finding
 
@@ -522,29 +639,6 @@ func findModeInArgs(argsNode *sitter.Node, content []byte) string {
 		}
 	}
 	return ""
-}
-
-// cryptoHashMap maps cryptography hash class names to algorithm families.
-var cryptoHashMap = map[string]struct {
-	family string
-	name   string
-}{
-	"SHA256":     {family: "sha-256", name: "SHA-256"},
-	"SHA384":     {family: "sha-384", name: "SHA-384"},
-	"SHA512":     {family: "sha-512", name: "SHA-512"},
-	"SHA224":     {family: "sha-256", name: "SHA-224"},
-	"SHA512_224": {family: "sha-512", name: "SHA-512/224"},
-	"SHA512_256": {family: "sha-512", name: "SHA-512/256"},
-	"SHA1":       {family: "sha1", name: "SHA-1"},
-	"MD5":        {family: "md5", name: "MD5"},
-	"BLAKE2b":    {family: "blake2b", name: "BLAKE2b"},
-	"BLAKE2s":    {family: "blake2s", name: "BLAKE2s"},
-	"SHA3_256":   {family: "sha3-256", name: "SHA3-256"},
-	"SHA3_384":   {family: "sha3-384", name: "SHA3-384"},
-	"SHA3_512":   {family: "sha3-512", name: "SHA3-512"},
-	"SHAKE128":   {family: "shake128", name: "SHAKE128"},
-	"SHAKE256":   {family: "shake256", name: "SHAKE256"},
-	"SM3":        {family: "sm3", name: "SM3"},
 }
 
 func (s *PythonScanner) detectCryptoHashes(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
@@ -891,22 +985,6 @@ func (s *PythonScanner) detectEdDSAKeyGen(root *sitter.Node, path string, conten
 	return findings
 }
 
-// kdfMap maps KDF class names to their algorithm families and descriptions.
-var kdfMap = map[string]struct {
-	family string
-	name   string
-}{
-	"PBKDF2HMAC":    {family: "pbkdf2", name: "PBKDF2-HMAC"},
-	"HKDF":          {family: "hkdf", name: "HKDF"},
-	"HKDFExpand":    {family: "hkdf", name: "HKDF-Expand"},
-	"Scrypt":        {family: "scrypt", name: "Scrypt"},
-	"ConcatKDFHash": {family: "concatkdf", name: "ConcatKDF"},
-	"ConcatKDFHMAC": {family: "concatkdf-hmac", name: "ConcatKDF-HMAC"},
-	"X963KDF":       {family: "x963kdf", name: "X963KDF"},
-	"KBKDFHMAC":     {family: "kbkdf", name: "KBKDF-HMAC"},
-	"KBKDFCMAC":     {family: "kbkdf", name: "KBKDF-CMAC"},
-}
-
 func (s *PythonScanner) detectKDFs(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
 	var findings []types.Finding
 
@@ -1085,35 +1163,6 @@ func walkForProtocol(node *sitter.Node, content []byte, result *string) {
 			walkForProtocol(child, content, result)
 		}
 	}
-}
-
-// sslProtocolMap maps ssl.PROTOCOL_* constants to protocol info.
-var sslProtocolMap = map[string]struct {
-	name     string
-	version  string
-	severity types.Severity
-}{
-	"PROTOCOL_TLS":        {name: "TLS", version: "", severity: types.SeverityInfo},
-	"PROTOCOL_TLS_CLIENT": {name: "TLS", version: "", severity: types.SeverityInfo},
-	"PROTOCOL_TLS_SERVER": {name: "TLS", version: "", severity: types.SeverityInfo},
-	"PROTOCOL_TLSv1":      {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"PROTOCOL_TLSv1_1":    {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
-	"PROTOCOL_TLSv1_2":    {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
-	"PROTOCOL_SSLv2":      {name: "SSL 2.0", version: "2.0", severity: types.SeverityHigh},
-	"PROTOCOL_SSLv3":      {name: "SSL 3.0", version: "3.0", severity: types.SeverityHigh},
-	"PROTOCOL_SSLv23":     {name: "SSL/TLS", version: "", severity: types.SeverityInfo},
-}
-
-// sslTLSVersionMap maps ssl.TLSVersion.* constants to version info.
-var sslTLSVersionMap = map[string]struct {
-	name     string
-	version  string
-	severity types.Severity
-}{
-	"TLSv1":   {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLSv1_1": {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
-	"TLSv1_2": {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
-	"TLSv1_3": {name: "TLS 1.3", version: "1.3", severity: types.SeverityInfo},
 }
 
 func (s *PythonScanner) detectSSL(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
@@ -1368,31 +1417,6 @@ func (s *PythonScanner) detectWrapSocket(root *sitter.Node, path string, content
 // PyCryptodome detection
 // ---------------------------------------------------------------------------
 
-// pyCryptoImportMap maps PyCryptodome import names to crypto info.
-var pyCryptoImportMap = map[string]struct {
-	family    string
-	name      string
-	primitive string
-}{
-	"AES":      {family: "aes", name: "AES", primitive: "block-cipher"},
-	"DES":      {family: "des", name: "DES", primitive: "block-cipher"},
-	"DES3":     {family: "3des", name: "3DES", primitive: "block-cipher"},
-	"Blowfish": {family: "blowfish", name: "Blowfish", primitive: "block-cipher"},
-	"ARC4":     {family: "rc4", name: "RC4", primitive: "stream-cipher"},
-	"ChaCha20": {family: "chacha20", name: "ChaCha20", primitive: "stream-cipher"},
-	"Salsa20":  {family: "salsa20", name: "Salsa20", primitive: "stream-cipher"},
-	"CAST":     {family: "cast5", name: "CAST5", primitive: "block-cipher"},
-	"SHA256":   {family: "sha-256", name: "SHA-256", primitive: "hash"},
-	"SHA1":     {family: "sha1", name: "SHA-1", primitive: "hash"},
-	"SHA512":   {family: "sha-512", name: "SHA-512", primitive: "hash"},
-	"SHA384":   {family: "sha-384", name: "SHA-384", primitive: "hash"},
-	"MD5":      {family: "md5", name: "MD5", primitive: "hash"},
-	"HMAC":     {family: "hmac", name: "HMAC", primitive: "mac"},
-	"RSA":      {family: "rsa", name: "RSA", primitive: "pke"},
-	"DSA":      {family: "dsa", name: "DSA", primitive: "signature"},
-	"ECC":      {family: "ec", name: "EC", primitive: "key-agree"},
-}
-
 func (s *PythonScanner) detectPyCryptodome(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
 	var findings []types.Finding
 
@@ -1569,59 +1593,6 @@ func collectImportAliases(root *sitter.Node, content []byte, lang *sitter.Langua
 // PyCryptodome usage detection (Crypto.Cipher.* / Crypto.Hash.* constructors)
 // ---------------------------------------------------------------------------
 
-// pyCryptoCipherUsageMap maps PyCryptodome Cipher class names to crypto info.
-// These are detected at the `ClassName.new(...)` call site (Pass 1) when the
-// class was imported from a Crypto.* / Cryptodome.* module.
-var pyCryptoCipherUsageMap = map[string]struct {
-	family    string
-	name      string
-	primitive string
-}{
-	"AES":               {family: "aes", name: "AES", primitive: "block-cipher"},
-	"DES":               {family: "des", name: "DES", primitive: "block-cipher"},
-	"DES3":              {family: "3des", name: "3DES", primitive: "block-cipher"},
-	"Blowfish":          {family: "blowfish", name: "Blowfish", primitive: "block-cipher"},
-	"ARC2":              {family: "rc2", name: "RC2", primitive: "block-cipher"},
-	"ARC4":              {family: "rc4", name: "ARC4", primitive: "stream-cipher"},
-	"CAST":              {family: "cast5", name: "CAST5", primitive: "block-cipher"},
-	"ChaCha20":          {family: "chacha20", name: "ChaCha20", primitive: "stream-cipher"},
-	"ChaCha20_Poly1305": {family: "chacha20-poly1305", name: "ChaCha20-Poly1305", primitive: "ae"},
-	"Salsa20":           {family: "salsa20", name: "Salsa20", primitive: "stream-cipher"},
-}
-
-// pyCryptoHashUsageMap maps PyCryptodome Hash class names to crypto info.
-var pyCryptoHashUsageMap = map[string]struct {
-	family string
-	name   string
-}{
-	"SHA256":   {family: "sha-256", name: "SHA-256"},
-	"SHA224":   {family: "sha-256", name: "SHA-224"},
-	"SHA384":   {family: "sha-384", name: "SHA-384"},
-	"SHA512":   {family: "sha-512", name: "SHA-512"},
-	"SHA1":     {family: "sha1", name: "SHA-1"},
-	"MD5":      {family: "md5", name: "MD5"},
-	"SHA3_256": {family: "sha3-256", name: "SHA3-256"},
-	"SHA3_384": {family: "sha3-384", name: "SHA3-384"},
-	"SHA3_512": {family: "sha3-512", name: "SHA3-512"},
-	"BLAKE2b":  {family: "blake2b", name: "BLAKE2b"},
-	"BLAKE2s":  {family: "blake2s", name: "BLAKE2s"},
-}
-
-// pyCryptoModeMap maps PyCryptodome AES.MODE_* constants to mode identifiers.
-var pyCryptoModeMap = map[string]string{
-	"MODE_ECB":     "ecb",
-	"MODE_CBC":     "cbc",
-	"MODE_CFB":     "cfb",
-	"MODE_OFB":     "ofb",
-	"MODE_CTR":     "ctr",
-	"MODE_GCM":     "gcm",
-	"MODE_EAX":     "eax",
-	"MODE_CCM":     "ccm",
-	"MODE_SIV":     "siv",
-	"MODE_OCB":     "ocb",
-	"MODE_OPENPGP": "openpgp",
-}
-
 // detectPyCryptodomeUsage detects PyCryptodome cipher/hash constructor calls such as
 // `AES.new(key, AES.MODE_GCM)`, `ARC4.new(key)`, `ChaCha20_Poly1305.new(key=key)` and
 // `BLAKE2b.new(data=data)`. Detection is gated on the class having been imported from a
@@ -1752,20 +1723,6 @@ func findPyCryptoMode(argsNode *sitter.Node, content []byte) string {
 // pyca one-shot AEAD detection (cryptography.hazmat.primitives.ciphers.aead)
 // ---------------------------------------------------------------------------
 
-// pycaAEADMap maps pyca/cryptography one-shot AEAD class names to crypto info.
-var pycaAEADMap = map[string]struct {
-	family string
-	name   string
-	mode   string
-}{
-	"AESGCM":           {family: "aes", name: "AES-GCM", mode: "gcm"},
-	"AESGCMSIV":        {family: "aes", name: "AES-GCM-SIV", mode: "gcm-siv"},
-	"AESCCM":           {family: "aes", name: "AES-CCM", mode: "ccm"},
-	"AESSIV":           {family: "aes", name: "AES-SIV", mode: "siv"},
-	"AESOCB3":          {family: "aes", name: "AES-OCB3", mode: "ocb3"},
-	"ChaCha20Poly1305": {family: "chacha20-poly1305", name: "ChaCha20-Poly1305", mode: "aead"},
-}
-
 // detectPycaAEAD detects pyca/cryptography one-shot AEAD constructors such as
 // `AESGCM(key)`, `AESCCM(key)`, `AESSIV(key)`, `ChaCha20Poly1305(key)`. Detection is
 // gated on the class being imported from cryptography.hazmat.primitives.ciphers.aead.
@@ -1842,20 +1799,6 @@ func (s *PythonScanner) detectPycaAEAD(root *sitter.Node, path string, content [
 // ---------------------------------------------------------------------------
 // Weak PRNG (random module) for security-sensitive values
 // ---------------------------------------------------------------------------
-
-// weakRandomMethods are random module functions that produce values an attacker
-// could predict if used for security purposes.
-var weakRandomMethods = map[string]bool{
-	"randint":     true,
-	"randrange":   true,
-	"random":      true,
-	"choice":      true,
-	"choices":     true,
-	"sample":      true,
-	"getrandbits": true,
-	"uniform":     true,
-	"shuffle":     true,
-}
 
 // securityContextRE matches identifiers (enclosing function names or assignment
 // targets) that strongly imply a security-sensitive use of randomness. Gating on
@@ -2003,37 +1946,6 @@ type tier2CallRule struct {
 	primitive     string
 	cryptoFn      string
 	ruleSuffix    string
-}
-
-// tier2Rules enumerates the precise APIs of the supported Tier-2 libraries.
-// Each rule is gated on its library import, so unrelated code that happens to
-// define an `encrypt()`/`decrypt()` function is never flagged.
-var tier2Rules = []tier2CallRule{
-	// SM2 — gmssl (`from gmssl import sm2` → `sm2.CryptSM2(...)`).
-	{requireImport: "gmssl", object: "sm2", method: "CryptSM2", family: "sm2", name: "SM2", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "gmssl-cryptsm2"},
-	{requireImport: "sm2", object: "", method: "CryptSM2", family: "sm2", name: "SM2", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "gmssl-cryptsm2"},
-	// ECIES — eciespy (`import ecies` / `from ecies import encrypt, decrypt`).
-	{requireImport: "ecies", object: "ecies", method: "encrypt", family: "ecies", name: "ECIES", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "eciespy-encrypt"},
-	{requireImport: "ecies", object: "ecies", method: "decrypt", family: "ecies", name: "ECIES", primitive: "pke", cryptoFn: "decrypt", ruleSuffix: "eciespy-decrypt"},
-	{requireImport: "ecies", object: "", method: "encrypt", family: "ecies", name: "ECIES", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "eciespy-encrypt"},
-	{requireImport: "ecies", object: "", method: "decrypt", family: "ecies", name: "ECIES", primitive: "pke", cryptoFn: "decrypt", ruleSuffix: "eciespy-decrypt"},
-	// GOST R 34.10 signature — gostcrypto (`gostsignature.new(...)`).
-	{requireImport: "gostcrypto", object: "gostsignature", method: "new", family: "gost", name: "GOST R 34.10", primitive: "signature", cryptoFn: "sign", ruleSuffix: "gostcrypto-signature"},
-	{requireImport: "gostsignature", object: "gostsignature", method: "new", family: "gost", name: "GOST R 34.10", primitive: "signature", cryptoFn: "sign", ruleSuffix: "gostcrypto-signature"},
-
-	// Paillier — python-paillier / phe (additively-homomorphic, factoring-based,
-	// quantum-vulnerable). Gated on the `phe` import so unrelated `paillier`
-	// identifiers are never flagged (#41).
-	// `from phe import paillier` → `paillier.generate_paillier_keypair()`.
-	{requireImport: "phe", object: "paillier", method: "generate_paillier_keypair", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "generate", ruleSuffix: "phe-paillier-keypair"},
-	// `from phe import generate_paillier_keypair` → bare `generate_paillier_keypair()`.
-	{requireImport: "phe", object: "", method: "generate_paillier_keypair", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "generate", ruleSuffix: "phe-paillier-keypair"},
-	// `from phe import paillier` → `paillier.PaillierPublicKey(...)`.
-	{requireImport: "phe", object: "paillier", method: "PaillierPublicKey", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "phe-paillier-publickey"},
-	{requireImport: "phe", object: "paillier", method: "PaillierPrivateKey", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "decrypt", ruleSuffix: "phe-paillier-privatekey"},
-	// `from phe import PaillierPublicKey` → bare constructor calls.
-	{requireImport: "phe", object: "", method: "PaillierPublicKey", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "encrypt", ruleSuffix: "phe-paillier-publickey"},
-	{requireImport: "phe", object: "", method: "PaillierPrivateKey", family: "paillier", name: "Paillier", primitive: "pke", cryptoFn: "decrypt", ruleSuffix: "phe-paillier-privatekey"},
 }
 
 func (s *PythonScanner) detectTier2Asymmetric(root *sitter.Node, path string, content []byte) []types.Finding {
@@ -2842,20 +2754,6 @@ func (s *PythonScanner) detectCryptoMACs(root *sitter.Node, path string, content
 // ---------------------------------------------------------------------------
 // Tier-3 quantum families: BLS + Schnorr (issue #33)
 // ---------------------------------------------------------------------------
-
-// blsSignMethods are the BLS API entry points (py_ecc.bls / blspy / blst).
-// Matched only when the receiver was imported from a BLS module, so a method
-// named "Sign"/"Verify" on unrelated objects is never flagged (zero-FP).
-var blsSignMethods = map[string]string{
-	"Sign":                "sign",
-	"Verify":              "verify",
-	"Aggregate":           "sign",
-	"AggregateVerify":     "verify",
-	"FastAggregateVerify": "verify",
-	"PrivToPub":           "generate",
-	"SkToPk":              "generate",
-	"KeyGen":              "generate",
-}
 
 // detectBLSPython detects py_ecc.bls / blspy usage such as
 // `bls.Sign(sk, msg)` or `G2ProofOfPossession.Aggregate(sigs)` when the

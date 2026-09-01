@@ -20,6 +20,7 @@ import (
 	cppLang "github.com/smacker/go-tree-sitter/cpp"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -432,23 +433,84 @@ type cppAsymInfo struct {
 	fn        string
 }
 
-var cppOpenSSLAsymFuncs = map[string]cppAsymInfo{
-	// DSA key/parameter generation.
-	"DSA_generate_key":           {family: "dsa", name: "DSA", primitive: "signature", fn: "generate"},
-	"DSA_generate_parameters_ex": {family: "dsa", name: "DSA", primitive: "signature", fn: "generate"},
-	// Diffie-Hellman key/parameter generation.
-	"DH_generate_key":           {family: "dh", name: "DH", primitive: "key-agree", fn: "keyagree"},
-	"DH_generate_parameters_ex": {family: "dh", name: "DH", primitive: "key-agree", fn: "keyagree"},
-	// Elliptic-curve key creation.
-	"EC_KEY_new_by_curve_name": {family: "ec", name: "EC", primitive: "pke", fn: "generate"},
-	"EC_KEY_generate_key":      {family: "ec", name: "EC", primitive: "pke", fn: "generate"},
-	// ECDSA signing/verification.
-	"ECDSA_sign":      {family: "ecdsa", name: "ECDSA", primitive: "signature", fn: "sign"},
-	"ECDSA_verify":    {family: "ecdsa", name: "ECDSA", primitive: "signature", fn: "verify"},
-	"ECDSA_do_sign":   {family: "ecdsa", name: "ECDSA", primitive: "signature", fn: "sign"},
-	"ECDSA_do_verify": {family: "ecdsa", name: "ECDSA", primitive: "signature", fn: "verify"},
-	// ECDH shared-secret derivation.
-	"ECDH_compute_key": {family: "ecdh", name: "ECDH", primitive: "key-agree", fn: "keyagree"},
+// The C/C++ Pass-1 detection tables below are DATA, loaded from the embedded
+// scanner/ast-rules/cpp.yml at init() and replaceable at scan time via
+// --ast-rules-dir (astrules.LoadCpp). Local struct types preserve the exact
+// field names the detect sites use, so wiring them from data needed no change
+// at the lookup sites. See docs/ast-rules-external-design.md.
+
+// cppTLSInfo holds the name/version/severity for an OpenSSL TLS method function
+// (SSL_CTX_new) or a TLS version macro (SSL_CTX_set_min/max_proto_version).
+type cppTLSInfo struct {
+	name     string
+	version  string
+	severity types.Severity
+}
+
+var (
+	// cppOpenSSLAsymFuncs maps a classic (pre-EVP) OpenSSL asymmetric API
+	// function name to its quantum-vulnerable algorithm family info.
+	cppOpenSSLAsymFuncs map[string]cppAsymInfo
+	// tlsMethodMap maps OpenSSL SSL method functions to TLS version info.
+	tlsMethodMap map[string]cppTLSInfo
+	// tlsVersionConstants maps OpenSSL TLS version macro values for
+	// SSL_CTX_set_min_proto_version.
+	tlsVersionConstants map[string]cppTLSInfo
+)
+
+func init() {
+	applyCppTables(astrules.MustLoadCppEmbedded())
+}
+
+// applyCppTables (re)populates the package-level detection tables from a loaded
+// astrules.CppTables. Called at init with the embedded set and again by
+// ApplyExternalRules when --ast-rules-dir is given.
+func applyCppTables(t *astrules.CppTables) {
+	af := make(map[string]cppAsymInfo, len(t.AsymFuncs))
+	for _, r := range t.AsymFuncs {
+		af[r.Func] = cppAsymInfo{family: r.Family, name: r.Name, primitive: r.Primitive, fn: r.Fn}
+	}
+	cppOpenSSLAsymFuncs = af
+
+	tm := make(map[string]cppTLSInfo, len(t.TLSMethods))
+	for _, r := range t.TLSMethods {
+		tm[r.Method] = cppTLSInfo{name: r.Name, version: r.Version, severity: parseCppSeverity(r.Severity)}
+	}
+	tlsMethodMap = tm
+
+	tc := make(map[string]cppTLSInfo, len(t.TLSVersionConstants))
+	for _, r := range t.TLSVersionConstants {
+		tc[r.Const] = cppTLSInfo{name: r.Name, version: r.Version, severity: parseCppSeverity(r.Severity)}
+	}
+	tlsVersionConstants = tc
+}
+
+// ApplyExternalRules replaces the active C/C++ Pass-1 tables from an external
+// --ast-rules-dir. When dir is empty, or has no cpp.yml, the embedded tables are
+// restored (per-language fallback). Returns an error only when a present cpp.yml
+// is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadCpp(dir)
+	if err != nil {
+		return err
+	}
+	applyCppTables(t)
+	return nil
+}
+
+func parseCppSeverity(s string) types.Severity {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "critical":
+		return types.SeverityCritical
+	case "high":
+		return types.SeverityHigh
+	case "medium":
+		return types.SeverityMedium
+	case "low":
+		return types.SeverityLow
+	default:
+		return types.SeverityInfo
+	}
 }
 
 // detectOpenSSLAsymmetric detects classic OpenSSL asymmetric APIs (DSA, DH,
@@ -700,41 +762,6 @@ func (s *CppScanner) detectOpenSSLPEM(root *sitter.Node, path string, content []
 // ---------------------------------------------------------------------------
 // OpenSSL SSL/TLS detection
 // ---------------------------------------------------------------------------
-
-// tlsMethodMap maps OpenSSL SSL method functions to TLS version info.
-var tlsMethodMap = map[string]struct {
-	name     string
-	version  string
-	severity types.Severity
-}{
-	"TLS_method":            {name: "TLS", version: "", severity: types.SeverityInfo},
-	"TLS_client_method":     {name: "TLS", version: "", severity: types.SeverityInfo},
-	"TLS_server_method":     {name: "TLS", version: "", severity: types.SeverityInfo},
-	"TLSv1_method":          {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLSv1_client_method":   {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLSv1_server_method":   {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLSv1_1_method":        {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
-	"TLSv1_1_client_method": {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
-	"TLSv1_1_server_method": {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
-	"TLSv1_2_method":        {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
-	"TLSv1_2_client_method": {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
-	"TLSv1_2_server_method": {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
-	"SSLv23_method":         {name: "SSL 2.0/3.0", version: "2.0", severity: types.SeverityHigh},
-	"SSLv3_method":          {name: "SSL 3.0", version: "3.0", severity: types.SeverityHigh},
-}
-
-// tlsVersionConstants maps OpenSSL TLS version macro values for SSL_CTX_set_min_proto_version.
-var tlsVersionConstants = map[string]struct {
-	name     string
-	version  string
-	severity types.Severity
-}{
-	"TLS1_VERSION":   {name: "TLS 1.0", version: "1.0", severity: types.SeverityHigh},
-	"TLS1_1_VERSION": {name: "TLS 1.1", version: "1.1", severity: types.SeverityHigh},
-	"TLS1_2_VERSION": {name: "TLS 1.2", version: "1.2", severity: types.SeverityInfo},
-	"TLS1_3_VERSION": {name: "TLS 1.3", version: "1.3", severity: types.SeverityInfo},
-	"SSL3_VERSION":   {name: "SSL 3.0", version: "3.0", severity: types.SeverityHigh},
-}
 
 func (s *CppScanner) detectOpenSSLSSL(root *sitter.Node, path string, content []byte, cp *ConstPropagator) []types.Finding {
 	var findings []types.Finding

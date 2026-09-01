@@ -29,6 +29,7 @@ import (
 	javaLang "github.com/smacker/go-tree-sitter/java"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -114,25 +115,111 @@ type dotNetFactoryInfo struct {
 	materialTag string // non-empty for key-material findings
 }
 
-var dotNetFactoryClasses = map[string]dotNetFactoryInfo{
-	// Symmetric ciphers
-	"Aes":       {family: "aes", name: "AES", primitive: "block-cipher", severity: types.SeverityInfo, ruleTag: "aes", cryptoFunc: "encrypt"},
-	"TripleDES": {family: "3des", name: "3DES", primitive: "block-cipher", severity: types.SeverityHigh, ruleTag: "3des", cryptoFunc: "encrypt"},
-	"DES":       {family: "des", name: "DES", primitive: "block-cipher", severity: types.SeverityHigh, ruleTag: "des", cryptoFunc: "encrypt"},
+var dotNetFactoryClasses map[string]dotNetFactoryInfo
 
-	// Asymmetric ciphers / key generation
-	"RSA":   {family: "rsa", name: "RSA", primitive: "pke", severity: types.SeverityInfo, ruleTag: "rsa", cryptoFunc: "generate"},
-	"DSA":   {family: "dsa", name: "DSA", primitive: "signature", severity: types.SeverityInfo, ruleTag: "dsa", cryptoFunc: "generate"},
-	"ECDsa": {family: "ecdsa", name: "ECDSA", primitive: "signature", severity: types.SeverityInfo, ruleTag: "ecdsa", cryptoFunc: "generate"},
-	// ECDiffieHellman is the standard .NET BCL ECDH key-agreement class.
-	"ECDiffieHellman": {family: "ecdh", name: "ECDH", primitive: "key-agree", severity: types.SeverityInfo, ruleTag: "ecdh", cryptoFunc: "keyagree"},
+// bcEngineT is the value type for bcEngineAlgorithms (BouncyCastle.NET engines).
+type bcEngineT struct {
+	family    string
+	name      string
+	primitive string
+}
 
-	// Hashes
-	"SHA256": {family: "sha-256", name: "SHA-256", primitive: "hash", severity: types.SeverityInfo, ruleTag: "sha256", cryptoFunc: "digest"},
-	"SHA384": {family: "sha-384", name: "SHA-384", primitive: "hash", severity: types.SeverityInfo, ruleTag: "sha384", cryptoFunc: "digest"},
-	"SHA512": {family: "sha-512", name: "SHA-512", primitive: "hash", severity: types.SeverityInfo, ruleTag: "sha512", cryptoFunc: "digest"},
-	"SHA1":   {family: "sha1", name: "SHA-1", primitive: "hash", severity: types.SeverityHigh, ruleTag: "sha1", cryptoFunc: "digest"},
-	"MD5":    {family: "md5", name: "MD5", primitive: "hash", severity: types.SeverityHigh, ruleTag: "md5", cryptoFunc: "digest"},
+// bcDigestT is the value type for bcDigestAlgorithms (BouncyCastle.NET digests).
+type bcDigestT struct {
+	family string
+	name   string
+}
+
+// sslProtocolT is the value type for sslProtocolInfo (SslProtocols enum values).
+type sslProtocolT struct {
+	name     string
+	version  string
+	severity types.Severity
+}
+
+// The C# Pass-1 detection tables below are DATA, loaded from the embedded
+// scanner/ast-rules/csharp.yml at init() and replaceable at scan time via
+// --ast-rules-dir (astrules.LoadCSharp). Only the tables (token -> crypto
+// semantics) are external; the tree-sitter query machinery stays in Go. The
+// local struct types preserve the exact field names the detect sites already
+// use, so wiring them from data required no change at the lookup sites. See
+// docs/ast-rules-external-design.md.
+var (
+	// bcEngineAlgorithms maps BouncyCastle.NET engine class names to algorithm info.
+	bcEngineAlgorithms map[string]bcEngineT
+	// bcDigestAlgorithms maps BouncyCastle.NET digest class names to algorithm info.
+	bcDigestAlgorithms map[string]bcDigestT
+	// sslProtocolInfo maps SslProtocols enum values to TLS version info.
+	sslProtocolInfo map[string]sslProtocolT
+)
+
+func init() {
+	applyCSharpTables(astrules.MustLoadCSharpEmbedded())
+}
+
+// applyCSharpTables (re)populates the package-level detection tables from a
+// loaded astrules.CSharpTables. Called at init with the embedded set and again
+// by ApplyExternalRules when --ast-rules-dir is given.
+func applyCSharpTables(t *astrules.CSharpTables) {
+	fc := make(map[string]dotNetFactoryInfo, len(t.FactoryClasses))
+	for _, r := range t.FactoryClasses {
+		fc[r.Class] = dotNetFactoryInfo{
+			family:      r.Family,
+			name:        r.Name,
+			primitive:   r.Primitive,
+			severity:    parseCSharpSeverity(r.Severity),
+			ruleTag:     r.RuleTag,
+			cryptoFunc:  r.CryptoFunc,
+			materialTag: r.MaterialTag,
+		}
+	}
+	dotNetFactoryClasses = fc
+
+	be := make(map[string]bcEngineT, len(t.BCEngines))
+	for _, r := range t.BCEngines {
+		be[r.Class] = bcEngineT{family: r.Family, name: r.Name, primitive: r.Primitive}
+	}
+	bcEngineAlgorithms = be
+
+	bd := make(map[string]bcDigestT, len(t.BCDigests))
+	for _, r := range t.BCDigests {
+		bd[r.Class] = bcDigestT{family: r.Family, name: r.Name}
+	}
+	bcDigestAlgorithms = bd
+
+	sp := make(map[string]sslProtocolT, len(t.SSLProtocols))
+	for _, r := range t.SSLProtocols {
+		sp[r.Enum] = sslProtocolT{name: r.Name, version: r.Version, severity: parseCSharpSeverity(r.Severity)}
+	}
+	sslProtocolInfo = sp
+}
+
+// ApplyExternalRules replaces the active C# Pass-1 tables from an external
+// --ast-rules-dir. When dir is empty, or has no csharp.yml, the embedded tables
+// are restored (per-language fallback). Returns an error only when a present
+// csharp.yml is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadCSharp(dir)
+	if err != nil {
+		return err
+	}
+	applyCSharpTables(t)
+	return nil
+}
+
+func parseCSharpSeverity(s string) types.Severity {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "critical":
+		return types.SeverityCritical
+	case "high":
+		return types.SeverityHigh
+	case "medium":
+		return types.SeverityMedium
+	case "low":
+		return types.SeverityLow
+	default:
+		return types.SeverityInfo
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -353,35 +440,6 @@ func intFromNode(n *sitter.Node, content []byte, cp *ConstPropagator) int {
 // ---------------------------------------------------------------------------
 // BouncyCastle.NET detection
 // ---------------------------------------------------------------------------
-
-// bcEngineAlgorithms maps BouncyCastle.NET engine class names to algorithm info.
-var bcEngineAlgorithms = map[string]struct {
-	family    string
-	name      string
-	primitive string
-}{
-	"AesEngine":    {family: "aes", name: "AES", primitive: "block-cipher"},
-	"DesEngine":    {family: "des", name: "DES", primitive: "block-cipher"},
-	"RsaEngine":    {family: "rsa", name: "RSA", primitive: "pke"},
-	"AESEngine":    {family: "aes", name: "AES", primitive: "block-cipher"},
-	"DESEngine":    {family: "des", name: "DES", primitive: "block-cipher"},
-	"RSAEngine":    {family: "rsa", name: "RSA", primitive: "pke"},
-	"RC4Engine":    {family: "rc4", name: "RC4", primitive: "stream-cipher"},
-	"DESedeEngine": {family: "3des", name: "3DES", primitive: "block-cipher"},
-}
-
-// bcDigestAlgorithms maps BouncyCastle.NET digest class names to algorithm info.
-var bcDigestAlgorithms = map[string]struct {
-	family string
-	name   string
-}{
-	"Sha256Digest": {family: "sha-256", name: "SHA-256"},
-	"MD5Digest":    {family: "md5", name: "MD5"},
-	"SHA256Digest": {family: "sha-256", name: "SHA-256"},
-	"Md5Digest":    {family: "md5", name: "MD5"},
-	"Sha1Digest":   {family: "sha1", name: "SHA-1"},
-	"SHA1Digest":   {family: "sha1", name: "SHA-1"},
-}
 
 func (s *CSharpScanner) detectBouncyCastle(root *sitter.Node, path string, content []byte, _ *ConstPropagator) []types.Finding {
 	var findings []types.Finding
@@ -638,18 +696,6 @@ func buildHMACFinding(path string, line int, name, hashFamily string) *types.Fin
 		RuleID:      fmt.Sprintf("cbom-csharp-dotnet-%s", strings.ToLower(name)),
 		Pass:        1,
 	}
-}
-
-// sslProtocolInfo maps SslProtocols enum values to TLS version info.
-var sslProtocolInfo = map[string]struct {
-	name     string
-	version  string
-	severity types.Severity
-}{
-	"Tls":   {name: "TLSv1.0", version: "1.0", severity: types.SeverityHigh},
-	"Tls11": {name: "TLSv1.1", version: "1.1", severity: types.SeverityHigh},
-	"Tls12": {name: "TLSv1.2", version: "1.2", severity: types.SeverityInfo},
-	"Tls13": {name: "TLSv1.3", version: "1.3", severity: types.SeverityInfo},
 }
 
 // buildSslFinding constructs a finding for an SslProtocols enum value.

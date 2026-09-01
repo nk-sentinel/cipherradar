@@ -61,6 +61,15 @@ func DefaultRegistryWithOptions(cfg *cradarConfig.Config, opts RegistryOptions) 
 	for _, applyAST := range []func(string) error{
 		java.ApplyExternalRules,
 		golang.ApplyExternalRules,
+		kotlin.ApplyExternalRules,
+		ruby.ApplyExternalRules,
+		rust.ApplyExternalRules,
+		cpp.ApplyExternalRules,
+		csharp.ApplyExternalRules,
+		php.ApplyExternalRules,
+		javascript.ApplyExternalRules,
+		python.ApplyExternalRules,
+		swift.ApplyExternalRules,
 	} {
 		if err := applyAST(opts.AstRulesDir); err != nil {
 			_ = applyAST("")

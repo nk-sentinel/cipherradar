@@ -19,6 +19,7 @@ import (
 	"sync/atomic"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -28,9 +29,9 @@ var findingCounter atomic.Int64
 
 // SwiftScanner detects cryptographic API usage in Swift source files.
 type SwiftScanner struct {
-	cryptoKitPatterns  []cryptoPattern
-	commonCryptoRe     []*regexPattern
-	securityPatterns   []*regexPattern
+	cryptoKitPatterns []cryptoPattern
+	commonCryptoRe    []*regexPattern
+	securityPatterns  []*regexPattern
 }
 
 type cryptoPattern struct {
@@ -497,73 +498,63 @@ func (s *SwiftScanner) initCommonCryptoPatterns() {
 // algorithm-argument inspection.
 const ccCryptRuleID = "cbom-swift-commoncrypto-cccrypt"
 
-// ccCryptAlgConst maps a CommonCrypto kCCAlgorithm* constant to a concrete
-// algorithm-specific CCCrypt pattern. Only these exact constants trigger an
-// algorithm-specific finding; anything else falls back to the generic pattern.
-var ccCryptAlgConst = map[string]*regexPattern{
-	"kCCAlgorithmDES": {
-		family:      "des",
-		name:        "CCCrypt-DES",
-		primitive:   "block-cipher",
-		severity:    types.SeverityHigh,
-		ruleID:      "cbom-swift-commoncrypto-cccrypt-des",
-		cryptoFuncs: []string{"encrypt", "decrypt"},
-		assetType:   types.AssetAlgorithm,
-	},
-	"kCCAlgorithm3DES": {
-		family:      "3des",
-		name:        "CCCrypt-3DES",
-		primitive:   "block-cipher",
-		severity:    types.SeverityHigh,
-		ruleID:      "cbom-swift-commoncrypto-cccrypt-3des",
-		cryptoFuncs: []string{"encrypt", "decrypt"},
-		assetType:   types.AssetAlgorithm,
-	},
-	"kCCAlgorithmRC4": {
-		family:      "rc4",
-		name:        "CCCrypt-RC4",
-		primitive:   "stream-cipher",
-		severity:    types.SeverityHigh,
-		ruleID:      "cbom-swift-commoncrypto-cccrypt-rc4",
-		cryptoFuncs: []string{"encrypt", "decrypt"},
-		assetType:   types.AssetAlgorithm,
-	},
-	"kCCAlgorithmAES": {
-		family:      "aes",
-		name:        "CCCrypt-AES",
-		primitive:   "block-cipher",
-		severity:    types.SeverityInfo,
-		ruleID:      "cbom-swift-commoncrypto-cccrypt-aes",
-		cryptoFuncs: []string{"encrypt", "decrypt"},
-		assetType:   types.AssetAlgorithm,
-	},
-	"kCCAlgorithmAES128": {
-		family:      "aes",
-		name:        "CCCrypt-AES",
-		primitive:   "block-cipher",
-		severity:    types.SeverityInfo,
-		ruleID:      "cbom-swift-commoncrypto-cccrypt-aes",
-		cryptoFuncs: []string{"encrypt", "decrypt"},
-		assetType:   types.AssetAlgorithm,
-	},
-	"kCCAlgorithmBlowfish": {
-		family:      "blowfish",
-		name:        "CCCrypt-Blowfish",
-		primitive:   "block-cipher",
-		severity:    types.SeverityHigh,
-		ruleID:      "cbom-swift-commoncrypto-cccrypt-blowfish",
-		cryptoFuncs: []string{"encrypt", "decrypt"},
-		assetType:   types.AssetAlgorithm,
-	},
-	"kCCAlgorithmCAST": {
-		family:      "cast5",
-		name:        "CCCrypt-CAST",
-		primitive:   "block-cipher",
-		severity:    types.SeverityHigh,
-		ruleID:      "cbom-swift-commoncrypto-cccrypt-cast",
-		cryptoFuncs: []string{"encrypt", "decrypt"},
-		assetType:   types.AssetAlgorithm,
-	},
+// The Swift Pass-1 CCCrypt algorithm table is DATA, loaded from the embedded
+// scanner/ast-rules/swift.yml at init() and replaceable at scan time via
+// --ast-rules-dir (astrules.LoadSwift). The value type stays *regexPattern so
+// the lookup sites (ccCryptAlgorithm / pat = alg) are unchanged; the re field is
+// left nil because these entries are matched by constant token, not by a
+// per-entry regex. See docs/ast-rules-external-design.md.
+var ccCryptAlgConst map[string]*regexPattern
+
+func init() {
+	applySwiftTables(astrules.MustLoadSwiftEmbedded())
+}
+
+// applySwiftTables (re)populates the package-level Swift detection tables from a
+// loaded astrules.SwiftTables. Called at init with the embedded set and again by
+// ApplyExternalRules when --ast-rules-dir is given.
+func applySwiftTables(t *astrules.SwiftTables) {
+	cc := make(map[string]*regexPattern, len(t.CCCryptAlgorithms))
+	for _, r := range t.CCCryptAlgorithms {
+		cc[r.Const] = &regexPattern{
+			family:      r.Family,
+			name:        r.Name,
+			primitive:   r.Primitive,
+			severity:    parseSwiftSeverity(r.Severity),
+			ruleID:      r.RuleID,
+			cryptoFuncs: r.CryptoFuncs,
+			assetType:   types.AssetType(r.AssetType),
+		}
+	}
+	ccCryptAlgConst = cc
+}
+
+// ApplyExternalRules replaces the active Swift Pass-1 tables from an external
+// --ast-rules-dir. When dir is empty, or has no swift.yml, the embedded tables
+// are restored (per-language fallback). Returns an error only when a present
+// swift.yml is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadSwift(dir)
+	if err != nil {
+		return err
+	}
+	applySwiftTables(t)
+	return nil
+}
+
+func parseSwiftSeverity(s string) types.Severity {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "critical":
+		return types.SeverityCritical
+	case "high":
+		return types.SeverityHigh
+	case "medium":
+		return types.SeverityMedium
+	case "low":
+		return types.SeverityLow
+	default:
+		return types.SeverityInfo
+	}
 }
 
 // ccCryptAlgRe extracts the kCCAlgorithm* constant token from a CCCrypt call.
@@ -614,13 +605,13 @@ func (s *SwiftScanner) initSecurityPatterns() {
 		},
 		// TLS via Network.framework (NWProtocolTLS) — transport protocol usage.
 		{
-			re:          regexp.MustCompile(`\bNWProtocolTLS\b`),
-			family:      "tls",
-			name:        "TLS",
-			primitive:   "protocol",
-			severity:    types.SeverityInfo,
-			ruleID:      "cbom-swift-network-tls",
-			assetType:   types.AssetProtocol,
+			re:        regexp.MustCompile(`\bNWProtocolTLS\b`),
+			family:    "tls",
+			name:      "TLS",
+			primitive: "protocol",
+			severity:  types.SeverityInfo,
+			ruleID:    "cbom-swift-network-tls",
+			assetType: types.AssetProtocol,
 		},
 	}
 }

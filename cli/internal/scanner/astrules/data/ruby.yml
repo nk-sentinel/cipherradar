@@ -1,0 +1,39 @@
+# External AST (Pass-1) detection tables for Ruby.
+#
+# Source of truth; copied into cli/internal/scanner/astrules/data/ and embedded
+# (run `go generate ./internal/scanner/astrules`). The Ruby scanner loads these
+# at init and can replace them at scan time via --ast-rules-dir. Only the data
+# lives here; the tree-sitter query machinery stays in Go. Values mirror the
+# former hardcoded maps exactly. See docs/ast-rules-external-design.md.
+version: 1
+language: ruby
+
+# OpenSSL::Cipher method string -> {family, mode, name}.
+# The method string is the map key (lowercased at the lookup site).
+cipher_algorithms:
+  - { method: aes-128-cbc, family: aes, mode: cbc, name: AES-128-CBC }
+  - { method: aes-192-cbc, family: aes, mode: cbc, name: AES-192-CBC }
+  - { method: aes-256-cbc, family: aes, mode: cbc, name: AES-256-CBC }
+  - { method: aes-128-gcm, family: aes, mode: gcm, name: AES-128-GCM }
+  - { method: aes-256-gcm, family: aes, mode: gcm, name: AES-256-GCM }
+  - { method: aes-128-ecb, family: aes, mode: ecb, name: AES-128-ECB }
+  - { method: aes-256-ecb, family: aes, mode: ecb, name: AES-256-ECB }
+  - { method: aes-128-ctr, family: aes, mode: ctr, name: AES-128-CTR }
+  - { method: aes-256-ctr, family: aes, mode: ctr, name: AES-256-CTR }
+  - { method: des-cbc, family: des, mode: cbc, name: DES-CBC }
+  - { method: des-ecb, family: des, mode: ecb, name: DES-ECB }
+  - { method: des3, family: 3des, mode: "", name: 3DES }
+  - { method: des-ede3-cbc, family: 3des, mode: cbc, name: 3DES-CBC }
+  - { method: bf-cbc, family: blowfish, mode: cbc, name: Blowfish-CBC }
+  - { method: rc4, family: rc4, mode: "", name: RC4 }
+  - { method: chacha20-poly1305, family: chacha20, mode: "", name: ChaCha20-Poly1305 }
+
+# OpenSSL/Digest algorithm key -> {family, name}.
+# The key is matched (as a substring, lowercased) against call text.
+digest_algorithms:
+  - { key: sha256, family: sha-256, name: SHA-256 }
+  - { key: sha384, family: sha-384, name: SHA-384 }
+  - { key: sha512, family: sha-512, name: SHA-512 }
+  - { key: sha1, family: sha1, name: SHA-1 }
+  - { key: md5, family: md5, name: MD5 }
+  - { key: ripemd160, family: ripemd160, name: RIPEMD-160 }

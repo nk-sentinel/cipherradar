@@ -17,6 +17,7 @@ import (
 	rustLang "github.com/smacker/go-tree-sitter/rust"
 
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/quantum"
 	"github.com/nk-sentinel/cipherradar/cli/internal/types"
 )
@@ -149,16 +150,77 @@ func hasUsePrefix(uses map[string]bool, prefix string) bool {
 // ring::digest detection
 // ---------------------------------------------------------------------------
 
-// ringDigestAlgorithms maps ring digest algorithm identifiers to findings info.
-var ringDigestAlgorithms = map[string]struct {
+// The Rust Pass-1 detection tables are DATA, loaded from the embedded
+// scanner/ast-rules/rust.yml at init() and replaceable at scan time via
+// --ast-rules-dir (astrules.LoadRust). Local struct types preserve the exact
+// field names the detect sites use, so wiring them from data needed no change
+// at the lookup sites. See docs/ast-rules-external-design.md.
+
+type ringDigestT struct {
 	name     string
 	family   string
 	severity types.Severity
-}{
-	"SHA256": {name: "SHA-256", family: "sha-256", severity: types.SeverityInfo},
-	"SHA384": {name: "SHA-384", family: "sha-384", severity: types.SeverityInfo},
-	"SHA512": {name: "SHA-512", family: "sha-512", severity: types.SeverityInfo},
-	"SHA1":   {name: "SHA-1", family: "sha1", severity: types.SeverityHigh},
+}
+
+type rustCryptoAESGCMT struct {
+	name    string
+	keySize int
+}
+
+var (
+	// ringDigestAlgorithms maps ring digest algorithm identifiers to findings info.
+	ringDigestAlgorithms map[string]ringDigestT
+	// rustCryptoAESGCM maps the aes-gcm crate's AEAD cipher types to findings info.
+	rustCryptoAESGCM map[string]rustCryptoAESGCMT
+)
+
+func init() {
+	applyRustTables(astrules.MustLoadRustEmbedded())
+}
+
+// applyRustTables (re)populates the package-level detection tables from a loaded
+// astrules.RustTables. Called at init with the embedded set and again by
+// ApplyExternalRules when --ast-rules-dir is given.
+func applyRustTables(t *astrules.RustTables) {
+	rd := make(map[string]ringDigestT, len(t.RingDigestAlgorithms))
+	for _, r := range t.RingDigestAlgorithms {
+		rd[r.ID] = ringDigestT{name: r.Name, family: r.Family, severity: parseRustSeverity(r.Severity)}
+	}
+	ringDigestAlgorithms = rd
+
+	ag := make(map[string]rustCryptoAESGCMT, len(t.RustCryptoAESGCM))
+	for _, r := range t.RustCryptoAESGCM {
+		ag[r.Cipher] = rustCryptoAESGCMT{name: r.Name, keySize: r.KeySize}
+	}
+	rustCryptoAESGCM = ag
+}
+
+// ApplyExternalRules replaces the active Rust Pass-1 tables from an external
+// --ast-rules-dir. When dir is empty, or has no rust.yml, the embedded tables
+// are restored (per-language fallback). Returns an error only when a present
+// rust.yml is malformed.
+func ApplyExternalRules(dir string) error {
+	t, err := astrules.LoadRust(dir)
+	if err != nil {
+		return err
+	}
+	applyRustTables(t)
+	return nil
+}
+
+func parseRustSeverity(s string) types.Severity {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "critical":
+		return types.SeverityCritical
+	case "high":
+		return types.SeverityHigh
+	case "medium":
+		return types.SeverityMedium
+	case "low":
+		return types.SeverityLow
+	default:
+		return types.SeverityInfo
+	}
 }
 
 func (s *RustScanner) detectRingDigest(root *sitter.Node, path string, content []byte, uses map[string]bool) []types.Finding {
@@ -221,22 +283,14 @@ func (s *RustScanner) detectRingDigest(root *sitter.Node, path string, content [
 	return findings
 }
 
-func (s *RustScanner) resolveRingDigestAlgo(callNode *sitter.Node, content []byte) (string, struct {
-	name     string
-	family   string
-	severity types.Severity
-}) {
+func (s *RustScanner) resolveRingDigestAlgo(callNode *sitter.Node, content []byte) (string, ringDigestT) {
 	callText := callNode.Content(content)
 	for algoID, info := range ringDigestAlgorithms {
 		if strings.Contains(callText, algoID) {
 			return algoID, info
 		}
 	}
-	return "", struct {
-		name     string
-		family   string
-		severity types.Severity
-	}{}
+	return "", ringDigestT{}
 }
 
 // ---------------------------------------------------------------------------
@@ -254,9 +308,9 @@ func (s *RustScanner) detectRingAEAD(root *sitter.Node, path string, content []b
 			name   string
 			family string
 		}{
-			"AES_128_GCM":           {name: "AES-128-GCM", family: "aes"},
-			"AES_256_GCM":           {name: "AES-256-GCM", family: "aes"},
-			"CHACHA20_POLY1305":     {name: "ChaCha20-Poly1305", family: "chacha20"},
+			"AES_128_GCM":       {name: "AES-128-GCM", family: "aes"},
+			"AES_256_GCM":       {name: "AES-256-GCM", family: "aes"},
+			"CHACHA20_POLY1305": {name: "ChaCha20-Poly1305", family: "chacha20"},
 		}
 
 		// Match aead::UnboundKey::new, aead::LessSafeKey::new, aead::SealingKey, aead::OpeningKey
@@ -326,9 +380,9 @@ func (s *RustScanner) detectRingAgreement(root *sitter.Node, path string, conten
 		name   string
 		family string
 	}{
-		"X25519":            {name: "X25519", family: "x25519"},
-		"ECDH_P256":         {name: "ECDH-P256", family: "ecdh"},
-		"ECDH_P384":         {name: "ECDH-P384", family: "ecdh"},
+		"X25519":    {name: "X25519", family: "x25519"},
+		"ECDH_P256": {name: "ECDH-P256", family: "ecdh"},
+		"ECDH_P384": {name: "ECDH-P384", family: "ecdh"},
 	}
 
 	for _, callNode := range findAllCallExprs(root, content) {
@@ -435,17 +489,17 @@ func (s *RustScanner) detectRingSignature(root *sitter.Node, path string, conten
 		family   string
 		severity types.Severity
 	}{
-		"ED25519":                   {name: "Ed25519", family: "ed25519", severity: types.SeverityInfo},
-		"ECDSA_P256_SHA256_ASN1":    {name: "ECDSA-P256-SHA256", family: "ecdsa", severity: types.SeverityInfo},
-		"ECDSA_P256_SHA256_FIXED":   {name: "ECDSA-P256-SHA256", family: "ecdsa", severity: types.SeverityInfo},
-		"ECDSA_P384_SHA384_ASN1":    {name: "ECDSA-P384-SHA384", family: "ecdsa", severity: types.SeverityInfo},
-		"ECDSA_P384_SHA384_FIXED":   {name: "ECDSA-P384-SHA384", family: "ecdsa", severity: types.SeverityInfo},
-		"RSA_PKCS1_SHA256":          {name: "RSA-PKCS1-SHA256", family: "rsa", severity: types.SeverityInfo},
-		"RSA_PKCS1_SHA384":          {name: "RSA-PKCS1-SHA384", family: "rsa", severity: types.SeverityInfo},
-		"RSA_PKCS1_SHA512":          {name: "RSA-PKCS1-SHA512", family: "rsa", severity: types.SeverityInfo},
-		"RSA_PSS_SHA256":            {name: "RSA-PSS-SHA256", family: "rsa", severity: types.SeverityInfo},
-		"RSA_PSS_SHA384":            {name: "RSA-PSS-SHA384", family: "rsa", severity: types.SeverityInfo},
-		"RSA_PSS_SHA512":            {name: "RSA-PSS-SHA512", family: "rsa", severity: types.SeverityInfo},
+		"ED25519":                 {name: "Ed25519", family: "ed25519", severity: types.SeverityInfo},
+		"ECDSA_P256_SHA256_ASN1":  {name: "ECDSA-P256-SHA256", family: "ecdsa", severity: types.SeverityInfo},
+		"ECDSA_P256_SHA256_FIXED": {name: "ECDSA-P256-SHA256", family: "ecdsa", severity: types.SeverityInfo},
+		"ECDSA_P384_SHA384_ASN1":  {name: "ECDSA-P384-SHA384", family: "ecdsa", severity: types.SeverityInfo},
+		"ECDSA_P384_SHA384_FIXED": {name: "ECDSA-P384-SHA384", family: "ecdsa", severity: types.SeverityInfo},
+		"RSA_PKCS1_SHA256":        {name: "RSA-PKCS1-SHA256", family: "rsa", severity: types.SeverityInfo},
+		"RSA_PKCS1_SHA384":        {name: "RSA-PKCS1-SHA384", family: "rsa", severity: types.SeverityInfo},
+		"RSA_PKCS1_SHA512":        {name: "RSA-PKCS1-SHA512", family: "rsa", severity: types.SeverityInfo},
+		"RSA_PSS_SHA256":          {name: "RSA-PSS-SHA256", family: "rsa", severity: types.SeverityInfo},
+		"RSA_PSS_SHA384":          {name: "RSA-PSS-SHA384", family: "rsa", severity: types.SeverityInfo},
+		"RSA_PSS_SHA512":          {name: "RSA-PSS-SHA512", family: "rsa", severity: types.SeverityInfo},
 	}
 
 	for _, callNode := range findAllCallExprs(root, content) {
@@ -583,11 +637,11 @@ func (s *RustScanner) detectRustls(root *sitter.Node, path string, content []byt
 		name   string
 		family string
 	}{
-		"TLS13_AES_256_GCM_SHA384":        {name: "AES-256-GCM", family: "aes"},
-		"TLS13_AES_128_GCM_SHA256":        {name: "AES-128-GCM", family: "aes"},
-		"TLS13_CHACHA20_POLY1305_SHA256":   {name: "ChaCha20-Poly1305", family: "chacha20"},
-		"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384": {name: "AES-256-GCM", family: "aes"},
-		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256": {name: "AES-128-GCM", family: "aes"},
+		"TLS13_AES_256_GCM_SHA384":                    {name: "AES-256-GCM", family: "aes"},
+		"TLS13_AES_128_GCM_SHA256":                    {name: "AES-128-GCM", family: "aes"},
+		"TLS13_CHACHA20_POLY1305_SHA256":              {name: "ChaCha20-Poly1305", family: "chacha20"},
+		"TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384":       {name: "AES-256-GCM", family: "aes"},
+		"TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256":       {name: "AES-128-GCM", family: "aes"},
 		"TLS_ECDHE_RSA_WITH_CHACHA20_POLY1305_SHA256": {name: "ChaCha20-Poly1305", family: "chacha20"},
 	}
 
@@ -717,14 +771,14 @@ func (s *RustScanner) detectOpenSSLCrate(root *sitter.Node, path string, content
 				family string
 				mode   string
 			}{
-				"Cipher::aes_256_cbc(":  {name: "AES-256-CBC", family: "aes", mode: "cbc"},
-				"Cipher::aes_128_cbc(":  {name: "AES-128-CBC", family: "aes", mode: "cbc"},
-				"Cipher::aes_256_gcm(":  {name: "AES-256-GCM", family: "aes", mode: "gcm"},
-				"Cipher::aes_128_gcm(":  {name: "AES-128-GCM", family: "aes", mode: "gcm"},
-				"Cipher::aes_256_ctr(":  {name: "AES-256-CTR", family: "aes", mode: "ctr"},
-				"Cipher::des_cbc(":      {name: "DES-CBC", family: "des", mode: "cbc"},
-				"Cipher::des_ecb(":      {name: "DES-ECB", family: "des", mode: "ecb"},
-				"Cipher::rc4(":          {name: "RC4", family: "rc4", mode: ""},
+				"Cipher::aes_256_cbc(": {name: "AES-256-CBC", family: "aes", mode: "cbc"},
+				"Cipher::aes_128_cbc(": {name: "AES-128-CBC", family: "aes", mode: "cbc"},
+				"Cipher::aes_256_gcm(": {name: "AES-256-GCM", family: "aes", mode: "gcm"},
+				"Cipher::aes_128_gcm(": {name: "AES-128-GCM", family: "aes", mode: "gcm"},
+				"Cipher::aes_256_ctr(": {name: "AES-256-CTR", family: "aes", mode: "ctr"},
+				"Cipher::des_cbc(":     {name: "DES-CBC", family: "des", mode: "cbc"},
+				"Cipher::des_ecb(":     {name: "DES-ECB", family: "des", mode: "ecb"},
+				"Cipher::rc4(":         {name: "RC4", family: "rc4", mode: ""},
 			}
 
 			for pattern, info := range symmAlgos {
@@ -785,15 +839,6 @@ func (s *RustScanner) detectOpenSSLCrate(root *sitter.Node, path string, content
 // ---------------------------------------------------------------------------
 // RustCrypto aes-gcm crate detection
 // ---------------------------------------------------------------------------
-
-// rustCryptoAESGCM maps the aes-gcm crate's AEAD cipher types to findings info.
-var rustCryptoAESGCM = map[string]struct {
-	name    string
-	keySize int
-}{
-	"Aes256Gcm": {name: "AES-256-GCM", keySize: 256},
-	"Aes128Gcm": {name: "AES-128-GCM", keySize: 128},
-}
 
 // detectRustCryptoAEAD detects AES-GCM AEAD usage via the pure-Rust `aes-gcm`
 // crate, e.g. `Aes256Gcm::new(key)`. Gated on a `use aes_gcm::...` import to
