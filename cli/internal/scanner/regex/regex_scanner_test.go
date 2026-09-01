@@ -5,6 +5,8 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
+	"encoding/pem"
 	"math/big"
 	"os"
 	"strings"
@@ -377,6 +379,37 @@ func TestBase64Key_DoesNotSuppressGenuineKey(t *testing.T) {
 			}
 			if got := filterByRuleID(findings, "cbom-regex-base64-key"); len(got) == 0 {
 				t.Errorf("expected genuine base64 key to be detected, got 0 findings")
+			}
+		})
+	}
+}
+
+// TestBase64Key_SuppressesCertificate ensures a base64-encoded X.509
+// certificate (e.g. a Kubernetes Secret's tls.crt / ca.crt) is NOT also
+// reported as opaque "key material" — it is already inventoried as a
+// certificate, so emitting it here double-counts the same asset (issue #70).
+func TestBase64Key_SuppressesCertificate(t *testing.T) {
+	der := makeTestCert(t)
+	b64DER := base64.StdEncoding.EncodeToString(der)
+	// A real Kubernetes TLS Secret stores tls.crt as base64 of the PEM block,
+	// not raw DER — cover that shape too.
+	pemBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: der})
+	b64PEM := base64.StdEncoding.EncodeToString(pemBytes)
+	cases := []struct{ name, line string }{
+		{"k8s tls.crt (DER)", "  tls.crt: " + b64DER},
+		{"k8s ca.crt (DER)", "  ca.crt: " + b64DER},
+		{"k8s tls.crt (base64 of PEM)", "  tls.crt: " + b64PEM},
+		{"bare value", b64DER},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s := New()
+			findings, err := s.ScanFile("secret.yaml", []byte(tc.line+"\n"))
+			if err != nil {
+				t.Fatalf("ScanFile returned error: %v", err)
+			}
+			if got := filterByRuleID(findings, "cbom-regex-base64-key"); len(got) != 0 {
+				t.Errorf("base64 certificate should be suppressed from the base64-key rule, got %d findings", len(got))
 			}
 		})
 	}

@@ -5,6 +5,7 @@ package regex
 import (
 	"bytes"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"path/filepath"
@@ -284,6 +285,15 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 			if looksLikeSRI(line, loc[0]) {
 				continue
 			}
+			// Skip base64 that is itself an X.509 certificate. Such values
+			// (e.g. a Kubernetes Secret's tls.crt / ca.crt) are already
+			// inventoried as certificates by the config-file / PEM cert path,
+			// so reporting them again as "unknown key material" double-counts
+			// the same asset (issue #70). We key off the decoded SHAPE (it
+			// parses as a DER cert), never the field name.
+			if decodesToCertificate(line[loc[0]:loc[1]]) {
+				continue
+			}
 			snippet := strings.TrimSpace(lineStr)
 			findings = append(findings, types.Finding{
 				ID:        nextID(),
@@ -495,6 +505,39 @@ func looksLikeSRI(line []byte, start int) bool {
 	}
 	algo := strings.ToLower(string(line[start-prefixLen : start-1]))
 	return algo == "sha256" || algo == "sha384" || algo == "sha512"
+}
+
+// minCertB64Len is a cheap lower bound below which a base64 token cannot be an
+// X.509 certificate — even a minimal self-signed cert is several hundred DER
+// bytes. It lets us skip the decode+parse for the common short high-entropy
+// tokens that dominate the base64-key matches.
+const minCertB64Len = 200
+
+// decodesToCertificate reports whether a base64 token decodes to a parseable
+// DER X.509 certificate. Certificate values embedded as base64 (e.g. a
+// Kubernetes Secret's tls.crt) are already inventoried by the certificate
+// path, so the generic entropy rule must not also report them as opaque key
+// material (issue #70 double-count). Matching is purely by decoded shape.
+func decodesToCertificate(b64 []byte) bool {
+	if len(b64) < minCertB64Len {
+		return false
+	}
+	raw, err := base64.RawStdEncoding.DecodeString(strings.TrimRight(string(b64), "="))
+	if err != nil {
+		return false
+	}
+	// The decoded bytes may be a DER certificate directly, or PEM text — a
+	// Kubernetes TLS Secret stores tls.crt as base64 of the PEM block, so
+	// decoding yields "-----BEGIN CERTIFICATE-----...", not raw DER.
+	if _, err := x509.ParseCertificate(raw); err == nil {
+		return true
+	}
+	if block, _ := pem.Decode(raw); block != nil && block.Type == "CERTIFICATE" {
+		if _, err := x509.ParseCertificate(block.Bytes); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // looksLikeGitHash checks if the line context suggests a git commit hash.

@@ -106,10 +106,47 @@ func TestPass1Findings_SurviveDefaultRulefilter(t *testing.T) {
 			"causing normalizeLifecycle to skip permissive defaults (Bug 4 regression)",
 			stats.Input, stats)
 	}
-	if stats.DroppedByDefault > 0 {
-		t.Errorf("rulefilter dropped %d Pass-1 findings at default_enabled gate "+
-			"(stats=%+v) — AnnotateFindings must set DefaultEnabled=true",
-			stats.DroppedByDefault, stats)
+	// The default filter intentionally drops the noise-gated entropy rules
+	// (off by default; see scanner.noiseGatedOffByDefault). Every OTHER Pass-1
+	// rule must still survive the default_enabled gate — that is the Bug 4
+	// regression this test guards.
+	noiseGated := map[string]bool{
+		"cbom-regex-hex-key":    true,
+		"cbom-regex-base64-key": true,
+	}
+	allByRule := map[string]int{}
+	for _, f := range result.Findings {
+		allByRule[f.RuleID]++
+	}
+	keptByRule := map[string]int{}
+	for _, f := range kept {
+		keptByRule[f.RuleID]++
+	}
+	for rule, emitted := range allByRule {
+		if noiseGated[rule] {
+			if keptByRule[rule] != 0 {
+				t.Errorf("noise-gated rule %s should be OFF by default, but %d survived", rule, keptByRule[rule])
+			}
+			continue
+		}
+		if keptByRule[rule] != emitted {
+			t.Errorf("rule %s: %d emitted but only %d survived the default filter — "+
+				"non-noise Pass-1 rules must not be dropped (Bug 4 regression)",
+				rule, emitted, keptByRule[rule])
+		}
+	}
+
+	// --include-noisy must bring the noise-gated rules back in full.
+	noisyKept, _ := rulefilter.Apply(result.Findings, rulefilter.Options{IncludeNoisy: true})
+	noisyByRule := map[string]int{}
+	for _, f := range noisyKept {
+		noisyByRule[f.RuleID]++
+	}
+	for rule := range noiseGated {
+		if allByRule[rule] > 0 && noisyByRule[rule] != allByRule[rule] {
+			t.Errorf("--include-noisy should re-enable %s: emitted %d, kept %d",
+				rule, allByRule[rule], noisyByRule[rule])
+		}
 	}
 
 	// --only-inventory must also produce a non-empty subset on Pass 1.

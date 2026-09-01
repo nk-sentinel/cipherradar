@@ -104,3 +104,27 @@ func TestAnnotateFindings_PreservesExplicit(t *testing.T) {
 		}
 	}
 }
+
+// TestAnnotateFindings_NoiseGatedOffByDefault verifies the loose entropy rules
+// ship OFF by default (default_enabled=false + noise_risk:high) so a normal
+// scan is quiet and --include-noisy re-enables them (WS2 / issue #70).
+func TestAnnotateFindings_NoiseGatedOffByDefault(t *testing.T) {
+	for _, rule := range []string{"cbom-regex-hex-key", "cbom-regex-base64-key"} {
+		got := AnnotateFindings([]types.Finding{{
+			RuleID:   rule,
+			Severity: types.SeverityInfo,
+			Category: types.CategoryInventory,
+			Maturity: types.MaturityStable,
+		}})
+		f := got[0]
+		if f.DefaultEnabled {
+			t.Errorf("%s: DefaultEnabled=true, want false (should be off by default)", rule)
+		}
+		if f.NoiseRisk != types.NoiseRiskHigh {
+			t.Errorf("%s: NoiseRisk=%q, want high", rule, f.NoiseRisk)
+		}
+		if f.Category != types.CategoryInventory {
+			t.Errorf("%s: Category=%q, want inventory", rule, f.Category)
+		}
+	}
+}
