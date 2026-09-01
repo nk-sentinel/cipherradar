@@ -35,6 +35,11 @@ type RegistryOptions struct {
 	// default resolution order (CRADAR_YARA_RULES_DIR env, else the embedded
 	// starter ruleset).
 	YaraRulesDir string
+
+	// AstRulesDir, when non-empty, replaces the embedded Pass-1 (AST) detection
+	// tables on a per-language basis (see the astrules package and
+	// docs/ast-rules-external-design.md). Empty uses the embedded tables.
+	AstRulesDir string
 }
 
 // DefaultRegistry returns a registry with all built-in language scanners.
@@ -42,10 +47,20 @@ func DefaultRegistry() *scanner.Registry {
 	return DefaultRegistryWithOptions(nil, RegistryOptions{})
 }
 
-// DefaultRegistryWithOptions is the single registry builder. It registers
-// every built-in scanner, seeds a CustomScanner when cfg declares any
-// custom_wrappers, and honors opts (e.g. an external YARA-X rules directory).
+// DefaultRegistryWithOptions is the single registry builder. It applies any
+// external Pass-1 rules override, registers every built-in scanner, seeds a
+// CustomScanner when cfg declares any custom_wrappers, and honors opts (e.g. an
+// external YARA-X rules directory).
 func DefaultRegistryWithOptions(cfg *cradarConfig.Config, opts RegistryOptions) *scanner.Registry {
+	// Normalize the Pass-1 (AST) detection tables: the external dir when
+	// provided, else the embedded set. Done unconditionally so a prior external
+	// override can't leak into a later registry build. An explicitly provided
+	// dir is validated upstream (cmd/scan.go); on a late error here we fall back
+	// to embedded rather than crash.
+	if err := java.ApplyExternalRules(opts.AstRulesDir); err != nil {
+		_ = java.ApplyExternalRules("")
+	}
+
 	r := scanner.NewRegistry()
 
 	// Language-specific scanners (dispatched by file extension)

@@ -219,6 +219,45 @@ func TestScanCommand_BadCategoryExitsConfigError(t *testing.T) {
 	}
 }
 
+// TestScanCommand_AstRulesDirEmpty_ExitToolMissing verifies that an explicit
+// --ast-rules-dir with no recognized <lang>.yml hard-fails up front (Pass-2
+// "error if no loadable rules" parity), rather than silently scanning with the
+// embedded tables.
+func TestScanCommand_AstRulesDirEmpty_ExitToolMissing(t *testing.T) {
+	proj := t.TempDir()
+	if err := os.WriteFile(filepath.Join(proj, "A.java"), []byte("class A {}\n"), 0o644); err != nil {
+		t.Fatalf("write fixture: %v", err)
+	}
+	emptyRules := t.TempDir()
+
+	// rootCmd/scanCmd are process-global; reset the flag this test sets.
+	t.Cleanup(func() {
+		f := scanCmd.Flags().Lookup("ast-rules-dir")
+		_ = scanCmd.Flags().Set("ast-rules-dir", f.DefValue)
+		f.Changed = false
+	})
+
+	var buf bytes.Buffer
+	rootCmd.SetOut(&buf)
+	rootCmd.SetErr(&buf)
+	rootCmd.SetArgs([]string{"scan", proj, "--ast-rules-dir", emptyRules})
+
+	err := rootCmd.Execute()
+	if err == nil {
+		t.Fatal("expected error for empty --ast-rules-dir, got nil")
+	}
+	var ee *ExitError
+	if !errors.As(err, &ee) {
+		t.Fatalf("expected *ExitError, got %T: %v", err, err)
+	}
+	if ee.Code != ExitToolMissing {
+		t.Errorf("expected ExitToolMissing (%d), got %d", ExitToolMissing, ee.Code)
+	}
+	if !strings.Contains(err.Error(), "ast-rules-dir") {
+		t.Errorf("error should mention ast-rules-dir, got: %v", err)
+	}
+}
+
 func TestScanCommand_OnlyInventoryHintWhenPass2Skipped(t *testing.T) {
 	// Only meaningful when opengrep is absent — otherwise pass 2 would run.
 	if opengrep.NewRunner() != nil {

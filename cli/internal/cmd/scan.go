@@ -23,6 +23,7 @@ import (
 	"github.com/nk-sentinel/cipherradar/cli/internal/rulefilter"
 	"github.com/nk-sentinel/cipherradar/cli/internal/rules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner"
+	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/astrules"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/fingerprint"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keysize"
 	"github.com/nk-sentinel/cipherradar/cli/internal/scanner/keystore"
@@ -56,6 +57,7 @@ func init() {
 		"fail the scan if any output value falls outside the CycloneDX 1.7 enum closed sets (default: warn only)")
 	scanCmd.Flags().String("rules-dir", "", "directory containing OpenGrep YAML rules for Pass 2")
 	scanCmd.Flags().String("yara-rules-dir", "", "directory containing YARA-X (.yar) rules for Pass 3; replaces the embedded ruleset (also reads CRADAR_YARA_RULES_DIR)")
+	scanCmd.Flags().String("ast-rules-dir", "", "directory containing external Pass-1 AST detection tables (<lang>.yml); replaces the embedded tables per-language (also reads CRADAR_AST_RULES_DIR)")
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (taint analysis + YARA-X binary scan)")
 
 	// Pre-commit hook support flags.
@@ -224,10 +226,26 @@ func runScan(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Resolve the external Pass-1 (AST) rules directory: --ast-rules-dir wins
+	// over CRADAR_AST_RULES_DIR; empty uses the embedded tables. When the flag
+	// is set explicitly and Pass 1 is active, validate up front and hard-fail
+	// on an unusable dir (mirrors --rules-dir / --yara-rules-dir).
+	astRulesDir, _ := cmd.Flags().GetString("ast-rules-dir")
+	if astRulesDir == "" {
+		astRulesDir = os.Getenv("CRADAR_AST_RULES_DIR")
+	}
+	if cmd.Flag("ast-rules-dir").Changed && containsPass(passes, 1) {
+		if err := astrules.ValidateRulesDir(astRulesDir); err != nil {
+			return ExitErrorf(ExitToolMissing, "--ast-rules-dir: %v", err)
+		}
+	}
+
 	// Create scanner registry with all built-in scanners + any user-defined
-	// custom wrappers from config, plus any external YARA-X rules override.
+	// custom wrappers from config, plus any external YARA-X and Pass-1 rules
+	// overrides.
 	registry := scannerinit.DefaultRegistryWithOptions(scanCfg, scannerinit.RegistryOptions{
 		YaraRulesDir: yaraRulesDir,
+		AstRulesDir:  astRulesDir,
 	})
 	if scanCfg != nil && len(scanCfg.CustomWrappers) > 0 {
 		fmt.Fprintf(cmd.ErrOrStderr(),
