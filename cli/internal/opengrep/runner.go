@@ -130,7 +130,7 @@ func (r *Runner) Scan(target string, rulesDir string) ([]types.Finding, error) {
 
 // isExecutable returns true if the path exists and is executable.
 func isExecutable(path string) bool {
-	info, err := os.Stat(path)
+	info, err := os.Stat(path) // #nosec G703 -- path is the resolved tool-binary location (next-to-exe / CRADAR_TOOLS_DIR / ~/.cradar/tools / $PATH), operator-controlled and not derived from scanned input; stat-only, no traversal
 	if err != nil {
 		return false
 	}

@@ -352,7 +352,7 @@ func isExecutable(path string) bool {
 	if path == "" {
 		return false
 	}
-	info, err := os.Stat(path)
+	info, err := os.Stat(path) // #nosec G703 -- path is the resolved tool-binary location (next-to-exe / CRADAR_TOOLS_DIR / ~/.cradar/tools / $PATH), operator-controlled and not derived from scanned input; stat-only, no traversal
 	if err != nil {
 		return false
 	}

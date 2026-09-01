@@ -90,15 +90,25 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck ./...
 
-      # SAST — report-only for now (baseline triage tracked in #74). Excludes
-      # test fixtures, which intentionally contain weak crypto. Flip
-      # continue-on-error to false once the baseline is clean/annotated.
-      - name: gosec (SAST, advisory)
+      # SAST (#74). testdata/ is excluded — fixtures intentionally contain weak
+      # crypto. Two runs share one install:
+      #   1. advisory — surfaces MEDIUM/LOW (mostly inherent to a file-scanning,
+      #      tool-shelling CLI: G304 path reads, G204 exec, WalkDir); never fails.
+      #   2. gate — fails CI on any HIGH. The current HIGHs are false-positives
+      #      (exec.Command no-shell, stat on operator-controlled tool paths,
+      #      WalkDir on cradar-owned trees) annotated with justified `#nosec`, so
+      #      this catches a genuinely new HIGH pattern without the annotate-every-
+      #      file-read treadmill an all-severity gate would impose. govulncheck
+      #      (above) remains the hard gate for known-exploitable dependency CVEs.
+      - name: gosec (SAST)
         working-directory: cli
-        continue-on-error: true
         run: |
           go install github.com/securego/gosec/v2/cmd/gosec@latest
-          gosec -quiet -exclude-dir=testdata ./...
+          echo "::group::gosec advisory (all severities)"
+          gosec -quiet -exclude-dir=testdata ./... || echo "::warning::gosec reported advisory (MEDIUM/LOW) findings — see log"
+          echo "::endgroup::"
+          echo "gosec gate: failing only on HIGH severity"
+          gosec -quiet -exclude-dir=testdata -severity=high ./...
 
   validate-rules:
     runs-on: ubuntu-latest
