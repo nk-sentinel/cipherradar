@@ -62,6 +62,8 @@ func init() {
 
 	// Coverage / memory controls.
 	scanCmd.Flags().String("max-file-size", "", "skip files larger than this size, e.g. 50MB / 1GB / 500000 (bytes); empty = no limit. Bounds per-file memory on large inputs.")
+	scanCmd.Flags().String("max-image-size", "", "cap total bytes extracted from a --container image, e.g. 1GB / 512MB; empty = built-in default (2GB). Guards against oversized images.")
+	scanCmd.Flags().Int("archive-max-depth", -1, "max nested-archive recursion depth for jar/war/ear/zip (jar-in-jar); -1 = built-in default (4), 0 = no recursion into nested archives")
 
 	// Pre-commit hook support flags.
 	scanCmd.Flags().Bool("fast", false, "run Pass 1 only (no OpenGrep), skip files >100KB")
@@ -229,6 +231,25 @@ func runScan(cmd *cobra.Command, args []string) error {
 		MaxFileSize:      maxFileSize,
 	}
 
+	// Container image-extraction budget (--max-image-size). Empty/0 uses the
+	// built-in default inside the container package.
+	maxImageStr, _ := cmd.Flags().GetString("max-image-size")
+	maxImageSize, misErr := parseHumanSize(maxImageStr)
+	if misErr != nil {
+		return ExitErrorf(ExitConfig, "--max-image-size: %v", misErr)
+	}
+
+	// Nested-archive recursion cap (--archive-max-depth). -1 (unset) leaves the
+	// built-in default; >= 0 overrides (0 = no recursion into nested archives).
+	var archiveMaxDepth *int
+	if cmd.Flag("archive-max-depth").Changed {
+		d, _ := cmd.Flags().GetInt("archive-max-depth")
+		if d < 0 {
+			return ExitErrorf(ExitConfig, "--archive-max-depth must be >= 0")
+		}
+		archiveMaxDepth = &d
+	}
+
 	// Load .cradar.yml (optional) so custom_wrappers can seed the registry
 	// with a CustomScanner. A missing / malformed config is a warning, not a
 	// fatal — the default registry still works.
@@ -267,8 +288,9 @@ func runScan(cmd *cobra.Command, args []string) error {
 	// custom wrappers from config, plus any external YARA-X and Pass-1 rules
 	// overrides.
 	registry := scannerinit.DefaultRegistryWithOptions(scanCfg, scannerinit.RegistryOptions{
-		YaraRulesDir: yaraRulesDir,
-		AstRulesDir:  astRulesDir,
+		YaraRulesDir:    yaraRulesDir,
+		AstRulesDir:     astRulesDir,
+		ArchiveMaxDepth: archiveMaxDepth,
 	})
 	if scanCfg != nil && len(scanCfg.CustomWrappers) > 0 {
 		fmt.Fprintf(cmd.ErrOrStderr(),
@@ -288,7 +310,9 @@ func runScan(cmd *cobra.Command, args []string) error {
 		// and scanned through the same pipeline as a directory: Pass 1 + Pass 3
 		// via the walker, Pass 2 via OpenGrep. result.PassesRun reflects the
 		// passes that actually ran (gh #83).
-		result, err = container.ScanImage(containerRef, registry, passes)
+		result, err = container.ScanImageWithOptions(containerRef, registry, passes, container.Options{
+			MaxImageBytes: maxImageSize,
+		})
 		if err != nil {
 			return fmt.Errorf("container scan failed: %w", err)
 		}

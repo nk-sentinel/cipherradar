@@ -56,14 +56,30 @@ type JARScanner struct {
 	javaScanner     scanner.Scanner
 	configScanner   scanner.Scanner
 	keystoreScanner scanner.Scanner
+	// maxDepth caps nested-archive recursion (jar-in-jar). 0 means top-level
+	// only (no recursion into nested archives); the built-in default is
+	// maxArchiveDepth.
+	maxDepth int
 }
 
-// NewJARScanner creates a new JAR/WAR/EAR/ZIP scanner.
+// NewJARScanner creates a new JAR/WAR/EAR/ZIP scanner with the built-in default
+// nesting-depth cap (maxArchiveDepth).
 func NewJARScanner() *JARScanner {
+	return NewJARScannerWithDepth(maxArchiveDepth)
+}
+
+// NewJARScannerWithDepth creates a JAR/WAR/EAR/ZIP scanner with an explicit
+// nested-archive recursion cap. A negative depth falls back to the built-in
+// default; 0 disables recursion into nested archives (top-level still scanned).
+func NewJARScannerWithDepth(depth int) *JARScanner {
+	if depth < 0 {
+		depth = maxArchiveDepth
+	}
 	return &JARScanner{
 		javaScanner:     java.New(),
 		configScanner:   config.New(),
 		keystoreScanner: keystore.New(),
+		maxDepth:        depth,
 	}
 }
 
@@ -137,7 +153,7 @@ func (s *JARScanner) scanArchive(path string, content []byte, depth int, budget 
 
 		switch {
 		case recursableArchiveExts[ext]:
-			if depth+1 > maxArchiveDepth {
+			if depth+1 > s.maxDepth {
 				budget.truncated = true
 				continue
 			}
