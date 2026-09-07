@@ -4,6 +4,24 @@ All notable changes to CipherRadar are documented in this file.
 
 ---
 
+## Unreleased
+
+### Changed
+
+- **`--max-file-size` now defaults to `1GB`** (was: no limit). A single very
+  large file in a scanned directory was previously read fully into memory,
+  which could OOM the scan; files above the cap are now skipped before they are
+  read, with a recorded audit line. Pass `--max-file-size 0` to restore the
+  old unlimited behavior, or a larger value to scan bigger artifacts (gh #133).
+
+### CI
+
+- gosec (SAST) is now a **blocking gate on HIGH severity** (MEDIUM/LOW remain
+  advisory); the pre-existing HIGH findings were verified as false-positives and
+  annotated with justified `#nosec` (gh #74).
+
+---
+
 ## 0.5.0-rc.1 — 2026-09-01
 
 First pre-release of the 0.5.0 line — a significant feature step beyond the

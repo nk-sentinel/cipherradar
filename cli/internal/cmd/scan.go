@@ -61,7 +61,7 @@ func init() {
 	scanCmd.Flags().Bool("deep", false, "alias for --passes 1,2,3 (taint analysis + YARA-X binary scan)")
 
 	// Coverage / memory controls.
-	scanCmd.Flags().String("max-file-size", "", "skip files larger than this size, e.g. 50MB / 1GB / 500000 (bytes); empty = no limit. Bounds per-file memory on large inputs.")
+	scanCmd.Flags().String("max-file-size", "1GB", "skip files larger than this size, e.g. 50MB / 1GB / 500000 (bytes). Bounds per-file memory so a single huge file can't OOM the scan (gh #133); set to 0 for no limit.")
 	scanCmd.Flags().String("max-image-size", "", "cap total bytes extracted from a --container image, e.g. 1GB / 512MB; empty = built-in default (2GB). Guards against oversized images.")
 	scanCmd.Flags().Int("archive-max-depth", -1, "max nested-archive recursion depth for jar/war/ear/zip (jar-in-jar); -1 = built-in default (4), 0 = no recursion into nested archives")
 

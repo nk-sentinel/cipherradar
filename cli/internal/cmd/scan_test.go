@@ -401,3 +401,23 @@ func TestParseHumanSize(t *testing.T) {
 		}
 	}
 }
+
+func TestMaxFileSizeFlagDefault(t *testing.T) {
+	// gh #133: --max-file-size defaults to a conservative cap so a single huge
+	// file can't OOM the scan; 0 restores unlimited (the walker treats
+	// MaxFileSize <= 0 as no cap).
+	f := scanCmd.Flags().Lookup("max-file-size")
+	if f == nil {
+		t.Fatal("--max-file-size flag not registered")
+	}
+	if f.DefValue != "1GB" {
+		t.Errorf("expected default %q, got %q", "1GB", f.DefValue)
+	}
+	if n, err := parseHumanSize(f.DefValue); err != nil || n != 1<<30 {
+		t.Errorf("default should parse to 1 GiB (%d), got %d err=%v", int64(1<<30), n, err)
+	}
+	// Escape hatch: 0 = unlimited.
+	if z, err := parseHumanSize("0"); err != nil || z != 0 {
+		t.Errorf("--max-file-size 0 should parse to 0 (unlimited), got %d err=%v", z, err)
+	}
+}
