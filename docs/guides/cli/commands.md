@@ -130,7 +130,7 @@ defaults are safe.
 
 | Flag | Default | Description |
 |---|---|---|
-| `--max-file-size string` | `(no limit)` | Skip any file larger than this before it is read, e.g. `50MB` / `1GB` / a raw byte count. Bounds per-file memory on large inputs; skipped files are recorded in the scan errors for auditability. |
+| `--max-file-size string` | `1GB` | Skip any file larger than this before it is read, e.g. `50MB` / `1GB` / a raw byte count. Bounds per-file memory so a single huge file can't OOM the scan; skipped files are recorded in the scan errors for auditability. Set to `0` for no limit. |
 | `--max-image-size string` | `2GB` | Cap the **total** bytes extracted from a `--container` image. Once the budget is exceeded, remaining layers are skipped and a `extraction budget … exceeded` note is recorded. Guards against oversized/bloated images. |
 | `--archive-max-depth int` | `4` | Maximum nested-archive recursion depth for `.jar`/`.war`/`.ear`/`.zip` (jar-in-jar). `-1` uses the built-in default (4); `0` disables recursion into nested archives (the top-level archive is still scanned). When recursion is capped, the archive is flagged `cbom-archive-partial`. |
 
