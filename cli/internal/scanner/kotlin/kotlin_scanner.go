@@ -1077,7 +1077,7 @@ func (s *KotlinScanner) patchKeyGenInitSize(content []byte, cp *ConstPropagator,
 	if size <= 0 {
 		return
 	}
-	callByte := uint32(m[0])
+	callByte := uint32(m[0]) // #nosec G115 -- m[0] is a byte offset into content, bounded by file size; it only wraps (never panics) on a >4GB single file, which --max-file-size excludes, and a wrap merely mis-orders one key-size association
 
 	best := -1
 	var bestByte uint32

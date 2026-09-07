@@ -99,7 +99,7 @@ func HarvestPasswords(root string) []string {
 		if info, e := d.Info(); e != nil || info.Size() > harvestMaxFileBytes {
 			return nil
 		}
-		content, e := os.ReadFile(path)
+		content, e := os.ReadFile(path) // #nosec G122 -- WalkDir over a path the operator asked cradar to scan; reading candidate config/source files is the harvester's purpose and the TOCTOU race is not a privilege boundary in a read-only inventory tool
 		if e != nil {
 			return nil
 		}

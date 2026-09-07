@@ -329,7 +329,7 @@ func (s *JARScanner) tryCFRDecompile(jarPath string, _ []byte) []types.Finding {
 			return nil
 		}
 
-		content, err := os.ReadFile(path)
+		content, err := os.ReadFile(path) // #nosec G122 -- WalkDir over the CFR-decompiled output in a temp dir cradar just created and solely owns; no external writer, so no TOCTOU exposure
 		if err != nil {
 			return nil
 		}
