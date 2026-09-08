@@ -6,6 +6,18 @@ All notable changes to CipherRadar are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+- **Fewer false positives from the regex algorithm-name rules.** The
+  `cbom-regex-algo-*` rules no longer fire on algorithm *names* that appear in
+  documentation/prose or data files (`.md`, `.txt`, `.rst`, `.csv`, `LICENSE`,
+  …) — a name there is a mention, not usage (gh #134) — and no longer match
+  inside **comments** / commented-out code, via a comment-masking pass that
+  preserves byte offsets so reported line/column stay exact (gh #135). Key/cert
+  detection (`cbom-regex-pem-*`) is unchanged and still runs on every file — a
+  leaked key in a `.txt` or a comment is still reported. AST (Pass 1) detection
+  is unaffected, so real crypto *usage* in code is still caught.
+
 ### Changed
 
 - **`--max-file-size` now defaults to `1GB`** (was: no limit). A single very
