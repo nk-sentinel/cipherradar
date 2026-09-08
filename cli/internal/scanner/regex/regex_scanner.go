@@ -79,11 +79,155 @@ func (s *RegexScanner) Extensions() []string {
 	return nil
 }
 
-// regexSkipExts lists file extensions that the regex scanner should skip entirely.
-// These produce excessive false positives or are not source code.
-var regexSkipExts = map[string]bool{
-	".md":       true,
-	".markdown": true,
+// algoSkipExts lists extensions on which the algorithm-NAME rules
+// (cbom-regex-algo-*) are suppressed because a name appearing there is a
+// *mention*, not cryptographic usage: prose/docs and machine data/generated
+// files (gh #134). PEM/key/cert rules still run on these files — a leaked key
+// in a .txt or .md is a real finding — so this is a per-rule-class gate, not a
+// whole-file skip.
+var algoSkipExts = map[string]bool{
+	// prose / docs
+	".md": true, ".markdown": true, ".rst": true, ".adoc": true,
+	".txt": true, ".text": true, ".tex": true,
+	// data / logs / generated / vector
+	".csv": true, ".tsv": true, ".log": true, ".lock": true, ".sum": true,
+	".map": true, ".snap": true, ".golden": true, ".svg": true, ".ipynb": true,
+	// schema / IDL — mostly field names (lowercase) + comments; low value
+	".proto": true,
+}
+
+// algoSkipBaseNames suppresses algorithm-name rules on well-known documentation
+// files that are commonly extensionless (README, LICENSE, …). Matched against
+// the filename stem, case-insensitively.
+var algoSkipBaseNames = map[string]bool{
+	"README": true, "LICENSE": true, "LICENCE": true, "NOTICE": true,
+	"AUTHORS": true, "CHANGELOG": true, "COPYING": true, "CONTRIBUTING": true,
+}
+
+// shouldRunAlgoName reports whether the algorithm-name rules should run for path.
+func shouldRunAlgoName(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	if algoSkipExts[ext] {
+		return false
+	}
+	base := filepath.Base(path)
+	stem := strings.ToUpper(strings.TrimSuffix(base, filepath.Ext(base)))
+	return !algoSkipBaseNames[stem]
+}
+
+// commentSyntax returns the comment delimiters for an extension: line-comment
+// markers, block open/close, and the string-quote characters (so a comment
+// marker inside a string literal is not mistaken for a comment). An unknown
+// extension returns empty sets (no masking).
+func commentSyntax(ext string) (lineMarkers []string, blockOpen, blockClose, quotes string) {
+	switch ext {
+	case ".c", ".h", ".hh", ".hpp", ".hxx", ".cxx", ".cc", ".cpp",
+		".cs", ".java", ".kt", ".kts", ".js", ".jsx", ".ts", ".tsx",
+		".go", ".rs", ".swift", ".dart", ".scala", ".groovy", ".gradle":
+		return []string{"//"}, "/*", "*/", "\"'`"
+	case ".php":
+		return []string{"//", "#"}, "/*", "*/", "\"'"
+	case ".py", ".sh", ".bash", ".zsh", ".yaml", ".yml", ".conf", ".cnf",
+		".properties", ".toml", ".rb", ".env", ".cmake", ".pl", ".r":
+		return []string{"#"}, "", "", "\"'"
+	case ".sql":
+		return []string{"--"}, "/*", "*/", "'\""
+	case ".ini":
+		return []string{";", "#"}, "", "", "\"'"
+	case ".xml", ".html", ".htm", ".xhtml", ".vue":
+		return nil, "<!--", "-->", ""
+	default:
+		return nil, "", "", ""
+	}
+}
+
+// maskCommentsForAlgo returns a copy of content with comment regions replaced by
+// spaces — SAME byte length, newlines untouched — so algorithm-name regexes see
+// only live code/config, not comments (gh #135). Because masking is length- and
+// newline-preserving, byte offsets (and therefore reported line/column) are
+// identical to the original content. It is deliberately lightweight but
+// string-aware: a comment marker inside a string literal is not treated as a
+// comment, and string state is reset at end-of-line to prevent a stray quote
+// from masking the rest of the file. Unknown extensions are returned unchanged.
+func maskCommentsForAlgo(content []byte, ext string) []byte {
+	lineMarkers, bOpen, bClose, quotes := commentSyntax(ext)
+	if len(lineMarkers) == 0 && bOpen == "" {
+		return content
+	}
+	out := append([]byte(nil), content...)
+	n := len(out)
+	inBlock := false
+	var strCh byte // 0 = not in a string; otherwise the opening quote char
+	i := 0
+	for i < n {
+		c := out[i]
+		if c == '\n' {
+			strCh = 0 // strings don't carry across lines (conservative)
+			i++
+			continue
+		}
+		if inBlock {
+			if bClose != "" && hasAt(out, i, bClose) {
+				for k := 0; k < len(bClose); k++ {
+					out[i+k] = ' '
+				}
+				i += len(bClose)
+				inBlock = false
+				continue
+			}
+			out[i] = ' '
+			i++
+			continue
+		}
+		if strCh != 0 {
+			if c == '\\' && i+1 < n && out[i+1] != '\n' {
+				i += 2 // skip escaped char
+				continue
+			}
+			if c == strCh {
+				strCh = 0
+			}
+			i++
+			continue
+		}
+		if bOpen != "" && hasAt(out, i, bOpen) {
+			for k := 0; k < len(bOpen); k++ {
+				out[i+k] = ' '
+			}
+			i += len(bOpen)
+			inBlock = true
+			continue
+		}
+		if lineMarkerAt(out, i, lineMarkers) {
+			for k := i; k < n && out[k] != '\n'; k++ {
+				out[k] = ' '
+			}
+			for i < n && out[i] != '\n' {
+				i++
+			}
+			continue
+		}
+		if quotes != "" && strings.IndexByte(quotes, c) != -1 {
+			strCh = c
+		}
+		i++
+	}
+	return out
+}
+
+// hasAt reports whether s occurs in b starting at index i.
+func hasAt(b []byte, i int, s string) bool {
+	return i+len(s) <= len(b) && string(b[i:i+len(s)]) == s
+}
+
+// lineMarkerAt reports whether any line-comment marker starts at b[i].
+func lineMarkerAt(b []byte, i int, markers []string) bool {
+	for _, m := range markers {
+		if hasAt(b, i, m) {
+			return true
+		}
+	}
+	return false
 }
 
 // ScanFile scans a single file's content for crypto-related patterns.
@@ -92,11 +236,11 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 		return nil, nil
 	}
 
-	// Skip files by extension that generate excessive false positives.
+	// The regex scanner no longer skips whole files by extension: PEM/key/cert
+	// detection is valuable everywhere (a leaked key in a .md/.txt is real). The
+	// noisy, context-blind algorithm-NAME rules are instead gated per-file below
+	// (shouldRunAlgoName) and run against a comment-masked view of the content.
 	ext := strings.ToLower(filepath.Ext(path))
-	if regexSkipExts[ext] {
-		return nil, nil
-	}
 
 	// Binary DER-encoded certificate files (.der/.cer/.crt) won't pass the
 	// text/binary heuristics below, so handle them up front by extension.
@@ -187,36 +331,47 @@ func (s *RegexScanner) ScanFile(path string, content []byte) ([]types.Finding, e
 	findings = append(findings, s.parseCertificateBlocks(path, content)...)
 
 	// --- Algorithm name detection ---
-	for _, ap := range s.algoPatterns {
-		for lineIdx, line := range lines {
-			allLocs := ap.re.FindAllIndex(line, -1)
-			for _, loc := range allLocs {
-				snippet := strings.TrimSpace(string(line))
-				findings = append(findings, types.Finding{
-					ID:        nextID(),
-					AssetType: ap.assetType,
-					Name:      ap.name,
-					Location: types.Location{
-						File:      path,
-						StartLine: lineIdx + 1,
-						StartCol:  loc[0] + 1,
-						EndLine:   lineIdx + 1,
-						EndCol:    loc[1],
-						Snippet:   snippet,
-					},
-					Severity:   ap.severity,
-					Confidence: types.ConfidenceLow,
-					Properties: types.CryptoProperties{
-						Primitive:       ap.primitive,
-						AlgorithmFamily: ap.family,
-						QuantumStatus:   ap.quantumStatus,
-					},
-					Description: fmt.Sprintf("Algorithm reference %q detected via regex", ap.name),
-					RuleID:      ap.ruleID,
-					Category:    ap.category,
-					Maturity:    types.MaturityStable,
-					Pass:        1,
-				})
+	// Gated per-file (skip prose/data — gh #134) and matched against a
+	// comment-masked view so commented-out code / doc-comments don't produce
+	// phantom findings (gh #135). Masking is length- and newline-preserving, so
+	// match offsets on maskedLines map 1:1 to the original — reported line/column
+	// stay exact — and the snippet is taken from the original (unmasked) line.
+	if shouldRunAlgoName(path) {
+		maskedLines := bytes.Split(maskCommentsForAlgo(content, ext), []byte("\n"))
+		for _, ap := range s.algoPatterns {
+			for lineIdx, line := range lines {
+				if lineIdx >= len(maskedLines) {
+					break
+				}
+				allLocs := ap.re.FindAllIndex(maskedLines[lineIdx], -1)
+				for _, loc := range allLocs {
+					snippet := strings.TrimSpace(string(line))
+					findings = append(findings, types.Finding{
+						ID:        nextID(),
+						AssetType: ap.assetType,
+						Name:      ap.name,
+						Location: types.Location{
+							File:      path,
+							StartLine: lineIdx + 1,
+							StartCol:  loc[0] + 1,
+							EndLine:   lineIdx + 1,
+							EndCol:    loc[1],
+							Snippet:   snippet,
+						},
+						Severity:   ap.severity,
+						Confidence: types.ConfidenceLow,
+						Properties: types.CryptoProperties{
+							Primitive:       ap.primitive,
+							AlgorithmFamily: ap.family,
+							QuantumStatus:   ap.quantumStatus,
+						},
+						Description: fmt.Sprintf("Algorithm reference %q detected via regex", ap.name),
+						RuleID:      ap.ruleID,
+						Category:    ap.category,
+						Maturity:    types.MaturityStable,
+						Pass:        1,
+					})
+				}
 			}
 		}
 	}
